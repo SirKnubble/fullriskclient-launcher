@@ -39,7 +39,7 @@
         doAlternativesExistForThisMod,
         profileEvents // Added prop for events
     } = $props<{ 
-        profile: Profile;
+        profile: Profile & { path?: string };
         noriskPacksConfig: NoriskModpacksConfig | null;
         profileCustomMods: CustomModInfo[] | undefined;
         profileCustomModsLoading: boolean;
@@ -161,8 +161,12 @@
             <h4>{profile.name}</h4>
             <p>Version: {profile.game_version}</p>
             <p>Mod Loader: {profile.loader}</p>
+            {#if profile.loader !== 'vanilla'}
+                <p>Loader Version: {profile.loader_version || 'Default (Latest)'}</p>
+            {/if}
             <p>Erstellt: {new Date(profile.created).toLocaleDateString()}</p>
             <p>Norisk Pack: {getNoriskPackName(profile.selected_norisk_pack_id)}</p>
+            <p>Pfad: {profile.path || 'Unbekannt'}</p>
             {#if profile.last_played}
                 <p>Zuletzt gespielt: {new Date(profile.last_played).toLocaleDateString()}</p>
             {/if}
