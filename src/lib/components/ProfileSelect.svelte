@@ -20,19 +20,20 @@
 
 <div class="profile-select-container">
     <label for="profile-select">Target Profile:</label>
-    <select id="profile-select" bind:value={$selectedProfileId}>
-        <!-- Provide a default disabled option -->
-        <option value={null}>-- Select a Profile --</option> 
+    <select id="profile-select" bind:value={$selectedProfileId} disabled={!$profiles || $profiles.length === 0}>
+        <option value={null}>-- Select a Profile --</option>
         {#if $profiles.length > 0}
             {#each $profiles as profile (profile.id)}
                 <option value={profile.id}>{profile.name} ({profile.game_version} {profile.loader})</option>
             {/each}
         {:else}
             <!-- Keep the default disabled option visible while loading or if none exist -->
+            <option value={null} disabled>Loading profiles...</option> 
         {/if}
     </select>
-    {#if $profiles.length === 0}
-        <span class="loading-profiles">(Loading profiles...)</span> <!-- Or No profiles available -->
+    {#if $profiles.length === 0 && !$selectedProfileId}
+        <!-- Show loading only if profiles array is empty AND no profile is selected yet -->
+        <span class="loading-profiles">(Loading profiles...)</span> 
     {/if}
 </div>
 
@@ -46,6 +47,9 @@
     }
     label {
         font-weight: bold;
+        /* Remove min-width and text-align if not needed without second dropdown */
+        /* min-width: 100px; */ 
+        /* text-align: right; */
     }
     select {
         padding: 0.4em;
@@ -57,5 +61,6 @@
     .loading-profiles {
         font-size: 0.9em;
         color: #666;
+        margin-left: 0.5em;
     }
 </style> 
