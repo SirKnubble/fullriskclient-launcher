@@ -252,9 +252,43 @@ pub async fn install_minecraft_version(
         info!("\nInstalling Fabric...");
         let fabric_api = FabricApi::new();
         let fabric_libraries_download = FabricLibrariesDownloadService::new();
-        let fabric_version = fabric_api.get_latest_stable_version(version_id).await?;
+
+        // --- Determine Fabric Version --- 
+        let fabric_version = match &profile.loader_version {
+            Some(specific_version_str) if !specific_version_str.is_empty() => {
+                info!("Attempting to find specific Fabric version: {}", specific_version_str);
+                let all_versions = fabric_api.get_loader_versions(version_id).await?;
+                
+                // Strip " (stable)" suffix if present for comparison
+                let target_version = specific_version_str.trim_end_matches(" (stable)").trim();
+
+                match all_versions.into_iter().find(|v| v.loader.version == target_version) {
+                    Some(found_version) => {
+                        info!("Found specified Fabric version: {}", specific_version_str);
+                        found_version
+                    }
+                    None => {
+                        log::warn!(
+                            "Specified Fabric version '{}' not found for MC {}. Falling back to latest stable.",
+                            specific_version_str, version_id
+                        );
+                        // Fallback to latest stable if specific version not found
+                        fabric_api.get_latest_stable_version(version_id).await?
+                    }
+                }
+            }
+            _ => {
+                // Fallback to latest stable if no specific version is set in the profile
+                info!("No specific Fabric version set in profile, using latest stable.");
+                fabric_api.get_latest_stable_version(version_id).await?
+            }
+        };
+        // --- End Determine Fabric Version ---
+
+        info!("Using Fabric version: {} (Stable: {})", fabric_version.loader.version, fabric_version.loader.stable);
+
         fabric_libraries_download
-            .download_fabric_libraries(&fabric_version)
+            .download_fabric_libraries(&fabric_version) // Use the determined version
             .await?;
         info!("Fabric installation completed!");
 
@@ -269,7 +303,7 @@ pub async fn install_minecraft_version(
             })
             .await?;
 
-        // Sammle die Pfade zu den Fabric Libraries
+        // Collect library paths for the determined version
         let libraries = fabric_libraries_download
             .get_library_paths(&fabric_version)
             .await?;
