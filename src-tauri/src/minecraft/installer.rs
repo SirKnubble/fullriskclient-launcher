@@ -332,84 +332,95 @@ pub async fn install_minecraft_version(
         let forge_libraries_download = ForgeLibrariesDownload::new();
         let forge_installer_download = ForgeInstallerDownloadService::new();
 
-        // Get Forge versions and find the latest stable version
+        // Get all Forge versions metadata
         let forge_metadata = forge_api.get_all_versions().await?;
-        let forge_stable_version = forge_metadata
-            .get_latest_version_for_minecraft(version_id)
-            .ok_or_else(|| {
-                AppError::VersionNotFound(format!(
-                    "No Forge version found for Minecraft {}",
-                    version_id
-                ))
-            })?;
+        // Get versions compatible with the current Minecraft version
+        let compatible_versions = forge_metadata.get_versions_for_minecraft(version_id);
 
-        // Emit Forge version found event
-        state
-            .emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: format!("Forge Version {} gefunden", forge_stable_version),
-                progress: Some(0.1),
-                error: None,
-            })
-            .await?;
+        if compatible_versions.is_empty() {
+            return Err(AppError::VersionNotFound(format!(
+                "No Forge versions found for Minecraft {}",
+                version_id
+            )));
+        }
 
-        // Download and extract Forge installer
-        state
-            .emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge Installer wird heruntergeladen...".to_string(),
-                progress: Some(0.2),
-                error: None,
-            })
-            .await?;
+        // --- Determine Forge Version --- 
+        let target_forge_version = match &profile.loader_version {
+            Some(specific_version_str) if !specific_version_str.is_empty() => {
+                info!("Attempting to find specific Forge version: {}", specific_version_str);
+                
+                // Check if the specific version exists in the compatible list
+                if compatible_versions.contains(specific_version_str) {
+                    info!("Found specified Forge version: {}", specific_version_str);
+                    specific_version_str.clone() // Clone the string to own it
+                } else {
+                    log::warn!(
+                        "Specified Forge version '{}' not found or incompatible with MC {}. Falling back to latest.",
+                        specific_version_str, version_id
+                    );
+                    // Fallback to the latest compatible version (first in the list from get_versions_for_minecraft)
+                    compatible_versions.first().unwrap().clone() // Unsafe unwrap okay due to is_empty check above
+                }
+            }
+            _ => {
+                // Fallback to latest compatible if no specific version is set
+                info!("No specific Forge version set in profile, using latest for MC {}.", version_id);
+                 compatible_versions.first().unwrap().clone() // Unsafe unwrap okay due to is_empty check above
+            }
+        };
+        // --- End Determine Forge Version ---
+
+        info!("Using Forge version: {}", target_forge_version);
+
+        // Emit Forge version found event (using the determined version)
+        state.emit_event(EventPayload {
+            event_id: forge_event_id, 
+            event_type: EventType::InstallingForge, 
+            target_id: Some(profile.id), 
+            message: format!("Forge Version {} wird verwendet", target_forge_version), 
+            progress: Some(0.1), 
+            error: None 
+        }).await?;
+
+        // Download and extract Forge installer (using the determined version)
+        state.emit_event(EventPayload {
+            event_id: forge_event_id,
+            event_type: EventType::InstallingForge,
+            target_id: Some(profile.id),
+            message: "Forge Installer wird heruntergeladen...".to_string(),
+            progress: Some(0.2),
+            error: None,
+        }).await?;
 
         forge_installer_download
-            .download_installer(&forge_stable_version)
+            .download_installer(&target_forge_version)
             .await?;
 
-        state
-            .emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge Installer wird extrahiert...".to_string(),
-                progress: Some(0.3),
-                error: None,
-            })
-            .await?;
+        state.emit_event(EventPayload {
+            event_id: forge_event_id,
+            event_type: EventType::InstallingForge,
+            target_id: Some(profile.id),
+            message: "Forge Installer wird extrahiert...".to_string(),
+            progress: Some(0.3),
+            error: None,
+        }).await?;
 
-        let forge_version = forge_installer_download
-            .extract_version_json(&forge_stable_version)
-            .await?;
-        let profile_json = forge_installer_download
-            .extract_install_profile(&forge_stable_version)
-            .await?;
-        forge_installer_download
-            .extract_data_folder(&forge_stable_version)
-            .await?;
-        forge_installer_download
-            .extract_maven_folder(&forge_stable_version)
-            .await?;
-        forge_installer_download
-            .extract_jars(&forge_stable_version)
-            .await?;
+        let forge_version = forge_installer_download.extract_version_json(&target_forge_version).await?;
+        let profile_json = forge_installer_download.extract_install_profile(&target_forge_version).await?;
+        forge_installer_download.extract_data_folder(&target_forge_version).await?;
+        forge_installer_download.extract_maven_folder(&target_forge_version).await?;
+        forge_installer_download.extract_jars(&target_forge_version).await?;
 
-        state
-            .emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge Libraries werden heruntergeladen...".to_string(),
-                progress: Some(0.4),
-                error: None,
-            })
-            .await?;
+        state.emit_event(EventPayload {
+            event_id: forge_event_id,
+            event_type: EventType::InstallingForge,
+            target_id: Some(profile.id),
+            message: "Forge Libraries werden heruntergeladen...".to_string(),
+            progress: Some(0.4),
+            error: None,
+        }).await?;
 
-        // Download Forge libraries
+        // Download Forge libraries (still uses forge_version DTO derived from the installer)
         forge_libraries_download
             .download_libraries(&forge_version)
             .await?;
@@ -419,70 +430,69 @@ pub async fn install_minecraft_version(
 
         info!("Forge Libraries: {:?}", libraries);
 
+        // Setup launch parameters (using determined target_forge_version for JVM args)
         launch_params = launch_params
             .with_main_class(&forge_version.main_class)
             .with_additional_libraries(libraries)
             .with_additional_jvm_args(ForgeArguments::get_jvm_arguments(
                 &forge_version,
                 &LAUNCHER_DIRECTORY.meta_dir().join("libraries"),
-                &forge_stable_version,
+                &target_forge_version, // Use determined version here
             ))
             .with_additional_game_args(ForgeArguments::get_game_arguments(&forge_version))
             .with_old_minecraft_arguments(forge_version.minecraft_arguments.clone());
 
-        let custom_client_path = forge_installer_download.get_client_path(&forge_stable_version);
+        // Use determined target_forge_version for client path and installer path
+        let custom_client_path = forge_installer_download.get_client_path(&target_forge_version);
+        let installer_path = forge_installer_download.get_installer_path(&target_forge_version);
 
         if let Some(forge_profile) = profile_json {
-            state
-                .emit_event(EventPayload {
-                    event_id: forge_event_id,
-                    event_type: EventType::InstallingForge,
-                    target_id: Some(profile.id),
-                    message: "Forge Installer Libraries werden heruntergeladen...".to_string(),
-                    progress: Some(0.6),
-                    error: None,
-                })
-                .await?;
+            state.emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge Installer Libraries werden heruntergeladen...".to_string(),
+                progress: Some(0.6),
+                error: None,
+            }).await?;
 
             forge_libraries_download
                 .download_installer_libraries(&forge_profile)
                 .await?;
 
-            state
-                .emit_event(EventPayload {
-                    event_id: forge_event_id,
-                    event_type: EventType::InstallingForge,
-                    target_id: Some(profile.id),
-                    message: "Forge wird gepatcht...".to_string(),
-                    progress: Some(0.7),
-                    error: None,
-                })
-                .await?;
+            state.emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge wird gepatcht...".to_string(),
+                progress: Some(0.7),
+                error: None,
+            }).await?;
 
             let forge_patcher = ForgePatcher::new(java_path.clone(), version_id);
-            let installer_path = forge_installer_download.get_installer_path(&forge_stable_version);
+            // Use determined installer_path
             forge_patcher
                 .with_event_id(forge_event_id)
                 .with_profile_id(profile.id)
                 .apply_processors(&forge_profile, version_id, true, &installer_path)
                 .await?;
 
+            // Use determined custom_client_path
             launch_params = launch_params.with_custom_client_jar(custom_client_path);
 
             if piston_meta.id == "1.12.2" {
                 launch_params = launch_params.with_force_include_minecraft_jar(true);
             }
         } else {
-            state
-                .emit_event(EventPayload {
-                    event_id: forge_event_id,
-                    event_type: EventType::InstallingForge,
-                    target_id: Some(profile.id),
-                    message: "Legacy Forge Libraries werden heruntergeladen...".to_string(),
-                    progress: Some(0.8),
-                    error: None,
-                })
-                .await?;
+            // Restore full event payload for legacy library download
+            state.emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Legacy Forge Libraries werden heruntergeladen...".to_string(),
+                progress: Some(0.8),
+                error: None,
+            }).await?;
 
             forge_libraries_download
                 .download_legacy_libraries(&forge_version)
@@ -491,16 +501,15 @@ pub async fn install_minecraft_version(
 
         info!("Forge installation completed!");
 
-        state
-            .emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge Installation abgeschlossen!".to_string(),
-                progress: Some(1.0),
-                error: None,
-            })
-            .await?;
+        state.emit_event(EventPayload {
+            event_id: forge_event_id,
+            event_type: EventType::InstallingForge,
+            target_id: Some(profile.id),
+            message: "Forge Installation abgeschlossen!".to_string(),
+            progress: Some(1.0),
+            error: None,
+        }).await?;
+
     } else {
         launch_params = launch_params.with_main_class(&piston_meta.main_class);
     }
