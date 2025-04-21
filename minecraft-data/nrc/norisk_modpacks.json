@@ -1,0 +1,142 @@
+{
+  "packs": {
+    "norisk-prod": {
+      "displayName": "Norisk Production",
+      "description": "Standard empfohlenes Mod-Set für stabiles Spielen.",
+      "mods": [
+        {
+          "id": "fabric-api",
+          "displayName": "fabric-api",
+          "source": {
+            "type": "modrinth",
+            "projectId": "P7dR8mSH",
+            "projectSlug": "fabric-api"
+          },
+          "compatibility": {
+            "1.21.5": {
+              "fabric": {
+                "identifier": "0.121.0+1.21.5"
+              }
+            },
+            "1.21.4": {
+              "fabric": {
+                "identifier": "0.119.2+1.21.4"
+              }
+            }
+          }
+        },
+        {
+          "id": "fabric-language-kotlin",
+          "displayName": "fabric-language-kotlin-lololol",
+          "source": {
+            "type": "modrinth",
+            "projectId": "Ha28R6CL",
+            "projectSlug": "fabric-language-kotlin"
+          },
+          "compatibility": {
+            "1.21.5": {
+              "fabric": {
+                "identifier": "1.13.2+kotlin.2.1.20"
+              }
+            },
+            "1.21.4": {
+              "fabric": {
+                "identifier": "1.13.0+kotlin.2.1.0"
+              }
+            }
+          }
+        },
+        {
+          "id": "silk",
+          "displayName": "silk",
+          "source": {
+            "type": "modrinth",
+            "projectId": "aTaCgKLW",
+            "projectSlug": "silk"
+          },
+          "compatibility": {
+            "1.21.5": {
+              "fabric": {
+                "identifier": "1.11.1"
+              }
+            },
+            "1.21.4": {
+              "fabric": {
+                "identifier": "1.11.0"
+              }
+            }
+          }
+        },
+        {
+          "id": "norisk-fabric-utils",
+          "displayName": "NoRiskClient-Fabric-Utils",
+          "source": {
+            "type": "maven",
+            "repositoryRef": "noriskproduction",
+            "groupId": "gg.norisk",
+            "artifactId": "noriskclient-fabric-utils"
+          },
+          "compatibility": {
+            "1.21.4": {
+              "fabric": {
+                "identifier": "1.21.4-2.2.25"
+              }
+            },
+            "1.20.1": {
+              "fabric": {
+                "identifier": "1.20.1-x.y.z"
+              }
+            }
+          }
+        },
+        {
+          "id": "optifine",
+          "displayName": "OptiFine",
+          "source": {
+            "type": "url"
+          },
+          "compatibility": {
+            "1.8.9": {
+              "forge": {
+                "identifier": "https://optifine.net/downloadx?f=OptiFine_1.8.9_HD_U_M5.jar&x=9a4fd9eb662a604310671de152fdc4fb",
+                "filename": "OptiFine_1.8.9_HD_U_M5.jar"
+              }
+            },
+            "1.7.10": {
+              "forge": {
+                "identifier": "https://optifine.net/downloadx?f=OptiFine_1.7.10_HD_U_E7.jar&x=5c5ce31253d5807eaa81f79f33122aaf",
+                "filename": "OptiFine_1.7.10_HD_U_E7.jar"
+              }
+            }
+          }
+        },
+        {
+          "id": "old-noriskclient",
+          "displayName": "Old NoRiskClient",
+          "source": {
+            "type": "url"
+          },
+          "compatibility": {
+            "1.8.9": {
+              "forge": {
+                "identifier": "http://dl.norisk.gg/noriskclient-0.2.1.jar",
+                "filename": "noriskclient-0.2.1.jar"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "norisk-dev": {
+      "displayName": "Norisk Dev",
+      "description": "Dev Version",
+      "mods": []
+    }
+  },
+  "repositories": {
+    "noriskproduction": "https://maven.norisk.gg/repository/norisk-production/",
+    "norisksnapshots": "https://maven.norisk.gg/repository/norisk-snapshots/",
+    "modrinth": "https://api.modrinth.com/maven/",
+    "fabric": "https://maven.fabricmc.net/"
+  }
+}
