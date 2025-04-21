@@ -4,6 +4,8 @@ use crate::minecraft::dto::VersionManifest;
 use crate::minecraft::api::mclogs_api::upload_log_to_mclogs;
 use crate::minecraft::api::fabric_api::FabricApi;
 use crate::minecraft::dto::fabric_meta::FabricVersionInfo;
+use crate::minecraft::api::forge_api::ForgeApi;
+use crate::minecraft::dto::forge_maven_meta::ForgeMavenMetadata;
 
 #[tauri::command]
 pub async fn get_minecraft_versions() -> Result<VersionManifest, CommandError> {
@@ -27,4 +29,15 @@ pub async fn get_fabric_loader_versions(minecraft_version: String) -> Result<Vec
     fabric_api.get_loader_versions(&minecraft_version)
         .await
         .map_err(|e| e.into())
+}
+
+#[tauri::command]
+pub async fn get_forge_versions(minecraft_version: String) -> Result<Vec<String>, CommandError> {
+    let forge_api = ForgeApi::new();
+    let metadata = forge_api.get_all_versions()
+        .await
+        .map_err(CommandError::from)?;
+    
+    let filtered_versions = metadata.get_versions_for_minecraft(&minecraft_version);
+    Ok(filtered_versions)
 }
