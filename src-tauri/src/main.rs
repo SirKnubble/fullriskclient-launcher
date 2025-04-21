@@ -16,19 +16,22 @@ use log::{error, info};
 use rand::seq::SliceRandom;
 use std::sync::Arc;
 
-use commands::profile_command::{
-    add_modrinth_mod_to_profile, create_profile, delete_mod_from_profile, delete_profile,
-    get_norisk_packs, get_profile, launch_profile, list_profiles, search_profiles,
-    set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
-    set_custom_mod_enabled, get_custom_mods, import_local_mods, get_system_ram_mb,
-    delete_custom_mod, open_profile_folder, import_profile_from_file
+use crate::commands::process_command::{
+    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
 };
-use commands::minecraft_command::{get_minecraft_versions, upload_log_to_mclogs_command};
-use crate::commands::process_command::{
-    get_process, get_processes, get_processes_by_profile, stop_process, get_full_log
+use commands::minecraft_command::{
+    get_fabric_loader_versions, get_forge_versions, get_minecraft_versions,
+    upload_log_to_mclogs_command,
+};
+use commands::profile_command::{
+    add_modrinth_mod_to_profile, create_profile, delete_custom_mod, delete_mod_from_profile,
+    delete_profile, get_custom_mods, get_norisk_packs, get_profile, get_system_ram_mb,
+    import_local_mods, import_profile_from_file, launch_profile, list_profiles,
+    open_profile_folder, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
+    set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
 };
 
 // Use statements for registered commands only
@@ -173,7 +176,9 @@ async fn main() {
             delete_custom_mod,
             open_profile_folder,
             import_profile_from_file,
-            upload_log_to_mclogs_command
+            upload_log_to_mclogs_command,
+            get_fabric_loader_versions,
+            get_forge_versions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
