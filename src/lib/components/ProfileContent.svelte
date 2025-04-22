@@ -50,6 +50,7 @@
   let loadingShaderPacks = false;
   let errorResourcePacks: string | null = null;
   let errorShaderPacks: string | null = null;
+  let loadingOperation = false;
   
   // Interval for auto-refresh
   let refreshInterval: number | null = null;
@@ -116,6 +117,63 @@
       shaderPacks = [];
     } finally {
       loadingShaderPacks = false;
+    }
+  }
+
+  // Toggle enabled state of a resource pack or shader pack
+  async function togglePackEnabled(path: string, enabled: boolean) {
+    if (loadingOperation) return;
+    loadingOperation = true;
+    
+    try {
+      await invoke('set_file_enabled', {
+        filePath: path,
+        enabled: !enabled // Toggle the current state
+      });
+      
+      // Refresh the data
+      if (activeTab === 'resourcepacks') {
+        await loadResourcePacks();
+      } else if (activeTab === 'shaderpacks') {
+        await loadShaderPacks();
+      }
+      
+    } catch (err) {
+      console.error('Failed to toggle pack enabled state:', err);
+      alert(`Failed to toggle pack: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      loadingOperation = false;
+    }
+  }
+
+  // Delete a resource pack or shader pack
+  async function deletePack(path: string) {
+    if (loadingOperation) return;
+    
+    // Ask for confirmation
+    if (!confirm('Are you sure you want to delete this pack? This cannot be undone.')) {
+      return;
+    }
+    
+    loadingOperation = true;
+    
+    try {
+      await invoke('delete_file', {
+        filePath: path
+      });
+      
+      // Refresh the data
+      if (activeTab === 'resourcepacks') {
+        await loadResourcePacks();
+      } else if (activeTab === 'shaderpacks') {
+        await loadShaderPacks();
+      }
+      
+    } catch (err) {
+      console.error('Failed to delete pack:', err);
+      alert(`Failed to delete pack: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      loadingOperation = false;
     }
   }
 
@@ -192,6 +250,17 @@
           <div class="pack-list">
             {#each resourcePacks as pack (pack.path)}
               <div class="pack-item {pack.is_disabled ? 'disabled' : ''}">
+                <div class="pack-controls">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={!pack.is_disabled}
+                      disabled={loadingOperation}
+                      on:change={() => togglePackEnabled(pack.path, pack.is_disabled)} 
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
                 <div class="pack-icon">
                   <!-- No icon available, use default -->
                   <div class="default-icon">🖼️</div>
@@ -210,6 +279,16 @@
                     {/if}
                     <span class="size">Size: {formatFileSize(pack.file_size)}</span>
                   </div>
+                </div>
+                <div class="pack-actions">
+                  <button 
+                    class="delete-button" 
+                    title="Delete resource pack"
+                    disabled={loadingOperation}
+                    on:click={() => deletePack(pack.path)}
+                  >
+                    <span class="trash-icon">🗑️</span>
+                  </button>
                 </div>
               </div>
             {/each}
@@ -236,6 +315,17 @@
           <div class="pack-list">
             {#each shaderPacks as pack (pack.path)}
               <div class="pack-item {pack.is_disabled ? 'disabled' : ''}">
+                <div class="pack-controls">
+                  <label class="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={!pack.is_disabled}
+                      disabled={loadingOperation}
+                      on:change={() => togglePackEnabled(pack.path, pack.is_disabled)} 
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
                 <div class="pack-icon">
                   <!-- No icon available, use default -->
                   <div class="default-icon">🌈</div>
@@ -254,6 +344,16 @@
                     {/if}
                     <span class="size">Size: {formatFileSize(pack.file_size)}</span>
                   </div>
+                </div>
+                <div class="pack-actions">
+                  <button 
+                    class="delete-button" 
+                    title="Delete shader pack"
+                    disabled={loadingOperation}
+                    on:click={() => deletePack(pack.path)}
+                  >
+                    <span class="trash-icon">🗑️</span>
+                  </button>
                 </div>
               </div>
             {/each}
@@ -363,6 +463,65 @@
     border-style: dashed;
   }
 
+  .pack-controls {
+    display: flex;
+    align-items: center;
+  }
+
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 22px;
+  }
+
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+
+  input:checked + .toggle-slider {
+    background-color: #28a745;
+  }
+
+  input:focus + .toggle-slider {
+    box-shadow: 0 0 1px #28a745;
+  }
+
+  input:checked + .toggle-slider:before {
+    transform: translateX(18px);
+  }
+
+  input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .pack-icon {
     width: 48px;
     height: 48px;
@@ -411,6 +570,38 @@
     flex-wrap: wrap;
   }
 
+  .pack-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .delete-button {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+  }
+
+  .delete-button:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+  }
+
+  .delete-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .trash-icon {
+    font-size: 1.2rem;
+  }
+
   h3 {
     margin-top: 0;
     margin-bottom: 1rem;
@@ -426,4 +617,4 @@
   .info-text {
     font-style: italic;
   }
-</style> 
+</style>
