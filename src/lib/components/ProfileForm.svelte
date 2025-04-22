@@ -178,7 +178,7 @@
 
         console.log(`Effect Check: Loader=${currentLoader}, MCVersion=${currentMcVersion}, LastLoader=${lastFetchedLoader}, LastMCVersion=${lastFetchedMcVersion}`);
 
-        const needsFetching = (currentLoader === 'fabric' || currentLoader === 'forge');
+        const needsFetching = (currentLoader === 'fabric' || currentLoader === 'forge' || currentLoader === 'neoforge');
         const combinationChanged = (currentLoader !== lastFetchedLoader || currentMcVersion !== lastFetchedMcVersion);
 
         if (needsFetching && combinationChanged) {
@@ -218,6 +218,10 @@
                 // Fabric API might return empty array for unsupported versions, not error
             } else if (loaderType.toLowerCase() === 'forge') {
                 fetchedVersions = await invoke('get_forge_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+            } else if (loaderType.toLowerCase() === 'neoforge') {
+                fetchedVersions = await invoke('get_neoforge_versions', {
                     minecraftVersion: minecraftVersion
                 });
             }
@@ -310,7 +314,7 @@
                 game_version: selectedVersion,
                 loader: selectedModLoader,
                 // *** Send the selected loaderVersion ***
-                loader_version: (selectedModLoader === 'fabric' || selectedModLoader === 'forge') ? loaderVersion : null, 
+                loader_version: (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge') ? loaderVersion : null, 
                 selected_norisk_pack_id: packIdToSend,
                 settings: settingsToSend 
             };
@@ -396,7 +400,7 @@
         </select>
 
         <!-- *NEW* Loader Version Selector -->
-        {#if selectedModLoader === 'fabric' || selectedModLoader === 'forge'}
+        {#if selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge'}
             <select 
                 bind:value={loaderVersion} 
                 aria-label="Loader Version" 
@@ -418,7 +422,7 @@
             </select>
         {/if}
     </div>
-    {#if loaderVersionsError && (selectedModLoader === 'fabric' || selectedModLoader === 'forge')}
+    {#if loaderVersionsError && (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge')}
          <p class="error-message small">Loader Version Error: {loaderVersionsError}</p>
     {/if}
 
