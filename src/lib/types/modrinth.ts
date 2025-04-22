@@ -12,47 +12,37 @@ export interface ModrinthFile {
     file_type: string | null; // e.g., \"required-resource-pack\"
 }
 
-// Keep simple for now, adjust if needed
-export enum ModrinthDependencyType {
-    Required = 'required',
-    Optional = 'optional',
-    Incompatible = 'incompatible',
-    Embedded = 'embedded',
-}
-
 export interface ModrinthDependency {
     version_id: string | null;
     project_id: string | null;
     file_name: string | null;
-    dependency_type: ModrinthDependencyType;
+    dependency_type: 'required' | 'optional' | 'incompatible' | 'embedded';
 }
 
 export interface ModrinthVersion {
-    id: string; // Version ID (e.g., \"tFw0iWAk\")
-    project_id: string; // Project ID (e.g., \"AANobbMI\")
-    name: string; // Version title (e.g., \"Sodium 0.5.3\")
-    version_number: string; // Version number (e.g., \"0.5.3\")
+    id: string;
+    project_id: string;
+    name: string;
+    version_number: string;
     changelog: string | null;
     dependencies: ModrinthDependency[];
     game_versions: string[]; // e.g., [\"1.20.1\"]
     version_type: 'release' | 'beta' | 'alpha';
     loaders: string[]; // e.g., [\"fabric\", \"quilt\"]
     featured: boolean;
-    status: string; // e.g., \"listed\"
+    status: 'listed' | 'archived' | 'draft' | 'unlisted' | 'scheduled' | 'unknown';
     requested_status: string | null;
     date_published: string; // ISO 8601 date string
     downloads: number;
     files: ModrinthFile[];
 }
 
-// Add the context type for frontend use
 export interface ModrinthProjectContext {
     project_id: string;
     loader: string;
     game_version: string;
 }
 
-// Structure for results from get_all_modrinth_versions_for_contexts
 export interface ModrinthAllVersionsResult {
     context: ModrinthProjectContext;
     versions: ModrinthVersion[] | null;

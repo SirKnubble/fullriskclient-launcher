@@ -16,9 +16,14 @@
   "app": {
     "windows": [
       {
-        "title": "noriskclient-launcher-v3",
-        "width": 800,
-        "height": 600
+        "title": "NoriskClient Launcher",
+        "width": 1200,
+        "height": 800,
+        "resizable": false,
+        "decorations": false,
+        "useHttpsScheme": true,
+        "visible": true,
+        "center": true
       }
     ],
     "security": {
@@ -27,13 +32,54 @@
   },
   "bundle": {
     "active": true,
+    "category": "Utility",
+    "copyright": "NoRisk",
     "targets": "all",
+    "externalBin": [],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    },
+    "longDescription": "NoRiskClient Launcher",
+    "macOS": {
+      "entitlements": "App.entitlements",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": "-",
+      "dmg":{
+        "background": "dmg/background.png",
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "height": 400,
+          "width": 660
+        }
+      }
+    },
+    "resources": [],
+    "shortDescription": "NoRiskClient Launcher",
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    }
   }
 }
