@@ -8,6 +8,7 @@
     // Import the new settings types from the correct file
     import type { ProfileSettings, MemorySettings } from '$lib/types/settings';
     import type { FabricVersionInfo } from '$lib/types/fabric'; // Import Fabric type
+    import type { QuiltVersionInfo } from '$lib/types/quilt'; // Import Quilt type
 
     // Local interface matching the expected prop type
     interface MinecraftVersion {
@@ -178,7 +179,7 @@
 
         console.log(`Effect Check: Loader=${currentLoader}, MCVersion=${currentMcVersion}, LastLoader=${lastFetchedLoader}, LastMCVersion=${lastFetchedMcVersion}`);
 
-        const needsFetching = (currentLoader === 'fabric' || currentLoader === 'forge' || currentLoader === 'neoforge');
+        const needsFetching = (currentLoader === 'fabric' || currentLoader === 'forge' || currentLoader === 'neoforge' || currentLoader === 'quilt');
         const combinationChanged = (currentLoader !== lastFetchedLoader || currentMcVersion !== lastFetchedMcVersion);
 
         if (needsFetching && combinationChanged) {
@@ -216,6 +217,12 @@
                 });
                 fetchedVersions = versionsResult.map(v => `${v.loader.version}${v.loader.stable ? ' (stable)' : ''}`);
                 // Fabric API might return empty array for unsupported versions, not error
+            } else if (loaderType.toLowerCase() === 'quilt') {
+                const versionsResult: QuiltVersionInfo[] = await invoke('get_quilt_loader_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+                fetchedVersions = versionsResult.map(v => `${v.loader.version}${v.loader.stable ? ' (stable)' : ''}`);
+                // Quilt API might return empty array for unsupported versions, not error
             } else if (loaderType.toLowerCase() === 'forge') {
                 fetchedVersions = await invoke('get_forge_versions', {
                     minecraftVersion: minecraftVersion
@@ -314,7 +321,7 @@
                 game_version: selectedVersion,
                 loader: selectedModLoader,
                 // *** Send the selected loaderVersion ***
-                loader_version: (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge') ? loaderVersion : null, 
+                loader_version: (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt') ? loaderVersion : null, 
                 selected_norisk_pack_id: packIdToSend,
                 settings: settingsToSend 
             };
@@ -400,7 +407,7 @@
         </select>
 
         <!-- *NEW* Loader Version Selector -->
-        {#if selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge'}
+        {#if selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt'}
             <select 
                 bind:value={loaderVersion} 
                 aria-label="Loader Version" 
@@ -422,7 +429,7 @@
             </select>
         {/if}
     </div>
-    {#if loaderVersionsError && (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge')}
+    {#if loaderVersionsError && (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt')}
          <p class="error-message small">Loader Version Error: {loaderVersionsError}</p>
     {/if}
 

@@ -38,6 +38,9 @@ pub enum AppError {
     #[error("Fabric error: {0}")]
     FabricError(String),
     
+    #[error("Quilt error: {0}")]
+    QuiltError(String),
+    
     #[error("Unknown error: {0}")]
     Unknown(String),
     

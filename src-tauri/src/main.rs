@@ -25,7 +25,7 @@ use commands::minecraft_auth_command::{
 };
 use commands::minecraft_command::{
     get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
-    upload_log_to_mclogs_command,
+    get_quilt_loader_versions, upload_log_to_mclogs_command,
 };
 use commands::profile_command::{
     add_modrinth_mod_to_profile, create_profile, delete_custom_mod, delete_mod_from_profile,
@@ -180,7 +180,8 @@ async fn main() {
             upload_log_to_mclogs_command,
             get_fabric_loader_versions,
             get_forge_versions,
-            get_neoforge_versions
+            get_neoforge_versions,
+            get_quilt_loader_versions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

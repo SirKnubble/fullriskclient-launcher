@@ -4,6 +4,8 @@ use crate::minecraft::dto::VersionManifest;
 use crate::minecraft::api::mclogs_api::upload_log_to_mclogs;
 use crate::minecraft::api::fabric_api::FabricApi;
 use crate::minecraft::dto::fabric_meta::FabricVersionInfo;
+use crate::minecraft::api::quilt_api::QuiltApi;
+use crate::minecraft::dto::quilt_meta::QuiltVersionInfo;
 use crate::minecraft::api::forge_api::ForgeApi;
 use crate::minecraft::api::neo_forge_api::NeoForgeApi;
 
@@ -27,6 +29,14 @@ pub async fn upload_log_to_mclogs_command(log_content: String) -> Result<String,
 pub async fn get_fabric_loader_versions(minecraft_version: String) -> Result<Vec<FabricVersionInfo>, CommandError> {
     let fabric_api = FabricApi::new();
     fabric_api.get_loader_versions(&minecraft_version)
+        .await
+        .map_err(|e| e.into())
+}
+
+#[tauri::command]
+pub async fn get_quilt_loader_versions(minecraft_version: String) -> Result<Vec<QuiltVersionInfo>, CommandError> {
+    let quilt_api = QuiltApi::new();
+    quilt_api.get_loader_versions(&minecraft_version)
         .await
         .map_err(|e| e.into())
 }
