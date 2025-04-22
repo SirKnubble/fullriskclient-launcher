@@ -155,8 +155,11 @@
       currentPage = 0;
     }
 
-    const gameVersion = currentGameVersionFilter; // Use derived value
-    const loader = currentLoaderFilter; // Use derived value
+    const gameVersion = currentGameVersionFilter; // Always use game version filter
+    
+    // Only apply loader filter for mods - not for resourcepacks, datapacks, or shaders
+    const loader = selectedProjectType === "mod" ? currentLoaderFilter : undefined;
+    
     const offset = currentPage * pageSize;
 
     console.log(`Performing search: query='${searchTerm.trim()}', type=${selectedProjectType}, gameVersion=${gameVersion ?? 'N/A'}, loader=${loader ?? 'N/A'}, page=${currentPage}, sort=${selectedSortType}`);
@@ -231,7 +234,10 @@
       modVersions = [];
 
       const gameVersions = currentGameVersionFilter ? [currentGameVersionFilter] : undefined;
-      const loaders = currentLoaderFilter ? [currentLoaderFilter] : undefined;
+      // Only apply loader filters for mods
+      const loaders = (hit.project_type === "mod" && currentLoaderFilter) 
+          ? [currentLoaderFilter] 
+          : undefined;
 
       console.log(`Fetching versions for ${projectId}: gameVersions=${gameVersions?.join(',') ?? 'N/A'}, loaders=${loaders?.join(',') ?? 'N/A'}`);
 
@@ -391,13 +397,15 @@
 
   <!-- Display active filters -->
   <div class="filter-status">
-    {#if filterByProfile && (currentGameVersionFilter || currentLoaderFilter)}
-      Filtering for: 
-      {#if currentGameVersionFilter}<span>MC {currentGameVersionFilter}</span>{/if}
-      {#if currentGameVersionFilter && currentLoaderFilter},{/if}
-      {#if currentLoaderFilter}<span>{currentLoaderFilter}</span>{/if}
-    {:else if filterByProfile}
-      (Select a profile to apply filters)
+    {#if filterByProfile}
+      {#if currentGameVersionFilter || (selectedProjectType === "mod" && currentLoaderFilter)}
+        Filtering for: 
+        {#if currentGameVersionFilter}<span>MC {currentGameVersionFilter}</span>{/if}
+        {#if currentGameVersionFilter && selectedProjectType === "mod" && currentLoaderFilter},{/if}
+        {#if selectedProjectType === "mod" && currentLoaderFilter}<span>{currentLoaderFilter}</span>{/if}
+      {:else}
+        (Select a profile to apply filters)
+      {/if}
     {/if}
   </div>
 
