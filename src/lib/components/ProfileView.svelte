@@ -2,6 +2,7 @@
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     import type { ModrinthVersion } from '$lib/types/modrinth';
     import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks'; // Assuming these types are needed
+    import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
 
     // Local definition until $lib/types is fixed
     interface CustomModInfo {
@@ -358,6 +359,11 @@
              <p class="no-mods">Keine lokalen Mods gefunden im `custom_mods` Ordner.</p>
         {/if}
     </div>
+
+    <!-- Add the ProfileContent component for resourcepacks and shaderpacks -->
+    <div class="additional-content">
+        <ProfileContent profileId={profile.id} />
+    </div>
 </div>
 
 <style>
@@ -682,4 +688,9 @@
         padding: 5px 8px;
     }
 
+    .additional-content {
+        margin-top: 2rem;
+        border-top: 1px solid #ddd;
+        padding-top: 1rem;
+    }
 </style> 
