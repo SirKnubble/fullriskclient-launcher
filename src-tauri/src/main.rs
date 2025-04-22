@@ -24,7 +24,7 @@ use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
 };
 use commands::minecraft_command::{
-    get_fabric_loader_versions, get_forge_versions, get_minecraft_versions,
+    get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
     upload_log_to_mclogs_command,
 };
 use commands::profile_command::{
@@ -45,11 +45,6 @@ async fn main() {
     if let Err(e) = logging::setup_logging().await {
         eprintln!("FEHLER: Logging konnte nicht initialisiert werden: {}", e);
     }
-
-    let neoforge_api = NeoForgeApi::new();
-    let versions = neoforge_api.get_all_versions().await;
-    println!("Versions: {:?}", versions);
-    versions.unwrap().print_parsed_versions();
 
     info!("--- Running Test Modrinth Search --- DONT FORGET TO REMOVE");
     let query = "fabric".to_string();
@@ -184,7 +179,8 @@ async fn main() {
             import_profile_from_file,
             upload_log_to_mclogs_command,
             get_fabric_loader_versions,
-            get_forge_versions
+            get_forge_versions,
+            get_neoforge_versions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
