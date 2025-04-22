@@ -177,42 +177,20 @@ impl ClasspathBuilder {
         let mut unique_entries = HashSet::new();
         
         for lib_info in self.libraries.values() {
-            let path_str = lib_info.path.to_string_lossy().to_string();
-            let normalized_path = if cfg!(windows) {
-                path_str.replace('/', "\\")
-            } else {
-                path_str.replace('\\', "/")
-            };
-            unique_entries.insert(normalized_path);
+            let path_str = lib_info.path.to_string_lossy().to_string().replace("\\", "/");
+            unique_entries.insert(path_str);
         }
         
         for entry in &self.entries {
-            let normalized_entry = if cfg!(windows) {
-                entry.replace('/', "\\")
-            } else {
-                entry.replace('\\', "/")
-            };
-            unique_entries.insert(normalized_entry);
+            unique_entries.insert(entry.replace("\\", "/"));
         }
         
         if let Some(custom_client_jar) = &self.custom_client_jar_path {
             info!("Using custom client jar: {}", custom_client_jar.display());
-            let path_str = custom_client_jar.to_string_lossy().to_string();
-            let normalized_path = if cfg!(windows) {
-                path_str.replace('/', "\\")
-            } else {
-                path_str.replace('\\', "/")
-            };
-            unique_entries.insert(normalized_path);
+            unique_entries.insert(custom_client_jar.to_string_lossy().to_string().replace("\\", "/"));
         } else if let Some(vanilla_jar) = &self.vanilla_client_jar {
             info!("Using vanilla client jar: {}", vanilla_jar.display());
-            let path_str = vanilla_jar.to_string_lossy().to_string();
-            let normalized_path = if cfg!(windows) {
-                path_str.replace('/', "\\")
-            } else {
-                path_str.replace('\\', "/")
-            };
-            unique_entries.insert(normalized_path);
+            unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
         } else {
             info!("⚠️ Warning: No client jar found! This might cause issues.");
         }
@@ -220,13 +198,7 @@ impl ClasspathBuilder {
         if force_include_minecraft_jar {
             if let Some(vanilla_jar) = &self.vanilla_client_jar {
                 info!("Force including vanilla client jar: {}", vanilla_jar.display());
-                let path_str = vanilla_jar.to_string_lossy().to_string();
-                let normalized_path = if cfg!(windows) {
-                    path_str.replace('/', "\\")
-                } else {
-                    path_str.replace('\\', "/")
-                };
-                unique_entries.insert(normalized_path);
+                unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
             }
         }
         

@@ -202,7 +202,7 @@ impl MinecraftLauncher {
 
         // Add natives path if not already set
         if !has_natives {
-            command.arg(format!("-Djava.library.path={}", natives_path.to_string_lossy()));
+            command.arg(format!("-Djava.library.path={}", natives_path.to_string_lossy().replace("\\", "/")));
         }
 
         // Add main class

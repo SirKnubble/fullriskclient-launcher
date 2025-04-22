@@ -16,7 +16,7 @@ impl NeoForgeArguments {
     pub fn get_jvm_arguments(forge_version: &NeoForgeVersion, library_directory: &PathBuf, version_name: &str) -> Vec<String> {
         if let Some(args) = &forge_version.arguments {
             let classpath_separator = if cfg!(windows) { ";" } else { ":" };
-            let library_dir = library_directory.to_string_lossy();
+            let library_dir = library_directory.to_string_lossy().replace("\\", "/");
             
             info!("\n=== Forge JVM Arguments Debug ===");
             info!("Library Directory: {}", library_dir);
