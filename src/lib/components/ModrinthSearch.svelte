@@ -155,9 +155,10 @@
       currentPage = 0;
     }
 
-    const gameVersion = currentGameVersionFilter; // Always use game version filter
+    // Für Modpacks werden keine Filter angewendet
+    const gameVersion = selectedProjectType === "modpack" ? undefined : currentGameVersionFilter;
     
-    // Only apply loader filter for mods - not for resourcepacks, datapacks, or shaders
+    // Nur für Mods den Loader-Filter anwenden
     const loader = selectedProjectType === "mod" ? currentLoaderFilter : undefined;
     
     const offset = currentPage * pageSize;
@@ -233,13 +234,17 @@
       versionsError = null;
       modVersions = [];
 
-      const gameVersions = currentGameVersionFilter ? [currentGameVersionFilter] : undefined;
-      // Only apply loader filters for mods
+      // Für Modpacks verwenden wir keine Filter für Gameversion und Loader
+      const gameVersions = hit.project_type === "modpack" 
+          ? undefined 
+          : (currentGameVersionFilter ? [currentGameVersionFilter] : undefined);
+      
+      // Nur für Mods Loader-Filter anwenden
       const loaders = (hit.project_type === "mod" && currentLoaderFilter) 
           ? [currentLoaderFilter] 
           : undefined;
 
-      console.log(`Fetching versions for ${projectId}: gameVersions=${gameVersions?.join(',') ?? 'N/A'}, loaders=${loaders?.join(',') ?? 'N/A'}`);
+      console.log(`Fetching versions for ${projectId} (type: ${hit.project_type}): gameVersions=${gameVersions?.join(',') ?? 'N/A'}, loaders=${loaders?.join(',') ?? 'N/A'}`);
 
       try {
           const versionData = await invoke<ModrinthVersion[]>('get_modrinth_mod_versions', {
@@ -354,6 +359,55 @@
       }, 500);
   }
 
+  // Füge die neue Funktion für Modpack-Installation hinzu
+  async function installModpack(version: ModrinthVersion, file: ModrinthFile) {
+      // Status für die UI aktualisieren
+      addingModState = { ...addingModState, [version.id]: 'adding' };
+      addError = null;
+      
+      try {
+          const hit = version.search_hit;
+          if (!hit) {
+              throw new Error("Missing search hit context");
+          }
+
+          console.log(`Installing modpack ${hit.title} (${version.version_number})...`);
+          
+          // Rufe den Tauri-Befehl zum Herunterladen und Installieren auf
+          const payload = {
+              projectId: version.project_id,
+              versionId: version.id,
+              fileName: file.filename,
+              downloadUrl: file.url
+          };
+          
+          console.log("Invoking download_and_install_modrinth_modpack with payload:", payload);
+          const profileId = await invoke<string>('download_and_install_modrinth_modpack', payload);
+          
+          console.log(`Successfully installed modpack as profile with ID: ${profileId}`);
+          addingModState = { ...addingModState, [version.id]: 'success' };
+          
+          // Nach dem Erfolg den Status zurücksetzen
+          setTimeout(() => {
+              addingModState = { ...addingModState, [version.id]: 'idle' };
+              // Aktualisiere die Profilliste, damit das neue Profil angezeigt wird
+              loadProfiles();
+          }, 2000);
+          
+      } catch (err) {
+          console.error(`Failed to install modpack: ${err instanceof Error ? err.message : String(err)}`);
+          addError = `Failed to install: ${err instanceof Error ? err.message : String(err)}`;
+          addingModState = { ...addingModState, [version.id]: 'error' };
+          
+          setTimeout(() => {
+              if (addingModState[version.id] === 'error') {
+                  addingModState = { ...addingModState, [version.id]: 'idle' };
+                  addError = null;
+              }
+          }, 5000);
+      }
+  }
+
   // Perform initial search and load profiles on mount
   onMount(() => {
       loadProfiles(); // Load profiles when this component mounts
@@ -415,7 +469,9 @@
 
   <!-- Display selected profile or prompt -->
   <div class="profile-status">
-    {#if $selectedProfile}
+    {#if selectedProjectType === "modpack"}
+      <p>Modpacks werden direkt als neue Profile installiert, keine Profilauswahl erforderlich.</p>
+    {:else if $selectedProfile}
       <p>Adding to profile: <strong>{$selectedProfile.name}</strong></p>
     {:else}
       <p class="info-message">Select a profile from the dropdown to enable adding mods.</p>
@@ -506,12 +562,32 @@
                         
                         <div class="version-actions">
                           {#if downloadUrl && primaryFile}
-                              <button 
+                              {#if version.search_hit?.project_type === 'modpack'}
+                                <!-- Spezielle Darstellung für Modpacks -->
+                                <button 
+                                  class="add-button modpack {currentAddState}" 
+                                  data-content-type="modpack"
+                                  on:click={() => installModpack(version, primaryFile)}
+                                  disabled={currentAddState === 'adding' || currentAddState === 'success'}
+                                >
+                                  {#if currentAddState === 'adding'}
+                                    Installing...
+                                  {:else if currentAddState === 'success'}
+                                    Installed!
+                                  {:else if currentAddState === 'error'}
+                                    Retry
+                                  {:else}
+                                    Install Modpack
+                                  {/if}
+                                </button>
+                              {:else}
+                                <!-- Standard-Darstellung für andere Projektarten -->
+                                <button 
                                   class="add-button {currentAddState}" 
                                   data-content-type={version.search_hit?.project_type}
                                   on:click={() => addModVersionToProfile(version, primaryFile)}
                                   disabled={!$selectedProfile || currentAddState === 'adding' || currentAddState === 'success'}
-                              >
+                                >
                                   {#if currentAddState === 'adding'}
                                     Adding...
                                   {:else if currentAddState === 'success'}
@@ -532,7 +608,9 @@
                                       Add
                                     {/if}
                                   {/if}
-                              </button>
+                                </button>
+                              {/if}
+                              
                               <a 
                                 href={downloadUrl} 
                                 target="_blank"
@@ -1018,5 +1096,29 @@
       padding: 0.1em 0.4em;
       background-color: #e9ecef;
       border-radius: 3px;
+  }
+
+  /* Modpack Button Style */
+  .add-button.modpack {
+      background-color: #dc3545; /* Rote Farbe für Modpacks */
+  }
+  .add-button.modpack:hover {
+      background-color: #c82333;
+  }
+  
+  .tab-button[data-type="modpack"],
+  .add-button[data-content-type="modpack"] {
+      background-color: #dc3545; /* Rote Farbe für Modpacks */
+  }
+  .tab-button[data-type="modpack"]:hover,
+  .add-button[data-content-type="modpack"]:hover {
+      background-color: #c82333;
+  }
+  
+  /* Hinweis für Modpacks */
+  .profile-status .modpack-note {
+      font-style: italic;
+      font-size: 0.9em;
+      color: #666;
   }
 </style> 
