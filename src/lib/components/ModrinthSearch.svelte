@@ -272,37 +272,63 @@
       addingModState = { ...addingModState, [version.id]: 'adding' };
       addError = null;
 
-      const payload = {
-          profileId: currentProfileId, // Use ID from store
-          // Extract details needed by the backend command
-          projectId: version.project_id,
-          versionId: version.id,
-          fileName: file.filename,
-          downloadUrl: file.url, // Ensure this field exists in ModrinthFile interface if needed by backend
-          fileHashSha1: file.hashes.sha1, // Send SHA1 hash
-          modName: version.search_hit?.title ?? file.filename, // Best guess for mod name
-          versionNumber: version.version_number,
-          loaders: version.loaders, // Pass loaders array
-          gameVersions: version.game_versions // Pass game versions array
-      };
-
-      console.log("Invoking add_modrinth_mod_to_profile with payload:", payload);
-
       try {
-          await invoke('add_modrinth_mod_to_profile', payload);
+          // Determine which command to use based on project type
+          const hit = version.search_hit;
+          if (!hit) {
+              throw new Error("Missing search hit context");
+          }
+
+          // Use different methods for different project types
+          if (hit.project_type === "mod") {
+              // For mods, use the original method
+              const payload = {
+                  profileId: currentProfileId,
+                  projectId: version.project_id,
+                  versionId: version.id,
+                  fileName: file.filename,
+                  downloadUrl: file.url,
+                  fileHashSha1: file.hashes.sha1,
+                  modName: hit.title ?? file.filename,
+                  versionNumber: version.version_number,
+                  loaders: version.loaders,
+                  gameVersions: version.game_versions
+              };
+
+              console.log("Invoking add_modrinth_mod_to_profile with payload:", payload);
+              await invoke('add_modrinth_mod_to_profile', payload);
+          } else if (["resourcepack", "shader", "datapack"].includes(hit.project_type)) {
+              // For resourcepacks, shaderpacks, and datapacks, use the new method
+              const payload = {
+                  profileId: currentProfileId,
+                  projectId: version.project_id,
+                  versionId: version.id,
+                  fileName: file.filename,
+                  downloadUrl: file.url,
+                  fileHashSha1: file.hashes.sha1,
+                  contentName: hit.title ?? file.filename,
+                  versionNumber: version.version_number,
+                  projectType: hit.project_type
+              };
+
+              console.log(`Invoking add_modrinth_content_to_profile for ${hit.project_type} with payload:`, payload);
+              await invoke('add_modrinth_content_to_profile', payload);
+          } else {
+              throw new Error(`Unsupported project type: ${hit.project_type}`);
+          }
           
-          console.log(`Successfully invoked add_mod_to_profile for ${file.filename}`);
+          console.log(`Successfully added ${hit.project_type} ${file.filename}`);
           addingModState = { ...addingModState, [version.id]: 'success' };
-          // Optional: Provide visual feedback like changing button text or showing a temporary message
+          
           setTimeout(() => {
               addingModState = { ...addingModState, [version.id]: 'idle' }; // Reset after a delay
-          }, 2000); 
+          }, 2000);
 
       } catch (err) {
-          console.error(`Failed to add mod ${file.filename}:`, err);
-          addError = `Failed to add mod: ${err instanceof Error ? err.message : String(err)}`;
+          console.error(`Failed to add ${version.search_hit?.project_type ?? "content"} ${file.filename}:`, err);
+          addError = `Failed to add: ${err instanceof Error ? err.message : String(err)}`;
           addingModState = { ...addingModState, [version.id]: 'error' };
-          // Keep error state until user interacts again or reset after delay
+          
           setTimeout(() => {
               if (addingModState[version.id] === 'error') {
                  addingModState = { ...addingModState, [version.id]: 'idle' }; 
@@ -366,6 +392,7 @@
     {#each projectTypes as tab}
       <button 
         class="tab-button {selectedProjectType === tab.type ? 'active' : ''}"
+        data-type={tab.type}
         on:click={() => changeProjectType(tab.type)}
       >
         {tab.label}
@@ -481,6 +508,7 @@
                           {#if downloadUrl && primaryFile}
                               <button 
                                   class="add-button {currentAddState}" 
+                                  data-content-type={version.search_hit?.project_type}
                                   on:click={() => addModVersionToProfile(version, primaryFile)}
                                   disabled={!$selectedProfile || currentAddState === 'adding' || currentAddState === 'success'}
                               >
@@ -489,9 +517,20 @@
                                   {:else if currentAddState === 'success'}
                                     Added!
                                   {:else if currentAddState === 'error'}
-                                    Retry Add
+                                    Retry
                                   {:else}
-                                    Add
+                                    <!-- Show different text based on project type -->
+                                    {#if version.search_hit?.project_type === 'mod'}
+                                      Add Mod
+                                    {:else if version.search_hit?.project_type === 'resourcepack'}
+                                      Add Resource Pack
+                                    {:else if version.search_hit?.project_type === 'shader'}
+                                      Add Shader
+                                    {:else if version.search_hit?.project_type === 'datapack'}
+                                      Add Datapack
+                                    {:else}
+                                      Add
+                                    {/if}
                                   {/if}
                               </button>
                               <a 
@@ -853,7 +892,7 @@
   .add-button {
       padding: 0.3em 0.6em;
       font-size: 0.9em;
-      background-color: #28a745;
+      background-color: #28a745; /* Default green for mods */
       color: white;
       border: none;
       border-radius: 3px;
@@ -864,6 +903,35 @@
   .add-button:hover {
       background-color: #218838;
   }
+  
+  /* Different colors for different content types */
+  .tab-button[data-type="resourcepack"],
+  .add-button[data-content-type="resourcepack"] {
+      background-color: #17a2b8; /* Blue for resource packs */
+  }
+  .tab-button[data-type="resourcepack"]:hover,
+  .add-button[data-content-type="resourcepack"]:hover {
+      background-color: #138496;
+  }
+  
+  .tab-button[data-type="shader"],
+  .add-button[data-content-type="shader"] {
+      background-color: #6f42c1; /* Purple for shaders */
+  }
+  .tab-button[data-type="shader"]:hover,
+  .add-button[data-content-type="shader"]:hover {
+      background-color: #5e37a6;
+  }
+  
+  .tab-button[data-type="datapack"],
+  .add-button[data-content-type="datapack"] {
+      background-color: #fd7e14; /* Orange for datapacks */
+  }
+  .tab-button[data-type="datapack"]:hover,
+  .add-button[data-content-type="datapack"]:hover {
+      background-color: #e76b02;
+  }
+
   .download-link {
       font-size: 0.9em;
       color: #007bff;
