@@ -190,7 +190,7 @@ pub async fn get_resourcepacks_for_profile(profile: &Profile) -> Result<Vec<Reso
 }
 
 /// Get the path to the resourcepacks directory for a profile
-async fn get_resourcepacks_dir(profile: &Profile) -> Result<PathBuf> {
+pub async fn get_resourcepacks_dir(profile: &Profile) -> Result<PathBuf> {
     let state = State::get().await?;
     let base_profiles_dir = state.profile_manager.calculate_instance_path_for_profile(profile)?;
     let resourcepacks_dir = base_profiles_dir.join("resourcepacks");

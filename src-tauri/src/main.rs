@@ -31,7 +31,7 @@ use commands::profile_command::{
     delete_profile, get_custom_mods, get_local_resourcepacks, get_local_shaderpacks, get_norisk_packs, get_profile, get_system_ram_mb,
     import_local_mods, import_profile_from_file, launch_profile, list_profiles,
     open_profile_folder, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
-    set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
+    set_profile_mod_enabled, update_modrinth_mod_version, update_profile, add_modrinth_content_to_profile,
 };
 
 // Use statements for registered commands only
@@ -166,6 +166,7 @@ async fn main() {
             search_modrinth_projects,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
+            add_modrinth_content_to_profile,
             set_profile_mod_enabled,
             delete_mod_from_profile,
             get_norisk_packs,

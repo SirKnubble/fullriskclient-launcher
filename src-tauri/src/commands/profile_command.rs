@@ -17,7 +17,8 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tokio::fs as TokioFs;
 use uuid::Uuid;
-use crate::utils::{resourcepack_utils, shaderpack_utils};
+use crate::utils::{resourcepack_utils, shaderpack_utils, profile_utils};
+use crate::integrations::modrinth::ModrinthProjectType;
 
 // DTOs für Command-Parameter
 #[derive(Deserialize)]
@@ -598,4 +599,47 @@ pub async fn get_local_shaderpacks(profile_id: Uuid) -> Result<Vec<shaderpack_ut
         .map_err(|e| CommandError::from(e))?;
     
     Ok(shaderpacks)
+}
+
+#[tauri::command]
+pub async fn add_modrinth_content_to_profile(
+    profile_id: Uuid,
+    project_id: String,
+    version_id: String,
+    file_name: String,
+    download_url: String,
+    file_hash_sha1: Option<String>,
+    content_name: Option<String>,
+    version_number: Option<String>,
+    project_type: String,
+) -> Result<(), CommandError> {
+    info!("Executing add_modrinth_content_to_profile for profile {}", profile_id);
+    
+    // Konvertiere den String project_type in ModrinthProjectType
+    let content_type = match project_type.to_lowercase().as_str() {
+        "resourcepack" => profile_utils::ContentType::ResourcePack,
+        "shader" => profile_utils::ContentType::ShaderPack,
+        "datapack" => profile_utils::ContentType::DataPack,
+        _ => {
+            return Err(CommandError::from(AppError::Other(format!(
+                "Unsupported content type: {}",
+                project_type
+            ))));
+        }
+    };
+    
+    // Rufe die Implementierung auf
+    profile_utils::add_modrinth_content_to_profile(
+        profile_id,
+        project_id,
+        version_id,
+        file_name,
+        download_url,
+        file_hash_sha1,
+        content_name,
+        version_number,
+        content_type,
+    )
+    .await
+    .map_err(CommandError::from)
 }

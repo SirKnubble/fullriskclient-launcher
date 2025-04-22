@@ -195,7 +195,7 @@ pub async fn get_shaderpacks_for_profile(profile: &Profile) -> Result<Vec<Shader
 }
 
 /// Get the path to the shaderpacks directory for a profile
-async fn get_shaderpacks_dir(profile: &Profile) -> Result<PathBuf> {
+pub async fn get_shaderpacks_dir(profile: &Profile) -> Result<PathBuf> {
     let state = State::get().await?;
     let base_profiles_dir = state.profile_manager.calculate_instance_path_for_profile(profile)?;
     let shaderpacks_dir = base_profiles_dir.join("shaderpacks");
