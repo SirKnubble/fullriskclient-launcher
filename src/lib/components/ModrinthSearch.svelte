@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { loadProfiles, selectedProfile, profiles } from '$lib/stores/profileStore'; // Import selectedProfile store
   import ProfileSelect from '$lib/components/ProfileSelect.svelte'; // Import ProfileSelect
+  import ModrinthProfileDropdown from '$lib/components/ModrinthProfileDropdown.svelte';
 
   // --- Props --- 
   // targetProfileId is now implicitly handled via the selectedProfile store
@@ -126,6 +127,10 @@
 
   // Filter state (could be made interactive later)
   let filterByProfile = true; // Control whether to use profile filters
+
+  // Profile dropdown state - für die neue Komponente
+  let showProfileDropdown = false;
+  let currentContentToInstall: { version: ModrinthVersion, file: ModrinthFile } | null = null;
 
   // --- Derived Values --- 
   // Get filter values reactively from the selected profile
@@ -263,100 +268,97 @@
       }
   }
 
-  // Function to add mod to profile
-  async function addModVersionToProfile(version: ModrinthVersion, file: ModrinthFile) {
-      // Use the ID from the store directly
-      const currentProfileId = $selectedProfile?.id; 
-
-      if (!currentProfileId) {
-          alert('Please select a profile first before adding mods.');
-          console.error('Cannot add mod: targetProfileId (from store) is not set.');
-          return;
-      }
-
-      addingModState = { ...addingModState, [version.id]: 'adding' };
-      addError = null;
-
-      try {
-          // Determine which command to use based on project type
-          const hit = version.search_hit;
-          if (!hit) {
-              throw new Error("Missing search hit context");
-          }
-
-          // Use different methods for different project types
-          if (hit.project_type === "mod") {
-              // For mods, use the original method
-              const payload = {
-                  profileId: currentProfileId,
-                  projectId: version.project_id,
-                  versionId: version.id,
-                  fileName: file.filename,
-                  downloadUrl: file.url,
-                  fileHashSha1: file.hashes.sha1,
-                  modName: hit.title ?? file.filename,
-                  versionNumber: version.version_number,
-                  loaders: version.loaders,
-                  gameVersions: version.game_versions
-              };
-
-              console.log("Invoking add_modrinth_mod_to_profile with payload:", payload);
-              await invoke('add_modrinth_mod_to_profile', payload);
-          } else if (["resourcepack", "shader", "datapack"].includes(hit.project_type)) {
-              // For resourcepacks, shaderpacks, and datapacks, use the new method
-              const payload = {
-                  profileId: currentProfileId,
-                  projectId: version.project_id,
-                  versionId: version.id,
-                  fileName: file.filename,
-                  downloadUrl: file.url,
-                  fileHashSha1: file.hashes.sha1,
-                  contentName: hit.title ?? file.filename,
-                  versionNumber: version.version_number,
-                  projectType: hit.project_type
-              };
-
-              console.log(`Invoking add_modrinth_content_to_profile for ${hit.project_type} with payload:`, payload);
-              await invoke('add_modrinth_content_to_profile', payload);
-          } else {
-              throw new Error(`Unsupported project type: ${hit.project_type}`);
-          }
-          
-          console.log(`Successfully added ${hit.project_type} ${file.filename}`);
-          addingModState = { ...addingModState, [version.id]: 'success' };
-          
-          setTimeout(() => {
-              addingModState = { ...addingModState, [version.id]: 'idle' }; // Reset after a delay
-          }, 2000);
-
-      } catch (err) {
-          console.error(`Failed to add ${version.search_hit?.project_type ?? "content"} ${file.filename}:`, err);
-          addError = `Failed to add: ${err instanceof Error ? err.message : String(err)}`;
-          addingModState = { ...addingModState, [version.id]: 'error' };
-          
-          setTimeout(() => {
-              if (addingModState[version.id] === 'error') {
-                 addingModState = { ...addingModState, [version.id]: 'idle' }; 
-                 addError = null; // Clear general error message too
-              }
-          }, 5000);
-      }
+  // Funktion zum Öffnen des Profil-Dropdowns oder direktes Installieren
+  function handleContentInstall(version: ModrinthVersion, file: ModrinthFile) {
+    // Wenn es ein ModPack ist, immer direkt installieren
+    if (version.search_hit?.project_type === 'modpack') {
+      installModpack(version, file);
+      return;
+    }
+    
+    // Wenn ein Profil ausgewählt ist, direkt in dieses installieren
+    const currentProfileId = $selectedProfile?.id;
+    if (currentProfileId) {
+      directInstallToProfile(version, file, currentProfileId);
+    } else {
+      // Ansonsten Dropdown anzeigen
+      currentContentToInstall = { version, file };
+      showProfileDropdown = true;
+    }
   }
-
-  // Keyboard handler for search
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      performSearch();
+  
+  // Direktes Installieren in ein spezifisches Profil
+  async function directInstallToProfile(version: ModrinthVersion, file: ModrinthFile, profileId: string) {
+    const versionId = version.id;
+    addingModState = { ...addingModState, [versionId]: 'adding' };
+    addError = null;
+    
+    try {
+      const hit = version.search_hit;
+      if (!hit) {
+        throw new Error("Missing search hit context");
+      }
+      
+      // Use different methods for different project types
+      if (hit.project_type === "mod") {
+        const payload = {
+          profileId: profileId,
+          projectId: version.project_id,
+          versionId: version.id,
+          fileName: file.filename,
+          downloadUrl: file.url,
+          fileHashSha1: file.hashes.sha1,
+          modName: hit.title ?? file.filename,
+          versionNumber: version.version_number,
+          loaders: version.loaders,
+          gameVersions: version.game_versions
+        };
+        
+        console.log(`Installing mod to profile ${profileId}`);
+        await invoke('add_modrinth_mod_to_profile', payload);
+      } 
+      else if (["resourcepack", "shader", "datapack"].includes(hit.project_type)) {
+        const payload = {
+          profileId: profileId,
+          projectId: version.project_id,
+          versionId: version.id,
+          fileName: file.filename,
+          downloadUrl: file.url,
+          fileHashSha1: file.hashes.sha1,
+          contentName: hit.title ?? file.filename,
+          versionNumber: version.version_number,
+          projectType: hit.project_type
+        };
+        
+        console.log(`Installing ${hit.project_type} to profile ${profileId}`);
+        await invoke('add_modrinth_content_to_profile', payload);
+      }
+      
+      console.log(`Successfully added ${hit.project_type} ${file.filename}`);
+      addingModState = { ...addingModState, [versionId]: 'success' };
+      
+      setTimeout(() => {
+        addingModState = { ...addingModState, [versionId]: 'idle' };
+      }, 2000);
+      
+    } catch (err) {
+      console.error(`Failed to add ${version.search_hit?.project_type ?? "content"} ${file.filename}:`, err);
+      addError = `Failed to add: ${err instanceof Error ? err.message : String(err)}`;
+      addingModState = { ...addingModState, [versionId]: 'error' };
+      
+      setTimeout(() => {
+        if (addingModState[versionId] === 'error') {
+          addingModState = { ...addingModState, [versionId]: 'idle' };
+          addError = null;
+        }
+      }, 5000);
     }
   }
 
-  // Debounce function for search
-  let debounceTimer: number;
-  function debouncedSearch() {
-      clearTimeout(debounceTimer);
-      debounceTimer = window.setTimeout(() => {
-          performSearch();
-      }, 500);
+  // Funktion zum Schließen des Dropdowns
+  function handleCloseDropdown() {
+    showProfileDropdown = false;
+    currentContentToInstall = null;
   }
 
   // Füge die neue Funktion für Modpack-Installation hinzu
@@ -406,6 +408,22 @@
               }
           }, 5000);
       }
+  }
+
+  // Keyboard handler for search
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      performSearch();
+    }
+  }
+
+  // Debounce function for search
+  let debounceTimer: number;
+  function debouncedSearch() {
+      clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+          performSearch();
+      }, 500);
   }
 
   // Perform initial search and load profiles on mount
@@ -567,7 +585,7 @@
                                 <button 
                                   class="add-button modpack {currentAddState}" 
                                   data-content-type="modpack"
-                                  on:click={() => installModpack(version, primaryFile)}
+                                  on:click={() => handleContentInstall(version, primaryFile)}
                                   disabled={currentAddState === 'adding' || currentAddState === 'success'}
                                 >
                                   {#if currentAddState === 'adding'}
@@ -585,8 +603,8 @@
                                 <button 
                                   class="add-button {currentAddState}" 
                                   data-content-type={version.search_hit?.project_type}
-                                  on:click={() => addModVersionToProfile(version, primaryFile)}
-                                  disabled={!$selectedProfile || currentAddState === 'adding' || currentAddState === 'success'}
+                                  on:click={() => handleContentInstall(version, primaryFile)}
+                                  disabled={currentAddState === 'adding' || currentAddState === 'success'}
                                 >
                                   {#if currentAddState === 'adding'}
                                     Adding...
@@ -597,15 +615,15 @@
                                   {:else}
                                     <!-- Show different text based on project type -->
                                     {#if version.search_hit?.project_type === 'mod'}
-                                      Add Mod
+                                      Install Mod
                                     {:else if version.search_hit?.project_type === 'resourcepack'}
-                                      Add Resource Pack
+                                      Install Resource Pack
                                     {:else if version.search_hit?.project_type === 'shader'}
-                                      Add Shader
+                                      Install Shader
                                     {:else if version.search_hit?.project_type === 'datapack'}
-                                      Add Datapack
+                                      Install Datapack
                                     {:else}
-                                      Add
+                                      Install
                                     {/if}
                                   {/if}
                                 </button>
@@ -686,6 +704,13 @@
      {/if}
    {/if}
 </div>
+
+<!-- Ersetze das alte Dropdown durch die neue Komponente -->
+<ModrinthProfileDropdown 
+  show={showProfileDropdown}
+  currentContentToInstall={currentContentToInstall}
+  on:close={handleCloseDropdown}
+/>
 
 <style lang="css">
   .modrinth-search-container {
@@ -1113,12 +1138,5 @@
   .tab-button[data-type="modpack"]:hover,
   .add-button[data-content-type="modpack"]:hover {
       background-color: #c82333;
-  }
-  
-  /* Hinweis für Modpacks */
-  .profile-status .modpack-note {
-      font-style: italic;
-      font-size: 0.9em;
-      color: #666;
   }
 </style> 
