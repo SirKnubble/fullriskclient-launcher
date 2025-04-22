@@ -48,4 +48,53 @@ impl NeoForgeMavenMetadata {
             .into_iter()
             .next()
     }
+
+    pub fn parse_neoforge_version_to_minecraft(neoforge_version: &str) -> Option<String> {
+        let parts: Vec<&str> = neoforge_version.split('.').collect();
+
+        if parts.is_empty() {
+            return None;
+        }
+
+        match parts[0].parse::<u32>() {
+            Ok(p1) => {
+                if p1 > 0 {
+                    // Release/Beta logic
+                    if parts.len() < 2 {
+                        return None; // Need at least p1 and p2
+                    }
+                    match parts[1].parse::<u32>() {
+                        Ok(p2) => {
+                            if p2 > 0 {
+                                Some(format!("1.{}.{}", p1, p2))
+                            } else {
+                                Some(format!("1.{}", p1))
+                            }
+                        }
+                        Err(_) => None, // p2 is not a number
+                    }
+                } else {
+                    // p1 == 0, Snapshot/Custom logic
+                    if parts.len() > 1 {
+                        Some(parts[1].to_string())
+                    } else {
+                        None // Need at least two parts for snapshot logic
+                    }
+                }
+            }
+            Err(_) => None, // p1 is not a number
+        }
+    }
+
+    pub fn print_parsed_versions(&self) {
+        log::info!("NeoForge Version -> Parsed Minecraft Version:");
+        for neoforge_version in &self.versioning.versions.versions {
+            let parsed_mc_version = Self::parse_neoforge_version_to_minecraft(neoforge_version);
+            log::info!(
+                "  {} -> {}",
+                neoforge_version,
+                parsed_mc_version.as_deref().unwrap_or("Parse Failed")
+            );
+        }
+    }
 } 

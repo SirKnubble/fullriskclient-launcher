@@ -13,6 +13,7 @@ mod minecraft;
 mod state;
 mod utils;
 use log::{error, info};
+use minecraft::NeoForgeApi;
 use rand::seq::SliceRandom;
 use std::sync::Arc;
 
@@ -44,6 +45,11 @@ async fn main() {
     if let Err(e) = logging::setup_logging().await {
         eprintln!("FEHLER: Logging konnte nicht initialisiert werden: {}", e);
     }
+
+    let neoforge_api = NeoForgeApi::new();
+    let versions = neoforge_api.get_all_versions().await;
+    println!("Versions: {:?}", versions);
+    versions.unwrap().print_parsed_versions();
 
     info!("--- Running Test Modrinth Search --- DONT FORGET TO REMOVE");
     let query = "fabric".to_string();
