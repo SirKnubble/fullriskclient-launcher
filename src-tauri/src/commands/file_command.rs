@@ -1,24 +1,7 @@
 use crate::error::{AppError, CommandError};
-use log::{debug, info, warn};
-use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use log::{debug, info};
+use std::path::{PathBuf};
 use tokio::fs;
-
-/// Parameters for enabling/disabling a file
-#[derive(Deserialize)]
-pub struct SetFileEnabledParams {
-    /// Full path to the file
-    file_path: String,
-    /// Whether the file should be enabled (true) or disabled (false)
-    enabled: bool,
-}
-
-/// Parameters for deleting a file
-#[derive(Deserialize)]
-pub struct DeleteFileParams {
-    /// Full path to the file
-    file_path: String,
-}
 
 /// Sets a file as enabled or disabled by adding or removing the .disabled extension
 #[tauri::command]

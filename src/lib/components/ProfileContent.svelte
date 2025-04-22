@@ -121,14 +121,19 @@
   }
 
   // Toggle enabled state of a resource pack or shader pack
-  async function togglePackEnabled(path: string, enabled: boolean) {
+  async function togglePackEnabled(path: string, isDisabled: boolean) {
     if (loadingOperation) return;
     loadingOperation = true;
     
     try {
+      // We need to enable the file if it is currently disabled, and vice versa
+      const shouldBeEnabled = isDisabled; // If it's currently disabled, we want to enable it
+      
+      console.log(`Toggling pack ${path}, currently disabled: ${isDisabled}, setting enabled to: ${shouldBeEnabled}`);
+      
       await invoke('set_file_enabled', {
         filePath: path,
-        enabled: !enabled // Toggle the current state
+        enabled: shouldBeEnabled
       });
       
       // Refresh the data
