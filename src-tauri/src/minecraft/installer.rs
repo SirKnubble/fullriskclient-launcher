@@ -27,6 +27,29 @@ use uuid::Uuid;
 use super::minecraft_auth::Credentials;
 use super::modloader::ModloaderFactory;
 
+// Hilfsfunktion zum Emittieren von Events
+async fn emit_progress_event(
+    state: &State,
+    event_type: EventType,
+    profile_id: Uuid,
+    message: &str,
+    progress: f64,
+    error: Option<String>,
+) -> Result<Uuid> {
+    let event_id = Uuid::new_v4();
+    state
+        .emit_event(EventPayload {
+            event_id,
+            event_type,
+            target_id: Some(profile_id),
+            message: message.to_string(),
+            progress: Some(progress),
+            error,
+        })
+        .await?;
+    Ok(event_id)
+}
+
 pub async fn install_minecraft_version(
     version_id: &str,
     modloader_str: &str,
@@ -71,18 +94,15 @@ pub async fn install_minecraft_version(
     info!("\nChecking Java {} for Minecraft...", java_version);
 
     // Emit Java installation event
-    let event_id = Uuid::new_v4();
     let state = State::get().await?;
-    state
-        .emit_event(EventPayload {
-            event_id,
-            event_type: EventType::InstallingJava,
-            target_id: Some(profile.id),
-            message: format!("Java {} wird installiert...", java_version),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let event_id = emit_progress_event(
+        &state,
+        EventType::InstallingJava,
+        profile.id,
+        &format!("Java {} wird installiert...", java_version),
+        0.0,
+        None,
+    ).await?;
 
     // Download and setup Java
     let java_service = JavaDownloadService::new();
@@ -92,33 +112,28 @@ pub async fn install_minecraft_version(
     info!("Java installation path: {:?}", java_path);
 
     // Update progress to 100%
-    state
-        .emit_event(EventPayload {
-            event_id,
-            event_type: EventType::InstallingJava,
-            target_id: Some(profile.id),
-            message: format!("Java {} Installation abgeschlossen!", java_version),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::InstallingJava,
+        profile.id,
+        &format!("Java {} Installation abgeschlossen!", java_version),
+        1.0,
+        None,
+    ).await?;
 
     // Create game directory
     let game_directory = state.profile_manager.get_profile_instance_path(profile.id).await?;
     std::fs::create_dir_all(&game_directory)?;
 
     // Emit libraries download event
-    let libraries_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: libraries_event_id,
-            event_type: EventType::DownloadingLibraries,
-            target_id: Some(profile.id),
-            message: "Libraries werden heruntergeladen...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let libraries_event_id = emit_progress_event(
+        &state,
+        EventType::DownloadingLibraries,
+        profile.id,
+        "Libraries werden heruntergeladen...",
+        0.0,
+        None,
+    ).await?;
 
     // Download all required files
     info!("\nDownloading libraries...");
@@ -128,29 +143,24 @@ pub async fn install_minecraft_version(
         .await?;
     info!("Library download completed!");
 
-    state
-        .emit_event(EventPayload {
-            event_id: libraries_event_id,
-            event_type: EventType::DownloadingLibraries,
-            target_id: Some(profile.id),
-            message: "Libraries Download abgeschlossen!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::DownloadingLibraries,
+        profile.id,
+        "Libraries Download abgeschlossen!",
+        1.0,
+        None,
+    ).await?;
 
     // Emit natives extraction event
-    let natives_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: natives_event_id,
-            event_type: EventType::ExtractingNatives,
-            target_id: Some(profile.id),
-            message: "Natives werden extrahiert...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let natives_event_id = emit_progress_event(
+        &state,
+        EventType::ExtractingNatives,
+        profile.id,
+        "Natives werden extrahiert...",
+        0.0,
+        None,
+    ).await?;
 
     info!("\nExtracting natives...");
     let natives_service = MinecraftNativesDownloadService::new();
@@ -159,29 +169,24 @@ pub async fn install_minecraft_version(
         .await?;
     info!("Native extraction completed!");
 
-    state
-        .emit_event(EventPayload {
-            event_id: natives_event_id,
-            event_type: EventType::ExtractingNatives,
-            target_id: Some(profile.id),
-            message: "Natives Extraktion abgeschlossen!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::ExtractingNatives,
+        profile.id,
+        "Natives Extraktion abgeschlossen!",
+        1.0,
+        None,
+    ).await?;
 
     // Emit assets download event
-    let assets_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: assets_event_id,
-            event_type: EventType::DownloadingAssets,
-            target_id: Some(profile.id),
-            message: "Assets werden heruntergeladen...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let assets_event_id = emit_progress_event(
+        &state,
+        EventType::DownloadingAssets,
+        profile.id,
+        "Assets werden heruntergeladen...",
+        0.0,
+        None,
+    ).await?;
 
     info!("\nDownloading assets...");
     let assets_service = MinecraftAssetsDownloadService::new();
@@ -190,29 +195,24 @@ pub async fn install_minecraft_version(
         .await?;
     info!("Asset download completed!");
 
-    state
-        .emit_event(EventPayload {
-            event_id: assets_event_id,
-            event_type: EventType::DownloadingAssets,
-            target_id: Some(profile.id),
-            message: "Assets Download abgeschlossen!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::DownloadingAssets,
+        profile.id,
+        "Assets Download abgeschlossen!",
+        1.0,
+        None,
+    ).await?;
 
     // Emit client download event
-    let client_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: client_event_id,
-            event_type: EventType::DownloadingClient,
-            target_id: Some(profile.id),
-            message: "Minecraft Client wird heruntergeladen...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let client_event_id = emit_progress_event(
+        &state,
+        EventType::DownloadingClient,
+        profile.id,
+        "Minecraft Client wird heruntergeladen...",
+        0.0,
+        None,
+    ).await?;
 
     info!("\nDownloading Minecraft client...");
     let client_service = MinecraftClientDownloadService::new();
@@ -221,16 +221,14 @@ pub async fn install_minecraft_version(
         .await?;
     info!("Client download completed!");
 
-    state
-        .emit_event(EventPayload {
-            event_id: client_event_id,
-            event_type: EventType::DownloadingClient,
-            target_id: Some(profile.id),
-            message: "Minecraft Client Download abgeschlossen!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::DownloadingClient,
+        profile.id,
+        "Minecraft Client Download abgeschlossen!",
+        1.0,
+        None,
+    ).await?;
 
     // Create and use Minecraft launcher
     let launcher = MinecraftLauncher::new(java_path.clone(), game_directory.clone(), credentials);
@@ -293,17 +291,14 @@ pub async fn install_minecraft_version(
         };
 
     // --- Step: Ensure profile-defined mods are downloaded/verified in cache ---
-    let mods_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: mods_event_id,
-            event_type: EventType::DownloadingMods,
-            target_id: Some(profile.id),
-            message: "Downloading/Checking Profile Mods... (Phase 1)".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let mods_event_id = emit_progress_event(
+        &state,
+        EventType::DownloadingMods,
+        profile.id,
+        "Downloading/Checking Profile Mods... (Phase 1)",
+        0.0,
+        None,
+    ).await?;
 
     info!(
         "Ensuring profile-defined mods for profile '{}' are downloaded to cache...",
@@ -317,35 +312,28 @@ pub async fn install_minecraft_version(
         "Profile mod cache check/download completed successfully for profile '{}'",
         profile.name
     );
-    state
-        .emit_event(EventPayload {
-            event_id: mods_event_id,
-            event_type: EventType::DownloadingMods,
-            target_id: Some(profile.id),
-            message: "Profile Mods downloaded successfully! (Phase 1)".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    
+    emit_progress_event(
+        &state,
+        EventType::DownloadingMods,
+        profile.id,
+        "Profile Mods downloaded successfully! (Phase 1)",
+        1.0,
+        None,
+    ).await?;
 
     // --- Step: Download mods from selected Norisk Pack (if any) ---
     if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
         // Use the already loaded config
         if let Some(config) = loaded_norisk_config.as_ref() {
-            let norisk_mods_event_id = Uuid::new_v4();
-            state
-                .emit_event(EventPayload {
-                    event_id: norisk_mods_event_id,
-                    event_type: EventType::DownloadingMods,
-                    target_id: Some(profile.id),
-                    message: format!(
-                        "Downloading Norisk Pack '{}' Mods... (Phase 2)",
-                        selected_pack_id
-                    ),
-                    progress: Some(0.0),
-                    error: None,
-                })
-                .await?;
+            let norisk_mods_event_id = emit_progress_event(
+                &state,
+                EventType::DownloadingMods,
+                profile.id,
+                &format!("Downloading Norisk Pack '{}' Mods... (Phase 2)", selected_pack_id),
+                0.0,
+                None,
+            ).await?;
 
             info!(
                 "Downloading mods for selected Norisk Pack '{}'...",
@@ -369,38 +357,28 @@ pub async fn install_minecraft_version(
                         "Norisk Pack '{}' mods download completed successfully.",
                         selected_pack_id
                     );
-                    state
-                        .emit_event(EventPayload {
-                            event_id: norisk_mods_event_id,
-                            event_type: EventType::DownloadingMods,
-                            target_id: Some(profile.id),
-                            message: format!(
-                                "Norisk Pack '{}' Mods downloaded successfully! (Phase 2)",
-                                selected_pack_id
-                            ),
-                            progress: Some(1.0),
-                            error: None,
-                        })
-                        .await?;
+                    emit_progress_event(
+                        &state,
+                        EventType::DownloadingMods,
+                        profile.id,
+                        &format!("Norisk Pack '{}' Mods downloaded successfully! (Phase 2)", selected_pack_id),
+                        1.0,
+                        None,
+                    ).await?;
                 }
                 Err(e) => {
                     error!(
                         "Failed to download Norisk Pack '{}' mods: {}",
                         selected_pack_id, e
                     );
-                    state
-                        .emit_event(EventPayload {
-                            event_id: norisk_mods_event_id,
-                            event_type: EventType::DownloadingMods,
-                            target_id: Some(profile.id),
-                            message: format!(
-                                "Error downloading Norisk Pack '{}' mods!",
-                                selected_pack_id
-                            ),
-                            progress: Some(1.0),
-                            error: Some(e.to_string()),
-                        })
-                        .await?;
+                    emit_progress_event(
+                        &state,
+                        EventType::DownloadingMods,
+                        profile.id,
+                        &format!("Error downloading Norisk Pack '{}' mods!", selected_pack_id),
+                        1.0,
+                        Some(e.to_string()),
+                    ).await?;
                 }
             }
         } else {
@@ -418,17 +396,14 @@ pub async fn install_minecraft_version(
     }
 
     // --- Step: Resolve final mod list for syncing ---
-    let resolve_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: resolve_event_id,
-            event_type: EventType::SyncingMods, // Reuse SyncingMods or add ResolvingMods
-            target_id: Some(profile.id),
-            message: "Resolving final mod list...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let resolve_event_id = emit_progress_event(
+        &state,
+        EventType::SyncingMods,
+        profile.id,
+        "Resolving final mod list...",
+        0.0,
+        None,
+    ).await?;
 
     let mod_cache_dir = LAUNCHER_DIRECTORY.meta_dir().join("mod_cache");
 
@@ -449,29 +424,24 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    state
-        .emit_event(EventPayload {
-            event_id: resolve_event_id,
-            event_type: EventType::SyncingMods,
-            target_id: Some(profile.id),
-            message: format!("Resolved {} mods for sync.", target_mods.len()),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::SyncingMods,
+        profile.id,
+        &format!("Resolved {} mods for sync.", target_mods.len()),
+        1.0,
+        None,
+    ).await?;
 
     // --- Step: Sync mods from cache to profile directory ---
-    let sync_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: sync_event_id,
-            event_type: EventType::SyncingMods,
-            target_id: Some(profile.id),
-            message: "Syncing mods to profile directory... (Phase 3)".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let sync_event_id = emit_progress_event(
+        &state,
+        EventType::SyncingMods,
+        profile.id,
+        "Syncing mods to profile directory... (Phase 3)",
+        0.0,
+        None,
+    ).await?;
 
     info!(
         "Syncing mods from cache to profile directory for '{}'...",
@@ -483,43 +453,36 @@ pub async fn install_minecraft_version(
         .await?;
 
     info!("Mod sync completed for profile '{}'", profile.name);
-    state
-        .emit_event(EventPayload {
-            event_id: sync_event_id,
-            event_type: EventType::SyncingMods,
-            target_id: Some(profile.id),
-            message: "Mod sync complete! (Phase 3)".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::SyncingMods,
+        profile.id,
+        "Mod sync complete! (Phase 3)",
+        1.0,
+        None,
+    ).await?;
 
     // --- Launch Minecraft ---
     // Emit launch event
-    let launch_event_id = Uuid::new_v4();
-    state
-        .emit_event(EventPayload {
-            event_id: launch_event_id,
-            event_type: EventType::LaunchingMinecraft,
-            target_id: Some(profile.id),
-            message: "Minecraft wird gestartet...".to_string(),
-            progress: Some(0.0),
-            error: None,
-        })
-        .await?;
+    let launch_event_id = emit_progress_event(
+        &state,
+        EventType::LaunchingMinecraft,
+        profile.id,
+        "Minecraft wird gestartet...",
+        0.0,
+        None,
+    ).await?;
 
     launcher.launch(&piston_meta, launch_params).await?;
 
-    state
-        .emit_event(EventPayload {
-            event_id: launch_event_id,
-            event_type: EventType::LaunchingMinecraft,
-            target_id: Some(profile.id),
-            message: "Minecraft wurde gestartet!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        })
-        .await?;
+    emit_progress_event(
+        &state,
+        EventType::LaunchingMinecraft,
+        profile.id,
+        "Minecraft wurde gestartet!",
+        1.0,
+        None,
+    ).await?;
 
     Ok(())
 }
