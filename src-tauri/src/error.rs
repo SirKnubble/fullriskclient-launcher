@@ -46,6 +46,9 @@ pub enum AppError {
     
     #[error("Forge error: {0}")]
     ForgeError(String),
+
+    #[error("NeoForge error: {0}")]
+    NeoForgeError(String),
     
     #[error("Profile not found: {0}")]
     ProfileNotFound(Uuid),

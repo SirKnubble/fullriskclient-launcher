@@ -15,6 +15,7 @@ pub enum EventType {
     DownloadingClient,
     InstallingFabric,
     InstallingForge,
+    InstallingNeoForge,
     PatchingForge,
     DownloadingMods,
     SyncingMods,
