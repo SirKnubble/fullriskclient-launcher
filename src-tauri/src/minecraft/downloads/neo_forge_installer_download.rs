@@ -23,11 +23,11 @@ impl NeoForgeInstallerDownloadService {
     }
 
     pub async fn download_installer(&self, version: &str) -> Result<PathBuf> {
-        info!("Downloading Forge installer for version: {}", version);
+        info!("Downloading NeoForge installer for version: {}", version);
 
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
 
@@ -36,7 +36,7 @@ impl NeoForgeInstallerDownloadService {
 
         // Prüfe ob die Datei bereits existiert
         if fs::try_exists(&jar_path).await? {
-            info!("Forge installer already exists at: {}", jar_path.display());
+            info!("NeoForge installer already exists at: {}", jar_path.display());
             return Ok(jar_path);
         }
 
@@ -46,23 +46,23 @@ impl NeoForgeInstallerDownloadService {
         }
 
         // Konstruiere die Download-URL
-        let url = format!("https://maven.minecraftforge.net/{}", maven_path);
+        let url = format!("https://maven.neoforged.net/{}", maven_path);
 
         // Lade die JAR herunter
         info!("Downloading from: {}", url);
         let response = reqwest::get(&url).await.map_err(|e| {
-            AppError::Download(format!("Failed to download Forge installer: {}", e))
+            AppError::Download(format!("Failed to download NeoForge installer: {}", e))
         })?;
 
         if !response.status().is_success() {
             return Err(AppError::Download(format!(
-                "Failed to download Forge installer: Status {}",
+                "Failed to download NeoForge installer: Status {}",
                 response.status()
             )));
         }
 
         let bytes = response.bytes().await.map_err(|e| {
-            AppError::Download(format!("Failed to download Forge installer: {}", e))
+            AppError::Download(format!("Failed to download NeoForge installer: {}", e))
         })?;
 
         // Speichere die JAR-Datei
@@ -70,7 +70,7 @@ impl NeoForgeInstallerDownloadService {
         file.write_all(&bytes).await?;
 
         info!(
-            "Successfully downloaded Forge installer to: {}",
+            "Successfully downloaded NeoForge installer to: {}",
             jar_path.display()
         );
         Ok(jar_path)
@@ -79,7 +79,7 @@ impl NeoForgeInstallerDownloadService {
     pub async fn extract_version_json(&self, version: &str) -> Result<NeoForgeVersion> {
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         let jar_path = self.base_path.join(&maven_path);
@@ -183,7 +183,7 @@ impl NeoForgeInstallerDownloadService {
     ) -> Result<Option<NeoForgeInstallProfile>> {
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         let jar_path = self.base_path.join(&maven_path);
@@ -252,7 +252,7 @@ impl NeoForgeInstallerDownloadService {
     pub async fn extract_data_folder(&self, version: &str) -> Result<()> {
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         let jar_path = self.base_path.join(&maven_path);
@@ -322,7 +322,7 @@ impl NeoForgeInstallerDownloadService {
     pub async fn extract_maven_folder(&self, version: &str) -> Result<()> {
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         let jar_path = self.base_path.join(&maven_path);
@@ -404,7 +404,7 @@ impl NeoForgeInstallerDownloadService {
 
     pub fn get_installer_path(&self, version: &str) -> PathBuf {
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         self.base_path.join(&maven_path)
@@ -412,7 +412,7 @@ impl NeoForgeInstallerDownloadService {
 
     pub fn get_client_path(&self, version: &str) -> PathBuf {
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-client.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-client.jar",
             version, version
         );
         self.base_path.join(&maven_path)
@@ -421,7 +421,7 @@ impl NeoForgeInstallerDownloadService {
     pub async fn extract_jars(&self, version: &str) -> Result<()> {
         // Konstruiere den Maven-Pfad für Forge
         let maven_path = format!(
-            "net/minecraftforge/forge/{}/forge-{}-installer.jar",
+            "net/neoforged/neoforge/{}/neoforge-{}-installer.jar",
             version, version
         );
         let jar_path = self.base_path.join(&maven_path);
