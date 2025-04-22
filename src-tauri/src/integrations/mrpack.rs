@@ -9,12 +9,14 @@ use tokio::io::BufReader;
 use uuid::Uuid;
 use chrono::Utc;
 use std::collections::HashSet;
-use log::{info, error, warn};
+use log::{info, error, warn, debug};
 use sanitize_filename::sanitize;
 use crate::integrations::modrinth;
 use crate::state::state_manager::State;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
+use tempfile::tempdir;
+use reqwest::Client;
 
 /// Represents the overall structure of a modrinth.index.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -509,4 +511,85 @@ pub async fn import_mrpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
     info!("Successfully created and saved profile with ID: {}", profile_id);
 
     Ok(profile_id) // Return the ID of the created profile
+}
+
+/// Downloads a modpack from a URL and returns the temporary file path
+pub async fn download_and_process_mrpack(
+    download_url: &str,
+    file_name: &str,
+) -> Result<Uuid> {
+    info!("Downloading modpack from URL: {}", download_url);
+    
+    // Create a temporary directory
+    let temp_dir = tempdir().map_err(|e| {
+        error!("Failed to create temporary directory: {}", e);
+        AppError::Other(format!("Failed to create temporary directory: {}", e))
+    })?;
+    
+    let temp_file_path = temp_dir.path().join(file_name);
+    debug!("Temporary file path for downloaded modpack: {:?}", temp_file_path);
+    
+    // Create HTTP client
+    let client = Client::new();
+    
+    // Download the file
+    let response = client
+        .get(download_url)
+        .header(
+            "User-Agent",
+            format!(
+                "NoRiskClient-Launcher/{} (support@norisk.gg)",
+                env!("CARGO_PKG_VERSION")
+            ),
+        )
+        .send()
+        .await
+        .map_err(|e| {
+            error!("Failed to download modpack: {}", e);
+            AppError::Download(format!("Failed to download modpack: {}", e))
+        })?;
+    
+    if !response.status().is_success() {
+        return Err(AppError::Download(format!(
+            "Failed to download modpack: HTTP {}",
+            response.status()
+        )));
+    }
+    
+    // Get the bytes
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| {
+            error!("Failed to read modpack bytes: {}", e);
+            AppError::Download(format!("Failed to read modpack bytes: {}", e))
+        })?;
+    
+    // Write the file to temporary location
+    let mut file = File::create(&temp_file_path)
+        .await
+        .map_err(|e| {
+            error!("Failed to create temporary file: {}", e);
+            AppError::Io(e)
+        })?;
+    
+    file.write_all(&bytes)
+        .await
+        .map_err(|e| {
+            error!("Failed to write downloaded data to temporary file: {}", e);
+            AppError::Io(e)
+        })?;
+    
+    debug!("Successfully downloaded modpack to temporary file: {:?}", temp_file_path);
+    
+    // Import the modpack and get profile ID
+    let profile_id = import_mrpack_as_profile(temp_file_path.clone()).await?;
+    info!("Successfully imported modpack as new profile with ID: {}", profile_id);
+    
+    // Keep the temp directory alive until we're done (will be cleaned up when it goes out of scope)
+    // We intentionally drop the TempDir at the end of this function to clean up
+    drop(temp_dir); 
+    
+    // Return the profile ID
+    Ok(profile_id)
 }

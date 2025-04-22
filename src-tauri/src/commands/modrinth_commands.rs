@@ -1,7 +1,10 @@
 use crate::error::{CommandError, AppError};
 use crate::integrations::modrinth::{self, ModrinthProjectContext, search_mods, search_projects, ModrinthSearchHit, ModrinthSearchResponse, get_mod_versions as get_modrinth_versions_api, ModrinthVersion, ModrinthProjectType, ModrinthSortType};
+use crate::integrations::mrpack;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use std::collections::HashMap;
-use serde::Serialize;
+use std::collections::HashSet;
 
 #[tauri::command]
 pub async fn search_modrinth_projects(
@@ -123,4 +126,41 @@ pub async fn get_all_modrinth_versions_for_contexts(
         .collect();
 
     Ok(frontend_results)
+}
+
+/// Download and install a Modrinth modpack from its URL
+#[tauri::command]
+pub async fn download_and_install_modrinth_modpack(
+    project_id: String,
+    version_id: String,
+    file_name: String,
+    download_url: String
+) -> Result<Uuid, CommandError> {
+    log::info!(
+        "Executing download_and_install_modrinth_modpack for project '{}', version '{}'",
+        project_id, version_id
+    );
+    
+    // Ensure the file name has .mrpack extension
+    let file_name = if !file_name.ends_with(".mrpack") {
+        format!("{}.mrpack", file_name)
+    } else {
+        file_name
+    };
+    
+    let profile_id = mrpack::download_and_process_mrpack(&download_url, &file_name)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to download and process modpack: {}", e);
+            CommandError::from(e)
+        })?;
+    
+    // Log success
+    log::info!(
+        "Successfully downloaded and installed modpack '{}' as profile with ID: {}",
+        file_name, profile_id
+    );
+    
+    // Return the new profile ID
+    Ok(profile_id)
 }

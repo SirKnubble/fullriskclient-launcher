@@ -37,7 +37,7 @@ use commands::profile_command::{
 // Use statements for registered commands only
 use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_mod_versions, search_modrinth_mods,
-    search_modrinth_projects,
+    search_modrinth_projects, download_and_install_modrinth_modpack,
 }; // Remove or comment out if not needed
 
 use commands::file_command::{set_file_enabled, delete_file, open_file_directory};
@@ -190,7 +190,8 @@ async fn main() {
             get_quilt_loader_versions,
             set_file_enabled,
             delete_file,
-            open_file_directory
+            open_file_directory,
+            download_and_install_modrinth_modpack
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
