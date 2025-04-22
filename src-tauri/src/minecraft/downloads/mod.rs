@@ -9,8 +9,10 @@ pub mod forge_libraries_download;
 pub mod mod_downloader;
 pub mod norisk_pack_downloader;
 pub mod mod_resolver;
+pub mod neo_forge_installer_download;
 
 pub use forge_installer_download::*;
+pub use neo_forge_installer_download::*;
 pub use forge_libraries_download::*;    
 pub use mod_downloader::ModDownloadService; 
 pub use norisk_pack_downloader::NoriskPackDownloadService; 
