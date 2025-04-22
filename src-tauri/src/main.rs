@@ -13,7 +13,6 @@ mod minecraft;
 mod state;
 mod utils;
 use log::{error, info};
-use minecraft::NeoForgeApi;
 use rand::seq::SliceRandom;
 use std::sync::Arc;
 
@@ -40,6 +39,8 @@ use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_mod_versions, search_modrinth_mods,
     search_modrinth_projects,
 }; // Remove or comment out if not needed
+
+use commands::file_command::{set_file_enabled, delete_file};
 
 #[tokio::main]
 async fn main() {
@@ -185,7 +186,9 @@ async fn main() {
             get_fabric_loader_versions,
             get_forge_versions,
             get_neoforge_versions,
-            get_quilt_loader_versions
+            get_quilt_loader_versions,
+            set_file_enabled,
+            delete_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
