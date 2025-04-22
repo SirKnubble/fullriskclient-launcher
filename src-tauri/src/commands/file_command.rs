@@ -2,6 +2,7 @@ use crate::error::{AppError, CommandError};
 use log::{debug, info};
 use std::path::{PathBuf};
 use tokio::fs;
+use tauri_plugin_opener::OpenerExt;
 
 /// Sets a file as enabled or disabled by adding or removing the .disabled extension
 #[tauri::command]
@@ -113,4 +114,51 @@ pub async fn delete_file(file_path: String) -> Result<(), CommandError> {
 
     info!("Successfully deleted: {}", path.display());
     Ok(())
+}
+
+/// Opens the directory containing a file
+#[tauri::command]
+pub async fn open_file_directory(
+    app_handle: tauri::AppHandle,
+    file_path: String
+) -> Result<(), CommandError> {
+    let path = PathBuf::from(&file_path);
+    info!("Opening directory for file: {}", path.display());
+
+    if !path.exists() {
+        return Err(CommandError::from(AppError::Other(format!(
+            "File not found: {}",
+            path.display()
+        ))));
+    }
+
+    // Get the parent directory
+    let parent_dir = match path.parent() {
+        Some(parent) => parent,
+        None => {
+            return Err(CommandError::from(AppError::Other(
+                "Could not determine parent directory".to_string(),
+            )))
+        }
+    };
+
+    debug!("Opening directory: {}", parent_dir.display());
+
+    // Open the directory with the system file browser
+    match app_handle
+        .opener()
+        .open_path(parent_dir.to_string_lossy(), None::<&str>)
+    {
+        Ok(_) => {
+            info!("Successfully opened directory: {}", parent_dir.display());
+            Ok(())
+        }
+        Err(e) => {
+            info!("Failed to open directory {}: {}", parent_dir.display(), e);
+            Err(CommandError::from(AppError::Other(format!(
+                "Failed to open directory: {}",
+                e
+            ))))
+        }
+    }
 }

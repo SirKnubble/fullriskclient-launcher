@@ -40,7 +40,7 @@ use commands::modrinth_commands::{
     search_modrinth_projects,
 }; // Remove or comment out if not needed
 
-use commands::file_command::{set_file_enabled, delete_file};
+use commands::file_command::{set_file_enabled, delete_file, open_file_directory};
 
 #[tokio::main]
 async fn main() {
@@ -188,7 +188,8 @@ async fn main() {
             get_neoforge_versions,
             get_quilt_loader_versions,
             set_file_enabled,
-            delete_file
+            delete_file,
+            open_file_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

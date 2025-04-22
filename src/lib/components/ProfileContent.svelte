@@ -182,6 +182,23 @@
     }
   }
 
+  // Open the directory containing a pack
+  async function openPackDirectory(path: string) {
+    if (loadingOperation) return;
+    loadingOperation = true;
+    
+    try {
+      await invoke('open_file_directory', {
+        filePath: path
+      });
+    } catch (err) {
+      console.error('Failed to open directory:', err);
+      alert(`Failed to open directory: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      loadingOperation = false;
+    }
+  }
+
   // Setup auto-refresh on mount
   onMount(() => {
     // Initial load
@@ -287,6 +304,14 @@
                 </div>
                 <div class="pack-actions">
                   <button 
+                    class="folder-button" 
+                    title="Open folder"
+                    disabled={loadingOperation}
+                    on:click={() => openPackDirectory(pack.path)}
+                  >
+                    <span class="folder-icon">📁</span>
+                  </button>
+                  <button 
                     class="delete-button" 
                     title="Delete resource pack"
                     disabled={loadingOperation}
@@ -351,6 +376,14 @@
                   </div>
                 </div>
                 <div class="pack-actions">
+                  <button 
+                    class="folder-button" 
+                    title="Open folder"
+                    disabled={loadingOperation}
+                    on:click={() => openPackDirectory(pack.path)}
+                  >
+                    <span class="folder-icon">📁</span>
+                  </button>
                   <button 
                     class="delete-button" 
                     title="Delete shader pack"
@@ -578,12 +611,12 @@
   .pack-actions {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
   }
 
-  .delete-button {
+  .folder-button, .delete-button {
     background: none;
     border: none;
-    color: #dc3545;
     cursor: pointer;
     font-size: 1.2rem;
     padding: 0.25rem 0.5rem;
@@ -594,16 +627,28 @@
     transition: background-color 0.2s;
   }
 
+  .folder-button {
+    color: #0275d8;
+  }
+
+  .folder-button:hover {
+    background-color: rgba(2, 117, 216, 0.1);
+  }
+
+  .delete-button {
+    color: #dc3545;
+  }
+
   .delete-button:hover {
     background-color: rgba(220, 53, 69, 0.1);
   }
 
-  .delete-button:disabled {
+  .folder-button:disabled, .delete-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .trash-icon {
+  .folder-icon, .trash-icon {
     font-size: 1.2rem;
   }
 
