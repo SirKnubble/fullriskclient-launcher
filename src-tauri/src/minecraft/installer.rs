@@ -629,6 +629,7 @@ pub async fn install_minecraft_version(
             .await?;
 
         info!("NeoForge Libraries: {:?}", libraries);
+        let neo_forge_game_arguments = NeoForgeArguments::get_game_arguments(&neoforge_version);
 
         // Setup launch parameters (using determined target_neoforge_version for JVM args)
         launch_params = launch_params
@@ -639,7 +640,7 @@ pub async fn install_minecraft_version(
                 &LAUNCHER_DIRECTORY.meta_dir().join("libraries"),
                 &target_neoforge_version, // Use determined version here
             ))
-            .with_additional_game_args(NeoForgeArguments::get_game_arguments(&neoforge_version))
+            .with_additional_game_args(neo_forge_game_arguments.clone())
             .with_old_minecraft_arguments(neoforge_version.minecraft_arguments.clone());
 
         // Use determined target_neoforge_version for client path and installer path
@@ -678,10 +679,15 @@ pub async fn install_minecraft_version(
                 .await?;
 
             // Use determined custom_client_path
-            launch_params = launch_params.with_custom_client_jar(custom_client_path);
-
-            if piston_meta.id == "1.12.2" {
-                launch_params = launch_params.with_force_include_minecraft_jar(true);
+            if neo_forge_game_arguments.contains(&"neoforgeclient".to_string()) {
+                launch_params = launch_params.with_additional_jvm_args(NeoForgeArguments::get_jvm_arguments(
+                    &neoforge_version,
+                    &LAUNCHER_DIRECTORY.meta_dir().join("libraries"),
+                    // TODO später wenn wir versions namen ändern hier anpassen
+                    piston_meta.id.as_str(), // Use determined version here
+                ));
+            } else {
+                launch_params = launch_params.with_custom_client_jar(custom_client_path);
             }
         } else {
             // Restore full event payload for legacy library download
