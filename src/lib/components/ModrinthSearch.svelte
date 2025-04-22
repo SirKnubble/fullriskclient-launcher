@@ -11,8 +11,22 @@
 
   // --- Interfaces matching Rust structs --- 
 
+  // Project types enum matching backend
+  type ModrinthProjectType = "mod" | "modpack" | "resourcepack" | "shader" | "datapack";
+
+  // Sort type enum matching backend
+  type ModrinthSortType = "relevance" | "downloads" | "follows" | "newest" | "updated";
+
+  interface ModrinthSearchResponse {
+    hits: ModrinthSearchHit[];
+    offset: number;
+    limit: number;
+    total_hits: number;
+  }
+
   interface ModrinthSearchHit {
     project_id: string;
+    project_type: string;
     slug: string;
     title: string;
     description: string;
@@ -72,9 +86,35 @@
   // --- Component State --- 
 
   let searchTerm = '';
-  let searchResults: ModrinthSearchHit[] = []; // Renamed from 'results'
-  let searchLoading = false; // Renamed from 'isLoading'
-  let searchError: string | null = null; // Renamed from 'error'
+  let searchResults: ModrinthSearchHit[] = []; // Results from search
+  let searchResponse: ModrinthSearchResponse | null = null; // Full response including pagination info
+  let searchLoading = false;
+  let searchError: string | null = null;
+
+  // Project type tabs
+  let selectedProjectType: ModrinthProjectType = "mod"; // Default to mods
+  const projectTypes: {type: ModrinthProjectType, label: string}[] = [
+    { type: "mod", label: "Mods" },
+    { type: "modpack", label: "Modpacks" },
+    { type: "resourcepack", label: "Resource Packs" },
+    { type: "datapack", label: "Datapacks" },
+    { type: "shader", label: "Shaders" }
+  ];
+
+  // Sorting options
+  let selectedSortType: ModrinthSortType = "relevance"; // Default to relevance
+  const sortOptions: {type: ModrinthSortType, label: string}[] = [
+    { type: "relevance", label: "Relevance" },
+    { type: "downloads", label: "Downloads" },
+    { type: "follows", label: "Followers" },
+    { type: "newest", label: "Newest" },
+    { type: "updated", label: "Recently Updated" }
+  ];
+
+  // Pagination
+  let currentPage = 0;
+  let pageSize = 20; // Items per page
+  let totalPages = 0;
 
   let selectedProjectId: string | null = null; // Track which project's versions are shown
   let modVersions: ModrinthVersion[] = [];
@@ -91,6 +131,7 @@
   // Get filter values reactively from the selected profile
   $: currentGameVersionFilter = filterByProfile ? $selectedProfile?.game_version : undefined;
   $: currentLoaderFilter = filterByProfile ? $selectedProfile?.loader : undefined;
+  $: totalPages = searchResponse ? Math.ceil(searchResponse.total_hits / pageSize) : 0;
 
   // --- Functions --- 
 
@@ -105,34 +146,71 @@
   }
 
   // Search function
-  async function performSearch() {
+  async function performSearch(resetPagination = true) {
     searchLoading = true;
     searchError = null;
+    
+    // Reset pagination if this is a new search
+    if (resetPagination) {
+      currentPage = 0;
+    }
 
     const gameVersion = currentGameVersionFilter; // Use derived value
     const loader = currentLoaderFilter; // Use derived value
+    const offset = currentPage * pageSize;
 
-    console.log(`Performing search: query='${searchTerm.trim()}', gameVersion=${gameVersion ?? 'N/A'}, loader=${loader ?? 'N/A'}`);
+    console.log(`Performing search: query='${searchTerm.trim()}', type=${selectedProjectType}, gameVersion=${gameVersion ?? 'N/A'}, loader=${loader ?? 'N/A'}, page=${currentPage}, sort=${selectedSortType}`);
 
     try {
-      const resultsData = await invoke<ModrinthSearchHit[]>('search_modrinth_mods', {
+      // Use the new command with pagination and sorting
+      const response = await invoke<ModrinthSearchResponse>('search_modrinth_projects', {
         query: searchTerm.trim(),
-        limit: 25,
+        projectType: selectedProjectType,
         gameVersion: gameVersion,
-        loader: loader
+        loader: loader,
+        limit: pageSize,
+        offset: offset,
+        sort: selectedSortType
       });
-      searchResults = resultsData;
+      
+      searchResponse = response;
+      searchResults = response.hits;
+      
       // Clear version display when performing a new search
       selectedProjectId = null;
       modVersions = [];
       versionsError = null;
+      
+      console.log(`Found ${response.total_hits} total results, showing ${response.hits.length} items (page ${currentPage + 1}/${totalPages})`);
     } catch (err) {
       console.error("Modrinth search failed:", err);
       searchError = `Search failed: ${err instanceof Error ? err.message : String(err)}`;
       searchResults = [];
+      searchResponse = null;
     } finally {
       searchLoading = false;
     }
+  }
+
+  // Function to handle pagination
+  function changePage(newPage: number) {
+    if (newPage < 0 || newPage >= totalPages) return;
+    currentPage = newPage;
+    performSearch(false); // Don't reset pagination when changing pages
+  }
+  
+  // Function to change project type
+  function changeProjectType(newType: ModrinthProjectType) {
+    if (selectedProjectType === newType) return;
+    selectedProjectType = newType;
+    performSearch(true); // Reset pagination when changing project type
+  }
+  
+  // Function to change sort type
+  function changeSortType(newSort: ModrinthSortType) {
+    if (selectedSortType === newSort) return;
+    selectedSortType = newSort;
+    performSearch(true); // Reset pagination when changing sort
   }
 
   // Fetch and display versions for a project
@@ -256,7 +334,7 @@
 </script>
 
 <div class="modrinth-search-container">
-  <h2>Search Mods on Modrinth</h2>
+  <h2>Search on Modrinth</h2>
 
   <div class="search-bar">
     <input
@@ -264,17 +342,39 @@
       bind:value={searchTerm}
       on:input={debouncedSearch}
       on:keydown={handleKeydown}
-      placeholder="Enter mod name (or leave empty for popular)"
+      placeholder="Enter search term (or leave empty for popular)"
       aria-busy={searchLoading}
       aria-describedby="search-status"
       class:loading={searchLoading}
        />
-    <button on:click={performSearch} disabled={searchLoading}>
+    <button on:click={() => performSearch(true)} disabled={searchLoading}>
       {#if searchLoading} Searching... {:else} Search {/if}
     </button>
     {#if searchLoading}
       <span id="search-status" role="status" class="loading-indicator"> Loading...</span>
     {/if}
+  </div>
+
+  <!-- Project Type Tabs -->
+  <div class="project-type-tabs">
+    {#each projectTypes as tab}
+      <button 
+        class="tab-button {selectedProjectType === tab.type ? 'active' : ''}"
+        on:click={() => changeProjectType(tab.type)}
+      >
+        {tab.label}
+      </button>
+    {/each}
+  </div>
+
+  <!-- Sorting Options -->
+  <div class="sort-options">
+    <label for="sort-select">Sort by: </label>
+    <select id="sort-select" bind:value={selectedSortType} on:change={() => performSearch(true)}>
+      {#each sortOptions as option}
+        <option value={option.type}>{option.label}</option>
+      {/each}
+    </select>
   </div>
 
   <!-- Profile Selector integrated here -->
@@ -283,7 +383,7 @@
   <!-- Display selected profile or prompt -->
   <div class="profile-status">
     {#if $selectedProfile}
-      <p>Adding mods to profile: <strong>{$selectedProfile.name}</strong></p>
+      <p>Adding to profile: <strong>{$selectedProfile.name}</strong></p>
     {:else}
       <p class="info-message">Select a profile from the dropdown to enable adding mods.</p>
     {/if}
@@ -296,7 +396,6 @@
       {#if currentGameVersionFilter}<span>MC {currentGameVersionFilter}</span>{/if}
       {#if currentGameVersionFilter && currentLoaderFilter},{/if}
       {#if currentLoaderFilter}<span>{currentLoaderFilter}</span>{/if}
-      <!-- TODO: Add button/checkbox to disable filtering -->
     {:else if filterByProfile}
       (Select a profile to apply filters)
     {/if}
@@ -384,7 +483,7 @@
                                   {:else if currentAddState === 'error'}
                                     Retry Add
                                   {:else}
-                                    Add <!-- {downloadFilename} -->
+                                    Add
                                   {/if}
                               </button>
                               <a 
@@ -413,11 +512,52 @@
         </li>
       {/each}
     </ul>
+
+    <!-- Pagination Controls -->
+    {#if searchResponse && searchResponse.total_hits > pageSize}
+      <div class="pagination-controls">
+        <button 
+          on:click={() => changePage(0)} 
+          disabled={currentPage === 0 || searchLoading}
+          class="pagination-button"
+        >
+          First
+        </button>
+        <button 
+          on:click={() => changePage(currentPage - 1)} 
+          disabled={currentPage === 0 || searchLoading}
+          class="pagination-button"
+        >
+          Previous
+        </button>
+        
+        <span class="pagination-info">Page {currentPage + 1} of {totalPages}</span>
+        
+        <button 
+          on:click={() => changePage(currentPage + 1)} 
+          disabled={currentPage >= totalPages - 1 || searchLoading}
+          class="pagination-button"
+        >
+          Next
+        </button>
+        <button 
+          on:click={() => changePage(totalPages - 1)} 
+          disabled={currentPage >= totalPages - 1 || searchLoading}
+          class="pagination-button"
+        >
+          Last
+        </button>
+      </div>
+      <div class="pagination-summary">
+        Showing {searchResponse.offset + 1}-{Math.min(searchResponse.offset + searchResponse.hits.length, searchResponse.total_hits)} of {searchResponse.total_hits} results
+      </div>
+    {/if}
+
    {:else if !searchLoading && !searchError}
      {#if searchTerm.trim()}
        <p>No results found for "{searchTerm}".</p>
      {:else}
-       <p>Enter a search term or browse popular mods.</p>
+       <p>Enter a search term or browse popular content.</p>
      {/if}
    {/if}
 </div>
@@ -457,6 +597,86 @@
   .search-bar button:hover:not(:disabled) {
     background-color: #0056b3;
   }
+  
+  /* Project Type Tabs */
+  .project-type-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2em;
+    margin-bottom: 1em;
+    border-bottom: 1px solid #ddd;
+  }
+  .tab-button {
+    padding: 0.5em 1em;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .tab-button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+  }
+  .tab-button:hover:not(.active) {
+    background-color: #e9ecef;
+  }
+  
+  /* Sort Options */
+  .sort-options {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-bottom: 1em;
+  }
+  .sort-options label {
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+  .sort-options select {
+    padding: 0.3em 0.5em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+  }
+  
+  /* Pagination Controls */
+  .pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5em;
+    margin-top: 1em;
+    flex-wrap: wrap;
+  }
+  .pagination-button {
+    padding: 0.3em 0.6em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .pagination-button:hover:not(:disabled) {
+    background-color: #e9ecef;
+  }
+  .pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-info {
+    padding: 0.3em 0.6em;
+    font-size: 0.9em;
+  }
+  .pagination-summary {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 0.5em;
+  }
+  
   .error-message {
     color: #d9534f;
     margin-top: 1em;

@@ -1,7 +1,41 @@
 use crate::error::{CommandError, AppError};
-use crate::integrations::modrinth::{self, ModrinthProjectContext, search_mods, ModrinthSearchHit, get_mod_versions as get_modrinth_versions_api, ModrinthVersion};
+use crate::integrations::modrinth::{self, ModrinthProjectContext, search_mods, search_projects, ModrinthSearchHit, ModrinthSearchResponse, get_mod_versions as get_modrinth_versions_api, ModrinthVersion, ModrinthProjectType, ModrinthSortType};
 use std::collections::HashMap;
 use serde::Serialize;
+
+#[tauri::command]
+pub async fn search_modrinth_projects(
+    query: String,
+    project_type: ModrinthProjectType,
+    game_version: Option<String>,
+    loader: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+    sort: Option<ModrinthSortType>,
+) -> Result<ModrinthSearchResponse, CommandError> {
+    log::debug!(
+        "Received search_modrinth_projects command: query={}, project_type={:?}, version={}, loader={}, limit={:?}, offset={:?}, sort={:?}",
+        query,
+        project_type,
+        game_version.as_deref().unwrap_or("None"),
+        loader.as_deref().unwrap_or("None"),
+        limit,
+        offset,
+        sort
+    );
+
+    let result = search_projects(
+        query,
+        project_type,
+        game_version,
+        loader,
+        limit,
+        offset,
+        sort
+    ).await.map_err(CommandError::from)?;
+    
+    Ok(result)
+}
 
 #[tauri::command]
 pub async fn search_modrinth_mods(

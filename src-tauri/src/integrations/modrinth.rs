@@ -131,13 +131,62 @@ pub struct ModrinthProjectContext {
     // pub current_version_id: Option<String>, 
 }
 
-// Function to search for mods on Modrinth
-pub async fn search_mods(
+// Enum for project types
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ModrinthProjectType {
+    Mod,
+    Modpack,
+    ResourcePack,
+    Shader,
+    Datapack,
+}
+
+impl ModrinthProjectType {
+    pub fn to_string(&self) -> String {
+        match self {
+            ModrinthProjectType::Mod => "mod".to_string(),
+            ModrinthProjectType::Modpack => "modpack".to_string(),
+            ModrinthProjectType::ResourcePack => "resourcepack".to_string(),
+            ModrinthProjectType::Shader => "shader".to_string(),
+            ModrinthProjectType::Datapack => "datapack".to_string(),
+        }
+    }
+}
+
+// Enum for sort options
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ModrinthSortType {
+    Relevance,
+    Downloads,
+    Follows,
+    Newest,
+    Updated,
+}
+
+impl ModrinthSortType {
+    pub fn to_string(&self) -> String {
+        match self {
+            ModrinthSortType::Relevance => "relevance".to_string(),
+            ModrinthSortType::Downloads => "downloads".to_string(),
+            ModrinthSortType::Follows => "follows".to_string(),
+            ModrinthSortType::Newest => "newest".to_string(),
+            ModrinthSortType::Updated => "updated".to_string(),
+        }
+    }
+}
+
+// Function to search for projects on Modrinth
+pub async fn search_projects(
     query: String,
+    project_type: ModrinthProjectType,
     game_version: Option<String>,
     loader: Option<String>,
     limit: Option<u32>,
-) -> Result<Vec<ModrinthSearchHit>> {
+    offset: Option<u32>,
+    sort: Option<ModrinthSortType>,
+) -> Result<ModrinthSearchResponse> {
     let client = reqwest::Client::new();
     let base_url = format!("{}/search", MODRINTH_API_BASE_URL);
 
@@ -151,9 +200,23 @@ pub async fn search_mods(
     query_params.push(("limit".to_string(), limit.unwrap_or(20).to_string()));
     log::debug!("Modrinth search - Limit: {}", query_params.last().unwrap().1);
 
+    // Add offset for pagination (default is 0)
+    if let Some(offset_value) = offset {
+        query_params.push(("offset".to_string(), offset_value.to_string()));
+        log::debug!("Modrinth search - Offset: {}", offset_value);
+    }
+
+    // Add sorting
+    if let Some(sort_type) = sort {
+        query_params.push(("index".to_string(), sort_type.to_string()));
+        log::debug!("Modrinth search - Sort: {}", sort_type.to_string());
+    }
+
     // Construct facets for filtering
     let mut facets: Vec<String> = Vec::new();
-    facets.push("project_type:mod".to_string()); // Always search for mods
+    
+    // Add project type facet
+    facets.push(format!("project_type:{}", project_type.to_string())); 
 
     if let Some(gv) = game_version {
         let version_facet = format!("versions:{}", gv);
@@ -202,12 +265,30 @@ pub async fn search_mods(
         )));
     }
 
-    let search_result = response
+    response
         .json::<ModrinthSearchResponse>()
         .await
-        .map_err(|e| AppError::Other(format!("Failed to parse Modrinth response: {}", e)))?;
+        .map_err(|e| AppError::Other(format!("Failed to parse Modrinth response: {}", e)))
+}
 
-    Ok(search_result.hits)
+// Keep the old function for backward compatibility
+pub async fn search_mods(
+    query: String,
+    game_version: Option<String>,
+    loader: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<ModrinthSearchHit>> {
+    let result = search_projects(
+        query,
+        ModrinthProjectType::Mod,
+        game_version,
+        loader,
+        limit,
+        None,
+        None,
+    ).await?;
+    
+    Ok(result.hits)
 }
 
 // Function to get versions for a specific Modrinth project

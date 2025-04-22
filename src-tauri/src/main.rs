@@ -38,6 +38,7 @@ use commands::profile_command::{
 // Use statements for registered commands only
 use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_mod_versions, search_modrinth_mods,
+    search_modrinth_projects,
 }; // Remove or comment out if not needed
 
 #[tokio::main]
@@ -160,8 +161,9 @@ async fn main() {
             get_active_account,
             set_active_account,
             get_accounts,
-            search_modrinth_mods,      // Explicitly not registered
-            get_modrinth_mod_versions, // Explicitly not registered
+            search_modrinth_mods,
+            search_modrinth_projects,
+            get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             set_profile_mod_enabled,
             delete_mod_from_profile,
