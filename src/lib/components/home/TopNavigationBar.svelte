@@ -1,11 +1,45 @@
 <script lang="ts">
-    import { activeTab, TABS } from "$lib/utils/navigationUtils";
+    import { activeTab } from "$lib/utils/navigationUtils";
+  import { translations } from "$lib/utils/translationUtils";
+
+    $: lang = $translations;
+
+    let TABS = [
+        {
+            name: lang.navbar.settings,
+            onClick: () => selectTab('settings')
+        },
+        {
+            name: lang.navbar.skins,
+            onClick: () => selectTab('skins')
+        },
+        {
+            name: lang.navbar.capes,
+            onClick: () => selectTab('capes')
+        },
+        {
+            name: lang.navbar.play,
+            onClick: () => selectTab('play')
+        },
+        {
+            name: lang.navbar.profiles,
+            onClick: () => selectTab('profiles')
+        },
+        {
+            name: lang.navbar.addons,
+            onClick: () => selectTab('addons')
+        },
+        {
+            name: lang.navbar.quit,
+            onClick: () => {}
+        }
+    ];
 </script>
 
 <div class="top-navbar-root" data-tauri-drag-region>
     {#each TABS as tab, i}
-        <div class="tab" on:click={tab.onClick}>
-            <p class="name" class:quit={tab.name == 'quit'} class:active={$activeTab == tab.name}>{tab.name}</p>
+        <div class="tab">
+            <p class="name" on:click={tab.onClick} class:quit={tab.slug == 'quit'} class:active={$activeTab == tab.slug}>{tab.name}</p>
             {#if i != TABS.length - 1}
                 <p class="seperator">|</p>
             {/if}
@@ -26,12 +60,13 @@
     .tab {
         display: flex;
         flex-direction: row;
-        cursor: pointer;
         height: 80%;
     }
 
     .tab .name {
         font-size: 50px;
+        cursor: pointer;
+        padding: 0 25px;
     }
 
     .tab .name:hover {
@@ -49,7 +84,6 @@
     }
     
     .tab .seperator {
-        margin: 0 30px;
         font-size: 50px;
     }
 </style>

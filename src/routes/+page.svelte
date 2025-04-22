@@ -3,21 +3,34 @@
 	import Play from './../lib/pages/Play.svelte';
 	import TopNavigationBar from '../lib/components/home/TopNavigationBar.svelte';
     import { activeTab } from '$lib/utils/navigationUtils';
+    import { onMount, tick } from 'svelte';
+    import { setLanguage, translations } from '$lib/utils/translationUtils';
+    import { get } from 'svelte/store';
+
+    $: lang = $translations;
+    
+    onMount(() => {
+        setLanguage('en_US');
+        console.log(lang);
+        
+    });
 </script>
 
-<div class="window">
-    <div class="drag-bar">
-        <TopNavigationBar />
+{#if lang?.dummy}
+    <div class="window">
+        <div class="drag-bar">
+            <!-- <TopNavigationBar /> -->
+        </div>
+        <div class="content">
+            {#if $activeTab == 'play'}
+                <Play />
+            {:else if $activeTab == 'capes'}
+                <Capes />
+            {/if}
+        </div>
+        <div class="drag-bar" data-tauri-drag-region />
     </div>
-    <div class="content">
-        {#if $activeTab == 'play'}
-            <Play />
-        {:else if $activeTab == 'capes'}
-            <Capes />
-        {/if}
-    </div>
-    <div class="drag-bar" data-tauri-drag-region />
-</div>
+{/if}
 
 <style>
     .window {
