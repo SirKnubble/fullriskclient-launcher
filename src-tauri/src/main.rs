@@ -29,7 +29,7 @@ use commands::minecraft_command::{
 };
 use commands::profile_command::{
     add_modrinth_mod_to_profile, create_profile, delete_custom_mod, delete_mod_from_profile,
-    delete_profile, get_custom_mods, get_norisk_packs, get_profile, get_system_ram_mb,
+    delete_profile, get_custom_mods, get_local_resourcepacks, get_local_shaderpacks, get_norisk_packs, get_profile, get_system_ram_mb,
     import_local_mods, import_profile_from_file, launch_profile, list_profiles,
     open_profile_folder, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
     set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
@@ -173,6 +173,8 @@ async fn main() {
             get_all_modrinth_versions_for_contexts,
             get_full_log,
             get_custom_mods,
+            get_local_resourcepacks,
+            get_local_shaderpacks,
             set_custom_mod_enabled,
             import_local_mods,
             get_system_ram_mb,

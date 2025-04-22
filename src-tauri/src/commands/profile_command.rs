@@ -17,6 +17,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tokio::fs as TokioFs;
 use uuid::Uuid;
+use crate::utils::{resourcepack_utils, shaderpack_utils};
 
 // DTOs für Command-Parameter
 #[derive(Deserialize)]
@@ -567,4 +568,34 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         log::info!("User cancelled the file import dialog.");
         Ok(())
     }
+}
+
+// Command to get all resourcepacks in a profile
+#[tauri::command]
+pub async fn get_local_resourcepacks(profile_id: Uuid) -> Result<Vec<resourcepack_utils::ResourcePackInfo>, CommandError> {
+    log::info!("Executing get_local_resourcepacks command for profile {}", profile_id);
+    
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    
+    // Use the utility function to get all resourcepacks
+    let resourcepacks = resourcepack_utils::get_resourcepacks_for_profile(&profile).await
+        .map_err(|e| CommandError::from(e))?;
+    
+    Ok(resourcepacks)
+}
+
+// Command to get all shaderpacks in a profile
+#[tauri::command]
+pub async fn get_local_shaderpacks(profile_id: Uuid) -> Result<Vec<shaderpack_utils::ShaderPackInfo>, CommandError> {
+    log::info!("Executing get_local_shaderpacks command for profile {}", profile_id);
+    
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    
+    // Use the utility function to get all shaderpacks
+    let shaderpacks = shaderpack_utils::get_shaderpacks_for_profile(&profile).await
+        .map_err(|e| CommandError::from(e))?;
+    
+    Ok(shaderpacks)
 }
