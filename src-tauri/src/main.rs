@@ -27,20 +27,21 @@ use commands::minecraft_command::{
     get_quilt_loader_versions, upload_log_to_mclogs_command,
 };
 use commands::profile_command::{
-    add_modrinth_mod_to_profile, create_profile, delete_custom_mod, delete_mod_from_profile,
-    delete_profile, get_custom_mods, get_local_resourcepacks, get_local_shaderpacks, get_norisk_packs, get_profile, get_system_ram_mb,
-    import_local_mods, import_profile_from_file, launch_profile, list_profiles,
-    open_profile_folder, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
-    set_profile_mod_enabled, update_modrinth_mod_version, update_profile, add_modrinth_content_to_profile,
+    add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
+    delete_custom_mod, delete_mod_from_profile, delete_profile, get_custom_mods,
+    get_local_resourcepacks, get_local_shaderpacks, get_norisk_packs, get_profile,
+    get_standard_profiles, get_system_ram_mb, import_local_mods, import_profile_from_file,
+    launch_profile, list_profiles, open_profile_folder, search_profiles, set_custom_mod_enabled,
+    set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
 };
 
 // Use statements for registered commands only
 use commands::modrinth_commands::{
-    get_all_modrinth_versions_for_contexts, get_modrinth_mod_versions, search_modrinth_mods,
-    search_modrinth_projects, download_and_install_modrinth_modpack,
+    download_and_install_modrinth_modpack, get_all_modrinth_versions_for_contexts,
+    get_modrinth_mod_versions, search_modrinth_mods, search_modrinth_projects,
 }; // Remove or comment out if not needed
 
-use commands::file_command::{set_file_enabled, delete_file, open_file_directory};
+use commands::file_command::{delete_file, open_file_directory, set_file_enabled};
 
 #[tokio::main]
 async fn main() {
@@ -191,7 +192,8 @@ async fn main() {
             set_file_enabled,
             delete_file,
             open_file_directory,
-            download_and_install_modrinth_modpack
+            download_and_install_modrinth_modpack,
+            get_standard_profiles,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

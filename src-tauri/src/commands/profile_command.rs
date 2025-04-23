@@ -2,6 +2,7 @@ use crate::error::{AppError, CommandError};
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
+use crate::integrations::norisk_versions::{self, NoriskVersionsConfig};
 use crate::minecraft::installer;
 use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState};
@@ -228,6 +229,14 @@ pub async fn search_profiles(query: String) -> Result<Vec<Profile>, CommandError
     let state = State::get().await?;
     let profiles = state.profile_manager.search_profiles(&query).await?;
     Ok(profiles)
+}
+
+/// Loads and returns the list of standard profiles from the local configuration file.
+#[tauri::command]
+pub async fn get_standard_profiles() -> Result<NoriskVersionsConfig, CommandError> {
+    info!("Executing get_standard_profiles command");
+    let profiles_config = norisk_versions::load_local_standard_profiles().await?;
+    Ok(profiles_config)
 }
 
 #[tauri::command]
