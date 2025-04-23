@@ -1,11 +1,15 @@
 <script lang="ts">
     import SlidingPageWrapper from '$lib/components/SlidingPageWrapper.svelte';
     import VersionBackground from '$lib/images/versions/1.21.webp';
-    import { IdleAnimation, NameTagObject, SkinViewer } from "skinview3d";
+    import { translations } from '$lib/utils/translationUtils';
+    import { IdleAnimation, SkinViewer } from "skinview3d";
     import { onMount } from 'svelte';
+
+    $: lang = $translations;
 
     let skinViewer: SkinViewer;
     let launchButtonHovered = false;
+    let launchButtonVisible = true;
 
     onMount(() => {
         const canvas = document.createElement("canvas");
@@ -28,8 +32,13 @@
     <img class="image" src={VersionBackground} alt="Background Image">
     <!-- svelte-ignore element_invalid_self_closing_tag -->
     <div class="skin" class:levetating={launchButtonHovered} id="skin" />
-    <div class="play-button" onmouseenter={launchButtonHovered = true} onmouseleave={launchButtonHovered = false}>
-        <p class="launch-text">launch</p>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="play-button" onmouseenter={() => launchButtonHovered = true} onmouseleave={() => launchButtonHovered = false}>
+        <p class="launch-text">{lang.play.button.launch}</p>
+        {#if launchButtonHovered}
+            <div class="spacer" />
+            <p class="dropdown-arrow">></p>
+        {/if}
     </div>
 </SlidingPageWrapper>
 
@@ -40,11 +49,12 @@
         max-height: calc(100% - 2 * 35px);
         object-fit: cover;
         border: var(--primary-color) 6.5px solid;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0.35));
     }
 
     .skin {
         position: absolute;
-        bottom: 10px;
+        bottom: 20px;
     }
 
     .skin.levetating {
@@ -52,14 +62,16 @@
     }
 
     .play-button {
-        position: absolute;
+        position: fixed !important;
         width: 250px;
-        height: 80px;
-        bottom: 10px;
+        height: 65px;
+        bottom: 15px;
         display: flex;
         z-index: 100;
         justify-content: center;
         align-items: center;
+        display: flex;
+        flex-direction: row;
         background-color: var(--secondary-color);
         border: var(--primary-color) 6.5px solid;
         cursor: pointer;
@@ -78,5 +90,25 @@
     .play-button:hover .launch-text {
         color: var(--hover-color);
         transform: scaleX(1.1);
+    }
+
+    .play-button .spacer {
+        width: 2px;
+        height: 60%;
+        margin: 0 20px;
+        background-color: var(--primary-color);
+    }
+
+    .play-button .dropdown-arrow {
+        margin-top: 5px;
+        font-size: 70px;
+        margin-left: 12.5px;
+        transform: rotateZ(90deg);
+        color: var(--background-color);
+    }
+
+    .dropdown-arrow:hover {
+        color: var(--hover-color);
+        transform: rotateZ(90deg) scale(1.1);
     }
 </style>

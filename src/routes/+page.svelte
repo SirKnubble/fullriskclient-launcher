@@ -1,25 +1,27 @@
 <script lang="ts">
 	import Capes from './../lib/pages/Capes.svelte';
 	import Play from './../lib/pages/Play.svelte';
-	import TopNavigationBar from '../lib/components/home/TopNavigationBar.svelte';
     import { activeTab } from '$lib/utils/navigationUtils';
-    import { onMount, tick } from 'svelte';
+    import { onMount } from 'svelte';
     import { setLanguage, translations } from '$lib/utils/translationUtils';
-    import { get } from 'svelte/store';
+    import TopNavigationBar from '$lib/components/home/TopNavigationBar.svelte';
+    import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
 
     $: lang = $translations;
     
     onMount(() => {
         setLanguage('en_US');
-        console.log(lang);
-        
+
+        setTimeout(() => {
+            launcherStartCompleted.set(true);
+        }, 1000);
     });
 </script>
 
 {#if lang?.dummy}
     <div class="window">
         <div class="drag-bar">
-            <!-- <TopNavigationBar /> -->
+            <TopNavigationBar />
         </div>
         <div class="content">
             {#if $activeTab == 'play'}
@@ -28,6 +30,7 @@
                 <Capes />
             {/if}
         </div>
+        <!-- svelte-ignore element_invalid_self_closing_tag -->
         <div class="drag-bar" data-tauri-drag-region />
     </div>
 {/if}
@@ -40,11 +43,12 @@
         width: 1200px;
         height: 800px;
         background-color: var(--background-color);
+        overflow: hidden;
     }
 
     .drag-bar {
         width: 100%;
-        height: 8%;
+        height: 8.5%;
         background-color: var(--background-contrast-color);
     }
 
@@ -53,6 +57,6 @@
         align-items: center;
         justify-content: center;
         width: 100%;
-        height: 84%;
+        height: 83%;
     }
 </style>

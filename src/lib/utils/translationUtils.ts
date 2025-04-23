@@ -3,11 +3,8 @@ import { writable, type Writable } from "svelte/store";
 let translationCache: { [key: string]: any } = {};
 
 export const language = writable("en_US");
-export const translations: Writable<{ [key: string]: any } | null> = writable(null);
+export const translations: Writable<{ [key: string]: any }> = writable({});
 
-/**
- * @param {string} lang
- */
 export function setLanguage(lang: string) {
     language.set(lang);
     if (translationCache[lang]) {

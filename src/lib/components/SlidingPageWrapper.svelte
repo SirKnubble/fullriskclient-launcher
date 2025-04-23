@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { launcherStartCompleted } from "$lib/utils/missilaniousUtils";
     import { closeTabDirection, resetCloseTabDirection } from "$lib/utils/navigationUtils";
     import { onMount } from "svelte";
 
@@ -23,8 +24,21 @@
     });
 
     onMount(() => {
+        
         const root = document.getElementById(`${page}-root`);
         if (root) {
+            if (!$launcherStartCompleted) {
+                return root.animate(
+                    [
+                        { transform: 'translateX(0)' }
+                    ],
+                    {
+                        duration: 1,
+                        easing: 'ease-out',
+                        fill: 'forwards'
+                    }
+                );
+            };
             root.animate(
                 [
                     { transform: `translateX(${$closeTabDirection == 'right' ? '-100%' : '100%'})` },
@@ -53,15 +67,5 @@
         width: 100%;
         height: 100%;
         transition-duration: 0.2s;
-    }
-
-    .active-sliding-page-root.slide-right {
-        transform: translateX(100%);
-        transition-timing-function: ease-out;
-    }
-
-    .active-sliding-page-root.slide-left {
-        transform: translateX(-100%);
-        transition-timing-function: ease-out;
     }
 </style>
