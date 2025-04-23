@@ -7,6 +7,7 @@
     import FileNodeViewer from './FileNodeViewer.svelte'; // Import FileNodeViewer
     import Modal from './Modal.svelte'; // Import Modal component
     import { invoke } from '@tauri-apps/api/core';
+    import { copyProfile } from '$lib/api/profiles';
 
     // Local definition until $lib/types is fixed
     interface CustomModInfo {
@@ -71,6 +72,12 @@
     // Event dispatcher
     import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
+
+    // Neue Variablen für das Kopier-Modal
+    let showCopyProfileModal = $state(false);
+    let newProfileName = $state('');
+    let copyProfileLoading = $state(false);
+    let copyProfileError = $state<string | null>(null);
 
     // Manuelle Logging-Funktion für den Status
     function logStatus() {
@@ -258,6 +265,51 @@
             selectedFiles: [...selectedFiles]
         });
         logStatus(); // Log status nach Statusänderung
+    }
+
+    // Funktion zum Kopieren des Profils mit ausgewählten Dateien
+    async function handleCopyProfile() {
+        if (!newProfileName || !profile || selectedFiles.size === 0) {
+            copyProfileError = 'Bitte einen Namen eingeben und Dateien auswählen';
+            return;
+        }
+        
+        copyProfileError = null;
+        copyProfileLoading = true;
+        
+        try {
+            // Konvertiere Set<string> zu Array für den Tauri-Aufruf
+            const includeFilesArray = Array.from(selectedFiles);
+            const profileNameToUse = newProfileName.trim();
+            
+            // Rufe den copy_profile Command auf
+            const newProfileId = await copyProfile({
+                source_profile_id: profile.id,
+                new_profile_name: profileNameToUse,
+                include_files: includeFilesArray
+            });
+            
+            console.log('Neues Profil erstellt mit ID:', newProfileId);
+            
+            // Modal schließen und Reset
+            showCopyProfileModal = false;
+            newProfileName = '';
+            
+            // Optional: Redirect zur neuen Profilseite oder zeige eine Erfolgsmeldung
+            showSuccessMessage(`Profil "${profileNameToUse}" erfolgreich erstellt`);
+            
+        } catch (error) {
+            console.error('Fehler beim Kopieren des Profils:', error);
+            copyProfileError = `Fehler beim Erstellen des Profils: ${error}`;
+        } finally {
+            copyProfileLoading = false;
+        }
+    }
+    
+    function showSuccessMessage(message: string) {
+        // Hier könntest du eine Toast-Nachricht oder eine andere Benachrichtigung anzeigen
+        console.log(message);
+        // TODO: Implementiere eine richtige Erfolgsbenachrichtigung
     }
 </script>
 
@@ -502,27 +554,68 @@
                 />
             </div>
             
-            {#if selectedFiles.size > 0}
-                <div class="file-actions-bottom">
-                    <div class="selected-count">
-                        {selectedFiles.size} Dateien ausgewählt
-                    </div>
-                    <button class="copy-button" on:click={() => dispatch('copySelectedFiles', { 
-                        profileId: profile.id,
-                        selectedFiles: [...selectedFiles]
-                    })}>
-                        Kopieren
-                    </button>
-                    <button class="delete-button" on:click={() => dispatch('deleteSelectedFiles', { 
-                        profileId: profile.id,
-                        selectedFiles: [...selectedFiles]
-                    })}>
-                        Löschen
-                    </button>
-                </div>
-            {/if}
+            <div class="file-actions-bottom">
+                <span class="selected-count">
+                    {selectedFiles.size} Dateien ausgewählt
+                </span>
+                <button 
+                    class="copy-button" 
+                    disabled={selectedFiles.size === 0}
+                    on:click={() => showCopyProfileModal = true}
+                >
+                    Als Profil kopieren
+                </button>
+                <button 
+                    class="delete-button" 
+                    disabled={selectedFiles.size === 0}
+                >
+                    Ausgewählte Dateien löschen
+                </button>
+            </div>
         </div>
     </Modal>
+
+    <!-- Kopiermodal nach dem vorhandenen FileViewer Modal einfügen: -->
+    {#if showCopyProfileModal}
+        <Modal title="Profil kopieren" show={showCopyProfileModal} on:close={() => showCopyProfileModal = false}>
+            <div class="copy-profile-modal-content">
+                <p>Erstelle ein neues Profil mit nur den ausgewählten Dateien ({selectedFiles.size} ausgewählt).</p>
+                
+                <div class="form-group">
+                    <label for="newProfileName">Name des neuen Profils:</label>
+                    <input 
+                        type="text" 
+                        id="newProfileName" 
+                        bind:value={newProfileName} 
+                        placeholder="Neuer Profilname" 
+                        class="form-control"
+                    />
+                </div>
+                
+                {#if copyProfileError}
+                    <div class="error-message">
+                        {copyProfileError}
+                    </div>
+                {/if}
+                
+                <div class="modal-actions">
+                    <button 
+                        class="secondary-button"
+                        on:click={() => showCopyProfileModal = false}
+                    >
+                        Abbrechen
+                    </button>
+                    <button 
+                        class="primary-button"
+                        disabled={!newProfileName || copyProfileLoading}
+                        on:click={handleCopyProfile}
+                    >
+                        {copyProfileLoading ? 'Kopiere...' : 'Profil erstellen'}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    {/if}
 </div>
 
 <style>
@@ -959,5 +1052,74 @@
 
     .delete-button:hover {
         background-color: #c0392b;
+    }
+
+    /* Styles für das Kopier-Modal */
+    .copy-profile-modal-content {
+        padding: 1rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    
+    .error-message {
+        color: #e74c3c;
+        background-color: #fce4e4;
+        padding: 0.5rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .primary-button, .secondary-button {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .primary-button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+    }
+    
+    .primary-button:hover {
+        background-color: #2980b9;
+    }
+    
+    .primary-button:disabled {
+        background-color: #95a5a6;
+        cursor: not-allowed;
+    }
+    
+    .secondary-button {
+        background-color: #ecf0f1;
+        color: #2c3e50;
+        border: 1px solid #bdc3c7;
+    }
+    
+    .secondary-button:hover {
+        background-color: #bdc3c7;
     }
 </style> 
