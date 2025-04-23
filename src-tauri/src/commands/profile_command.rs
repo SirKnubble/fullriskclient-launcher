@@ -1,13 +1,16 @@
 use crate::error::{AppError, CommandError};
+use crate::integrations::modrinth::ModrinthProjectType;
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
 use crate::integrations::norisk_versions::{self, NoriskVersionsConfig};
 use crate::minecraft::installer;
 use crate::state::profile_state::{
-    default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState};
+    default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState,
+};
 use crate::state::state_manager::State;
 use crate::utils::path_utils::find_unique_profile_segment;
+use crate::utils::{profile_utils, resourcepack_utils, shaderpack_utils};
 use chrono::Utc;
 use log::info;
 use sanitize_filename::sanitize;
@@ -18,8 +21,6 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use tokio::fs as TokioFs;
 use uuid::Uuid;
-use crate::utils::{resourcepack_utils, shaderpack_utils, profile_utils};
-use crate::integrations::modrinth::ModrinthProjectType;
 
 // DTOs für Command-Parameter
 #[derive(Deserialize)]
@@ -563,10 +564,18 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
             // Get state to emit event
             let state = State::get().await?;
             // Emit event to trigger UI update for the newly created profile
-            if let Err(e) = state.event_state.trigger_profile_update(new_profile_id).await {
-                log::error!("Failed to emit TriggerProfileUpdate event for new profile {}: {}", new_profile_id, e);
+            if let Err(e) = state
+                .event_state
+                .trigger_profile_update(new_profile_id)
+                .await
+            {
+                log::error!(
+                    "Failed to emit TriggerProfileUpdate event for new profile {}: {}",
+                    new_profile_id,
+                    e
+                );
             }
-            
+
             Ok(())
         } else {
             log::error!("Selected file is not a .mrpack file: {:?}", file_path_buf);
@@ -582,31 +591,43 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
 
 // Command to get all resourcepacks in a profile
 #[tauri::command]
-pub async fn get_local_resourcepacks(profile_id: Uuid) -> Result<Vec<resourcepack_utils::ResourcePackInfo>, CommandError> {
-    log::info!("Executing get_local_resourcepacks command for profile {}", profile_id);
-    
+pub async fn get_local_resourcepacks(
+    profile_id: Uuid,
+) -> Result<Vec<resourcepack_utils::ResourcePackInfo>, CommandError> {
+    log::info!(
+        "Executing get_local_resourcepacks command for profile {}",
+        profile_id
+    );
+
     let state = State::get().await?;
     let profile = state.profile_manager.get_profile(profile_id).await?;
-    
+
     // Use the utility function to get all resourcepacks
-    let resourcepacks = resourcepack_utils::get_resourcepacks_for_profile(&profile).await
+    let resourcepacks = resourcepack_utils::get_resourcepacks_for_profile(&profile)
+        .await
         .map_err(|e| CommandError::from(e))?;
-    
+
     Ok(resourcepacks)
 }
 
 // Command to get all shaderpacks in a profile
 #[tauri::command]
-pub async fn get_local_shaderpacks(profile_id: Uuid) -> Result<Vec<shaderpack_utils::ShaderPackInfo>, CommandError> {
-    log::info!("Executing get_local_shaderpacks command for profile {}", profile_id);
-    
+pub async fn get_local_shaderpacks(
+    profile_id: Uuid,
+) -> Result<Vec<shaderpack_utils::ShaderPackInfo>, CommandError> {
+    log::info!(
+        "Executing get_local_shaderpacks command for profile {}",
+        profile_id
+    );
+
     let state = State::get().await?;
     let profile = state.profile_manager.get_profile(profile_id).await?;
-    
+
     // Use the utility function to get all shaderpacks
-    let shaderpacks = shaderpack_utils::get_shaderpacks_for_profile(&profile).await
+    let shaderpacks = shaderpack_utils::get_shaderpacks_for_profile(&profile)
+        .await
         .map_err(|e| CommandError::from(e))?;
-    
+
     Ok(shaderpacks)
 }
 
@@ -622,8 +643,11 @@ pub async fn add_modrinth_content_to_profile(
     version_number: Option<String>,
     project_type: String,
 ) -> Result<(), CommandError> {
-    info!("Executing add_modrinth_content_to_profile for profile {}", profile_id);
-    
+    info!(
+        "Executing add_modrinth_content_to_profile for profile {}",
+        profile_id
+    );
+
     // Konvertiere den String project_type in ModrinthProjectType
     let content_type = match project_type.to_lowercase().as_str() {
         "resourcepack" => profile_utils::ContentType::ResourcePack,
@@ -636,7 +660,7 @@ pub async fn add_modrinth_content_to_profile(
             ))));
         }
     };
-    
+
     // Rufe die Implementierung auf
     profile_utils::add_modrinth_content_to_profile(
         profile_id,
