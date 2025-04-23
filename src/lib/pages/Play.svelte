@@ -6,6 +6,7 @@
     import { translations } from '$lib/utils/translationUtils';
     import { IdleAnimation, SkinViewer } from "skinview3d";
     import { onMount } from 'svelte';
+    import { profiles, selectedProfileId } from '$lib/utils/profileUtils';
 
     $: lang = $translations;
 
@@ -33,7 +34,7 @@
 
         setTimeout(() => {
             launchButtonVisible = true;
-        }, 350)
+        }, 350);
     });
 </script>
 
@@ -44,7 +45,12 @@
     <img class="image" class:dark={!launchButtonVisible && $launcherStartCompleted} src={VersionBackground} alt="Background Image">
     <div class="version-selector-container">
         {#if !launchButtonVisible && $launcherStartCompleted}
-            <VersionList />
+            <VersionList bind:isClosed={launchButtonVisible} />
+        {:else}
+            <div class="profile-display" class:hidden={!launchButtonVisible}>
+                <p class="name" style={$profiles.find(p => p.id == $selectedProfileId)?.name?.length ?? 0 > 10 ? 'font-size: 120px; margin-top: -5px;' : 'font-size: 200px; margin-top: -25px;'}>{$profiles.find(p => p.id == $selectedProfileId)?.name.toLowerCase()}</p>
+                <p class="version">{$profiles.find(p => p.id == $selectedProfileId)?.game_version.toLowerCase()}</p>
+            </div>
         {/if}
     </div>
     <!-- svelte-ignore element_invalid_self_closing_tag -->
@@ -65,7 +71,7 @@
         onclick={() => {}}
     >
         <p class="launch-text">{lang.play.button.launch}</p>
-        {#if launchButtonHovered}
+        {#if launchButtonHovered && $profiles.length > 1}
             <div class="spacer" />
             <div class="dropdown-arrow-wrapper">
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -106,13 +112,34 @@
         z-index: 100;
     }
 
+    .profile-display {
+        display: flex;
+        flex-direction: column;
+        padding-left: 50px;
+        width: 100%;
+        height: 100%;
+    }
+
+    .profile-display.hidden {
+        opacity: 0;
+    }
+
+    .profile-display .name {
+        color: white;
+    }
+    
+    .profile-display .version {
+        font-size: 85px;
+        color: white;
+    }
+
     .skin {
         position: absolute;
-        bottom: 20px;
+        bottom: 60px;
     }
 
     .skin.levetating {
-        bottom: 30px;
+        bottom: 80px;
     }
 
     .skin.hidden {

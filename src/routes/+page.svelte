@@ -6,11 +6,13 @@
     import { setLanguage, translations } from '$lib/utils/translationUtils';
     import TopNavigationBar from '$lib/components/TopNavigationBar.svelte';
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
+    import { loadProfiles } from '$lib/utils/profileUtils';
 
     $: lang = $translations;
     
     onMount(() => {
         setLanguage('en_US');
+        loadProfiles();
 
         setTimeout(() => {
             launcherStartCompleted.set(true);
