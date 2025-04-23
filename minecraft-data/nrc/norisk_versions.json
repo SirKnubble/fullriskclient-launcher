@@ -8,7 +8,7 @@
         "loader": "fabric",
         "loader_version": "0.15.11",
         "norisk_pack": null,
-        "custom_path": null
+        "custom_path": "noriskclient"
       },
       {
         "id": "98e6a5c0-cb6b-4f30-8e4d-5b7f8f6a3e2b",
@@ -18,7 +18,7 @@
         "loader": "forge",
         "loader_version": "11.15.1.2318",
         "norisk_pack": null,
-        "custom_path": null
+        "custom_path": "noriskclient"
       },
       {
         "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
@@ -28,7 +28,7 @@
         "loader": "fabric",
         "loader_version": null,
         "norisk_pack": null,
-        "custom_path": null
+        "custom_path": "noriskclient"
       }
     ]
   }

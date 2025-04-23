@@ -74,6 +74,9 @@ pub struct Profile {
     pub selected_norisk_pack_id: Option<String>, // ID of the selected Norisk Pack (e.g., "norisk-prod")
     #[serde(default)] // Keep track of disabled mods per pack/version/loader context
     pub disabled_norisk_mods_detailed: HashSet<NoriskModIdentifier>, // Changed field
+    /// Optional: If this profile was created from a standard profile, store its original ID
+    #[serde(default)]
+    pub source_standard_profile_id: Option<Uuid>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
