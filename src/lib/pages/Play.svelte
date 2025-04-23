@@ -41,9 +41,9 @@
     <!-- svelte-ignore element_invalid_self_closing_tag -->
     <div class="image-outline" />
     <!-- svelte-ignore a11y_img_redundant_alt -->
-    <img class="image" class:dark={!launchButtonVisible} src={VersionBackground} alt="Background Image">
+    <img class="image" class:dark={!launchButtonVisible && $launcherStartCompleted} src={VersionBackground} alt="Background Image">
     <div class="version-selector-container">
-        {#if !launchButtonVisible}
+        {#if !launchButtonVisible && $launcherStartCompleted}
             <VersionList />
         {/if}
     </div>
