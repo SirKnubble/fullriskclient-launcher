@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::utils::system_info::{ARCHITECTURE, OS};
+use crate::utils::system_info::{ARCHITECTURE, OS, Architecture};
 use crate::error::{AppError, Result};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq)]
@@ -43,8 +43,14 @@ pub struct ZuluApiResponse {
 }
 
 impl JavaDistribution {
-    pub fn get_url(&self, jre_version: &u32) -> Result<String> {
-        let os_arch = ARCHITECTURE.get_simple_name()?;
+    pub fn get_url(&self, jre_version: &u32, force_x86_64: bool) -> Result<String> {
+        // Get the appropriate architecture
+        let os_arch = if force_x86_64 {
+            "x64" // Force x64 architecture for legacy compatibility
+        } else {
+            ARCHITECTURE.get_simple_name()?
+        };
+        
         let archive_type = OS.get_archive_type()?;
 
         Ok(match self {

@@ -109,7 +109,7 @@ pub async fn install_minecraft_version(
     // Download and setup Java
     let java_service = JavaDownloadService::new();
     let java_path = java_service
-        .get_or_download_java(java_version, &JavaDistribution::Zulu)
+        .get_or_download_java(java_version, &JavaDistribution::Zulu, Some(&piston_meta.java_version.component))
         .await?;
     info!("Java installation path: {:?}", java_path);
 

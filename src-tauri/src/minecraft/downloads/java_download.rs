@@ -1,7 +1,7 @@
 use crate::error::{AppError, Result};
 use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
 use crate::minecraft::dto::{JavaDistribution, ZuluApiResponse};
-use crate::utils::system_info::{OS, OperatingSystem};
+use crate::utils::system_info::{OS, ARCHITECTURE, OperatingSystem, Architecture};
 use std::path::PathBuf;
 use tokio::fs;
 use std::io::Cursor;
@@ -14,6 +14,9 @@ use log::info;
 
 const JAVA_DIR: &str = "java";
 const DEFAULT_CONCURRENT_EXTRACTIONS: usize = 4;
+
+// Legacy Java component that requires x86_64 Java on ARM64 Macs
+const LEGACY_JAVA_COMPONENT: &str = "jre-legacy";
 
 pub struct JavaDownloadService {
     base_path: PathBuf,
@@ -29,28 +32,49 @@ impl JavaDownloadService {
         }
     }
 
-    pub async fn get_or_download_java(&self, version: u32, distribution: &JavaDistribution) -> Result<PathBuf> {
+    // Check if we need to use x86_64 Java based on the Java component
+    pub fn needs_x86_64_java(&self, java_component: Option<&str>) -> bool {
+        // Only needed on Apple Silicon Macs
+        if !cfg!(target_os = "macos") || ARCHITECTURE != Architecture::AARCH64 {
+            return false;
+        }
+        
+        // Check if this is a legacy Java component
+        match java_component {
+            Some(component) if component == LEGACY_JAVA_COMPONENT => {
+                info!("⚠️ Legacy Java component '{}' detected on Apple Silicon. Will use x86_64 Java for compatibility.", component);
+                true
+            },
+            _ => false
+        }
+    }
+
+    pub async fn get_or_download_java(&self, version: u32, distribution: &JavaDistribution, java_component: Option<&str>) -> Result<PathBuf> {
         info!("Checking Java version: {}", version);
         
+        // Handle architecture override for legacy Java component on ARM64 Mac
+        let force_x86_64 = self.needs_x86_64_java(java_component);
+        
         // Check if Java is already downloaded
-        if let Ok(java_binary) = self.find_java_binary(distribution, &version).await {
+        if let Ok(java_binary) = self.find_java_binary(distribution, &version, force_x86_64).await {
             info!("Found existing Java installation at: {:?}", java_binary);
             return Ok(java_binary);
         }
 
         // Download and setup Java
         info!("Downloading Java {}...", version);
-        self.download_java(version, distribution).await?;
+        self.download_java(version, distribution, force_x86_64).await?;
 
         // Find and return Java binary
-        self.find_java_binary(distribution, &version).await
+        self.find_java_binary(distribution, &version, force_x86_64).await
     }
 
-    pub async fn download_java(&self, version: u32, distribution: &JavaDistribution) -> Result<PathBuf> {
-        info!("Downloading Java {} for distribution: {}", version, distribution.get_name());
+    pub async fn download_java(&self, version: u32, distribution: &JavaDistribution, force_x86_64: bool) -> Result<PathBuf> {
+        let arch_suffix = if force_x86_64 { "_x86_64" } else { "" };
+        info!("Downloading Java {} for distribution: {}{}", version, distribution.get_name(), arch_suffix);
         
         // Get the initial URL
-        let initial_url = distribution.get_url(&version)?;
+        let initial_url = distribution.get_url(&version, force_x86_64)?;
         info!("Java Download URL: {}", initial_url);
         
         // For Zulu, we need to make an extra API call to get the actual download URL
@@ -81,8 +105,9 @@ impl JavaDownloadService {
             initial_url
         };
         
-        // Create version-specific directory
-        let version_dir = self.base_path.join(format!("{}_{}", distribution.get_name(), version));
+        // Create version-specific directory with architecture suffix for legacy support
+        let dir_name = format!("{}_{}{}", distribution.get_name(), version, if force_x86_64 { "_x86_64" } else { "" });
+        let version_dir = self.base_path.join(dir_name);
         fs::create_dir_all(&version_dir).await?;
 
         // Download the Java distribution
@@ -264,8 +289,9 @@ impl JavaDownloadService {
         Ok(())
     }
 
-    pub async fn find_java_binary(&self, distribution: &JavaDistribution, version: &u32) -> Result<PathBuf> {
-        let runtime_path = self.base_path.join(format!("{}_{}", distribution.get_name(), version));
+    pub async fn find_java_binary(&self, distribution: &JavaDistribution, version: &u32, force_x86_64: bool) -> Result<PathBuf> {
+        let arch_suffix = if force_x86_64 { "_x86_64" } else { "" };
+        let runtime_path = self.base_path.join(format!("{}_{}{}", distribution.get_name(), version, arch_suffix));
 
         // Now that we extract directly to the target directory without the root folder,
         // we should look for the Java binary directly in standard locations
