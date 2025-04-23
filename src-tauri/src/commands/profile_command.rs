@@ -91,6 +91,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         mods: Vec::new(),
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
+        source_standard_profile_id: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;

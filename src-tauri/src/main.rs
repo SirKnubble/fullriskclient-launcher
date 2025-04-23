@@ -138,12 +138,13 @@ async fn main() {
         .setup(|app| {
             // Initialize the state
             let app_handle = Arc::new(app.handle().clone());
+
             tauri::async_runtime::spawn(async move {
+                norisk_versions::load_dummy_versions().await;
+
                 if let Err(e) = state::state_manager::State::init(app_handle).await {
                     error!("Failed to initialize state: {}", e);
                 }
-
-                norisk_versions::load_dummy_versions().await;
             });
 
             Ok(())
