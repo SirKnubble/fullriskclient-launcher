@@ -849,7 +849,19 @@ impl ProfileManager {
                 self.calculate_instance_path_for_profile(profile)
             }
             None => {
-                log::warn!("Profile {} not found when getting instance path.", profile_id);
+                log::info!("Profile {} not found, checking standard versions", profile_id);
+                // Get state to access norisk_version_manager
+                let state = crate::state::state_manager::State::get().await?;
+                
+                // Check if it's a standard version ID
+                if let Some(standard_profile) = state.norisk_version_manager.get_profile_by_id(profile_id).await {
+                    log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.display_name);
+                    // Convert to a temporary profile
+                    let temp_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(&standard_profile)?;
+                    return self.calculate_instance_path_for_profile(&temp_profile);
+                }
+                
+                log::warn!("Profile {} not found when getting instance path (not in regular profiles or standard versions).", profile_id);
                 Err(AppError::ProfileNotFound(profile_id))
             }
         }
