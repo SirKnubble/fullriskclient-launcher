@@ -2,12 +2,18 @@
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
     import type { NoriskVersionProfile, NoriskVersionsConfig } from '$lib/types/noriskVersions';
+    import ProfileCopy from './ProfileCopy.svelte';
+    import Modal from './Modal.svelte'; // Assuming you have a Modal component
     
     let standardProfiles: NoriskVersionProfile[] = $state([]);
     let isLoading = $state(true);
     let errorMessage: string | null = $state(null);
     let debugInfo = $state<string[]>([]);
     let showDebugInfo = $state(true); // Always show debug info for troubleshooting
+    
+    // State for the copy profile modal
+    let showCopyModal = $state(false);
+    let selectedProfileForCopy: NoriskVersionProfile | null = $state(null);
     
     function addDebugLog(message: string) {
         console.log(`[NoRiskVersions] ${message}`);
@@ -74,16 +80,22 @@
         }
     }
     
-    async function copyStandardProfile(id: string) {
-        try {
-            addDebugLog(`Copying standard profile with ID: ${id}`);
-            await invoke("copy_standard_profile", { id });
-            addDebugLog(`Copy command sent for profile ${id}`);
-        } catch (error) {
-            console.error("[NoRiskVersions] Failed to copy standard profile:", error);
-            errorMessage = error instanceof Error ? error.message : String(error);
-            addDebugLog(`Error copying profile: ${errorMessage}`);
-        }
+    function openCopyProfileModal(profile: NoriskVersionProfile) {
+        addDebugLog(`Opening copy modal for profile with ID: ${profile.id}`);
+        selectedProfileForCopy = profile;
+        showCopyModal = true;
+    }
+    
+    function closeCopyProfileModal() {
+        addDebugLog(`Closing copy profile modal`);
+        showCopyModal = false;
+        selectedProfileForCopy = null;
+    }
+    
+    function handleCopySuccess() {
+        addDebugLog(`Profile copied successfully`);
+        closeCopyProfileModal();
+        // If you have a global notification system, you could show a success message here
     }
     
     // Function to manually test with mock data
@@ -138,7 +150,7 @@
                         <button class="launch-btn" on:click={() => launchStandardProfile(profile.id)}>
                             Starten
                         </button>
-                        <button class="copy-btn" on:click={() => copyStandardProfile(profile.id)}>
+                        <button class="copy-btn" on:click={() => openCopyProfileModal(profile)}>
                             Als Profil kopieren
                         </button>
                     </div>
@@ -158,6 +170,18 @@
                 </ul>
             </details>
         </div>
+    {/if}
+    
+    <!-- Copy Profile Modal -->
+    {#if showCopyModal && selectedProfileForCopy}
+        <Modal>
+            <ProfileCopy 
+                sourceProfileId={selectedProfileForCopy.id}
+                sourceProfileName={selectedProfileForCopy.display_name}
+                onClose={closeCopyProfileModal}
+                onSuccess={handleCopySuccess}
+            />
+        </Modal>
     {/if}
 </div>
 
