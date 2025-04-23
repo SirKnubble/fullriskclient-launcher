@@ -56,22 +56,23 @@ impl ClasspathBuilder {
                 }
 
                 let (group, artifact_name, version) = (parts[0], parts[1], parts[2]);
-                let jar_name = format!("{}-{}.jar", artifact_name, version);
+                let relativ_path = artifact
+                    .path
+                    .clone()
+                    .unwrap_or(format!("{}-{}.jar", artifact_name, version));
+                info!("Library path: {}", relativ_path);
                 let jar_path = LAUNCHER_DIRECTORY
                     .meta_dir()
                     .join("libraries")
-                    .join(group.replace('.', "/"))
-                    .join(artifact_name)
-                    .join(version)
-                    .join(&jar_name);
+                    .join(relativ_path.clone());
 
                 // Prüfe ob wir diese Library schon haben
                 if let Some(existing) = self.libraries.get(artifact_name) {
                     // Nur ersetzen wenn neue Version höher ist
                     if compare_versions(version, &existing.version) == std::cmp::Ordering::Greater {
                         info!(
-                            "🔄 Replacing library {} ({} -> {})",
-                            artifact_name, existing.version, version
+                            "🔄 Replacing library {} {:?} ({} -> {})",
+                            relativ_path, existing.path, existing.version, version
                         );
                         self.libraries.insert(
                             artifact_name.to_string(),
@@ -88,7 +89,7 @@ impl ClasspathBuilder {
                         );
                     }
                 } else {
-                    info!("✅ Adding library: {}", artifact_name);
+                    info!("✅ Adding library: {}", relativ_path);
                     self.libraries.insert(
                         artifact_name.to_string(),
                         LibraryInfo {
@@ -173,21 +174,30 @@ impl ClasspathBuilder {
 
     pub fn build(&self, force_include_minecraft_jar: bool) -> String {
         use std::collections::HashSet;
-        
+
         let mut unique_entries = HashSet::new();
-        
+
         for lib_info in self.libraries.values() {
-            let path_str = lib_info.path.to_string_lossy().to_string().replace("\\", "/");
+            let path_str = lib_info
+                .path
+                .to_string_lossy()
+                .to_string()
+                .replace("\\", "/");
             unique_entries.insert(path_str);
         }
-        
+
         for entry in &self.entries {
             unique_entries.insert(entry.replace("\\", "/"));
         }
-        
+
         if let Some(custom_client_jar) = &self.custom_client_jar_path {
             info!("Using custom client jar: {}", custom_client_jar.display());
-            unique_entries.insert(custom_client_jar.to_string_lossy().to_string().replace("\\", "/"));
+            unique_entries.insert(
+                custom_client_jar
+                    .to_string_lossy()
+                    .to_string()
+                    .replace("\\", "/"),
+            );
         } else if let Some(vanilla_jar) = &self.vanilla_client_jar {
             info!("Using vanilla client jar: {}", vanilla_jar.display());
             unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
@@ -197,13 +207,19 @@ impl ClasspathBuilder {
 
         if force_include_minecraft_jar {
             if let Some(vanilla_jar) = &self.vanilla_client_jar {
-                info!("Force including vanilla client jar: {}", vanilla_jar.display());
+                info!(
+                    "Force including vanilla client jar: {}",
+                    vanilla_jar.display()
+                );
                 unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
             }
         }
-        
+
         let all_entries: Vec<String> = unique_entries.into_iter().collect();
-        info!("Final classpath contains {} unique entries", all_entries.len());
+        info!(
+            "Final classpath contains {} unique entries",
+            all_entries.len()
+        );
         all_entries.join(if cfg!(windows) { ";" } else { ":" })
     }
 }
