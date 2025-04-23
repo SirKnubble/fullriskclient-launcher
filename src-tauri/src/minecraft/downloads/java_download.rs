@@ -60,6 +60,7 @@ impl JavaDownloadService {
         
         // Get the download URL
         let url = distribution.get_url(&version)?;
+        info!("Java Download URL: {}", url);
         
         // Create version-specific directory
         let version_dir = self.base_path.join(format!("{}_{}", distribution.get_name(), version));
