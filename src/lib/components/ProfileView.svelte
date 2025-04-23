@@ -4,7 +4,7 @@
     import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks'; // Assuming these types are needed
     import type { FileNode } from '$lib/types/fileSystem'; // Add FileNode import
     import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
-    import FileNodeViewer from './FileNodeViewer.svelte'; // Import FileNodeViewer
+    import ProfileCopy from './ProfileCopy.svelte'; // Import ProfileCopy instead
     import Modal from './Modal.svelte'; // Import Modal component
     import { invoke } from '@tauri-apps/api/core';
     import { copyProfile } from '$lib/api/profiles';
@@ -73,11 +73,8 @@
     import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
 
-    // Neue Variablen für das Kopier-Modal
+    // State for Copy Profile modal
     let showCopyProfileModal = $state(false);
-    let newProfileName = $state('');
-    let copyProfileLoading = $state(false);
-    let copyProfileError = $state<string | null>(null);
 
     // Manuelle Logging-Funktion für den Status
     function logStatus() {
@@ -267,49 +264,19 @@
         logStatus(); // Log status nach Statusänderung
     }
 
-    // Funktion zum Kopieren des Profils mit ausgewählten Dateien
-    async function handleCopyProfile() {
-        if (!newProfileName || !profile || selectedFiles.size === 0) {
-            copyProfileError = 'Bitte einen Namen eingeben und Dateien auswählen';
-            return;
-        }
-        
-        copyProfileError = null;
-        copyProfileLoading = true;
-        
-        try {
-            // Konvertiere Set<string> zu Array für den Tauri-Aufruf
-            const includeFilesArray = Array.from(selectedFiles);
-            const profileNameToUse = newProfileName.trim();
-            
-            // Rufe den copy_profile Command auf
-            const newProfileId = await copyProfile({
-                source_profile_id: profile.id,
-                new_profile_name: profileNameToUse,
-                include_files: includeFilesArray
-            });
-            
-            console.log('Neues Profil erstellt mit ID:', newProfileId);
-            
-            // Modal schließen und Reset
-            showCopyProfileModal = false;
-            newProfileName = '';
-            
-            // Optional: Redirect zur neuen Profilseite oder zeige eine Erfolgsmeldung
-            showSuccessMessage(`Profil "${profileNameToUse}" erfolgreich erstellt`);
-            
-        } catch (error) {
-            console.error('Fehler beim Kopieren des Profils:', error);
-            copyProfileError = `Fehler beim Erstellen des Profils: ${error}`;
-        } finally {
-            copyProfileLoading = false;
-        }
+    // Open and close copy profile modal
+    function openCopyProfileModal() {
+        showCopyProfileModal = true;
     }
     
-    function showSuccessMessage(message: string) {
-        // Hier könntest du eine Toast-Nachricht oder eine andere Benachrichtigung anzeigen
-        console.log(message);
-        // TODO: Implementiere eine richtige Erfolgsbenachrichtigung
+    function closeCopyProfileModal() {
+        showCopyProfileModal = false;
+    }
+    
+    function handleCopySuccess() {
+        showCopyProfileModal = false;
+        // Optional: Show success message
+        console.log("Profile copied successfully");
     }
 </script>
 
@@ -352,8 +319,8 @@
             <button on:click={() => dispatch('delete')}>Delete</button>
             <button on:click={() => dispatch('openFolder')} title="Open profile folder">Open Folder</button>
             <button on:click={() => dispatch('importLocalMods')} title="Import local .jar mods">Import Mods</button>
-            <!-- Changed button to open the modal instead of loading directory structure directly -->
-            <button on:click={openFileViewerModal} title="View directory structure">Copy Files</button>
+            <!-- New Copy Profile button -->
+            <button on:click={openCopyProfileModal} title="Copy profile with selected files">Copy Profile</button>
         </div>
     </div>
 
@@ -525,95 +492,15 @@
         <ProfileContent profileId={profile.id} />
     </div>
     
-    <!-- Modal for file viewer -->
-    <Modal 
-        show={showFileViewerModal} 
-        title="Dateien kopieren - {profile.name}" 
-        fullWidth={false}
-        fullHeight={false}
-        on:close={closeFileViewerModal}
-    >
-        <div class="file-viewer-modal-content">
-            <div class="file-actions-top">
-                <button class="reload-button" on:click={loadDirectoryStructure}>
-                    Struktur neu laden
-                </button>
-            </div>
-            
-            <div class="modal-file-viewer">
-                <FileNodeViewer 
-                    rootNode={directoryStructure}
-                    loading={directoryStructureLoading}
-                    error={directoryStructureError}
-                    selectedFiles={selectedFiles}
-                    checkboxesEnabled={true}
-                    hideRootNode={true}
-                    preSelectPaths={["options.txt", "shaderpacks"]}
-                    selectChildrenWithParent={true}
-                    on:selectionChange={handleFileSelectionChange}
-                />
-            </div>
-            
-            <div class="file-actions-bottom">
-                <span class="selected-count">
-                    {selectedFiles.size} Dateien ausgewählt
-                </span>
-                <button 
-                    class="copy-button" 
-                    disabled={selectedFiles.size === 0}
-                    on:click={() => showCopyProfileModal = true}
-                >
-                    Als Profil kopieren
-                </button>
-                <button 
-                    class="delete-button" 
-                    disabled={selectedFiles.size === 0}
-                >
-                    Ausgewählte Dateien löschen
-                </button>
-            </div>
-        </div>
-    </Modal>
-
-    <!-- Kopiermodal nach dem vorhandenen FileViewer Modal einfügen: -->
+    <!-- Copy Profile Modal -->
     {#if showCopyProfileModal}
-        <Modal title="Profil kopieren" show={showCopyProfileModal} on:close={() => showCopyProfileModal = false}>
-            <div class="copy-profile-modal-content">
-                <p>Erstelle ein neues Profil mit nur den ausgewählten Dateien ({selectedFiles.size} ausgewählt).</p>
-                
-                <div class="form-group">
-                    <label for="newProfileName">Name des neuen Profils:</label>
-                    <input 
-                        type="text" 
-                        id="newProfileName" 
-                        bind:value={newProfileName} 
-                        placeholder="Neuer Profilname" 
-                        class="form-control"
-                    />
-                </div>
-                
-                {#if copyProfileError}
-                    <div class="error-message">
-                        {copyProfileError}
-                    </div>
-                {/if}
-                
-                <div class="modal-actions">
-                    <button 
-                        class="secondary-button"
-                        on:click={() => showCopyProfileModal = false}
-                    >
-                        Abbrechen
-                    </button>
-                    <button 
-                        class="primary-button"
-                        disabled={!newProfileName || copyProfileLoading}
-                        on:click={handleCopyProfile}
-                    >
-                        {copyProfileLoading ? 'Kopiere...' : 'Profil erstellen'}
-                    </button>
-                </div>
-            </div>
+        <Modal show={true}>
+            <ProfileCopy 
+                sourceProfileId={profile.id}
+                sourceProfileName={profile.name}
+                onClose={closeCopyProfileModal}
+                onSuccess={handleCopySuccess}
+            />
         </Modal>
     {/if}
 </div>
@@ -869,9 +756,6 @@
         margin: 0;
     }
 
-    .mod-item {
-
-    }
     .mod-name {
 
     }
@@ -897,10 +781,6 @@
         color: #444;
     }
 
-    .mod-item.local-mod-item {
-
-    }
-    
     .mod-item.local-mod-item.disabled .mod-name {
         color: #888;
         font-style: italic;
@@ -920,206 +800,5 @@
         margin-top: 2rem;
         border-top: 1px solid #ddd;
         padding-top: 1rem;
-    }
-
-    /* File structure section styles */
-    .file-structure-section {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #ddd;
-    }
-
-    .file-actions {
-        margin-top: 0.5rem;
-        display: flex;
-        justify-content: flex-end;
-    }
-
-    .file-actions button {
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.9rem;
-    }
-
-    .file-actions button:hover {
-        background-color: #c0392b;
-    }
-
-    /* Debug styles */
-    .debug-info {
-        background-color: #f8f9fa;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 0.5rem;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .reload-button {
-        background-color: #3498db;
-        color: white;
-        border: none;
-        padding: 0.25rem 0.6rem; /* Reduziert */
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem; /* Reduziert */
-    }
-
-    .reload-button:hover {
-        background-color: #2980b9;
-    }
-
-    .debug-status {
-        font-family: monospace;
-        background-color: #eee;
-        padding: 0.5rem;
-        border-radius: 4px;
-        color: #333;
-        font-size: 0.9rem;
-        white-space: pre-wrap;
-        margin: 0;
-    }
-
-    /* Modal content styles */
-    .file-viewer-modal-content {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        max-height: 500px; /* Begrenzte Höhe für das Popup */
-    }
-
-    .file-actions-top {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 0.5rem; /* Reduziert von 1rem */
-    }
-
-    .modal-file-viewer {
-        flex: 1;
-        overflow: auto;
-        max-height: 350px; /* Begrenzte Höhe für die Baumansicht */
-        border: 1px solid #eee;
-        border-radius: 4px;
-        padding: 0.5rem;
-        background-color: #f9f9f9;
-    }
-
-    .file-actions-bottom {
-        display: flex;
-        justify-content: space-between; /* Geändert von flex-end */
-        align-items: center;
-        margin-top: 0.5rem; /* Reduziert von 1rem */
-        padding-top: 0.5rem; /* Reduziert von 1rem */
-        border-top: 1px solid #eee;
-        gap: 0.5rem; /* Reduziert von 1rem */
-    }
-
-    .selected-count {
-        font-size: 0.85rem; /* Reduziert von 0.9rem */
-        color: #666;
-        white-space: nowrap;
-    }
-
-    .copy-button {
-        background-color: #3498db;
-        color: white;
-        border: none;
-        padding: 0.4rem 0.75rem; /* Reduziert von 0.5rem 1rem */
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem; /* Reduziert von 0.9rem */
-    }
-
-    .copy-button:hover {
-        background-color: #2980b9;
-    }
-
-    .delete-button {
-        background-color: #e74c3c;
-        color: white;
-        border: none;
-        padding: 0.4rem 0.75rem; /* Reduziert von 0.5rem 1rem */
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem; /* Reduziert von 0.9rem */
-    }
-
-    .delete-button:hover {
-        background-color: #c0392b;
-    }
-
-    /* Styles für das Kopier-Modal */
-    .copy-profile-modal-content {
-        padding: 1rem;
-    }
-    
-    .form-group {
-        margin-bottom: 1rem;
-    }
-    
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: bold;
-    }
-    
-    .form-control {
-        width: 100%;
-        padding: 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
-    
-    .error-message {
-        color: #e74c3c;
-        background-color: #fce4e4;
-        padding: 0.5rem;
-        border-radius: 4px;
-        margin-top: 1rem;
-    }
-    
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        margin-top: 1.5rem;
-    }
-    
-    .primary-button, .secondary-button {
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    
-    .primary-button {
-        background-color: #3498db;
-        color: white;
-        border: none;
-    }
-    
-    .primary-button:hover {
-        background-color: #2980b9;
-    }
-    
-    .primary-button:disabled {
-        background-color: #95a5a6;
-        cursor: not-allowed;
-    }
-    
-    .secondary-button {
-        background-color: #ecf0f1;
-        color: #2c3e50;
-        border: 1px solid #bdc3c7;
-    }
-    
-    .secondary-button:hover {
-        background-color: #bdc3c7;
     }
 </style> 
