@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use crate::utils::system_info::{ARCHITECTURE, OS};
 use crate::error::{AppError, Result};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq)]
 #[serde(tag = "type", content = "value")]
 pub enum DistributionSelection {
     #[serde(rename = "automatic")]
@@ -19,7 +19,7 @@ impl Default for DistributionSelection {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq)]
 pub enum JavaDistribution {
     #[serde(rename = "temurin")]
     Temurin,
@@ -34,6 +34,12 @@ impl Default for JavaDistribution {
         // Temurin supports any version of java
         JavaDistribution::Temurin
     }
+}
+
+// JSON response structure from Zulu API
+#[derive(Deserialize)]
+pub struct ZuluApiResponse {
+    pub url: String,
 }
 
 impl JavaDistribution {
@@ -84,7 +90,7 @@ impl JavaDistribution {
                     _ => return Err(AppError::JavaDownload("Unsupported OS for Zulu Java".to_string())),
                 };
                 
-                // Note: Zulu API returns a bundle in the expected format
+                // This is the API endpoint that returns JSON with the actual download URL
                 format!(
                     "https://api.azul.com/zulu/download/community/v1.0/bundles/latest/?jdk_version={}&bundle_type=jre&ext={}&arch={}&os={}",
                     jre_version, 
@@ -94,6 +100,13 @@ impl JavaDistribution {
                 )
             }
         })
+    }
+
+    pub fn requires_api_response(&self) -> bool {
+        match self {
+            JavaDistribution::Zulu => true,
+            _ => false,
+        }
     }
 
     pub fn get_name(&self) -> &str {

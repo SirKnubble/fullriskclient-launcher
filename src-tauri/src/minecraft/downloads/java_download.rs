@@ -1,6 +1,6 @@
 use crate::error::{AppError, Result};
 use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
-use crate::minecraft::dto::JavaDistribution;
+use crate::minecraft::dto::{JavaDistribution, ZuluApiResponse};
 use crate::utils::system_info::{OS, OperatingSystem};
 use std::path::PathBuf;
 use tokio::fs;
@@ -58,16 +58,44 @@ impl JavaDownloadService {
     pub async fn download_java(&self, version: u32, distribution: &JavaDistribution) -> Result<PathBuf> {
         info!("Downloading Java {} for distribution: {}", version, distribution.get_name());
         
-        // Get the download URL
-        let url = distribution.get_url(&version)?;
-        info!("Java Download URL: {}", url);
+        // Get the initial URL
+        let initial_url = distribution.get_url(&version)?;
+        info!("Java Download URL: {}", initial_url);
+        
+        // For Zulu, we need to make an extra API call to get the actual download URL
+        let download_url = if distribution.requires_api_response() {
+            info!("Fetching actual download URL from Zulu API...");
+            let client = reqwest::Client::new();
+            let response = client.get(&initial_url)
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| AppError::JavaDownload(format!("Failed to fetch Zulu API: {}", e)))?;
+            
+            if !response.status().is_success() {
+                return Err(AppError::JavaDownload(format!(
+                    "Zulu API returned error status: {}",
+                    response.status()
+                )));
+            }
+            
+            // Parse the JSON response
+            let zulu_response: ZuluApiResponse = response.json()
+                .await
+                .map_err(|e| AppError::JavaDownload(format!("Failed to parse Zulu API response: {}", e)))?;
+            
+            info!("Actual download URL: {}", zulu_response.url);
+            zulu_response.url
+        } else {
+            initial_url
+        };
         
         // Create version-specific directory
         let version_dir = self.base_path.join(format!("{}_{}", distribution.get_name(), version));
         fs::create_dir_all(&version_dir).await?;
 
         // Download the Java distribution
-        let response = reqwest::get(&url)
+        let response = reqwest::get(&download_url)
             .await
             .map_err(|e| AppError::JavaDownload(e.to_string()))?;
 
