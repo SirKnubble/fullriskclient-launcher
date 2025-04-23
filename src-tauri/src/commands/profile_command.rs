@@ -10,12 +10,13 @@ use crate::state::profile_state::{
 };
 use crate::state::state_manager::State;
 use crate::utils::path_utils::find_unique_profile_segment;
-use crate::utils::{profile_utils, resourcepack_utils, shaderpack_utils};
+use crate::utils::{profile_utils, resourcepack_utils, shaderpack_utils, path_utils};
 use chrono::Utc;
 use log::info;
 use sanitize_filename::sanitize;
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use sysinfo::System;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -705,4 +706,82 @@ pub async fn add_modrinth_content_to_profile(
     )
     .await
     .map_err(CommandError::from)
+}
+
+// Command to get the directory structure of a profile
+#[tauri::command]
+pub async fn get_profile_directory_structure(
+    profile_id: Uuid,
+) -> Result<path_utils::FileNode, CommandError> {
+    log::info!("Executing get_profile_directory_structure command for profile {}", profile_id);
+
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    
+    // Calculate the full profile path
+    let profile_path = state.profile_manager
+        .calculate_instance_path_for_profile(&profile)?;
+    
+    // Get the directory structure using path_utils
+    let structure = path_utils::get_directory_structure(&profile_path, false)
+        .await
+        .map_err(|e| CommandError::from(e))?;
+    
+    Ok(structure)
+}
+
+// Command to copy a profile with exclusions
+#[tauri::command]
+pub async fn copy_profile_with_exclusions(
+    source_profile_id: Uuid,
+    new_profile_name: String,
+    excluded_paths: Vec<String>,
+) -> Result<Uuid, CommandError> {
+    log::info!(
+        "Executing copy_profile_with_exclusions command for profile {} with {} exclusions",
+        source_profile_id,
+        excluded_paths.len()
+    );
+
+    let state = State::get().await?;
+    
+    // Get the source profile
+    let source_profile = state.profile_manager.get_profile(source_profile_id).await?;
+    
+    // Calculate the full source profile path
+    let source_profile_path = state.profile_manager
+        .calculate_instance_path_for_profile(&source_profile)?;
+    
+    // Create a copy of the source profile with a new ID and name
+    let mut new_profile = source_profile.clone();
+    new_profile.id = Uuid::new_v4();
+    new_profile.name = new_profile_name;
+    new_profile.created = Utc::now();
+    new_profile.last_played = None;
+    new_profile.source_standard_profile_id = None;
+    
+    // 1. Create the new profile in the database first
+    let new_profile_id = state.profile_manager.create_profile(new_profile).await?;
+    
+    // 2. Retrieve the newly created profile to get its path
+    let created_profile = state.profile_manager.get_profile(new_profile_id).await?;
+    
+    // 3. Calculate the destination path for the new profile
+    let dest_profile_path = state.profile_manager
+        .calculate_instance_path_for_profile(&created_profile)?;
+    
+    // Convert excluded paths to a HashSet for efficient lookup
+    let excluded_set: HashSet<String> = excluded_paths.clone().into_iter().collect();
+    
+    // 4. Copy the files with exclusions
+    path_utils::copy_profile_with_exclusions(
+        &source_profile_path,
+        &dest_profile_path,
+        &excluded_paths.iter().map(|p| PathBuf::from(p)).collect::<Vec<PathBuf>>()
+    )
+    .await
+    .map_err(|e| CommandError::from(e))?;
+    
+    // Return the ID of the new profile
+    Ok(new_profile_id)
 }
