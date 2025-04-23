@@ -2,7 +2,10 @@
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     import type { ModrinthVersion } from '$lib/types/modrinth';
     import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks'; // Assuming these types are needed
+    import type { FileNode } from '$lib/types/fileSystem'; // Add FileNode import
     import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
+    import FileNodeViewer from './FileNodeViewer.svelte'; // Import FileNodeViewer
+    import { invoke } from '@tauri-apps/api/core';
 
     // Local definition until $lib/types is fixed
     interface CustomModInfo {
@@ -55,9 +58,32 @@
         profileEvents: EventPayload[]; // Added prop for events
     }>();
 
+    // State for FileNodeViewer
+    let directoryStructure = $state<FileNode | null>(null);
+    let directoryStructureLoading = $state(false);
+    let directoryStructureError = $state<string | null>(null);
+    let selectedFiles = $state(new Set<string>());
+
     // Event dispatcher
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
+
+    // Manuelle Logging-Funktion für den Status
+    function logStatus() {
+        console.log("[FileNodeViewer Debug] Structure state:", { 
+            directoryStructure, 
+            directoryStructureLoading, 
+            directoryStructureError, 
+            selectedFiles: selectedFiles.size,
+            hasRootNode: directoryStructure !== null,
+            rootNodeDetails: directoryStructure ? {
+                name: directoryStructure.name,
+                path: directoryStructure.path,
+                isDir: directoryStructure.is_dir,
+                childrenCount: directoryStructure.children?.length || 0
+            } : 'null'
+        });
+    }
 
     // --- Helper Functions (moved or adapted from ProfileManager) ---
 
@@ -153,6 +179,68 @@
         dispatch('cancelVersionChange');
     }
 
+    // New function to load directory structure using Tauri's invoke directly
+    async function loadDirectoryStructure() {
+        console.log("[FileNodeViewer Debug] Loading directory structure for profile:", profile.id);
+        
+        if (!profile.id) {
+            console.error("[FileNodeViewer Debug] Cannot load structure - missing profile ID");
+            directoryStructureError = 'Profile ID is missing';
+            return;
+        }
+        
+        directoryStructureLoading = true;
+        directoryStructure = null;
+        directoryStructureError = null;
+        
+        try {
+            // Call the method using Tauri's invoke directly with generics
+            console.log("[FileNodeViewer Debug] Calling Tauri command with args:", { profileId: profile.id });
+            
+            // Hier wird der Typ automatisch aus FileNode abgeleitet
+            const result = await invoke<FileNode>('get_profile_directory_structure', { 
+                profileId: profile.id 
+            });
+            
+            console.log("[FileNodeViewer Debug] Received raw result:", result);
+            
+            // Prüfe und konvertiere das Ergebnis
+            if (result) {
+                directoryStructure = result;
+                console.log("[FileNodeViewer Debug] Structure assigned to directoryStructure:", directoryStructure);
+            } else {
+                directoryStructureError = "Response was empty";
+                console.error("[FileNodeViewer Debug] Empty response from Tauri");
+            }
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
+            console.error("[FileNodeViewer Debug] Exception while loading structure:", errorMsg, error);
+            directoryStructureError = errorMsg;
+        } finally {
+            directoryStructureLoading = false;
+            logStatus(); // Log status nach Statusänderung
+            
+            // Zusätzliche Prüfung nach einiger Zeit, um zu sehen, ob die Werte korrekt gesetzt wurden
+            setTimeout(() => {
+                console.log("[FileNodeViewer Debug] State after delay:", { 
+                    directoryStructure,
+                    directoryStructureLoading,
+                    directoryStructureError
+                });
+            }, 500);
+        }
+    }
+
+    // Handle file selection change
+    function handleFileSelectionChange(event: CustomEvent) {
+        console.log("[FileNodeViewer Debug] File selection changed:", event.detail);
+        selectedFiles = new Set(event.detail.selectedFiles);
+        dispatch('fileSelectionChange', { 
+            profileId: profile.id,
+            selectedFiles: [...selectedFiles]
+        });
+        logStatus(); // Log status nach Statusänderung
+    }
 </script>
 
 <!-- Moved HTML structure for a single profile item here -->
@@ -194,6 +282,8 @@
             <button on:click={() => dispatch('delete')}>Delete</button>
             <button on:click={() => dispatch('openFolder')} title="Open profile folder">Open Folder</button>
             <button on:click={() => dispatch('importLocalMods')} title="Import local .jar mods">Import Mods</button>
+            <!-- New button to view directory structure -->
+            <button on:click={loadDirectoryStructure} title="View directory structure">View Files</button>
         </div>
     </div>
 
@@ -360,6 +450,31 @@
         {/if}
     </div>
 
+    <!-- Directory Structure Viewer Section - immer sichtbar, aber nur mit Inhalt nach Laden -->
+    <div class="mods-section file-structure-section">
+          
+        <!-- Komponente immer anzeigen, Status wird intern verwaltet -->
+        <FileNodeViewer 
+            rootNode={directoryStructure}
+            loading={directoryStructureLoading}
+            error={directoryStructureError}
+            selectedFiles={selectedFiles}
+            checkboxesEnabled={true}
+            on:selectionChange={handleFileSelectionChange}
+        />
+        
+        {#if selectedFiles.size > 0}
+            <div class="file-actions">
+                <button on:click={() => dispatch('deleteSelectedFiles', { 
+                    profileId: profile.id,
+                    selectedFiles: [...selectedFiles]
+                })}>
+                    Ausgewählte Dateien löschen
+                </button>
+            </div>
+        {/if}
+    </div>
+
     <!-- Add the ProfileContent component for resourcepacks and shaderpacks -->
     <div class="additional-content">
         <ProfileContent profileId={profile.id} />
@@ -398,7 +513,7 @@
 
     .profile-actions {
         display: grid; /* Use grid */
-        grid-template-columns: repeat(4, auto); /* Adjusted for 4 buttons */
+        grid-template-columns: repeat(3, auto); /* Adjusted for button layout */
         gap: 10px;
     }
 
@@ -436,6 +551,22 @@
 
     .profile-actions button:nth-child(4):hover {
         background-color: #2980b9;
+    }
+
+    .profile-actions button:nth-child(5) {
+        background-color: #9b59b6; /* Purple */
+    }
+
+    .profile-actions button:nth-child(5):hover {
+        background-color: #8e44ad;
+    }
+
+    .profile-actions button:nth-child(6) {
+        background-color: #1abc9c; /* Teal */
+    }
+
+    .profile-actions button:nth-child(6):hover {
+        background-color: #16a085;
     }
 
     .last-event {
@@ -601,46 +732,6 @@
         margin: 0;
     }
 
-    .mods-section.user-mods {
-
-    }
-
-    .mods-section.pack-mods {
-        margin-top: 0.5em; 
-        padding-top: 0.5em;
-        border-top: 1px dotted #ccc; 
-    }
-
-    .mods-section.pack-mods h4 {
-        font-size: 0.9em; 
-        font-style: italic;
-        color: #555;
-    }
-
-    .mod-item.pack-mod-item {
-
-    }
-    
-    .mod-item.pack-mod-item.disabled .mod-name {
-        color: #888;
-        font-style: italic;
-        text-decoration: line-through; 
-    }
-
-    .mod-item.pack-mod-item .mod-name {
-
-    }
-
-    .update-indicator {
-        color: #2ecc71; 
-        font-weight: bold;
-        margin-left: 5px;
-        cursor: default; 
-        margin-left: auto; /* Push indicator before version changer/delete */
-        margin-right: 5px;
-    }
-
-    /* Ensure spacing in mod item */
     .mod-item {
 
     }
@@ -692,5 +783,69 @@
         margin-top: 2rem;
         border-top: 1px solid #ddd;
         padding-top: 1rem;
+    }
+
+    /* File structure section styles */
+    .file-structure-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+    }
+
+    .file-actions {
+        margin-top: 0.5rem;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .file-actions button {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .file-actions button:hover {
+        background-color: #c0392b;
+    }
+
+    /* Debug styles */
+    .debug-info {
+        background-color: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 0.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .reload-button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        align-self: flex-end;
+    }
+
+    .reload-button:hover {
+        background-color: #2980b9;
+    }
+
+    .debug-status {
+        font-family: monospace;
+        background-color: #eee;
+        padding: 0.5rem;
+        border-radius: 4px;
+        color: #333;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        margin: 0;
     }
 </style> 

@@ -1,0 +1,575 @@
+<script lang="ts">
+    import type { FileNode } from '$lib/types/fileSystem';
+    import { createEventDispatcher, onMount } from 'svelte';
+
+    // Component props with $props in Runes mode
+    const props = $props<{
+        rootNode: FileNode | null;
+        loading: boolean;
+        error: string | null;
+        selectedFiles: Set<string>;
+        checkboxesEnabled: boolean;
+    }>();
+
+    // Default values for props
+    const rootNode = $derived(props.rootNode || null);
+    const loading = $derived(props.loading || false);
+    const error = $derived(props.error || null);
+    const selectedFiles = $derived(props.selectedFiles || new Set<string>());
+    const checkboxesEnabled = $derived(props.checkboxesEnabled !== false); // true by default
+
+    // Set to track expanded folders - use $state for reactivity
+    let expandedNodes = $state(new Set<string>());
+    
+    // Track if root has been set up
+    let rootInitialized = $state(false);
+    
+    // Event dispatcher
+    const dispatch = createEventDispatcher();
+
+    // Watch for changes to the root node and expand it if necessary
+    $effect(() => {
+        if (rootNode && rootNode.path && !rootInitialized) {
+            console.log("[FileNodeViewer Component] Root node detected, automatically expanding:", rootNode.path);
+            expandedNodes.add(rootNode.path);
+            rootInitialized = true;
+            
+            // Log root node details
+            console.log("[FileNodeViewer Component] Root node details:", {
+                name: rootNode.name,
+                path: rootNode.path,
+                childrenCount: rootNode.children?.length || 0,
+                isExpanded: expandedNodes.has(rootNode.path)
+            });
+        }
+    });
+
+    // Add onMount debug
+    onMount(() => {
+        console.log("[FileNodeViewer Component] Component mounted with initial props:", {
+            rootNodeExists: !!rootNode,
+            rootPath: rootNode?.path,
+            loading,
+            error,
+            selectedFilesCount: selectedFiles.size
+        });
+        
+        // If rootNode already exists at mount time, expand it
+        if (rootNode && rootNode.path) {
+            console.log("[FileNodeViewer Component] Expanding root node in onMount:", rootNode.path);
+            expandedNodes.add(rootNode.path);
+            rootInitialized = true;
+        }
+    });
+    
+    // Explicitly toggle folder expanded state
+    function toggleFolderExpanded(path: string, event?: Event): void {
+        if (!path) {
+            console.error("[FileNodeViewer Component] Cannot toggle undefined path");
+            return;
+        }
+        
+        if (event) {
+            event.stopPropagation(); // Prevent selection when toggling expansion
+        }
+        
+        console.log("[FileNodeViewer Component] Attempt to toggle folder for path:", path);
+        
+        // Create a new Set for reactivity
+        const newExpandedNodes = new Set(expandedNodes);
+        
+        if (expandedNodes.has(path)) {
+            newExpandedNodes.delete(path);
+            console.log("[FileNodeViewer Component] Folder collapsed:", path);
+        } else {
+            newExpandedNodes.add(path);
+            console.log("[FileNodeViewer Component] Folder expanded:", path);
+        }
+        
+        // Update the state
+        expandedNodes = newExpandedNodes;
+    }
+    
+    // Toggle file or folder selection
+    function toggleSelection(node: FileNode, event: Event): void {
+        if (!node || !node.path) return;
+        
+        event.stopPropagation();
+        
+        console.log("[FileNodeViewer Component] Toggling selection for:", node.path);
+        const newSelectedFiles = new Set(selectedFiles);
+        
+        if (selectedFiles.has(node.path)) {
+            newSelectedFiles.delete(node.path);
+        } else {
+            newSelectedFiles.add(node.path);
+        }
+        
+        // Dispatch event with updated selection
+        dispatch('selectionChange', { selectedFiles: newSelectedFiles });
+    }
+
+    // Handle checkbox changes
+    function handleCheckboxChange(node: FileNode, event: Event): void {
+        if (!node || !node.path) return;
+        
+        // Prevent event bubbling to parent elements
+        event.stopPropagation();
+        
+        const target = event.target as HTMLInputElement;
+        console.log("[FileNodeViewer Component] Checkbox changed:", {
+            path: node.path,
+            checked: target.checked
+        });
+        
+        const newSelectedFiles = new Set(selectedFiles);
+        
+        if (target.checked) {
+            newSelectedFiles.add(node.path);
+        } else {
+            newSelectedFiles.delete(node.path);
+        }
+        
+        // Dispatch event with updated selection
+        dispatch('selectionChange', { selectedFiles: newSelectedFiles });
+    }
+
+    // Format file size
+    function formatFileSize(size: number): string {
+        if (size < 1024) {
+            return `${size} B`;
+        } else if (size < 1024 * 1024) {
+            return `${(size / 1024).toFixed(1)} KB`;
+        } else if (size < 1024 * 1024 * 1024) {
+            return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+        } else {
+            return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+        }
+    }
+
+    // Format last modified date
+    function formatDate(timestamp: number | null): string {
+        if (!timestamp) return 'Unknown';
+        return new Date(timestamp * 1000).toLocaleString();
+    }
+    
+    // Debug function to list expanded nodes
+    function getExpandedNodesList(): string {
+        return Array.from(expandedNodes).join(', ');
+    }
+</script>
+
+<div class="file-node-viewer">
+    {#if loading}
+        <div class="loading">Loading file structure...</div>
+    {:else if error}
+        <div class="error">{error}</div>
+    {:else if !rootNode}
+        <div class="empty">No file structure available</div>
+    {:else}
+        <!-- Debug buttons for forcing expand/collapse -->
+        <div class="debug-buttons">
+            <button 
+                type="button" 
+                class="debug-button"
+                on:click={(e) => {
+                    e.preventDefault();
+                    if (rootNode && rootNode.path) {
+                        expandedNodes = new Set([rootNode.path]);
+                        console.log('Forced root node expansion:', rootNode.path);
+                    }
+                }}
+            >
+                Force Expand Root
+            </button>
+        </div>
+    
+        <ul class="file-tree">
+            <!-- Root node rendering -->
+            <li class="file-node directory {selectedFiles.has(rootNode.path) ? 'selected' : ''}">
+                <div class="node-content">
+                    {#if rootNode.children && rootNode.children.length > 0}
+                        <!-- Explicit expand/collapse button for the root -->
+                        <button 
+                            type="button" 
+                            class="expand-toggle-button"
+                            on:click={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleFolderExpanded(rootNode.path, e);
+                            }}
+                        >
+                            {expandedNodes.has(rootNode.path) ? '▼' : '►'}
+                        </button>
+                    {:else}
+                        <span class="expand-placeholder"></span>
+                    {/if}
+                    
+                    {#if checkboxesEnabled}
+                        <input 
+                            type="checkbox" 
+                            checked={selectedFiles.has(rootNode.path)} 
+                            class="file-checkbox" 
+                            aria-label="Select {rootNode.name}"
+                            on:click={(e) => e.stopPropagation()}
+                            on:change={(e) => handleCheckboxChange(rootNode, e)}
+                        />
+                    {/if}
+                    
+                    <span class="node-icon">📁</span>
+                    <span 
+                        class="node-name"
+                        on:click={(e) => {
+                            e.preventDefault();
+                            toggleFolderExpanded(rootNode.path, e);
+                        }}
+                    >
+                        {rootNode.name}
+                    </span>
+                </div>
+                
+                <!-- Root's children - only shown if expanded -->
+                {#if expandedNodes.has(rootNode.path) && rootNode.children && rootNode.children.length > 0}
+                    <ul class="file-children">
+                        {#each rootNode.children as childNode (childNode.path)}
+                            <li class="file-node {childNode.is_dir ? 'directory' : 'file'} {selectedFiles.has(childNode.path) ? 'selected' : ''}">
+                                <div class="node-content">
+                                    <!-- Expand/collapse button for directories -->
+                                    {#if childNode.is_dir && childNode.children && childNode.children.length > 0}
+                                        <button 
+                                            type="button" 
+                                            class="expand-toggle-button"
+                                            on:click={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                toggleFolderExpanded(childNode.path, e);
+                                            }}
+                                        >
+                                            {expandedNodes.has(childNode.path) ? '▼' : '►'}
+                                        </button>
+                                    {:else}
+                                        <span class="expand-placeholder"></span>
+                                    {/if}
+                                    
+                                    <!-- Checkbox for selection -->
+                                    {#if checkboxesEnabled}
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedFiles.has(childNode.path)} 
+                                            class="file-checkbox" 
+                                            aria-label="Select {childNode.name}"
+                                            on:click={(e) => e.stopPropagation()}
+                                            on:change={(e) => handleCheckboxChange(childNode, e)}
+                                        />
+                                    {/if}
+                                    
+                                    <span class="node-icon">{childNode.is_dir ? '📁' : '📄'}</span>
+                                    
+                                    <!-- Make name clickable for appropriate action -->
+                                    <span 
+                                        class="node-name"
+                                        on:click={(e) => {
+                                            e.preventDefault();
+                                            childNode.is_dir 
+                                                ? toggleFolderExpanded(childNode.path, e) 
+                                                : toggleSelection(childNode, e);
+                                        }}
+                                    >
+                                        {childNode.name}
+                                    </span>
+                                    
+                                    {#if !childNode.is_dir}
+                                        <span class="node-size">{formatFileSize(childNode.size)}</span>
+                                    {/if}
+                                    
+                                    <span class="node-date">{formatDate(childNode.last_modified)}</span>
+                                </div>
+                                
+                                <!-- Render children of directories (if expanded) -->
+                                {#if childNode.is_dir && expandedNodes.has(childNode.path) && childNode.children && childNode.children.length > 0}
+                                    <ul class="file-children">
+                                        {#each childNode.children as grandChildNode (grandChildNode.path)}
+                                            <li class="file-node {grandChildNode.is_dir ? 'directory' : 'file'} {selectedFiles.has(grandChildNode.path) ? 'selected' : ''}">
+                                                <div class="node-content">
+                                                    <!-- Expand/collapse button for directories -->
+                                                    {#if grandChildNode.is_dir && grandChildNode.children && grandChildNode.children.length > 0}
+                                                        <button 
+                                                            type="button" 
+                                                            class="expand-toggle-button"
+                                                            on:click={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                toggleFolderExpanded(grandChildNode.path, e);
+                                                            }}
+                                                        >
+                                                            {expandedNodes.has(grandChildNode.path) ? '▼' : '►'}
+                                                        </button>
+                                                    {:else}
+                                                        <span class="expand-placeholder"></span>
+                                                    {/if}
+                                                    
+                                                    <!-- Checkbox for selection -->
+                                                    {#if checkboxesEnabled}
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={selectedFiles.has(grandChildNode.path)} 
+                                                            class="file-checkbox" 
+                                                            aria-label="Select {grandChildNode.name}"
+                                                            on:click={(e) => e.stopPropagation()}
+                                                            on:change={(e) => handleCheckboxChange(grandChildNode, e)}
+                                                        />
+                                                    {/if}
+                                                    
+                                                    <span class="node-icon">{grandChildNode.is_dir ? '📁' : '📄'}</span>
+                                                    
+                                                    <span 
+                                                        class="node-name"
+                                                        on:click={(e) => {
+                                                            e.preventDefault();
+                                                            grandChildNode.is_dir 
+                                                                ? toggleFolderExpanded(grandChildNode.path, e) 
+                                                                : toggleSelection(grandChildNode, e);
+                                                        }}
+                                                    >
+                                                        {grandChildNode.name}
+                                                    </span>
+                                                    
+                                                    {#if !grandChildNode.is_dir}
+                                                        <span class="node-size">{formatFileSize(grandChildNode.size)}</span>
+                                                    {/if}
+                                                    
+                                                    <span class="node-date">{formatDate(grandChildNode.last_modified)}</span>
+                                                </div>
+                                                
+                                                <!-- Render deeper levels if needed -->
+                                                {#if grandChildNode.is_dir && expandedNodes.has(grandChildNode.path) && grandChildNode.children && grandChildNode.children.length > 0}
+                                                    <ul class="file-children">
+                                                        {#each grandChildNode.children as greatGrandChildNode (greatGrandChildNode.path)}
+                                                            <li class="file-node {greatGrandChildNode.is_dir ? 'directory' : 'file'} {selectedFiles.has(greatGrandChildNode.path) ? 'selected' : ''}">
+                                                                <div class="node-content">
+                                                                    <!-- Simple placeholder for deeper levels -->
+                                                                    <span class="expand-placeholder"></span>
+                                                                    
+                                                                    {#if checkboxesEnabled}
+                                                                        <input 
+                                                                            type="checkbox" 
+                                                                            checked={selectedFiles.has(greatGrandChildNode.path)} 
+                                                                            class="file-checkbox" 
+                                                                            aria-label="Select {greatGrandChildNode.name}"
+                                                                            on:click={(e) => e.stopPropagation()}
+                                                                            on:change={(e) => handleCheckboxChange(greatGrandChildNode, e)}
+                                                                        />
+                                                                    {/if}
+                                                                    
+                                                                    <span class="node-icon">{greatGrandChildNode.is_dir ? '📁' : '📄'}</span>
+                                                                    
+                                                                    <span 
+                                                                        class="node-name" 
+                                                                        on:click={(e) => {
+                                                                            e.preventDefault();
+                                                                            toggleSelection(greatGrandChildNode, e);
+                                                                        }}
+                                                                    >
+                                                                        {greatGrandChildNode.name}
+                                                                    </span>
+                                                                    
+                                                                    {#if !greatGrandChildNode.is_dir}
+                                                                        <span class="node-size">{formatFileSize(greatGrandChildNode.size)}</span>
+                                                                    {/if}
+                                                                    
+                                                                    <span class="node-date">{formatDate(greatGrandChildNode.last_modified)}</span>
+                                                                </div>
+                                                            </li>
+                                                        {/each}
+                                                    </ul>
+                                                {/if}
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                {/if}
+                            </li>
+                        {/each}
+                    </ul>
+                {/if}
+            </li>
+        </ul>
+    {/if}
+
+    <!-- Debug View -->
+    <div class="debug-section">
+        <details>
+            <summary>Debug Info</summary>
+            <div class="debug-content">
+                <p>Loading: {loading}</p>
+                <p>Error: {error || 'None'}</p>
+                <p>Root Node: {rootNode ? `${rootNode.name} (${rootNode.children?.length || 0} children)` : 'Not available'}</p>
+                <p>Selected Files: {selectedFiles.size}</p>
+                <p>Expanded Nodes Count: {expandedNodes.size}</p>
+                <p>Root Initialized: {rootInitialized ? 'Yes' : 'No'}</p>
+                {#if rootNode}
+                    <p>Root Path: {rootNode.path || 'undefined'}</p>
+                    <p>Root Expanded: {expandedNodes.has(rootNode.path) ? 'Yes' : 'No'}</p>
+                    <p>Expanded Nodes: {getExpandedNodesList()}</p>
+                {/if}
+            </div>
+        </details>
+    </div>
+</div>
+
+<style>
+    .file-node-viewer {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 1rem 0;
+    }
+
+    .loading, .error, .empty {
+        padding: 1rem;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    .error {
+        background-color: #fff0f0;
+        color: #c00;
+    }
+
+    .file-tree {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .file-children {
+        list-style: none;
+        padding-left: 1.5rem;
+        margin: 0;
+    }
+
+    .file-node {
+        margin: 0.25rem 0;
+    }
+
+    .node-content {
+        display: flex;
+        align-items: center;
+        padding: 0.25rem 0;
+        border-radius: 4px;
+        transition: background-color 0.15s ease;
+    }
+
+    .node-content:hover {
+        background-color: #f0f8ff;
+    }
+
+    /* Placeholder for nodes that don't expand */
+    .expand-placeholder {
+        width: 20px;
+        display: inline-block;
+        margin-right: 0.25rem;
+        visibility: visible;
+    }
+
+    .expand-toggle-button {
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        margin-right: 0.25rem;
+        background: none;
+        border: none;
+        font-size: 0.8em;
+        color: #666;
+        cursor: pointer;
+        text-align: center;
+        line-height: 1;
+    }
+    
+    .expand-toggle-button:hover {
+        background-color: #e0e0e0;
+        border-radius: 3px;
+    }
+
+    .file-checkbox {
+        margin-right: 0.5rem;
+        cursor: pointer;
+    }
+
+    .node-icon {
+        margin-right: 0.5rem;
+    }
+
+    .node-name {
+        flex: 1;
+        word-break: break-all;
+        cursor: pointer;
+    }
+
+    .node-size {
+        margin-left: 0.5rem;
+        color: #666;
+        font-size: 0.9em;
+        width: 70px;
+        text-align: right;
+    }
+
+    .node-date {
+        margin-left: 0.5rem;
+        color: #666;
+        font-size: 0.9em;
+        width: 150px;
+        text-align: right;
+    }
+
+    .file-node.directory > .node-content {
+        font-weight: bold;
+    }
+
+    .file-node.selected > .node-content {
+        background-color: #e3f2fd;
+    }
+
+    /* Debug styles */
+    .debug-section {
+        margin-top: 1rem;
+        border-top: 1px dashed #ccc;
+        padding-top: 0.5rem;
+    }
+
+    .debug-section summary {
+        cursor: pointer;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .debug-content {
+        padding: 0.5rem;
+        background-color: #f5f5f5;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+
+    .debug-content p {
+        margin: 0.2rem 0;
+    }
+    
+    .debug-buttons {
+        margin-bottom: 0.5rem;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .debug-button {
+        padding: 0.25rem 0.5rem;
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    
+    .debug-button:hover {
+        background-color: #e0e0e0;
+    }
+</style> 
