@@ -7,6 +7,7 @@
 - Bearbeiten bestehender Profile (Name, Version, Loader, etc.)
 - Löschen von Profilen
 - Kopieren von Profilen mit selektiven Dateien/Einstellungen
+- Kopieren von NoRisk Standard-Versionen als benutzerdefinierte Profile
 - Anzeigen von Profildetails und Statistiken
 - Öffnen des Profilordners im Dateisystem
 
@@ -19,6 +20,13 @@
 - Filtermechanismus für kompatible Mods basierend auf Game-Version und Loader
 - Importieren lokaler Mods
 
+### NoRisk Standard-Versionen
+- Anzeigen vordefinierter NoRisk Versionen
+- Direktes Starten von NoRisk Standard-Versionen
+- Kopieren von Standard-Versionen als benutzerdefinierte Profile
+- Selektives Übernehmen von Dateien beim Kopieren
+- Automatische Konvertierung von Standard-Versionen in benutzerdefinierte Profile
+
 ### NoRisk-Pack System
 - Integration vorkonfigurierter Modpacks
 - Aktivieren/Deaktivieren einzelner Mods innerhalb eines Packs
@@ -29,6 +37,8 @@
 - Auswählen einzelner Dateien oder Ordner
 - Kopieren ausgewählter Dateien zwischen Profilen
 - Vorauswahl bestimmter Dateien (z.B. options.txt, shaderpacks)
+- Benutzerfreundliche Dateiauswahl mit Hierarchie-Anzeige
+- Checkbox-basierte Selektion ganzer Verzeichnisse oder einzelner Dateien
 
 ### Minecraft-Launcher
 - Starten von Minecraft mit ausgewähltem Profil
@@ -39,6 +49,7 @@
 - Moderne, reaktive UI mit Svelte und TypeScript
 - Modal-System für verschiedene Aktionen
 - Detailansichten mit erweiterbaren Abschnitten
+- Benutzerfreundliches Profil-Kopieren über intuitive Dialoge
 - Debugansichten für Entwicklung
 
 ### Tauri-Integration
@@ -59,6 +70,7 @@
 - SQLite-Datenbank für Persistenz
 - Dateisystem-Operationen für Profilverwaltung
 - Prozessmanagement für Minecraft-Ausführung
+- Konvertierung zwischen Standard-Versionen und benutzerdefinierten Profilen
 
 ## Datenbankschema
 
@@ -74,6 +86,7 @@
 - `last_played` (INTEGER): Unix-Timestamp der letzten Nutzung
 - `selected_norisk_pack_id` (TEXT): ID des ausgewählten NoRisk-Packs (kann NULL sein)
 - `path` (TEXT): Pfad zum Profilordner
+- `source_standard_profile_id` (TEXT): ID des Quell-Standard-Profils, falls kopiert (kann NULL sein)
 
 #### mods
 - `id` (TEXT): Primärschlüssel, UUID für den Mod
@@ -113,6 +126,37 @@
 ### Migration 3: Erweiterte Profildaten
 - Hinzufügen der `path`-Spalte zu `profiles`
 - Hinzufügen der `last_played`-Spalte zu `profiles`
+
+### Migration 4: Standard-Profil Quellreferenz
+- Hinzufügen der `source_standard_profile_id`-Spalte zu `profiles`
+
+## Backend-Komponentenübersicht
+
+### Profile-Management
+- `profile_command.rs`: Hauptinterface für Profiloperationen
+  - `copy_profile`: Kopiert ein Profil oder eine NoRisk Standard-Version mit optionaler Dateiauswahl
+  - `get_profile_directory_structure`: Liefert die Dateistruktur eines Profils oder einer Standard-Version
+  - `launch_profile`: Startet ein Profil oder eine NoRisk Standard-Version temporär
+
+### NoRisk-Versionen
+- `norisk_versions.rs`: Verwaltet NoRisk Standard-Versionen
+  - `convert_standard_to_user_profile`: Konvertiert eine Standard-Version in ein benutzerdefinierbares Profil
+
+## Frontend-Komponenten
+
+### ProfileCopy.svelte
+- Benutzerfreundliche UI zum Kopieren von Profilen
+- Dateiauswahl mit Baumansicht
+- Vorauswahl wichtiger Dateien (options.txt, shaderpacks, etc.)
+
+### NoRiskVersions.svelte
+- Anzeige verfügbarer NoRisk Standard-Versionen
+- Optionen zum direkten Starten oder Kopieren als Profil
+
+### FileNodeViewer.svelte
+- Hierarchische Dateisystem-Darstellung
+- Checkbox-basierte Mehrfachauswahl
+- Unterstützung für Eltern-Kind-Selektion
 
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
