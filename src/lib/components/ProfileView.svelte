@@ -5,6 +5,7 @@
     import type { FileNode } from '$lib/types/fileSystem'; // Add FileNode import
     import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
     import FileNodeViewer from './FileNodeViewer.svelte'; // Import FileNodeViewer
+    import Modal from './Modal.svelte'; // Import Modal component
     import { invoke } from '@tauri-apps/api/core';
 
     // Local definition until $lib/types is fixed
@@ -63,6 +64,9 @@
     let directoryStructureLoading = $state(false);
     let directoryStructureError = $state<string | null>(null);
     let selectedFiles = $state(new Set<string>());
+    
+    // State for Modal
+    let showFileViewerModal = $state(false);
 
     // Event dispatcher
     import { createEventDispatcher, onMount } from 'svelte';
@@ -179,6 +183,20 @@
         dispatch('cancelVersionChange');
     }
 
+    // Load directory structure and open modal
+    async function openFileViewerModal() {
+        showFileViewerModal = true;
+        
+        if (!directoryStructure) {
+            await loadDirectoryStructure();
+        }
+    }
+    
+    // Close modal
+    function closeFileViewerModal() {
+        showFileViewerModal = false;
+    }
+
     // New function to load directory structure using Tauri's invoke directly
     async function loadDirectoryStructure() {
         console.log("[FileNodeViewer Debug] Loading directory structure for profile:", profile.id);
@@ -282,8 +300,8 @@
             <button on:click={() => dispatch('delete')}>Delete</button>
             <button on:click={() => dispatch('openFolder')} title="Open profile folder">Open Folder</button>
             <button on:click={() => dispatch('importLocalMods')} title="Import local .jar mods">Import Mods</button>
-            <!-- New button to view directory structure -->
-            <button on:click={loadDirectoryStructure} title="View directory structure">View Files</button>
+            <!-- Changed button to open the modal instead of loading directory structure directly -->
+            <button on:click={openFileViewerModal} title="View directory structure">Copy Files</button>
         </div>
     </div>
 
@@ -450,35 +468,61 @@
         {/if}
     </div>
 
-    <!-- Directory Structure Viewer Section - immer sichtbar, aber nur mit Inhalt nach Laden -->
-    <div class="mods-section file-structure-section">
-          
-        <!-- Komponente immer anzeigen, Status wird intern verwaltet -->
-        <FileNodeViewer 
-            rootNode={directoryStructure}
-            loading={directoryStructureLoading}
-            error={directoryStructureError}
-            selectedFiles={selectedFiles}
-            checkboxesEnabled={true}
-            on:selectionChange={handleFileSelectionChange}
-        />
-        
-        {#if selectedFiles.size > 0}
-            <div class="file-actions">
-                <button on:click={() => dispatch('deleteSelectedFiles', { 
-                    profileId: profile.id,
-                    selectedFiles: [...selectedFiles]
-                })}>
-                    Ausgewählte Dateien löschen
-                </button>
-            </div>
-        {/if}
-    </div>
-
     <!-- Add the ProfileContent component for resourcepacks and shaderpacks -->
     <div class="additional-content">
         <ProfileContent profileId={profile.id} />
     </div>
+    
+    <!-- Modal for file viewer -->
+    <Modal 
+        show={showFileViewerModal} 
+        title="Dateien kopieren - {profile.name}" 
+        fullWidth={false}
+        fullHeight={false}
+        on:close={closeFileViewerModal}
+    >
+        <div class="file-viewer-modal-content">
+            <div class="file-actions-top">
+                <button class="reload-button" on:click={loadDirectoryStructure}>
+                    Struktur neu laden
+                </button>
+            </div>
+            
+            <div class="modal-file-viewer">
+                <FileNodeViewer 
+                    rootNode={directoryStructure}
+                    loading={directoryStructureLoading}
+                    error={directoryStructureError}
+                    selectedFiles={selectedFiles}
+                    checkboxesEnabled={true}
+                    hideRootNode={true}
+                    preSelectPaths={["options.txt", "shaderpacks"]}
+                    selectChildrenWithParent={true}
+                    on:selectionChange={handleFileSelectionChange}
+                />
+            </div>
+            
+            {#if selectedFiles.size > 0}
+                <div class="file-actions-bottom">
+                    <div class="selected-count">
+                        {selectedFiles.size} Dateien ausgewählt
+                    </div>
+                    <button class="copy-button" on:click={() => dispatch('copySelectedFiles', { 
+                        profileId: profile.id,
+                        selectedFiles: [...selectedFiles]
+                    })}>
+                        Kopieren
+                    </button>
+                    <button class="delete-button" on:click={() => dispatch('deleteSelectedFiles', { 
+                        profileId: profile.id,
+                        selectedFiles: [...selectedFiles]
+                    })}>
+                        Löschen
+                    </button>
+                </div>
+            {/if}
+        </div>
+    </Modal>
 </div>
 
 <style>
@@ -828,10 +872,10 @@
         background-color: #3498db;
         color: white;
         border: none;
-        padding: 0.3rem 0.8rem;
+        padding: 0.25rem 0.6rem; /* Reduziert */
         border-radius: 4px;
         cursor: pointer;
-        align-self: flex-end;
+        font-size: 0.85rem; /* Reduziert */
     }
 
     .reload-button:hover {
@@ -847,5 +891,73 @@
         font-size: 0.9rem;
         white-space: pre-wrap;
         margin: 0;
+    }
+
+    /* Modal content styles */
+    .file-viewer-modal-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        max-height: 500px; /* Begrenzte Höhe für das Popup */
+    }
+
+    .file-actions-top {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 0.5rem; /* Reduziert von 1rem */
+    }
+
+    .modal-file-viewer {
+        flex: 1;
+        overflow: auto;
+        max-height: 350px; /* Begrenzte Höhe für die Baumansicht */
+        border: 1px solid #eee;
+        border-radius: 4px;
+        padding: 0.5rem;
+        background-color: #f9f9f9;
+    }
+
+    .file-actions-bottom {
+        display: flex;
+        justify-content: space-between; /* Geändert von flex-end */
+        align-items: center;
+        margin-top: 0.5rem; /* Reduziert von 1rem */
+        padding-top: 0.5rem; /* Reduziert von 1rem */
+        border-top: 1px solid #eee;
+        gap: 0.5rem; /* Reduziert von 1rem */
+    }
+
+    .selected-count {
+        font-size: 0.85rem; /* Reduziert von 0.9rem */
+        color: #666;
+        white-space: nowrap;
+    }
+
+    .copy-button {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.75rem; /* Reduziert von 0.5rem 1rem */
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem; /* Reduziert von 0.9rem */
+    }
+
+    .copy-button:hover {
+        background-color: #2980b9;
+    }
+
+    .delete-button {
+        background-color: #e74c3c;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.75rem; /* Reduziert von 0.5rem 1rem */
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem; /* Reduziert von 0.9rem */
+    }
+
+    .delete-button:hover {
+        background-color: #c0392b;
     }
 </style> 
