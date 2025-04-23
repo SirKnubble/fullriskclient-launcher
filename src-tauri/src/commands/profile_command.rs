@@ -101,12 +101,39 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
 #[tauri::command]
 pub async fn launch_profile(id: Uuid) -> Result<(), CommandError> {
     let state = State::get().await?;
-    let mut profile = state.profile_manager.get_profile(id).await?;
-    profile.last_played = Some(Utc::now());
-    state
-        .profile_manager
-        .update_profile(id, profile.clone())
-        .await?;
+    
+    // Try to get the regular profile
+    let profile = match state.profile_manager.get_profile(id).await {
+        Ok(profile) => {
+            // Found existing profile - update last_played time
+            let mut profile = profile;
+            profile.last_played = Some(Utc::now());
+            state
+                .profile_manager
+                .update_profile(id, profile.clone())
+                .await?;
+            profile
+        },
+        Err(_) => {
+            // Profile not found - check if it's a standard version ID
+            info!("Profile with ID {} not found, checking standard versions", id);
+            let standard_versions = state.norisk_version_manager.get_config().await;
+            
+            // Find a standard profile with matching ID
+            let standard_profile = standard_versions.profiles.iter()
+                .find(|p| p.id == id)
+                .ok_or_else(|| {
+                    AppError::Other(format!("No profile or standard version found with ID {}", id))
+                })?;
+            
+            // Convert standard profile to a temporary profile
+            info!("Converting standard profile '{}' to a temporary profile", standard_profile.display_name);
+            let converted_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(standard_profile)?;
+            
+            // Return the converted profile without saving it
+            converted_profile
+        }
+    };
 
     let version = profile.game_version.clone();
     let modloader = profile.loader.clone();
@@ -335,7 +362,8 @@ pub async fn get_custom_mods(profile_id: Uuid) -> Result<Vec<CustomModInfo>, Com
         profile_id
     );
     let state: std::sync::Arc<State> = State::get().await?;
-    Ok(state.profile_manager.list_custom_mods(profile_id).await?)
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    Ok(state.profile_manager.list_custom_mods(&profile).await?)
 }
 
 #[tauri::command]

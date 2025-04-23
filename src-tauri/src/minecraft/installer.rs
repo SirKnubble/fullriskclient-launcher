@@ -127,8 +127,7 @@ pub async fn install_minecraft_version(
     // Create game directory
     let game_directory = state
         .profile_manager
-        .get_profile_instance_path(profile.id)
-        .await?;
+        .calculate_instance_path_for_profile(profile)?;
     std::fs::create_dir_all(&game_directory)?;
 
     // Emit libraries download event
@@ -436,7 +435,7 @@ pub async fn install_minecraft_version(
 
     // ---> NEW: Get custom mods for this profile <---
     info!("Listing custom mods for profile '{}'...", profile.name);
-    let custom_mod_infos = state.profile_manager.list_custom_mods(profile.id).await?;
+    let custom_mod_infos = state.profile_manager.list_custom_mods(&profile).await?;
     info!(
         "Found {} custom mods for profile '{}'",
         custom_mod_infos.len(),

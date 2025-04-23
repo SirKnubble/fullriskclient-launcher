@@ -877,12 +877,12 @@ impl ProfileManager {
 
     /// Lists relevant custom mods found in the profile's `custom_mods` directory.
     /// Only includes files ending in `.jar` or `.jar.disabled`.
-    pub async fn list_custom_mods(&self, profile_id: Uuid) -> Result<Vec<CustomModInfo>> {
-        let custom_mods_path = self.get_profile_custom_mods_path(profile_id).await?;
+    pub async fn list_custom_mods(&self, profile: &Profile) -> Result<Vec<CustomModInfo>> {
+        let custom_mods_path = self.calculate_instance_path_for_profile(profile)?;
         let mut custom_mods = Vec::new();
 
         if !custom_mods_path.exists() {
-            log::debug!("Custom mods directory {:?} does not exist for profile {}. Returning empty list.", custom_mods_path, profile_id);
+            log::debug!("Custom mods directory {:?} does not exist for profile {}. Returning empty list.", custom_mods_path, profile.id);
             // Attempt to create it for next time?
             if let Err(e) = tokio::fs::create_dir_all(&custom_mods_path).await {
                  log::warn!("Failed to create custom_mods directory {:?}: {}", custom_mods_path, e);

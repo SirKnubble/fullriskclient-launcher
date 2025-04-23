@@ -65,7 +65,7 @@
     async function launchStandardProfile(id: string) {
         try {
             addDebugLog(`Launching standard profile with ID: ${id}`);
-            await invoke("launch_standard_profile", { id });
+            await invoke("launch_profile", { id });
             addDebugLog(`Launch command sent for profile ${id}`);
         } catch (error) {
             console.error("[NoRiskVersions] Failed to launch standard profile:", error);
