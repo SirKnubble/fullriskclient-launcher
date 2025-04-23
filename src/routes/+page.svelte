@@ -4,7 +4,7 @@
     import { activeTab } from '$lib/utils/navigationUtils';
     import { onMount } from 'svelte';
     import { setLanguage, translations } from '$lib/utils/translationUtils';
-    import TopNavigationBar from '$lib/components/home/TopNavigationBar.svelte';
+    import TopNavigationBar from '$lib/components/TopNavigationBar.svelte';
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
 
     $: lang = $translations;
