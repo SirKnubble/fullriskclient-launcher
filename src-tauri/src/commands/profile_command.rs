@@ -725,7 +725,27 @@ pub async fn get_profile_directory_structure(
     log::info!("Executing get_profile_directory_structure command for profile {}", profile_id);
 
     let state = State::get().await?;
-    let profile = state.profile_manager.get_profile(profile_id).await?;
+    
+    // Profil abrufen - versuche reguläres Profil oder Standard-Version
+    let profile = match state.profile_manager.get_profile(profile_id).await {
+        Ok(profile) => profile,
+        Err(_) => {
+            // Profil nicht gefunden - prüfe ob es eine Standard-Version ID ist
+            log::info!("Profile with ID {} not found, checking standard versions", profile_id);
+            let standard_versions = state.norisk_version_manager.get_config().await;
+            
+            // Finde ein Standard-Profil mit passender ID
+            let standard_profile = standard_versions.profiles.iter()
+                .find(|p| p.id == profile_id)
+                .ok_or_else(|| {
+                    AppError::Other(format!("No profile or standard version found with ID {}", profile_id))
+                })?;
+            
+            // Konvertiere Standard-Profil zu einem temporären Profil
+            log::info!("Converting standard profile '{}' to a user profile for directory structure", standard_profile.display_name);
+            norisk_versions::convert_standard_to_user_profile(standard_profile)?
+        }
+    };
     
     // Calculate the full profile path
     let profile_path = state.profile_manager
