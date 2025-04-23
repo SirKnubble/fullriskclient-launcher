@@ -43,6 +43,15 @@ pub struct UpdateProfileParams {
     selected_norisk_pack_id: Option<String>,
 }
 
+// Neue DTO für den copy_profile Command
+#[derive(Deserialize)]
+pub struct CopyProfileParams {
+    source_profile_id: Uuid,
+    new_profile_name: String,
+    // Option um nur bestimmte Dateien zu kopieren
+    include_files: Option<Vec<PathBuf>>,
+}
+
 // CRUD Commands
 #[tauri::command]
 pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, CommandError> {
@@ -730,58 +739,99 @@ pub async fn get_profile_directory_structure(
     Ok(structure)
 }
 
-// Command to copy a profile with exclusions
+/// Kopiert ein bestehendes Profil und erstellt ein neues mit den gleichen Eigenschaften,
+/// aber kopiert nur die angegebenen Dateien wenn include_files angegeben ist.
 #[tauri::command]
-pub async fn copy_profile_with_exclusions(
-    source_profile_id: Uuid,
-    new_profile_name: String,
-    excluded_paths: Vec<String>,
-) -> Result<Uuid, CommandError> {
-    log::info!(
-        "Executing copy_profile_with_exclusions command for profile {} with {} exclusions",
-        source_profile_id,
-        excluded_paths.len()
-    );
-
+pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandError> {
+    info!("Executing copy_profile command from profile {}", params.source_profile_id);
+    
     let state = State::get().await?;
     
-    // Get the source profile
-    let source_profile = state.profile_manager.get_profile(source_profile_id).await?;
+    // 1. Quellprofil abrufen
+    let source_profile = state.profile_manager.get_profile(params.source_profile_id).await?;
     
-    // Calculate the full source profile path
-    let source_profile_path = state.profile_manager
-        .calculate_instance_path_for_profile(&source_profile)?;
+    // 2. Basis-Pfad für Profile bestimmen
+    let base_profiles_dir = default_profile_path();
+    TokioFs::create_dir_all(&base_profiles_dir)
+        .await
+        .map_err(|e| CommandError::from(AppError::Io(e)))?;
     
-    // Create a copy of the source profile with a new ID and name
-    let mut new_profile = source_profile.clone();
-    new_profile.id = Uuid::new_v4();
-    new_profile.name = new_profile_name;
-    new_profile.created = Utc::now();
-    new_profile.last_played = None;
-    new_profile.source_standard_profile_id = None;
+    // 3. Gewünschten Segmentnamen für das neue Profil bereinigen
+    let sanitized_base_name = sanitize(&params.new_profile_name);
+    if sanitized_base_name.is_empty() {
+        return Err(CommandError::from(AppError::Other(
+            "Profile name is invalid after sanitization.".to_string(),
+        )));
+    }
     
-    // 1. Create the new profile in the database first
+    // 4. Eindeutigen Segmentnamen finden
+    let unique_segment = find_unique_profile_segment(&base_profiles_dir, &sanitized_base_name).await?;
+    info!("Unique segment for copied profile: {}", unique_segment);
+    
+    // 5. Erstelle ein neues Profil basierend auf dem Quellprofil
+    let new_profile = Profile {
+        id: Uuid::new_v4(),
+        name: params.new_profile_name.clone(),
+        path: unique_segment.clone(), // Verwende den eindeutigen Pfad
+        game_version: source_profile.game_version.clone(),
+        loader: source_profile.loader.clone(),
+        loader_version: source_profile.loader_version.clone(),
+        created: Utc::now(),
+        last_played: None,
+        settings: source_profile.settings.clone(),
+        state: ProfileState::NotInstalled, // Neues Profil ist noch nicht installiert
+        mods: Vec::new(), // Mods werden erst nach dem Kopieren aktualisiert
+        selected_norisk_pack_id: source_profile.selected_norisk_pack_id.clone(),
+        disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
+        source_standard_profile_id: source_profile.source_standard_profile_id,
+    };
+    
+    // 6. Erstelle das neue Profilverzeichnis
+    let new_profile_path = base_profiles_dir.join(&unique_segment);
+    TokioFs::create_dir_all(&new_profile_path)
+        .await
+        .map_err(|e| CommandError::from(AppError::Io(e)))?;
+    
+    // 7. Berechne die vollständigen Pfade für Quell- und Zielverzeichnisse
+    let source_full_path = base_profiles_dir.join(&source_profile.path);
+    
+    // 8. Kopiere die Dateien basierend auf den Parametern
+    let files_copied = if let Some(include_files) = &params.include_files {
+        if !include_files.is_empty() {
+            // Wenn eine nicht-leere Include-Liste angegeben wurde, verwende die neue Funktion
+            info!("Copying only specified files ({} paths) to new profile {}", 
+                 include_files.len(), new_profile.id);
+                 
+            // Die neue Funktion kümmert sich um alles in einem Schritt
+            path_utils::copy_profile_with_includes(
+                &source_full_path,
+                &new_profile_path,
+                include_files
+            ).await?
+        } else {
+            // Leere include_files bedeutet: kopiere nichts
+            info!("Empty include_files list, not copying any files to new profile {}", new_profile.id);
+            0
+        }
+    } else {
+        info!("No include_files specified, copying no files to new profile {}", new_profile.id);
+        0
+    };
+    
+    info!("Copied {} files to new profile {}", files_copied, new_profile.id);
+    
+    // 9. Speichere das neue Profil in der Datenbank
     let new_profile_id = state.profile_manager.create_profile(new_profile).await?;
     
-    // 2. Retrieve the newly created profile to get its path
-    let created_profile = state.profile_manager.get_profile(new_profile_id).await?;
+    // 10. Event auslösen, um das UI zu aktualisieren
+    if let Err(e) = state.event_state.trigger_profile_update(new_profile_id).await {
+        log::error!(
+            "Failed to emit TriggerProfileUpdate event for profile {}: {}",
+            new_profile_id,
+            e
+        );
+    }
     
-    // 3. Calculate the destination path for the new profile
-    let dest_profile_path = state.profile_manager
-        .calculate_instance_path_for_profile(&created_profile)?;
-    
-    // Convert excluded paths to a HashSet for efficient lookup
-    let excluded_set: HashSet<String> = excluded_paths.clone().into_iter().collect();
-    
-    // 4. Copy the files with exclusions
-    path_utils::copy_profile_with_exclusions(
-        &source_profile_path,
-        &dest_profile_path,
-        &excluded_paths.iter().map(|p| PathBuf::from(p)).collect::<Vec<PathBuf>>()
-    )
-    .await
-    .map_err(|e| CommandError::from(e))?;
-    
-    // Return the ID of the new profile
     Ok(new_profile_id)
 }
+

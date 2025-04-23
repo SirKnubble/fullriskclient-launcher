@@ -295,6 +295,107 @@ pub fn filter_directory_structure(
     }
 }
 
+/// Filters a directory structure based on a set of included paths.
+/// Returns a new tree with only the files and directories that should be included.
+///
+/// # Arguments
+/// * `node` - The root node to filter
+/// * `included_paths` - Set of paths (as strings) that should be included
+///
+/// # Returns
+/// A new FileNode with only included paths
+pub fn filter_directory_structure_by_includes(
+    node: &FileNode,
+    included_paths: &std::collections::HashSet<String>,
+) -> Option<FileNode> {
+    // For directories, filter children and keep the directory if it has any children left
+    if node.is_dir {
+        // Process children first
+        let filtered_children: Vec<FileNode> = node.children
+            .iter()
+            .filter_map(|child| filter_directory_structure_by_includes(child, included_paths))
+            .collect();
+        
+        // Only return the directory if:
+        // 1. It has remaining children after filtering, or
+        // 2. It's explicitly included, or
+        // 3. It's the root node (to maintain structure)
+        if !filtered_children.is_empty() || 
+           included_paths.contains(&node.path.to_string_lossy().to_string()) || 
+           node.path.parent().is_none() {
+            let mut filtered_node = node.clone();
+            filtered_node.children = filtered_children;
+            Some(filtered_node)
+        } else {
+            None
+        }
+    } else {
+        // For files, only include if the path is in the included_paths set
+        if included_paths.contains(&node.path.to_string_lossy().to_string()) {
+            Some(node.clone())
+        } else {
+            None
+        }
+    }
+}
+
+/// Copies files and directories from a source profile to a destination profile
+/// based on a list of included paths.
+///
+/// # Arguments
+/// * `source_root` - The root directory of the source profile
+/// * `dest_root` - The root directory of the destination profile
+/// * `include_paths` - List of paths to include (only these will be copied)
+///
+/// # Returns
+/// Result with the number of files copied
+pub async fn copy_profile_with_includes(
+    source_root: &Path,
+    dest_root: &Path,
+    include_paths: &[PathBuf],
+) -> Result<u64> {
+    info!(
+        "Copying selected files from {} to {}",
+        source_root.display(),
+        dest_root.display()
+    );
+    
+    // Get the complete file structure
+    let source_structure = get_directory_structure(source_root, false).await?;
+    
+    // Convert included paths to strings for comparison
+    let included_set: std::collections::HashSet<String> = include_paths
+        .iter()
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+    
+    info!("Filtering directory structure with {} include paths", included_set.len());
+    
+    // Filter the structure to keep only included paths
+    let filtered_structure = filter_directory_structure_by_includes(&source_structure, &included_set)
+        .ok_or_else(|| {
+            AppError::Other("No files matched the include criteria, nothing to copy".to_string())
+        })?;
+    
+    // Create the destination directory if it doesn't exist
+    if !dest_root.exists() {
+        fs::create_dir_all(dest_root)
+            .await
+            .map_err(|e| AppError::Io(e))?;
+    }
+    
+    // Copy the files according to the filtered structure
+    let files_copied = copy_profile_files(
+        &filtered_structure,
+        source_root,
+        dest_root
+    ).await?;
+    
+    info!("Profile copy completed. Copied {} files.", files_copied);
+    
+    Ok(files_copied)
+}
+
 /// Copies files and directories from a source profile to a destination profile
 /// based on the filtered directory structure.
 ///
