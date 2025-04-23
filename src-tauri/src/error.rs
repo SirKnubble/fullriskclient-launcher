@@ -127,6 +127,12 @@ pub enum AppError {
 
     #[error("Failed to upload log to mclo.gs: {0}")]
     MclogsUploadFailed(String),
+
+    #[error("Request error: {0}")]
+    RequestError(String),
+
+    #[error("Parse error: {0}")]
+    ParseError(String),
 }
 
 #[derive(Serialize)]
