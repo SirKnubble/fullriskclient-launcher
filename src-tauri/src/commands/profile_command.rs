@@ -747,8 +747,26 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
     
     let state = State::get().await?;
     
-    // 1. Quellprofil abrufen
-    let source_profile = state.profile_manager.get_profile(params.source_profile_id).await?;
+    // 1. Quellprofil abrufen - versuche reguläres Profil oder Standard-Version
+    let source_profile = match state.profile_manager.get_profile(params.source_profile_id).await {
+        Ok(profile) => profile,
+        Err(_) => {
+            // Profil nicht gefunden - prüfe ob es eine Standard-Version ID ist
+            info!("Profile with ID {} not found, checking standard versions", params.source_profile_id);
+            let standard_versions = state.norisk_version_manager.get_config().await;
+            
+            // Finde ein Standard-Profil mit passender ID
+            let standard_profile = standard_versions.profiles.iter()
+                .find(|p| p.id == params.source_profile_id)
+                .ok_or_else(|| {
+                    AppError::Other(format!("No profile or standard version found with ID {}", params.source_profile_id))
+                })?;
+            
+            // Konvertiere Standard-Profil zu einem temporären Profil
+            info!("Converting standard profile '{}' to a user profile for copying", standard_profile.display_name);
+            norisk_versions::convert_standard_to_user_profile(standard_profile)?
+        }
+    };
     
     // 2. Basis-Pfad für Profile bestimmen
     let base_profiles_dir = default_profile_path();
