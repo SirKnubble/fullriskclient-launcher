@@ -237,8 +237,9 @@ pub async fn search_profiles(query: String) -> Result<Vec<Profile>, CommandError
 #[tauri::command]
 pub async fn get_standard_profiles() -> Result<NoriskVersionsConfig, CommandError> {
     info!("Executing get_standard_profiles command");
-    let profiles_config = norisk_versions::load_local_standard_profiles().await?;
-    Ok(profiles_config)
+    let state = State::get().await?;
+    let config = state.norisk_version_manager.get_config().await;
+    Ok(config)
 }
 
 #[tauri::command]

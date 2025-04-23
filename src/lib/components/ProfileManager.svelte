@@ -8,6 +8,7 @@
     import ModrinthSearch from "./ModrinthSearch.svelte";
     import DebugEvents from './DebugEvents.svelte'; // Import the new component
     import ProfileView from './ProfileView.svelte'; // Import the new component
+    import NoRiskVersions from './NoRiskVersions.svelte'; // Import the NoRiskVersions component
     import { profiles, loadProfiles as loadProfilesFromStore, selectedProfileId } from '$lib/stores/profileStore';
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     // Import Norisk Pack types from the new file
@@ -1211,6 +1212,11 @@
 
     <ModrinthSearch />
     <AccountManager />
+    
+    <!-- NoRiskVersions Component -->
+    <div class="norisk-versions-section">
+        <NoRiskVersions />
+    </div>
 
     <div class="new-profile">
         <h3>Neues Profil</h3>
