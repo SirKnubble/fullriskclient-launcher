@@ -44,6 +44,7 @@ pub struct PistonMeta {
     pub time: String,
     #[serde(rename = "minecraftArguments")]
     pub minecraft_arguments: Option<String>,
+    pub logging: Option<Logging>,
 }
 
 impl PistonMeta {

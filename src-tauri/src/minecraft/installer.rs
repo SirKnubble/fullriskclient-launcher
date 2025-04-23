@@ -6,6 +6,7 @@ use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::minecraft::api::quilt_api::QuiltApi;
 use crate::minecraft::downloads::fabric_libraries_download::FabricLibrariesDownloadService;
 use crate::minecraft::downloads::java_download::JavaDownloadService;
+use crate::minecraft::downloads::logging_config_download::MinecraftLoggingDownloadService;
 use crate::minecraft::downloads::mc_assets_download::MinecraftAssetsDownloadService;
 use crate::minecraft::downloads::mc_client_download::MinecraftClientDownloadService;
 use crate::minecraft::downloads::mc_libraries_download::MinecraftLibrariesDownloadService;
@@ -109,7 +110,11 @@ pub async fn install_minecraft_version(
     // Download and setup Java
     let java_service = JavaDownloadService::new();
     let java_path = java_service
-        .get_or_download_java(java_version, &JavaDistribution::Zulu, Some(&piston_meta.java_version.component))
+        .get_or_download_java(
+            java_version,
+            &JavaDistribution::Zulu,
+            Some(&piston_meta.java_version.component),
+        )
         .await?;
     info!("Java installation path: {:?}", java_path);
 
@@ -494,6 +499,26 @@ pub async fn install_minecraft_version(
         None,
     )
     .await?;
+
+    // Download log4j configuration if available
+    let mut log4j_arg = None;
+    if let Some(logging) = &piston_meta.logging {
+        info!("\nDownloading log4j configuration...");
+        let logging_service = MinecraftLoggingDownloadService::new();
+        let config_path = logging_service
+            .download_logging_config(&logging.client)
+            .await?;
+        log4j_arg = Some(logging_service.get_jvm_argument(&config_path));
+        info!("Log4j configuration download completed!");
+    }
+
+    // Add log4j configuration to JVM arguments if available
+    if let Some(log4j_argument) = log4j_arg {
+        info!("Adding log4j configuration: {}", log4j_argument);
+        let mut jvm_args = launch_params.additional_jvm_args.clone();
+        jvm_args.push(log4j_argument);
+        launch_params = launch_params.with_additional_jvm_args(jvm_args);
+    }
 
     // --- Launch Minecraft ---
     // Emit launch event
