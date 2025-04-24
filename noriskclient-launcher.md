@@ -40,12 +40,14 @@
 - Versionsbasierte Konfigurationsverwaltung für Zukunftskompatibilität
 
 ### Dateisystem-Integration
-- Anzeigen der Profilordnerstruktur
-- Auswählen einzelner Dateien oder Ordner
+- Anzeigen der Profilordnerstruktur mit hierarchischer Baumansicht
+- Interaktive Auswahl einzelner Dateien oder ganzer Ordner
 - Kopieren ausgewählter Dateien zwischen Profilen
-- Vorauswahl bestimmter Dateien (z.B. options.txt, shaderpacks)
+- Intelligente Vorauswahl bestimmter Dateien (z.B. options.txt, shaderpacks)
 - Benutzerfreundliche Dateiauswahl mit Hierarchie-Anzeige
 - Checkbox-basierte Selektion ganzer Verzeichnisse oder einzelner Dateien
+- Automatisches Ein-/Ausklappen von Ordnern
+- Anzeige von Dateimetadaten (Größe, Änderungsdatum)
 
 ### Minecraft-Launcher
 - Starten von Minecraft mit ausgewähltem Profil
@@ -60,19 +62,28 @@
 - Benutzerfreundliches Profil-Kopieren über intuitive Dialoge
 - Konfigurationsseite für globale Launcher-Einstellungen
 - Debugansichten für Entwicklung
+- Barrierefreie UI-Elemente mit zugangsoptimierter Bedienung
 
 ### Tauri-Integration
 - Kommunikation zwischen Frontend und Backend über Tauri-API
 - Ausführen von Betriebssystem-Operationen
 - Dateisystemzugriff mit Sicherheitsabstraktionen
 
+### Authentifizierung & Token-Management
+- Microsoft-Login für Minecraft-Konten
+- Automatische Token-Aktualisierung
+- Speicherung und sichere Verwaltung von Zugangsdaten
+- NoRisk-spezifisches Token-System für Premium-Funktionen
+- Unterstützung für experimentellen und produktiven Modus
+
 ## Technische Architektur
 
 ### Frontend
 - Svelte mit TypeScript für reaktive Benutzeroberfläche
-- Svelte Runes für Zustandsverwaltung
+- Svelte Runes für moderne Zustandsverwaltung
 - Modulare Komponenten für verschiedene Funktionen
 - Ereignisbasierte Kommunikation zwischen Komponenten
+- Reaktive Dateisystem-Visualisierung
 
 ### Backend
 - Rust-basiertes Backend über Tauri
@@ -81,6 +92,7 @@
 - Prozessmanagement für Minecraft-Ausführung
 - Konvertierung zwischen Standard-Versionen und benutzerdefinierten Profilen
 - Konfigurationsmanager für globale Launcher-Einstellungen
+- Token-Management für NoRisk-Authentifizierung
 
 ## Datenbankschema
 
@@ -173,6 +185,18 @@ Der ConfigManager stellt folgende Funktionen bereit:
   - `ConfigManager`: Stellt Methoden zum Lesen und Schreiben der Konfiguration bereit
   - `LauncherConfig`: Datenstruktur für die Konfiguration mit Versionsunterstützung
 
+### Authentifizierung
+- `minecraft_auth.rs`: Verwaltet Minecraft- und NoRisk-Authentifizierung
+  - `NoRiskToken`: Struktur für NoRisk-API-Tokens mit einem Wertfeld
+  - `NoRiskCredentials`: Verwaltet sowohl Produktions- als auch experimentelle NoRisk-Tokens
+  - `refresh_norisk_token_if_necessary`: Aktualisiert Token automatisch bei Bedarf
+
+### API-Integration
+- `norisk_api.rs`: Kommunikation mit NoRisk-API
+  - `refresh_norisk_token`: Aktualisiert das NoRisk-Token mit HWID-Validierung
+  - `norisk_assets`: Abrufen von NoRisk-Assets für spezifische Branches
+  - Unterstützung für Produktions- und Staging-API-Endpunkte
+
 ### Befehle
 - `config_commands.rs`: Frontend-Befehle für die Konfigurationsverwaltung
   - `get_launcher_config`: Gibt die aktuelle Konfiguration zurück
@@ -192,14 +216,38 @@ Der ConfigManager stellt folgende Funktionen bereit:
 - Optionen zum direkten Starten oder Kopieren als Profil
 
 ### FileNodeViewer.svelte
-- Hierarchische Dateisystem-Darstellung
-- Checkbox-basierte Mehrfachauswahl
-- Unterstützung für Eltern-Kind-Selektion
+- Hochinteraktive, hierarchische Dateisystem-Darstellung
+- Vollständige Baumstruktur mit dynamischem Ein-/Ausklappen von Ordnern
+- Checkbox-basierte Mehrfachauswahl mit Eltern-Kind-Selektionsmechanismus
+- Flexible Konfigurationsoptionen:
+  - Automatische Vorauswahl bestimmter Dateitypen oder Pfade
+  - Ein-/Ausblenden des Root-Knotens
+  - Standardmäßiges Ein-/Ausklappen des Root-Ordners
+  - Automatisches Auswählen aller Kindknoten bei Auswahl eines Elternordners
+- Anzeige von Dateimetadaten (Größe, Änderungsdatum)
+- Ereignisbasierte Kommunikation mit übergeordneten Komponenten
+- Integrierte Debug-Ansicht für Entwicklungszwecke
+- Zugänglichkeitsoptimierte Interaktionselemente
+- Performanceoptimierte Darstellung auch bei umfangreichen Dateistrukturen
 
 ### LauncherSettings.svelte
 - Konfiguration des experimentellen Modus
 - Einstellungen für automatische Updates
 - Steuerung der Download-Parallelität
+
+## Datenstrukturen
+
+### NoRiskToken
+- `value`: String-Wert des JWT-Tokens für API-Autorisierung
+- Wird bei Minecraft-Start als JVM-Argument übergeben
+- Unterstützung für Produktions- und experimentelle Tokens
+- Automatische Aktualisierung bei Authentifizierung
+
+### NoRiskCredentials
+- Wrapper für NoRisk-Tokens
+- `production`: Option<NoRiskToken> für Produktionsumgebung
+- `experimental`: Option<NoRiskToken> für experimentelle Umgebung
+- Methoden zur Token-Auswahl basierend auf Launcher-Konfiguration
 
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
@@ -213,3 +261,5 @@ Der ConfigManager stellt folgende Funktionen bereit:
 - Mehrspieler-Serververwaltung
 - Backup-System für Profile
 - Erweiterte Konfigurationsoptionen
+- Optimierung der Dateisystem-Darstellung für noch größere Profile
+- Kontextsensitive Hilfe für komplexe Funktionen
