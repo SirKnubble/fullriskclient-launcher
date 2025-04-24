@@ -172,7 +172,7 @@ pub struct LibraryDownloads {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Extract {
-    pub exclude: Vec<String>,
+    pub exclude: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
