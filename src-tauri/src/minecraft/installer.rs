@@ -237,39 +237,18 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    // Emit assets download event
-    let assets_event_id = emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "NoRiskClient Assets werden heruntergeladen...",
-        0.0,
-        None,
-    )
-    .await?;
-
+    // Download NoRiskClient assets if profile has a selected pack
     info!("\nDownloading NoRiskClient assets...");
     
-    // Download NoRisk assets if profile has a selected pack
     let norisk_assets_service = NoriskClientAssetsDownloadService::new()
         .with_concurrent_downloads(launcher_config.concurrent_downloads);
     
-    // Download assets for this profile
+    // Download assets for this profile - progress events are now handled internally
     norisk_assets_service
         .download_nrc_assets_for_profile(&profile, credentials.as_ref(), is_experimental_mode)
         .await?;
         
     info!("NoRiskClient Asset download completed!");
-
-    emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "NoRiskClient Assets Download abgeschlossen!",
-        1.0,
-        None,
-    )
-    .await?;
 
     // Emit client download event
     let client_event_id = emit_progress_event(

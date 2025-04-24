@@ -12,6 +12,7 @@ pub enum EventType {
     DownloadingLibraries,
     ExtractingNatives,
     DownloadingAssets,
+    DownloadingNoRiskClientAssets,
     DownloadingClient,
     InstallingFabric,
     InstallingQuilt,

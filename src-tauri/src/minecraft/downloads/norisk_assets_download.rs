@@ -15,6 +15,8 @@ use tokio::io::AsyncWriteExt;
 use futures::stream::{StreamExt, iter};
 use log::{info, error, debug, warn, trace};
 use std::collections::HashMap;
+use crate::state::event_state::{EventPayload, EventType};
+use uuid::Uuid;
 
 const ASSETS_DIR: &str = "assets";
 const NORISK_ASSETS_DIR: &str = "noriskclient";
@@ -95,6 +97,15 @@ impl NoriskClientAssetsDownloadService {
         let request_uuid = creds.id.to_string();
         info!("[NRC Assets Download] Using request UUID from credentials: {}", request_uuid);
 
+        // Emit initial event
+        self.emit_progress_event(
+            &state,
+            profile.id,
+            "Fetching NoRisk assets information...",
+            0.05,
+            None
+        ).await?;
+
         // Fetch assets JSON from NoRisk API
         info!("[NRC Assets Download] Fetching assets for branch: {} (experimental mode: {})", pack, is_experimental);
         let assets = NoRiskApi::norisk_assets(&pack, &norisk_token, &request_uuid, is_experimental).await?;
@@ -105,19 +116,51 @@ impl NoriskClientAssetsDownloadService {
             info!("[NRC Assets Download] No assets found in the response");
         }
         
-        // Download the assets
-        self.download_nrc_assets(&pack, &assets, is_experimental, &norisk_token).await?;
+        // Emit progress event after fetching assets
+        self.emit_progress_event(
+            &state,
+            profile.id,
+            &format!("Found {} assets to download", assets.objects.len()),
+            0.1,
+            None
+        ).await?;
         
-        // Copy assets to profile's game directory if provided
+        // Download the assets
+        self.download_nrc_assets(&pack, &assets, is_experimental, &norisk_token, Some(profile.id)).await?;
+        
+        // Copy assets to profile's game directory
         info!("[NRC Assets Download] Copying assets to game directory: {:?}", game_directory);
+        self.emit_progress_event(
+            &state,
+            profile.id,
+            "Copying assets to game directory...",
+            0.9,
+            None
+        ).await?;
+        
         self.copy_assets_to_game_dir(&pack, &assets, game_directory).await?;
-      
-    
+        
+        // Final progress update
+        self.emit_progress_event(
+            &state,
+            profile.id,
+            "NoRiskClient assets download and installation completed!",
+            1.0,
+            None
+        ).await?;
+       
         Ok(())
     }
 
     /// Downloads NoRisk client assets for a specific branch
-    pub async fn download_nrc_assets(&self, pack: &str, assets: &NoriskAssets, is_experimental: bool, norisk_token: &str) -> Result<()> {
+    pub async fn download_nrc_assets(
+        &self, 
+        pack: &str, 
+        assets: &NoriskAssets, 
+        is_experimental: bool, 
+        norisk_token: &str,
+        profile_id: Option<Uuid>
+    ) -> Result<()> {
         trace!("[NRC Assets Download] Starting download process for branch: {}", pack);
         
         let assets_path = self.base_path.join(NORISK_ASSETS_DIR).join(pack);
@@ -132,9 +175,19 @@ impl NoriskClientAssetsDownloadService {
             
         let mut downloads = Vec::new();
         let task_counter = Arc::new(AtomicUsize::new(1)); // Start counter at 1
+        let total_assets = assets_list.len();
+        let completed_counter = Arc::new(AtomicUsize::new(0));
+        let total_to_download = Arc::new(AtomicUsize::new(0));
 
         trace!("[NRC Assets Download] Preparing {} potential jobs...", assets_list.len());
         let mut job_count = 0;
+        
+        // Get state for progress events if we have a profile ID
+        let state = if profile_id.is_some() {
+            Some(State::get().await?)
+        } else {
+            None
+        };
         
         for (name, asset) in assets_list {
             let hash = asset.hash.clone();
@@ -142,6 +195,8 @@ impl NoriskClientAssetsDownloadService {
             let target_path = assets_path.join(&name);
             let name_clone = name.clone(); // Clone name for the async block
             let task_counter_clone = Arc::clone(&task_counter);
+            let completed_counter_clone = Arc::clone(&completed_counter);
+            let total_to_download_clone = Arc::clone(&total_to_download);
             let pack_clone = pack.to_string();
             let norisk_token_clone = norisk_token.to_string();
 
@@ -158,6 +213,7 @@ impl NoriskClientAssetsDownloadService {
             }
 
             job_count += 1;
+            total_to_download_clone.fetch_add(1, Ordering::SeqCst);
             downloads.push(async move {
                 let task_id = task_counter_clone.fetch_add(1, Ordering::SeqCst);
                 trace!("[NRC Assets Download Task {}] Starting download for: {}", task_id, name_clone);
@@ -243,7 +299,12 @@ impl NoriskClientAssetsDownloadService {
                      return Err(AppError::Io(e));
                 }
 
-                info!("[NRC Assets Download Task {}] Finished download for: {}", task_id, name_clone);
+                // Increment completed counter and update progress
+                let completed = completed_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
+                let total = total_to_download_clone.load(Ordering::SeqCst);
+                
+                info!("[NRC Assets Download Task {}] Finished download for: {} ({}/{})", 
+                      task_id, name_clone, completed, total);
                 Ok(())
             });
         }
@@ -252,12 +313,68 @@ impl NoriskClientAssetsDownloadService {
 
         if job_count == 0 {
             info!("[NRC Assets Download] No new assets to download, all assets are up to date.");
+            
+            // Update progress if we have a profile ID
+            if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+                self.emit_progress_event(
+                    state_ref,
+                    profile_id_val,
+                    "All NoRiskClient assets are up to date!",
+                    0.8,
+                    None
+                ).await?;
+            }
+            
             return Ok(());
         }
 
         info!("[NRC Assets Download] Processing tasks with {} concurrent downloads...", self.concurrent_downloads);
+        
+        // Setup progress reporting
+        let total_downloads = job_count;
+        let completed_ref = Arc::clone(&completed_counter);
+        
+        // Start a task to track progress and emit events
+        if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+            // No need to store anything, we'll access state and profile_id directly in the inspect callback
+        }
+        
         let results: Vec<Result<()>> = iter(downloads)
             .buffer_unordered(self.concurrent_downloads)
+            .inspect(|_| {
+                // Update progress after each download completes
+                let completed = completed_ref.load(Ordering::SeqCst); // Just read the current value
+                let total = total_to_download.load(Ordering::SeqCst);
+                
+                // Emit progress event every 10 completed downloads or when total changes significantly
+                if total > 0 && profile_id.is_some() {
+                    if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+                        // Calculate progress from 0.1 to 0.9 (leaving room for pre and post tasks)
+                        let progress = 0.1 + (completed as f64 / total as f64) * 0.8;
+                        
+                        // Creating a separate task that doesn't capture self
+                        tokio::spawn({
+                            let state = state_ref.clone();
+                            let message = format!("Downloading NoRiskClient assets: {}/{} files", completed, total);
+                            let profile_id = profile_id_val;
+                            
+                            async move {
+                                let event_id = Uuid::new_v4();
+                                if let Err(e) = state.emit_event(EventPayload {
+                                    event_id,
+                                    event_type: EventType::DownloadingNoRiskClientAssets,
+                                    target_id: Some(profile_id),
+                                    message,
+                                    progress: Some(progress),
+                                    error: None,
+                                }).await {
+                                    error!("[NRC Assets Download] Failed to emit progress event: {}", e);
+                                }
+                            }
+                        });
+                    }
+                }
+            })
             .collect()
             .await;
 
@@ -275,12 +392,59 @@ impl NoriskClientAssetsDownloadService {
             for error_item in &errors {
                 error!("  - {}", error_item);
             }
+            
+            // Emit error event if we have a profile ID
+            if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+                self.emit_progress_event(
+                    state_ref,
+                    profile_id_val,
+                    &format!("Failed to download some NoRiskClient assets ({} errors)", errors.len()),
+                    0.8,
+                    Some(errors[0].to_string())
+                ).await?;
+            }
+            
             // Return the first error encountered to signal failure
             Err(errors.remove(0))
         } else {
             info!("[NRC Assets Download] All asset downloads completed successfully.");
+            
+            // Final progress update if we have a profile ID
+            if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+                self.emit_progress_event(
+                    state_ref,
+                    profile_id_val,
+                    "NoRiskClient assets download completed!",
+                    0.8,
+                    None
+                ).await?;
+            }
+            
             Ok(())
         }
+    }
+
+    /// Helper method to emit progress events
+    async fn emit_progress_event(
+        &self,
+        state: &State,
+        profile_id: Uuid,
+        message: &str,
+        progress: f64,
+        error: Option<String>,
+    ) -> Result<Uuid> {
+        let event_id = Uuid::new_v4();
+        state
+            .emit_event(EventPayload {
+                event_id,
+                event_type: EventType::DownloadingNoRiskClientAssets,
+                target_id: Some(profile_id),
+                message: message.to_string(),
+                progress: Some(progress),
+                error,
+            })
+            .await?;
+        Ok(event_id)
     }
 
     /// Copy downloaded assets to the profile's game directory
