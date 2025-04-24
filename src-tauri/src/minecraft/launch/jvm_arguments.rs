@@ -38,7 +38,7 @@ impl JvmArguments {
     }
 
     fn replace_variables(&self, arg: &str) -> String {
-        arg.replace("${natives_directory}", &self.natives_directory.to_string_lossy())
+        arg.replace("${natives_directory}", &self.natives_directory.to_string_lossy().replace("\\", "/"))
             .replace("${launcher_name}", &self.launcher_name)
             .replace("${launcher_version}", &self.launcher_version)
             .replace("${classpath}", &self.classpath)

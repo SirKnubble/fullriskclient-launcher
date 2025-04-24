@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::minecraft::dto::piston_meta::Library;
-use crate::minecraft::rules::RuleProcessor;
-use std::collections::HashMap;
-use log::info;
 use crate::minecraft::launch::version::compare_versions;
+use crate::minecraft::rules::RuleProcessor;
+use log::info;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 struct LibraryInfo {
     path: PathBuf,
@@ -21,12 +21,16 @@ pub struct ClasspathBuilder {
 
 impl ClasspathBuilder {
     pub fn new(minecraft_version: &str) -> Self {
-        let client_jar = LAUNCHER_DIRECTORY.meta_dir()
+        let client_jar = LAUNCHER_DIRECTORY
+            .meta_dir()
             .join("versions")
             .join(minecraft_version)
             .join(format!("{}.jar", minecraft_version));
-        info!("Adding vanilla client jar to classpath: {}", client_jar.to_string_lossy());
-        
+        info!(
+            "Adding vanilla client jar to classpath: {}",
+            client_jar.to_string_lossy()
+        );
+
         Self {
             entries: Vec::new(),
             libraries: HashMap::new(),
@@ -52,19 +56,24 @@ impl ClasspathBuilder {
                 }
 
                 let (group, artifact_name, version) = (parts[0], parts[1], parts[2]);
-                let jar_name = format!("{}-{}.jar", artifact_name, version);
-                let jar_path = LAUNCHER_DIRECTORY.meta_dir()
+                let relativ_path = artifact
+                    .path
+                    .clone()
+                    .unwrap_or(format!("{}-{}.jar", artifact_name, version));
+                info!("Library path: {}", relativ_path);
+                let jar_path = LAUNCHER_DIRECTORY
+                    .meta_dir()
                     .join("libraries")
-                    .join(group.replace('.', "/"))
-                    .join(artifact_name)
-                    .join(version)
-                    .join(&jar_name);
+                    .join(relativ_path.clone());
 
                 // Prüfe ob wir diese Library schon haben
                 if let Some(existing) = self.libraries.get(artifact_name) {
                     // Nur ersetzen wenn neue Version höher ist
                     if compare_versions(version, &existing.version) == std::cmp::Ordering::Greater {
-                        info!("🔄 Replacing library {} ({} -> {})", artifact_name, existing.version, version);
+                        info!(
+                            "🔄 Replacing library {} {:?} ({} -> {})",
+                            relativ_path, existing.path, existing.version, version
+                        );
                         self.libraries.insert(
                             artifact_name.to_string(),
                             LibraryInfo {
@@ -74,11 +83,13 @@ impl ClasspathBuilder {
                             },
                         );
                     } else {
-                        info!("⏩ Skipping library {} (existing version {} is newer or equal to {})",
-                            artifact_name, existing.version, version);
+                        info!(
+                            "⏩ Skipping library {} (existing version {} is newer or equal to {})",
+                            artifact_name, existing.version, version
+                        );
                     }
                 } else {
-                    info!("✅ Adding library: {}", artifact_name);
+                    info!("✅ Adding library: {}", relativ_path);
                     self.libraries.insert(
                         artifact_name.to_string(),
                         LibraryInfo {
@@ -111,8 +122,13 @@ impl ClasspathBuilder {
                     // Prüfe ob wir diese Library schon haben
                     if let Some(existing) = self.libraries.get(name) {
                         // Nur ersetzen wenn neue Version höher ist
-                        if compare_versions(version, &existing.version) == std::cmp::Ordering::Greater {
-                            info!("🔄 Replacing library {} ({} -> {})", name, existing.version, version);
+                        if compare_versions(version, &existing.version)
+                            == std::cmp::Ordering::Greater
+                        {
+                            info!(
+                                "🔄 Replacing library {} ({} -> {})",
+                                name, existing.version, version
+                            );
                             self.libraries.insert(
                                 name.to_string(),
                                 LibraryInfo {
@@ -137,7 +153,10 @@ impl ClasspathBuilder {
                         );
                     }
                 } else {
-                    info!("❌ Skipping file with invalid format (no version): {}", file_name);
+                    info!(
+                        "❌ Skipping file with invalid format (no version): {}",
+                        file_name
+                    );
                 }
             } else {
                 info!("❌ Skipping library with invalid filename");
@@ -154,32 +173,53 @@ impl ClasspathBuilder {
     }
 
     pub fn build(&self, force_include_minecraft_jar: bool) -> String {
-        // Füge zuerst die zusätzlichen Libraries hinzu
-        let mut all_entries: Vec<String> = self.libraries.values()
-            .map(|lib| lib.path.to_string_lossy().to_string())
-            .collect();
-        
-        // Dann die anderen Einträge
-        all_entries.extend(self.entries.clone());
-        
+        use std::collections::HashSet;
+
+        let mut unique_entries = HashSet::new();
+
+        for lib_info in self.libraries.values() {
+            let path_str = lib_info
+                .path
+                .to_string_lossy()
+                .to_string()
+                .replace("\\", "/");
+            unique_entries.insert(path_str);
+        }
+
+        for entry in &self.entries {
+            unique_entries.insert(entry.replace("\\", "/"));
+        }
+
         if let Some(custom_client_jar) = &self.custom_client_jar_path {
             info!("Using custom client jar: {}", custom_client_jar.display());
-            all_entries.push(custom_client_jar.to_string_lossy().to_string());
+            unique_entries.insert(
+                custom_client_jar
+                    .to_string_lossy()
+                    .to_string()
+                    .replace("\\", "/"),
+            );
         } else if let Some(vanilla_jar) = &self.vanilla_client_jar {
             info!("Using vanilla client jar: {}", vanilla_jar.display());
-            all_entries.push(vanilla_jar.to_string_lossy().to_string());
+            unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
         } else {
             info!("⚠️ Warning: No client jar found! This might cause issues.");
         }
 
-        if (force_include_minecraft_jar) {
+        if force_include_minecraft_jar {
             if let Some(vanilla_jar) = &self.vanilla_client_jar {
-                info!("Force including vanilla client jar: {}", vanilla_jar.display());
-                all_entries.push(vanilla_jar.to_string_lossy().to_string());
+                info!(
+                    "Force including vanilla client jar: {}",
+                    vanilla_jar.display()
+                );
+                unique_entries.insert(vanilla_jar.to_string_lossy().to_string().replace("\\", "/"));
             }
         }
-        
-        // Verbinde alle Einträge mit dem System-spezifischen Separator
+
+        let all_entries: Vec<String> = unique_entries.into_iter().collect();
+        info!(
+            "Final classpath contains {} unique entries",
+            all_entries.len()
+        );
         all_entries.join(if cfg!(windows) { ";" } else { ":" })
     }
 }
@@ -193,4 +233,4 @@ fn extract_version_from_filename(filename: &str) -> String {
         }
     }
     "0.0.0".to_string() // Fallback
-} 
+}

@@ -44,6 +44,7 @@ pub struct PistonMeta {
     pub time: String,
     #[serde(rename = "minecraftArguments")]
     pub minecraft_arguments: Option<String>,
+    pub logging: Option<Logging>,
 }
 
 impl PistonMeta {
@@ -141,6 +142,7 @@ pub struct Downloads {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DownloadInfo {
+    pub path: Option<String>,
     pub sha1: String,
     pub size: i64,
     pub url: String,

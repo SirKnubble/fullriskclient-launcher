@@ -1,12 +1,14 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
-    import { createEventDispatcher, onMount } from 'svelte';
+    import { createEventDispatcher, onMount, tick } from 'svelte';
     // Import Profile without state if possible, or handle Partial correctly
     import type { Profile as ProfileFromStore } from "$lib/stores/profileStore"; 
     // Import Norisk Pack types from the new file
     import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks';
-    // Import the new settings types
-    import type { ProfileSettings, MemorySettings } from '$lib/types';
+    // Import the new settings types from the correct file
+    import type { ProfileSettings, MemorySettings } from '$lib/types/settings';
+    import type { FabricVersionInfo } from '$lib/types/fabric'; // Import Fabric type
+    import type { QuiltVersionInfo } from '$lib/types/quilt'; // Import Quilt type
 
     // Local interface matching the expected prop type
     interface MinecraftVersion {
@@ -77,6 +79,15 @@
     let isSubmitting = $state(false);
     let errorMessage = $state<string | null>(null);
 
+    // State for available loader versions
+    let availableLoaderVersions = $state<string[]>([]);
+    let isLoadingLoaderVersions = $state(false);
+    let loaderVersionsError = $state<string | null>(null);
+
+    // *NEW* State to track last fetched combination
+    let lastFetchedLoader: string | null = $state(null);
+    let lastFetchedMcVersion: string | null = $state(null);
+
     // --- System RAM State ---
     let totalSystemRamMB = $state<number | null>(null);
     let systemRamError = $state<string | null>(null);
@@ -91,6 +102,8 @@
     onMount(async () => {
         await loadNoriskPacks();
         await fetchSystemRam(); // Fetch system RAM on mount
+        hasMounted = true; // Set hasMounted *after* initial loads
+        // Initial fetch is handled by the effect now, checking hasMounted
     });
 
     async function loadNoriskPacks() {
@@ -154,6 +167,99 @@
         }
     });
 
+    // *MODIFIED* Effect: Fetch loader versions only when combination changes after mount
+    $effect(() => {
+        const currentLoader = selectedModLoader;
+        const currentMcVersion = selectedVersion;
+
+        // Only run after mount and if MC version is selected
+        if (!hasMounted || !currentMcVersion) {
+            return; 
+        }
+
+        console.log(`Effect Check: Loader=${currentLoader}, MCVersion=${currentMcVersion}, LastLoader=${lastFetchedLoader}, LastMCVersion=${lastFetchedMcVersion}`);
+
+        const needsFetching = (currentLoader === 'fabric' || currentLoader === 'forge' || currentLoader === 'neoforge' || currentLoader === 'quilt');
+        const combinationChanged = (currentLoader !== lastFetchedLoader || currentMcVersion !== lastFetchedMcVersion);
+
+        if (needsFetching && combinationChanged) {
+            console.log(`--> Fetching loader versions for ${currentLoader} / ${currentMcVersion}`);
+            // Update last fetched *before* the async call
+            lastFetchedLoader = currentLoader;
+            lastFetchedMcVersion = currentMcVersion;
+            fetchAvailableLoaderVersions(currentLoader, currentMcVersion);
+        } else if (!needsFetching && (lastFetchedLoader !== null || lastFetchedMcVersion !== null)) {
+             // Reset if switching away from fabric/forge to vanilla, etc.
+             console.log(`--> Resetting loader versions (Switched from ${lastFetchedLoader}/${lastFetchedMcVersion} to ${currentLoader}/${currentMcVersion})`);
+             lastFetchedLoader = null; // Clear last fetched state
+             lastFetchedMcVersion = null;
+             resetLoaderVersionsState();
+        }
+    });
+
+    function resetLoaderVersionsState() {
+        availableLoaderVersions = [];
+        loaderVersion = null; 
+        isLoadingLoaderVersions = false;
+        loaderVersionsError = null;
+    }
+
+    async function fetchAvailableLoaderVersions(loaderType: string, minecraftVersion: string) {
+        resetLoaderVersionsState(); // Reset first
+        isLoadingLoaderVersions = true;
+        let currentSelectedLoaderVersion = loaderVersion; // Store current selection before fetch
+
+        try {
+            let fetchedVersions: string[] = [];
+            if (loaderType.toLowerCase() === 'fabric') {
+                const versionsResult: FabricVersionInfo[] = await invoke('get_fabric_loader_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+                fetchedVersions = versionsResult.map(v => `${v.loader.version}${v.loader.stable ? ' (stable)' : ''}`);
+                // Fabric API might return empty array for unsupported versions, not error
+            } else if (loaderType.toLowerCase() === 'quilt') {
+                const versionsResult: QuiltVersionInfo[] = await invoke('get_quilt_loader_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+                fetchedVersions = versionsResult.map(v => `${v.loader.version}${v.loader.stable ? ' (stable)' : ''}`);
+                // Quilt API might return empty array for unsupported versions, not error
+            } else if (loaderType.toLowerCase() === 'forge') {
+                fetchedVersions = await invoke('get_forge_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+            } else if (loaderType.toLowerCase() === 'neoforge') {
+                fetchedVersions = await invoke('get_neoforge_versions', {
+                    minecraftVersion: minecraftVersion
+                });
+            }
+
+            availableLoaderVersions = fetchedVersions;
+            console.log('Available loader versions:', availableLoaderVersions);
+
+            if (availableLoaderVersions.length === 0) {
+                loaderVersionsError = `No ${loaderType} versions found for ${minecraftVersion}.`;
+                loaderVersion = null; // Ensure selection is cleared
+            } else {
+                // Attempt to re-select the previously selected version *if* it exists in the new list
+                // Or default to the first (latest) if no previous selection or previous is invalid
+                if (currentSelectedLoaderVersion && availableLoaderVersions.includes(currentSelectedLoaderVersion)) {
+                    loaderVersion = currentSelectedLoaderVersion;
+                } else {
+                    loaderVersion = availableLoaderVersions[0]; // Default to first/latest
+                }
+            }
+
+        } catch (error: any) {
+            console.error(`Error fetching ${loaderType} versions:`, error);
+            loaderVersionsError = `Error fetching versions: ${error.message || error}`;
+            availableLoaderVersions = [];
+            loaderVersion = null; // Ensure selection is cleared on error
+        } finally {
+            isLoadingLoaderVersions = false;
+            await tick(); // Allow UI to update
+        }
+    }
+
     function updateSelectedVersion() {
         const filtered = getFilteredVersions();
         console.log('Filtered versions:', filtered);
@@ -210,31 +316,22 @@
         };
 
         try {
+            const profileParams = {
+                name: profileName,
+                game_version: selectedVersion,
+                loader: selectedModLoader,
+                // *** Send the selected loaderVersion ***
+                loader_version: (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt') ? loaderVersion : null, 
+                selected_norisk_pack_id: packIdToSend,
+                settings: settingsToSend 
+            };
+
             if (isEditing && editingProfile?.id) {
-                console.log("Updating profile with ID:", editingProfile.id);
-                await invoke("update_profile", {
-                    id: editingProfile.id,
-                    params: {
-                        name: profileName,
-                        game_version: selectedVersion,
-                        loader: selectedModLoader,
-                        loader_version: loaderVersion,
-                        selected_norisk_pack_id: packIdToSend,
-                        settings: settingsToSend // Send updated settings structure
-                    },
-                });
+                console.log("Updating profile:", editingProfile.id, profileParams);
+                await invoke("update_profile", { id: editingProfile.id, params: profileParams });
             } else {
-                console.log("Creating new profile");
-                await invoke("create_profile", {
-                    params: {
-                        name: profileName,
-                        game_version: selectedVersion,
-                        loader: selectedModLoader,
-                        loader_version: loaderVersion,
-                        selected_norisk_pack_id: packIdToSend,
-                        settings: settingsToSend // Send new settings structure
-                    },
-                });
+                console.log("Creating profile:", profileParams);
+                await invoke("create_profile", { params: profileParams });
             }
             dispatch('success');
         } catch (error: unknown) {
@@ -264,9 +361,15 @@
         selectedVersion = "";
         selectedModLoader = "vanilla";
         loaderVersion = null;
-        selectedNoriskPackId = ""; // Reset to "Keine"
-        memoryMaxMB = 2048; // Reset RAM max to 2048 MB
-        if (minecraftVersions.length > 0) updateSelectedVersion(); // Set default version
+        availableLoaderVersions = [];
+        loaderVersionsError = null;
+        isLoadingLoaderVersions = false;
+        // Also reset last fetched state on full form reset
+        lastFetchedLoader = null;
+        lastFetchedMcVersion = null;
+        selectedNoriskPackId = "";
+        memoryMaxMB = 2048;
+        if (minecraftVersions.length > 0) updateSelectedVersion();
     }
 </script>
 
@@ -284,7 +387,7 @@
             <option value="old_beta">Old Beta</option>
             <option value="old_alpha">Old Alpha</option>
         </select>
-        <select bind:value={selectedVersion} class="version-select" aria-label="Minecraft Version">
+        <select bind:value={selectedVersion} class="version-select" aria-label="Minecraft Version" disabled={getFilteredVersions().length === 0}>
             {#if getFilteredVersions().length > 0}
                 {#each getFilteredVersions() as version (version.id)}
                     <option value={version.id}>{version.id}</option>
@@ -294,16 +397,44 @@
             {/if}
         </select>
     </div>
-    <select bind:value={selectedModLoader} aria-label="Modloader">
-        <option value="vanilla">Vanilla</option>
-        <option value="fabric">Fabric</option>
-        <option value="forge">Forge</option>
-        <option value="neoforge">NeoForge</option>
-        <option value="quilt">Quilt</option>
-    </select>
+    <div class="loader-selectors"> <!-- Group loader selects -->
+        <select bind:value={selectedModLoader} aria-label="Modloader" class="loader-select">
+            <option value="vanilla">Vanilla</option>
+            <option value="fabric">Fabric</option>
+            <option value="forge">Forge</option>
+            <option value="neoforge">NeoForge</option>
+            <option value="quilt">Quilt</option>
+        </select>
+
+        <!-- *NEW* Loader Version Selector -->
+        {#if selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt'}
+            <select 
+                bind:value={loaderVersion} 
+                aria-label="Loader Version" 
+                disabled={isLoadingLoaderVersions || availableLoaderVersions.length === 0}
+                class="loader-version-select"
+            >
+                <option value={null}>-- Select Version --</option>
+                {#if isLoadingLoaderVersions}
+                    <option value={null} disabled>Loading...</option>
+                {:else if availableLoaderVersions.length > 0}
+                    {#each availableLoaderVersions as version (version)}
+                        <option value={version}>{version}</option>
+                    {/each}
+                {:else if loaderVersionsError}
+                    <option value={null} disabled>{loaderVersionsError}</option>
+                {:else}
+                    <option value={null} disabled>No versions found</option> 
+                {/if}
+            </select>
+        {/if}
+    </div>
+    {#if loaderVersionsError && (selectedModLoader === 'fabric' || selectedModLoader === 'forge' || selectedModLoader === 'neoforge' || selectedModLoader === 'quilt')}
+         <p class="error-message small">Loader Version Error: {loaderVersionsError}</p>
+    {/if}
 
     <!-- Norisk Pack Selector -->
-    <select bind:value={selectedNoriskPackId} aria-label="Norisk Pack" disabled={isLoadingPacks}>
+    <select bind:value={selectedNoriskPackId} aria-label="Norisk Pack" disabled={isLoadingPacks} class="full-width-select">
         <option value="">Kein Norisk Pack</option> 
         {#if isLoadingPacks}
             <option disabled>Lade Packs...</option>
@@ -317,9 +448,9 @@
              <option disabled>Keine Norisk Packs gefunden</option>
          {/if}
      </select>
-    {#if packLoadError} <p class="error-message">{packLoadError}</p> {/if}
+    {#if packLoadError} <p class="error-message small">{packLoadError}</p> {/if}
 
-    <!-- RAM Allocation Section - Max Only -->
+    <!-- RAM Allocation Section -->
     <div class="ram-setting">
         <label for="ram-max-slider">Maximaler RAM (MB):</label>
         {#if systemRamError}<p class="error-message small">{systemRamError}</p>{/if}
@@ -410,6 +541,7 @@
         <p><strong>Type:</strong> {selectedType}</p>
         <p><strong>Version:</strong> {selectedVersion}</p>
         <p><strong>ModLoader:</strong> {selectedModLoader}</p>
+        <p><strong>Loader Version:</strong> {loaderVersion || 'None'}</p>
         <p><strong>Name:</strong> {profileName}</p>
         <p><strong>Norisk Pack ID:</strong> {selectedNoriskPackId || 'None'}</p>
         <p><strong>Memory Max (MB):</strong> {memoryMaxMB}</p>
@@ -426,13 +558,22 @@
         padding: 1rem 0;
     }
 
-    .version-selectors {
+    .version-selectors, .loader-selectors { /* Apply to both groups */
         display: flex;
         gap: 1rem;
     }
 
-    .version-select {
-        width: calc(50% - 0.5rem);
+    .version-select, .loader-select, .loader-version-select { /* Style all selects similarly */
+        flex: 1; /* Make selects share space */
+        min-width: 100px; /* Prevent them getting too small */
+    }
+
+    .loader-version-select { /* Specific style if needed */
+        flex-basis: 50%; /* Example: give it equal space */
+    }
+
+    .full-width-select {
+        width: 100%; /* Make norisk pack select full width */
     }
 
     .form-actions {

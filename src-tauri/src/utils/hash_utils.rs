@@ -20,4 +20,12 @@ pub async fn calculate_sha1(path: &PathBuf) -> Result<String, io::Error> {
 
     let hash_bytes = hasher.finalize();
     Ok(format!("{:x}", hash_bytes)) // Format as hex string
+}
+
+/// Calculates the SHA1 hash of a byte slice.
+pub fn calculate_sha1_from_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha1::new();
+    hasher.update(bytes);
+    let hash_bytes = hasher.finalize();
+    format!("{:x}", hash_bytes) // Format as hex string
 } 

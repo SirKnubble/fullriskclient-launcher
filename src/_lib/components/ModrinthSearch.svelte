@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { loadProfiles, selectedProfile, profiles } from '$lib/stores/profileStore'; // Import selectedProfile store
   import ProfileSelect from '$lib/components/ProfileSelect.svelte'; // Import ProfileSelect
+  import ModrinthProfileDropdown from '$lib/components/ModrinthProfileDropdown.svelte';
 
   // --- Props --- 
   // targetProfileId is now implicitly handled via the selectedProfile store
@@ -11,8 +12,22 @@
 
   // --- Interfaces matching Rust structs --- 
 
+  // Project types enum matching backend
+  type ModrinthProjectType = "mod" | "modpack" | "resourcepack" | "shader" | "datapack";
+
+  // Sort type enum matching backend
+  type ModrinthSortType = "relevance" | "downloads" | "follows" | "newest" | "updated";
+
+  interface ModrinthSearchResponse {
+    hits: ModrinthSearchHit[];
+    offset: number;
+    limit: number;
+    total_hits: number;
+  }
+
   interface ModrinthSearchHit {
     project_id: string;
+    project_type: string;
     slug: string;
     title: string;
     description: string;
@@ -72,9 +87,35 @@
   // --- Component State --- 
 
   let searchTerm = '';
-  let searchResults: ModrinthSearchHit[] = []; // Renamed from 'results'
-  let searchLoading = false; // Renamed from 'isLoading'
-  let searchError: string | null = null; // Renamed from 'error'
+  let searchResults: ModrinthSearchHit[] = []; // Results from search
+  let searchResponse: ModrinthSearchResponse | null = null; // Full response including pagination info
+  let searchLoading = false;
+  let searchError: string | null = null;
+
+  // Project type tabs
+  let selectedProjectType: ModrinthProjectType = "mod"; // Default to mods
+  const projectTypes: {type: ModrinthProjectType, label: string}[] = [
+    { type: "mod", label: "Mods" },
+    { type: "modpack", label: "Modpacks" },
+    { type: "resourcepack", label: "Resource Packs" },
+    { type: "datapack", label: "Datapacks" },
+    { type: "shader", label: "Shaders" }
+  ];
+
+  // Sorting options
+  let selectedSortType: ModrinthSortType = "relevance"; // Default to relevance
+  const sortOptions: {type: ModrinthSortType, label: string}[] = [
+    { type: "relevance", label: "Relevance" },
+    { type: "downloads", label: "Downloads" },
+    { type: "follows", label: "Followers" },
+    { type: "newest", label: "Newest" },
+    { type: "updated", label: "Recently Updated" }
+  ];
+
+  // Pagination
+  let currentPage = 0;
+  let pageSize = 20; // Items per page
+  let totalPages = 0;
 
   let selectedProjectId: string | null = null; // Track which project's versions are shown
   let modVersions: ModrinthVersion[] = [];
@@ -87,10 +128,15 @@
   // Filter state (could be made interactive later)
   let filterByProfile = true; // Control whether to use profile filters
 
+  // Profile dropdown state - für die neue Komponente
+  let showProfileDropdown = false;
+  let currentContentToInstall: { version: ModrinthVersion, file: ModrinthFile } | null = null;
+
   // --- Derived Values --- 
   // Get filter values reactively from the selected profile
   $: currentGameVersionFilter = filterByProfile ? $selectedProfile?.game_version : undefined;
   $: currentLoaderFilter = filterByProfile ? $selectedProfile?.loader : undefined;
+  $: totalPages = searchResponse ? Math.ceil(searchResponse.total_hits / pageSize) : 0;
 
   // --- Functions --- 
 
@@ -105,34 +151,75 @@
   }
 
   // Search function
-  async function performSearch() {
+  async function performSearch(resetPagination = true) {
     searchLoading = true;
     searchError = null;
+    
+    // Reset pagination if this is a new search
+    if (resetPagination) {
+      currentPage = 0;
+    }
 
-    const gameVersion = currentGameVersionFilter; // Use derived value
-    const loader = currentLoaderFilter; // Use derived value
+    // Für Modpacks werden keine Filter angewendet
+    const gameVersion = selectedProjectType === "modpack" ? undefined : currentGameVersionFilter;
+    
+    // Nur für Mods den Loader-Filter anwenden
+    const loader = selectedProjectType === "mod" ? currentLoaderFilter : undefined;
+    
+    const offset = currentPage * pageSize;
 
-    console.log(`Performing search: query='${searchTerm.trim()}', gameVersion=${gameVersion ?? 'N/A'}, loader=${loader ?? 'N/A'}`);
+    console.log(`Performing search: query='${searchTerm.trim()}', type=${selectedProjectType}, gameVersion=${gameVersion ?? 'N/A'}, loader=${loader ?? 'N/A'}, page=${currentPage}, sort=${selectedSortType}`);
 
     try {
-      const resultsData = await invoke<ModrinthSearchHit[]>('search_modrinth_mods', {
+      // Use the new command with pagination and sorting
+      const response = await invoke<ModrinthSearchResponse>('search_modrinth_projects', {
         query: searchTerm.trim(),
-        limit: 25,
+        projectType: selectedProjectType,
         gameVersion: gameVersion,
-        loader: loader
+        loader: loader,
+        limit: pageSize,
+        offset: offset,
+        sort: selectedSortType
       });
-      searchResults = resultsData;
+      
+      searchResponse = response;
+      searchResults = response.hits;
+      
       // Clear version display when performing a new search
       selectedProjectId = null;
       modVersions = [];
       versionsError = null;
+      
+      console.log(`Found ${response.total_hits} total results, showing ${response.hits.length} items (page ${currentPage + 1}/${totalPages})`);
     } catch (err) {
       console.error("Modrinth search failed:", err);
       searchError = `Search failed: ${err instanceof Error ? err.message : String(err)}`;
       searchResults = [];
+      searchResponse = null;
     } finally {
       searchLoading = false;
     }
+  }
+
+  // Function to handle pagination
+  function changePage(newPage: number) {
+    if (newPage < 0 || newPage >= totalPages) return;
+    currentPage = newPage;
+    performSearch(false); // Don't reset pagination when changing pages
+  }
+  
+  // Function to change project type
+  function changeProjectType(newType: ModrinthProjectType) {
+    if (selectedProjectType === newType) return;
+    selectedProjectType = newType;
+    performSearch(true); // Reset pagination when changing project type
+  }
+  
+  // Function to change sort type
+  function changeSortType(newSort: ModrinthSortType) {
+    if (selectedSortType === newSort) return;
+    selectedSortType = newSort;
+    performSearch(true); // Reset pagination when changing sort
   }
 
   // Fetch and display versions for a project
@@ -152,10 +239,17 @@
       versionsError = null;
       modVersions = [];
 
-      const gameVersions = currentGameVersionFilter ? [currentGameVersionFilter] : undefined;
-      const loaders = currentLoaderFilter ? [currentLoaderFilter] : undefined;
+      // Für Modpacks verwenden wir keine Filter für Gameversion und Loader
+      const gameVersions = hit.project_type === "modpack" 
+          ? undefined 
+          : (currentGameVersionFilter ? [currentGameVersionFilter] : undefined);
+      
+      // Nur für Mods Loader-Filter anwenden
+      const loaders = (hit.project_type === "mod" && currentLoaderFilter) 
+          ? [currentLoaderFilter] 
+          : undefined;
 
-      console.log(`Fetching versions for ${projectId}: gameVersions=${gameVersions?.join(',') ?? 'N/A'}, loaders=${loaders?.join(',') ?? 'N/A'}`);
+      console.log(`Fetching versions for ${projectId} (type: ${hit.project_type}): gameVersions=${gameVersions?.join(',') ?? 'N/A'}, loaders=${loaders?.join(',') ?? 'N/A'}`);
 
       try {
           const versionData = await invoke<ModrinthVersion[]>('get_modrinth_mod_versions', {
@@ -174,55 +268,143 @@
       }
   }
 
-  // Function to add mod to profile
-  async function addModVersionToProfile(version: ModrinthVersion, file: ModrinthFile) {
-      // Use the ID from the store directly
-      const currentProfileId = $selectedProfile?.id; 
-
-      if (!currentProfileId) {
-          alert('Please select a profile first before adding mods.');
-          console.error('Cannot add mod: targetProfileId (from store) is not set.');
-          return;
+  // Funktion zum Öffnen des Profil-Dropdowns oder direktes Installieren
+  function handleContentInstall(version: ModrinthVersion, file: ModrinthFile) {
+    // Wenn es ein ModPack ist, immer direkt installieren
+    if (version.search_hit?.project_type === 'modpack') {
+      installModpack(version, file);
+      return;
+    }
+    
+    // Wenn ein Profil ausgewählt ist, direkt in dieses installieren
+    const currentProfileId = $selectedProfile?.id;
+    if (currentProfileId) {
+      directInstallToProfile(version, file, currentProfileId);
+    } else {
+      // Ansonsten Dropdown anzeigen
+      currentContentToInstall = { version, file };
+      showProfileDropdown = true;
+    }
+  }
+  
+  // Direktes Installieren in ein spezifisches Profil
+  async function directInstallToProfile(version: ModrinthVersion, file: ModrinthFile, profileId: string) {
+    const versionId = version.id;
+    addingModState = { ...addingModState, [versionId]: 'adding' };
+    addError = null;
+    
+    try {
+      const hit = version.search_hit;
+      if (!hit) {
+        throw new Error("Missing search hit context");
       }
-
-      addingModState = { ...addingModState, [version.id]: 'adding' };
-      addError = null;
-
-      const payload = {
-          profileId: currentProfileId, // Use ID from store
-          // Extract details needed by the backend command
+      
+      // Use different methods for different project types
+      if (hit.project_type === "mod") {
+        const payload = {
+          profileId: profileId,
           projectId: version.project_id,
           versionId: version.id,
           fileName: file.filename,
-          downloadUrl: file.url, // Ensure this field exists in ModrinthFile interface if needed by backend
-          fileHashSha1: file.hashes.sha1, // Send SHA1 hash
-          modName: version.search_hit?.title ?? file.filename, // Best guess for mod name
+          downloadUrl: file.url,
+          fileHashSha1: file.hashes.sha1,
+          modName: hit.title ?? file.filename,
           versionNumber: version.version_number,
-          loaders: version.loaders, // Pass loaders array
-          gameVersions: version.game_versions // Pass game versions array
-      };
+          loaders: version.loaders,
+          gameVersions: version.game_versions
+        };
+        
+        console.log(`Installing mod to profile ${profileId}`);
+        await invoke('add_modrinth_mod_to_profile', payload);
+      } 
+      else if (["resourcepack", "shader", "datapack"].includes(hit.project_type)) {
+        const payload = {
+          profileId: profileId,
+          projectId: version.project_id,
+          versionId: version.id,
+          fileName: file.filename,
+          downloadUrl: file.url,
+          fileHashSha1: file.hashes.sha1,
+          contentName: hit.title ?? file.filename,
+          versionNumber: version.version_number,
+          projectType: hit.project_type
+        };
+        
+        console.log(`Installing ${hit.project_type} to profile ${profileId}`);
+        await invoke('add_modrinth_content_to_profile', payload);
+      }
+      
+      console.log(`Successfully added ${hit.project_type} ${file.filename}`);
+      addingModState = { ...addingModState, [versionId]: 'success' };
+      
+      setTimeout(() => {
+        addingModState = { ...addingModState, [versionId]: 'idle' };
+      }, 2000);
+      
+    } catch (err) {
+      console.error(`Failed to add ${version.search_hit?.project_type ?? "content"} ${file.filename}:`, err);
+      addError = `Failed to add: ${err instanceof Error ? err.message : String(err)}`;
+      addingModState = { ...addingModState, [versionId]: 'error' };
+      
+      setTimeout(() => {
+        if (addingModState[versionId] === 'error') {
+          addingModState = { ...addingModState, [versionId]: 'idle' };
+          addError = null;
+        }
+      }, 5000);
+    }
+  }
 
-      console.log("Invoking add_modrinth_mod_to_profile with payload:", payload);
+  // Funktion zum Schließen des Dropdowns
+  function handleCloseDropdown() {
+    showProfileDropdown = false;
+    currentContentToInstall = null;
+  }
 
+  // Füge die neue Funktion für Modpack-Installation hinzu
+  async function installModpack(version: ModrinthVersion, file: ModrinthFile) {
+      // Status für die UI aktualisieren
+      addingModState = { ...addingModState, [version.id]: 'adding' };
+      addError = null;
+      
       try {
-          await invoke('add_modrinth_mod_to_profile', payload);
-          
-          console.log(`Successfully invoked add_mod_to_profile for ${file.filename}`);
-          addingModState = { ...addingModState, [version.id]: 'success' };
-          // Optional: Provide visual feedback like changing button text or showing a temporary message
-          setTimeout(() => {
-              addingModState = { ...addingModState, [version.id]: 'idle' }; // Reset after a delay
-          }, 2000); 
+          const hit = version.search_hit;
+          if (!hit) {
+              throw new Error("Missing search hit context");
+          }
 
+          console.log(`Installing modpack ${hit.title} (${version.version_number})...`);
+          
+          // Rufe den Tauri-Befehl zum Herunterladen und Installieren auf
+          const payload = {
+              projectId: version.project_id,
+              versionId: version.id,
+              fileName: file.filename,
+              downloadUrl: file.url
+          };
+          
+          console.log("Invoking download_and_install_modrinth_modpack with payload:", payload);
+          const profileId = await invoke<string>('download_and_install_modrinth_modpack', payload);
+          
+          console.log(`Successfully installed modpack as profile with ID: ${profileId}`);
+          addingModState = { ...addingModState, [version.id]: 'success' };
+          
+          // Nach dem Erfolg den Status zurücksetzen
+          setTimeout(() => {
+              addingModState = { ...addingModState, [version.id]: 'idle' };
+              // Aktualisiere die Profilliste, damit das neue Profil angezeigt wird
+              loadProfiles();
+          }, 2000);
+          
       } catch (err) {
-          console.error(`Failed to add mod ${file.filename}:`, err);
-          addError = `Failed to add mod: ${err instanceof Error ? err.message : String(err)}`;
+          console.error(`Failed to install modpack: ${err instanceof Error ? err.message : String(err)}`);
+          addError = `Failed to install: ${err instanceof Error ? err.message : String(err)}`;
           addingModState = { ...addingModState, [version.id]: 'error' };
-          // Keep error state until user interacts again or reset after delay
+          
           setTimeout(() => {
               if (addingModState[version.id] === 'error') {
-                 addingModState = { ...addingModState, [version.id]: 'idle' }; 
-                 addError = null; // Clear general error message too
+                  addingModState = { ...addingModState, [version.id]: 'idle' };
+                  addError = null;
               }
           }, 5000);
       }
@@ -256,7 +438,7 @@
 </script>
 
 <div class="modrinth-search-container">
-  <h2>Search Mods on Modrinth</h2>
+  <h2>Search on Modrinth</h2>
 
   <div class="search-bar">
     <input
@@ -264,12 +446,12 @@
       bind:value={searchTerm}
       on:input={debouncedSearch}
       on:keydown={handleKeydown}
-      placeholder="Enter mod name (or leave empty for popular)"
+      placeholder="Enter search term (or leave empty for popular)"
       aria-busy={searchLoading}
       aria-describedby="search-status"
       class:loading={searchLoading}
        />
-    <button on:click={performSearch} disabled={searchLoading}>
+    <button on:click={() => performSearch(true)} disabled={searchLoading}>
       {#if searchLoading} Searching... {:else} Search {/if}
     </button>
     {#if searchLoading}
@@ -277,13 +459,38 @@
     {/if}
   </div>
 
+  <!-- Project Type Tabs -->
+  <div class="project-type-tabs">
+    {#each projectTypes as tab}
+      <button 
+        class="tab-button {selectedProjectType === tab.type ? 'active' : ''}"
+        data-type={tab.type}
+        on:click={() => changeProjectType(tab.type)}
+      >
+        {tab.label}
+      </button>
+    {/each}
+  </div>
+
+  <!-- Sorting Options -->
+  <div class="sort-options">
+    <label for="sort-select">Sort by: </label>
+    <select id="sort-select" bind:value={selectedSortType} on:change={() => performSearch(true)}>
+      {#each sortOptions as option}
+        <option value={option.type}>{option.label}</option>
+      {/each}
+    </select>
+  </div>
+
   <!-- Profile Selector integrated here -->
   <ProfileSelect /> 
 
   <!-- Display selected profile or prompt -->
   <div class="profile-status">
-    {#if $selectedProfile}
-      <p>Adding mods to profile: <strong>{$selectedProfile.name}</strong></p>
+    {#if selectedProjectType === "modpack"}
+      <p>Modpacks werden direkt als neue Profile installiert, keine Profilauswahl erforderlich.</p>
+    {:else if $selectedProfile}
+      <p>Adding to profile: <strong>{$selectedProfile.name}</strong></p>
     {:else}
       <p class="info-message">Select a profile from the dropdown to enable adding mods.</p>
     {/if}
@@ -291,14 +498,15 @@
 
   <!-- Display active filters -->
   <div class="filter-status">
-    {#if filterByProfile && (currentGameVersionFilter || currentLoaderFilter)}
-      Filtering for: 
-      {#if currentGameVersionFilter}<span>MC {currentGameVersionFilter}</span>{/if}
-      {#if currentGameVersionFilter && currentLoaderFilter},{/if}
-      {#if currentLoaderFilter}<span>{currentLoaderFilter}</span>{/if}
-      <!-- TODO: Add button/checkbox to disable filtering -->
-    {:else if filterByProfile}
-      (Select a profile to apply filters)
+    {#if filterByProfile}
+      {#if currentGameVersionFilter || (selectedProjectType === "mod" && currentLoaderFilter)}
+        Filtering for: 
+        {#if currentGameVersionFilter}<span>MC {currentGameVersionFilter}</span>{/if}
+        {#if currentGameVersionFilter && selectedProjectType === "mod" && currentLoaderFilter},{/if}
+        {#if selectedProjectType === "mod" && currentLoaderFilter}<span>{currentLoaderFilter}</span>{/if}
+      {:else}
+        (Select a profile to apply filters)
+      {/if}
     {/if}
   </div>
 
@@ -372,21 +580,55 @@
                         
                         <div class="version-actions">
                           {#if downloadUrl && primaryFile}
-                              <button 
+                              {#if version.search_hit?.project_type === 'modpack'}
+                                <!-- Spezielle Darstellung für Modpacks -->
+                                <button 
+                                  class="add-button modpack {currentAddState}" 
+                                  data-content-type="modpack"
+                                  on:click={() => handleContentInstall(version, primaryFile)}
+                                  disabled={currentAddState === 'adding' || currentAddState === 'success'}
+                                >
+                                  {#if currentAddState === 'adding'}
+                                    Installing...
+                                  {:else if currentAddState === 'success'}
+                                    Installed!
+                                  {:else if currentAddState === 'error'}
+                                    Retry
+                                  {:else}
+                                    Install Modpack
+                                  {/if}
+                                </button>
+                              {:else}
+                                <!-- Standard-Darstellung für andere Projektarten -->
+                                <button 
                                   class="add-button {currentAddState}" 
-                                  on:click={() => addModVersionToProfile(version, primaryFile)}
-                                  disabled={!$selectedProfile || currentAddState === 'adding' || currentAddState === 'success'}
-                              >
+                                  data-content-type={version.search_hit?.project_type}
+                                  on:click={() => handleContentInstall(version, primaryFile)}
+                                  disabled={currentAddState === 'adding' || currentAddState === 'success'}
+                                >
                                   {#if currentAddState === 'adding'}
                                     Adding...
                                   {:else if currentAddState === 'success'}
                                     Added!
                                   {:else if currentAddState === 'error'}
-                                    Retry Add
+                                    Retry
                                   {:else}
-                                    Add <!-- {downloadFilename} -->
+                                    <!-- Show different text based on project type -->
+                                    {#if version.search_hit?.project_type === 'mod'}
+                                      Install Mod
+                                    {:else if version.search_hit?.project_type === 'resourcepack'}
+                                      Install Resource Pack
+                                    {:else if version.search_hit?.project_type === 'shader'}
+                                      Install Shader
+                                    {:else if version.search_hit?.project_type === 'datapack'}
+                                      Install Datapack
+                                    {:else}
+                                      Install
+                                    {/if}
                                   {/if}
-                              </button>
+                                </button>
+                              {/if}
+                              
                               <a 
                                 href={downloadUrl} 
                                 target="_blank"
@@ -413,14 +655,62 @@
         </li>
       {/each}
     </ul>
+
+    <!-- Pagination Controls -->
+    {#if searchResponse && searchResponse.total_hits > pageSize}
+      <div class="pagination-controls">
+        <button 
+          on:click={() => changePage(0)} 
+          disabled={currentPage === 0 || searchLoading}
+          class="pagination-button"
+        >
+          First
+        </button>
+        <button 
+          on:click={() => changePage(currentPage - 1)} 
+          disabled={currentPage === 0 || searchLoading}
+          class="pagination-button"
+        >
+          Previous
+        </button>
+        
+        <span class="pagination-info">Page {currentPage + 1} of {totalPages}</span>
+        
+        <button 
+          on:click={() => changePage(currentPage + 1)} 
+          disabled={currentPage >= totalPages - 1 || searchLoading}
+          class="pagination-button"
+        >
+          Next
+        </button>
+        <button 
+          on:click={() => changePage(totalPages - 1)} 
+          disabled={currentPage >= totalPages - 1 || searchLoading}
+          class="pagination-button"
+        >
+          Last
+        </button>
+      </div>
+      <div class="pagination-summary">
+        Showing {searchResponse.offset + 1}-{Math.min(searchResponse.offset + searchResponse.hits.length, searchResponse.total_hits)} of {searchResponse.total_hits} results
+      </div>
+    {/if}
+
    {:else if !searchLoading && !searchError}
      {#if searchTerm.trim()}
        <p>No results found for "{searchTerm}".</p>
      {:else}
-       <p>Enter a search term or browse popular mods.</p>
+       <p>Enter a search term or browse popular content.</p>
      {/if}
    {/if}
 </div>
+
+<!-- Ersetze das alte Dropdown durch die neue Komponente -->
+<ModrinthProfileDropdown 
+  show={showProfileDropdown}
+  currentContentToInstall={currentContentToInstall}
+  on:close={handleCloseDropdown}
+/>
 
 <style lang="css">
   .modrinth-search-container {
@@ -457,6 +747,86 @@
   .search-bar button:hover:not(:disabled) {
     background-color: #0056b3;
   }
+  
+  /* Project Type Tabs */
+  .project-type-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2em;
+    margin-bottom: 1em;
+    border-bottom: 1px solid #ddd;
+  }
+  .tab-button {
+    padding: 0.5em 1em;
+    border: 1px solid #ddd;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .tab-button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+  }
+  .tab-button:hover:not(.active) {
+    background-color: #e9ecef;
+  }
+  
+  /* Sort Options */
+  .sort-options {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-bottom: 1em;
+  }
+  .sort-options label {
+    font-size: 0.9em;
+    white-space: nowrap;
+  }
+  .sort-options select {
+    padding: 0.3em 0.5em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+  }
+  
+  /* Pagination Controls */
+  .pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5em;
+    margin-top: 1em;
+    flex-wrap: wrap;
+  }
+  .pagination-button {
+    padding: 0.3em 0.6em;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  .pagination-button:hover:not(:disabled) {
+    background-color: #e9ecef;
+  }
+  .pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pagination-info {
+    padding: 0.3em 0.6em;
+    font-size: 0.9em;
+  }
+  .pagination-summary {
+    text-align: center;
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 0.5em;
+  }
+  
   .error-message {
     color: #d9534f;
     margin-top: 1em;
@@ -625,7 +995,7 @@
   .add-button {
       padding: 0.3em 0.6em;
       font-size: 0.9em;
-      background-color: #28a745;
+      background-color: #28a745; /* Default green for mods */
       color: white;
       border: none;
       border-radius: 3px;
@@ -636,6 +1006,35 @@
   .add-button:hover {
       background-color: #218838;
   }
+  
+  /* Different colors for different content types */
+  .tab-button[data-type="resourcepack"],
+  .add-button[data-content-type="resourcepack"] {
+      background-color: #17a2b8; /* Blue for resource packs */
+  }
+  .tab-button[data-type="resourcepack"]:hover,
+  .add-button[data-content-type="resourcepack"]:hover {
+      background-color: #138496;
+  }
+  
+  .tab-button[data-type="shader"],
+  .add-button[data-content-type="shader"] {
+      background-color: #6f42c1; /* Purple for shaders */
+  }
+  .tab-button[data-type="shader"]:hover,
+  .add-button[data-content-type="shader"]:hover {
+      background-color: #5e37a6;
+  }
+  
+  .tab-button[data-type="datapack"],
+  .add-button[data-content-type="datapack"] {
+      background-color: #fd7e14; /* Orange for datapacks */
+  }
+  .tab-button[data-type="datapack"]:hover,
+  .add-button[data-content-type="datapack"]:hover {
+      background-color: #e76b02;
+  }
+
   .download-link {
       font-size: 0.9em;
       color: #007bff;
@@ -722,5 +1121,22 @@
       padding: 0.1em 0.4em;
       background-color: #e9ecef;
       border-radius: 3px;
+  }
+
+  /* Modpack Button Style */
+  .add-button.modpack {
+      background-color: #dc3545; /* Rote Farbe für Modpacks */
+  }
+  .add-button.modpack:hover {
+      background-color: #c82333;
+  }
+  
+  .tab-button[data-type="modpack"],
+  .add-button[data-content-type="modpack"] {
+      background-color: #dc3545; /* Rote Farbe für Modpacks */
+  }
+  .tab-button[data-type="modpack"]:hover,
+  .add-button[data-content-type="modpack"]:hover {
+      background-color: #c82333;
   }
 </style> 

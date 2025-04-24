@@ -38,6 +38,9 @@ pub enum AppError {
     #[error("Fabric error: {0}")]
     FabricError(String),
     
+    #[error("Quilt error: {0}")]
+    QuiltError(String),
+    
     #[error("Unknown error: {0}")]
     Unknown(String),
     
@@ -46,6 +49,9 @@ pub enum AppError {
     
     #[error("Forge error: {0}")]
     ForgeError(String),
+
+    #[error("NeoForge error: {0}")]
+    NeoForgeError(String),
     
     #[error("Profile not found: {0}")]
     ProfileNotFound(Uuid),
@@ -121,6 +127,12 @@ pub enum AppError {
 
     #[error("Failed to upload log to mclo.gs: {0}")]
     MclogsUploadFailed(String),
+
+    #[error("Request error: {0}")]
+    RequestError(String),
+
+    #[error("Parse error: {0}")]
+    ParseError(String),
 }
 
 #[derive(Serialize)]

@@ -5,6 +5,7 @@ use crate::state::event_state::{EventPayload, EventState};
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::process_state::{default_processes_path, ProcessManager};
 use crate::state::profile_state::ProfileManager;
+use crate::state::norisk_versions_state::{default_norisk_versions_path, NoriskVersionManager};
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
@@ -19,6 +20,7 @@ pub struct State {
     pub process_manager: ProcessManager,
     pub minecraft_account_manager_v2: MinecraftAuthStore,
     pub norisk_pack_manager: NoriskPackManager,
+    pub norisk_version_manager: NoriskVersionManager,
 }
 
 impl State {
@@ -37,12 +39,15 @@ impl State {
                     minecraft_account_manager_v2: MinecraftAuthStore::new().await?,
                     norisk_pack_manager: NoriskPackManager::new(default_norisk_packs_path())
                         .await?,
+                    norisk_version_manager: NoriskVersionManager::new(default_norisk_versions_path())
+                        .await?,
                 }))
             })
             .await?;
 
         if let Ok(state) = crate::state::State::get().await {
             state.norisk_pack_manager.print_current_config().await;
+            state.norisk_version_manager.print_current_config().await;
         }
 
         Ok(())

@@ -2,6 +2,12 @@
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     import type { ModrinthVersion } from '$lib/types/modrinth';
     import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks'; // Assuming these types are needed
+    import type { FileNode } from '$lib/types/fileSystem'; // Add FileNode import
+    import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
+    import ProfileCopy from './ProfileCopy.svelte'; // Import ProfileCopy instead
+    import Modal from './Modal.svelte'; // Import Modal component
+    import { invoke } from '@tauri-apps/api/core';
+    import { copyProfile } from '$lib/api/profiles';
 
     // Local definition until $lib/types is fixed
     interface CustomModInfo {
@@ -39,7 +45,7 @@
         doAlternativesExistForThisMod,
         profileEvents // Added prop for events
     } = $props<{ 
-        profile: Profile;
+        profile: Profile & { path?: string };
         noriskPacksConfig: NoriskModpacksConfig | null;
         profileCustomMods: CustomModInfo[] | undefined;
         profileCustomModsLoading: boolean;
@@ -54,9 +60,38 @@
         profileEvents: EventPayload[]; // Added prop for events
     }>();
 
+    // State for FileNodeViewer
+    let directoryStructure = $state<FileNode | null>(null);
+    let directoryStructureLoading = $state(false);
+    let directoryStructureError = $state<string | null>(null);
+    let selectedFiles = $state(new Set<string>());
+    
+    // State for Modal
+    let showFileViewerModal = $state(false);
+
     // Event dispatcher
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
+
+    // State for Copy Profile modal
+    let showCopyProfileModal = $state(false);
+
+    // Manuelle Logging-Funktion für den Status
+    function logStatus() {
+        console.log("[FileNodeViewer Debug] Structure state:", { 
+            directoryStructure, 
+            directoryStructureLoading, 
+            directoryStructureError, 
+            selectedFiles: selectedFiles.size,
+            hasRootNode: directoryStructure !== null,
+            rootNodeDetails: directoryStructure ? {
+                name: directoryStructure.name,
+                path: directoryStructure.path,
+                isDir: directoryStructure.is_dir,
+                childrenCount: directoryStructure.children?.length || 0
+            } : 'null'
+        });
+    }
 
     // --- Helper Functions (moved or adapted from ProfileManager) ---
 
@@ -152,6 +187,97 @@
         dispatch('cancelVersionChange');
     }
 
+    // Load directory structure and open modal
+    async function openFileViewerModal() {
+        showFileViewerModal = true;
+        
+        if (!directoryStructure) {
+            await loadDirectoryStructure();
+        }
+    }
+    
+    // Close modal
+    function closeFileViewerModal() {
+        showFileViewerModal = false;
+    }
+
+    // New function to load directory structure using Tauri's invoke directly
+    async function loadDirectoryStructure() {
+        console.log("[FileNodeViewer Debug] Loading directory structure for profile:", profile.id);
+        
+        if (!profile.id) {
+            console.error("[FileNodeViewer Debug] Cannot load structure - missing profile ID");
+            directoryStructureError = 'Profile ID is missing';
+            return;
+        }
+        
+        directoryStructureLoading = true;
+        directoryStructure = null;
+        directoryStructureError = null;
+        
+        try {
+            // Call the method using Tauri's invoke directly with generics
+            console.log("[FileNodeViewer Debug] Calling Tauri command with args:", { profileId: profile.id });
+            
+            // Hier wird der Typ automatisch aus FileNode abgeleitet
+            const result = await invoke<FileNode>('get_profile_directory_structure', { 
+                profileId: profile.id 
+            });
+            
+            console.log("[FileNodeViewer Debug] Received raw result:", result);
+            
+            // Prüfe und konvertiere das Ergebnis
+            if (result) {
+                directoryStructure = result;
+                console.log("[FileNodeViewer Debug] Structure assigned to directoryStructure:", directoryStructure);
+            } else {
+                directoryStructureError = "Response was empty";
+                console.error("[FileNodeViewer Debug] Empty response from Tauri");
+            }
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
+            console.error("[FileNodeViewer Debug] Exception while loading structure:", errorMsg, error);
+            directoryStructureError = errorMsg;
+        } finally {
+            directoryStructureLoading = false;
+            logStatus(); // Log status nach Statusänderung
+            
+            // Zusätzliche Prüfung nach einiger Zeit, um zu sehen, ob die Werte korrekt gesetzt wurden
+            setTimeout(() => {
+                console.log("[FileNodeViewer Debug] State after delay:", { 
+                    directoryStructure,
+                    directoryStructureLoading,
+                    directoryStructureError
+                });
+            }, 500);
+        }
+    }
+
+    // Handle file selection change
+    function handleFileSelectionChange(event: CustomEvent) {
+        console.log("[FileNodeViewer Debug] File selection changed:", event.detail);
+        selectedFiles = new Set(event.detail.selectedFiles);
+        dispatch('fileSelectionChange', { 
+            profileId: profile.id,
+            selectedFiles: [...selectedFiles]
+        });
+        logStatus(); // Log status nach Statusänderung
+    }
+
+    // Open and close copy profile modal
+    function openCopyProfileModal() {
+        showCopyProfileModal = true;
+    }
+    
+    function closeCopyProfileModal() {
+        showCopyProfileModal = false;
+    }
+    
+    function handleCopySuccess() {
+        showCopyProfileModal = false;
+        // Optional: Show success message
+        console.log("Profile copied successfully");
+    }
 </script>
 
 <!-- Moved HTML structure for a single profile item here -->
@@ -161,8 +287,12 @@
             <h4>{profile.name}</h4>
             <p>Version: {profile.game_version}</p>
             <p>Mod Loader: {profile.loader}</p>
+            {#if profile.loader !== 'vanilla'}
+                <p>Loader Version: {profile.loader_version || 'Default (Latest)'}</p>
+            {/if}
             <p>Erstellt: {new Date(profile.created).toLocaleDateString()}</p>
             <p>Norisk Pack: {getNoriskPackName(profile.selected_norisk_pack_id)}</p>
+            <p>Pfad: {profile.path || 'Unbekannt'}</p>
             {#if profile.last_played}
                 <p>Zuletzt gespielt: {new Date(profile.last_played).toLocaleDateString()}</p>
             {/if}
@@ -189,6 +319,8 @@
             <button on:click={() => dispatch('delete')}>Delete</button>
             <button on:click={() => dispatch('openFolder')} title="Open profile folder">Open Folder</button>
             <button on:click={() => dispatch('importLocalMods')} title="Import local .jar mods">Import Mods</button>
+            <!-- New Copy Profile button -->
+            <button on:click={openCopyProfileModal} title="Copy profile with selected files">Copy Profile</button>
         </div>
     </div>
 
@@ -354,6 +486,23 @@
              <p class="no-mods">Keine lokalen Mods gefunden im `custom_mods` Ordner.</p>
         {/if}
     </div>
+
+    <!-- Add the ProfileContent component for resourcepacks and shaderpacks -->
+    <div class="additional-content">
+        <ProfileContent profileId={profile.id} />
+    </div>
+    
+    <!-- Copy Profile Modal -->
+    {#if showCopyProfileModal}
+        <Modal show={true}>
+            <ProfileCopy 
+                sourceProfileId={profile.id}
+                sourceProfileName={profile.name}
+                onClose={closeCopyProfileModal}
+                onSuccess={handleCopySuccess}
+            />
+        </Modal>
+    {/if}
 </div>
 
 <style>
@@ -388,7 +537,7 @@
 
     .profile-actions {
         display: grid; /* Use grid */
-        grid-template-columns: repeat(4, auto); /* Adjusted for 4 buttons */
+        grid-template-columns: repeat(3, auto); /* Adjusted for button layout */
         gap: 10px;
     }
 
@@ -426,6 +575,22 @@
 
     .profile-actions button:nth-child(4):hover {
         background-color: #2980b9;
+    }
+
+    .profile-actions button:nth-child(5) {
+        background-color: #9b59b6; /* Purple */
+    }
+
+    .profile-actions button:nth-child(5):hover {
+        background-color: #8e44ad;
+    }
+
+    .profile-actions button:nth-child(6) {
+        background-color: #1abc9c; /* Teal */
+    }
+
+    .profile-actions button:nth-child(6):hover {
+        background-color: #16a085;
     }
 
     .last-event {
@@ -591,49 +756,6 @@
         margin: 0;
     }
 
-    .mods-section.user-mods {
-
-    }
-
-    .mods-section.pack-mods {
-        margin-top: 0.5em; 
-        padding-top: 0.5em;
-        border-top: 1px dotted #ccc; 
-    }
-
-    .mods-section.pack-mods h4 {
-        font-size: 0.9em; 
-        font-style: italic;
-        color: #555;
-    }
-
-    .mod-item.pack-mod-item {
-
-    }
-    
-    .mod-item.pack-mod-item.disabled .mod-name {
-        color: #888;
-        font-style: italic;
-        text-decoration: line-through; 
-    }
-
-    .mod-item.pack-mod-item .mod-name {
-
-    }
-
-    .update-indicator {
-        color: #2ecc71; 
-        font-weight: bold;
-        margin-left: 5px;
-        cursor: default; 
-        margin-left: auto; /* Push indicator before version changer/delete */
-        margin-right: 5px;
-    }
-
-    /* Ensure spacing in mod item */
-    .mod-item {
-
-    }
     .mod-name {
 
     }
@@ -659,10 +781,6 @@
         color: #444;
     }
 
-    .mod-item.local-mod-item {
-
-    }
-    
     .mod-item.local-mod-item.disabled .mod-name {
         color: #888;
         font-style: italic;
@@ -678,4 +796,9 @@
         padding: 5px 8px;
     }
 
+    .additional-content {
+        margin-top: 2rem;
+        border-top: 1px solid #ddd;
+        padding-top: 1rem;
+    }
 </style> 

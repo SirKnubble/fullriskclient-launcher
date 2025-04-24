@@ -15,26 +15,35 @@ mod utils;
 use log::{error, info};
 use rand::seq::SliceRandom;
 use std::sync::Arc;
+use crate::integrations::norisk_versions;
 
-use commands::profile_command::{
-    add_modrinth_mod_to_profile, create_profile, delete_mod_from_profile, delete_profile,
-    get_norisk_packs, get_profile, launch_profile, list_profiles, search_profiles,
-    set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
-    set_custom_mod_enabled, get_custom_mods, import_local_mods, get_system_ram_mb,
-    delete_custom_mod, open_profile_folder, import_profile_from_file
+use crate::commands::process_command::{
+    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
 };
-use commands::minecraft_command::{get_minecraft_versions, upload_log_to_mclogs_command};
-use crate::commands::process_command::{
-    get_process, get_processes, get_processes_by_profile, stop_process, get_full_log
+use commands::minecraft_command::{
+    get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
+    get_quilt_loader_versions, upload_log_to_mclogs_command,
+};
+use commands::profile_command::{
+    add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
+    delete_custom_mod, delete_mod_from_profile, delete_profile, get_custom_mods,
+    get_local_resourcepacks, get_local_shaderpacks, get_norisk_packs, get_profile,
+    get_standard_profiles, get_system_ram_mb, import_local_mods, import_profile_from_file,
+    launch_profile, list_profiles, open_profile_folder, search_profiles, set_custom_mod_enabled,
+    set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
+    get_profile_directory_structure, copy_profile,
 };
 
 // Use statements for registered commands only
 use commands::modrinth_commands::{
-    get_all_modrinth_versions_for_contexts, get_modrinth_mod_versions, search_modrinth_mods,
+    download_and_install_modrinth_modpack, get_all_modrinth_versions_for_contexts,
+    get_modrinth_mod_versions, search_modrinth_mods, search_modrinth_projects,
 }; // Remove or comment out if not needed
+
+use commands::file_command::{delete_file, open_file_directory, set_file_enabled};
 
 #[tokio::main]
 async fn main() {
@@ -130,7 +139,10 @@ async fn main() {
         .setup(|app| {
             // Initialize the state
             let app_handle = Arc::new(app.handle().clone());
+
             tauri::async_runtime::spawn(async move {
+                norisk_versions::load_dummy_versions().await;
+
                 if let Err(e) = state::state_manager::State::init(app_handle).await {
                     error!("Failed to initialize state: {}", e);
                 }
@@ -156,9 +168,11 @@ async fn main() {
             get_active_account,
             set_active_account,
             get_accounts,
-            search_modrinth_mods,      // Explicitly not registered
-            get_modrinth_mod_versions, // Explicitly not registered
+            search_modrinth_mods,
+            search_modrinth_projects,
+            get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
+            add_modrinth_content_to_profile,
             set_profile_mod_enabled,
             delete_mod_from_profile,
             get_norisk_packs,
@@ -167,13 +181,26 @@ async fn main() {
             get_all_modrinth_versions_for_contexts,
             get_full_log,
             get_custom_mods,
+            get_local_resourcepacks,
+            get_local_shaderpacks,
             set_custom_mod_enabled,
             import_local_mods,
             get_system_ram_mb,
             delete_custom_mod,
             open_profile_folder,
             import_profile_from_file,
-            upload_log_to_mclogs_command
+            upload_log_to_mclogs_command,
+            get_fabric_loader_versions,
+            get_forge_versions,
+            get_neoforge_versions,
+            get_quilt_loader_versions,
+            set_file_enabled,
+            delete_file,
+            open_file_directory,
+            download_and_install_modrinth_modpack,
+            get_standard_profiles,
+            get_profile_directory_structure,
+            copy_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

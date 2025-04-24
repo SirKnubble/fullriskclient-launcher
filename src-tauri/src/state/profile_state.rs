@@ -74,6 +74,9 @@ pub struct Profile {
     pub selected_norisk_pack_id: Option<String>, // ID of the selected Norisk Pack (e.g., "norisk-prod")
     #[serde(default)] // Keep track of disabled mods per pack/version/loader context
     pub disabled_norisk_mods_detailed: HashSet<NoriskModIdentifier>, // Changed field
+    /// Optional: If this profile was created from a standard profile, store its original ID
+    #[serde(default)]
+    pub source_standard_profile_id: Option<Uuid>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
@@ -846,7 +849,19 @@ impl ProfileManager {
                 self.calculate_instance_path_for_profile(profile)
             }
             None => {
-                log::warn!("Profile {} not found when getting instance path.", profile_id);
+                log::info!("Profile {} not found, checking standard versions", profile_id);
+                // Get state to access norisk_version_manager
+                let state = crate::state::state_manager::State::get().await?;
+                
+                // Check if it's a standard version ID
+                if let Some(standard_profile) = state.norisk_version_manager.get_profile_by_id(profile_id).await {
+                    log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.display_name);
+                    // Convert to a temporary profile
+                    let temp_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(&standard_profile)?;
+                    return self.calculate_instance_path_for_profile(&temp_profile);
+                }
+                
+                log::warn!("Profile {} not found when getting instance path (not in regular profiles or standard versions).", profile_id);
                 Err(AppError::ProfileNotFound(profile_id))
             }
         }
@@ -874,12 +889,12 @@ impl ProfileManager {
 
     /// Lists relevant custom mods found in the profile's `custom_mods` directory.
     /// Only includes files ending in `.jar` or `.jar.disabled`.
-    pub async fn list_custom_mods(&self, profile_id: Uuid) -> Result<Vec<CustomModInfo>> {
-        let custom_mods_path = self.get_profile_custom_mods_path(profile_id).await?;
+    pub async fn list_custom_mods(&self, profile: &Profile) -> Result<Vec<CustomModInfo>> {
+        let custom_mods_path = self.calculate_instance_path_for_profile(profile)?;
         let mut custom_mods = Vec::new();
 
         if !custom_mods_path.exists() {
-            log::debug!("Custom mods directory {:?} does not exist for profile {}. Returning empty list.", custom_mods_path, profile_id);
+            log::debug!("Custom mods directory {:?} does not exist for profile {}. Returning empty list.", custom_mods_path, profile.id);
             // Attempt to create it for next time?
             if let Err(e) = tokio::fs::create_dir_all(&custom_mods_path).await {
                  log::warn!("Failed to create custom_mods directory {:?}: {}", custom_mods_path, e);
