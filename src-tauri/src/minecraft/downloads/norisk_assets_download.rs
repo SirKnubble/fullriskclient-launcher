@@ -5,6 +5,7 @@ use crate::minecraft::api::NoRiskApi;
 use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::state::profile_state::Profile;
 use crate::minecraft::auth::minecraft_auth::Credentials;
+use crate::state::State;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -49,6 +50,9 @@ impl NoriskClientAssetsDownloadService {
         is_experimental: bool
     ) -> Result<()> {
         // Get branch from profile's pack, or use default
+        let state = State::get().await?;
+        let game_directory = state.profile_manager.calculate_instance_path_for_profile(profile)?;
+
         let pack = match &profile.selected_norisk_pack_id {
             Some(pack_id) if !pack_id.is_empty() => {
                 info!("[NRC Assets Download] Using pack ID from profile: {}", pack_id);
@@ -102,7 +106,14 @@ impl NoriskClientAssetsDownloadService {
         }
         
         // Download the assets
-        self.download_nrc_assets(&pack, &assets, is_experimental, &norisk_token).await
+        self.download_nrc_assets(&pack, &assets, is_experimental, &norisk_token).await?;
+        
+        // Copy assets to profile's game directory if provided
+        info!("[NRC Assets Download] Copying assets to game directory: {:?}", game_directory);
+        self.copy_assets_to_game_dir(&pack, &assets, game_directory).await?;
+      
+    
+        Ok(())
     }
 
     /// Downloads NoRisk client assets for a specific branch
@@ -270,5 +281,78 @@ impl NoriskClientAssetsDownloadService {
             info!("[NRC Assets Download] All asset downloads completed successfully.");
             Ok(())
         }
+    }
+
+    /// Copy downloaded assets to the profile's game directory
+    pub async fn copy_assets_to_game_dir(&self, pack: &str, assets: &NoriskAssets, game_dir: PathBuf) -> Result<()> {
+        let source_dir = self.base_path.join(NORISK_ASSETS_DIR).join(pack);
+        let target_dir = game_dir.join("NoRiskClient").join("assets");
+        
+        info!("[NRC Assets Copy] Copying assets from {} to {}", source_dir.display(), target_dir.display());
+        
+        // Ensure target directory exists
+        if !fs::try_exists(&target_dir).await? {
+            fs::create_dir_all(&target_dir).await?;
+            info!("[NRC Assets Copy] Created target directory: {}", target_dir.display());
+        }
+        
+        let assets_list: Vec<(String, AssetObject)> = assets.objects.iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+            
+        let mut copied_count = 0;
+        let mut skipped_count = 0;
+        
+        for (name, asset) in assets_list {
+            let source_path = source_dir.join(&name);
+            let target_path = target_dir.join(&name);
+            
+            // Skip if the file doesn't exist in source
+            if !fs::try_exists(&source_path).await? {
+                warn!("[NRC Assets Copy] Source file doesn't exist: {}", source_path.display());
+                continue;
+            }
+            
+            // Check if file already exists in target with correct size
+            let needs_copy = if fs::try_exists(&target_path).await? {
+                let source_metadata = fs::metadata(&source_path).await?;
+                let target_metadata = fs::metadata(&target_path).await?;
+                
+                if source_metadata.len() != target_metadata.len() {
+                    debug!("[NRC Assets Copy] Size mismatch for {}, needs copy", name);
+                    true
+                } else {
+                    // Files exist with same size, skip copy
+                    trace!("[NRC Assets Copy] Skipping {}, already exists with same size", name);
+                    false
+                }
+            } else {
+                // Target doesn't exist, needs copy
+                debug!("[NRC Assets Copy] Target doesn't exist for {}, needs copy", name);
+                true
+            };
+            
+            if needs_copy {
+                // Ensure parent directory exists
+                if let Some(parent) = target_path.parent() {
+                    if !fs::try_exists(parent).await? {
+                        fs::create_dir_all(parent).await?;
+                    }
+                }
+                
+                // Copy the file
+                fs::copy(&source_path, &target_path).await?;
+                copied_count += 1;
+                
+                if copied_count % 100 == 0 {
+                    info!("[NRC Assets Copy] Copied {} files so far...", copied_count);
+                }
+            } else {
+                skipped_count += 1;
+            }
+        }
+        
+        info!("[NRC Assets Copy] Completed copying assets. Copied: {}, Skipped: {}", copied_count, skipped_count);
+        Ok(())
     }
 } 
