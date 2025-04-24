@@ -21,6 +21,7 @@ pub struct MinecraftLaunchParameters {
     pub force_include_minecraft_jar: bool,
     pub profile_id: Uuid,
     pub memory_max_mb: u32,
+    pub is_experimental_mode: bool,
 }
 
 impl MinecraftLaunchParameters {
@@ -35,6 +36,7 @@ impl MinecraftLaunchParameters {
             force_include_minecraft_jar: false,
             profile_id,
             memory_max_mb,
+            is_experimental_mode: false,
         }
     }
 
@@ -75,6 +77,11 @@ impl MinecraftLaunchParameters {
 
     pub fn with_memory_max_mb(mut self, memory: u32) -> Self {
         self.memory_max_mb = memory;
+        self
+    }
+
+    pub fn with_experimental_mode(mut self, is_experimental: bool) -> Self {
+        self.is_experimental_mode = is_experimental;
         self
     }
 }
@@ -192,6 +199,29 @@ impl MinecraftLauncher {
         command.arg("-XX:G1ReservePercent=20");
         command.arg("-XX:MaxGCPauseMillis=50");
         command.arg("-XX:G1HeapRegionSize=32M");
+
+        // Add NoRisk client specific parameters
+        if let Some(creds) = &self.credentials {
+            // Get the appropriate NoRisk token based on experimental mode setting
+            if let Some(norisk_token) = if params.is_experimental_mode {
+                info!("[NoRisk Launcher] Using experimental mode token");
+                creds.norisk_credentials.experimental.as_ref().map(|t| &t.value)
+            } else {
+                info!("[NoRisk Launcher] Using production mode token");
+                creds.norisk_credentials.production.as_ref().map(|t| &t.value)
+            } {
+                info!("[NoRisk Launcher] Adding NoRisk token to launch parameters");
+                command.arg(format!("-Dnorisk.token={}", norisk_token));
+            } else {
+                info!("[NoRisk Launcher] No NoRisk token available for the selected mode");
+            }
+            
+            // Add experimental mode parameter
+            info!("[NoRisk Launcher] Setting experimental mode: {}", params.is_experimental_mode);
+            command.arg(format!("-Dnorisk.experimental={}", params.is_experimental_mode));
+        } else {
+            info!("[NoRisk Launcher] No credentials available, skipping NoRisk parameters");
+        }
 
         // Add additional JVM arguments
         for arg in params.additional_jvm_args {

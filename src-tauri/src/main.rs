@@ -45,6 +45,11 @@ use commands::modrinth_commands::{
 
 use commands::file_command::{delete_file, open_file_directory, set_file_enabled};
 
+// Import config commands
+use commands::config_commands::{
+    get_launcher_config, set_experimental_mode, set_auto_check_updates, set_concurrent_downloads
+};
+
 #[tokio::main]
 async fn main() {
     if let Err(e) = logging::setup_logging().await {
@@ -201,6 +206,10 @@ async fn main() {
             get_standard_profiles,
             get_profile_directory_structure,
             copy_profile,
+            get_launcher_config,
+            set_experimental_mode,
+            set_auto_check_updates,
+            set_concurrent_downloads,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

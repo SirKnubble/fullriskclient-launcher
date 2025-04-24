@@ -79,6 +79,13 @@ pub async fn install_minecraft_version(
         version_id, modloader_enum
     );
 
+        
+    // Get experimental mode from global config
+    let state = State::get().await?;
+    let is_experimental_mode = state.config_manager.is_experimental_mode().await;
+    
+    info!("[Launch] Setting experimental mode: {}", is_experimental_mode);
+
     let api_service = MinecraftApiService::new();
     let manifest = api_service.get_version_manifest().await?;
     let version = manifest
@@ -96,7 +103,6 @@ pub async fn install_minecraft_version(
     info!("\nChecking Java {} for Minecraft...", java_version);
 
     // Emit Java installation event
-    let state = State::get().await?;
     let event_id = emit_progress_event(
         &state,
         EventType::InstallingJava,
@@ -252,8 +258,10 @@ pub async fn install_minecraft_version(
     let launcher = MinecraftLauncher::new(java_path.clone(), game_directory.clone(), credentials);
 
     info!("\nPreparing launch parameters...");
+    
     let mut launch_params = MinecraftLaunchParameters::new(profile.id, profile.settings.memory.max)
-        .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone());
+        .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone())
+        .with_experimental_mode(is_experimental_mode);
 
     // Install modloader using the factory
     if modloader_enum != ModLoader::Vanilla {
