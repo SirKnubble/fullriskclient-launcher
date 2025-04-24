@@ -79,14 +79,19 @@ pub async fn install_minecraft_version(
         version_id, modloader_enum
     );
 
-        
     // Get experimental mode from global config
     let state = State::get().await?;
     let is_experimental_mode = state.config_manager.is_experimental_mode().await;
     let launcher_config = state.config_manager.get_config().await;
-    
-    info!("[Launch] Setting experimental mode: {}", is_experimental_mode);
-    info!("[Launch] Using concurrent downloads: {}", launcher_config.concurrent_downloads);
+
+    info!(
+        "[Launch] Setting experimental mode: {}",
+        is_experimental_mode
+    );
+    info!(
+        "[Launch] Using concurrent downloads: {}",
+        launcher_config.concurrent_downloads
+    );
 
     let api_service = MinecraftApiService::new();
     let manifest = api_service.get_version_manifest().await?;
@@ -262,19 +267,18 @@ pub async fn install_minecraft_version(
     let launcher = MinecraftLauncher::new(java_path.clone(), game_directory.clone(), credentials);
 
     info!("\nPreparing launch parameters...");
-    
+
     let mut launch_params = MinecraftLaunchParameters::new(profile.id, profile.settings.memory.max)
         .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone())
         .with_experimental_mode(is_experimental_mode);
 
     // Install modloader using the factory
     if modloader_enum != ModLoader::Vanilla {
-        let modloader_installer =
-            ModloaderFactory::create_installer_with_config(
-                &modloader_enum, 
-                java_path.clone(),
-                launcher_config.concurrent_downloads
-            );
+        let modloader_installer = ModloaderFactory::create_installer_with_config(
+            &modloader_enum,
+            java_path.clone(),
+            launcher_config.concurrent_downloads,
+        );
         let modloader_result = modloader_installer.install(version_id, profile).await?;
 
         // Apply modloader specific parameters to launch parameters
@@ -340,7 +344,8 @@ pub async fn install_minecraft_version(
         "Ensuring profile-defined mods for profile '{}' are downloaded to cache...",
         profile.name
     );
-    let mod_downloader_service = ModDownloadService::with_concurrency(launcher_config.concurrent_downloads);
+    let mod_downloader_service =
+        ModDownloadService::with_concurrency(launcher_config.concurrent_downloads);
     mod_downloader_service
         .download_mods_to_cache(&profile)
         .await?;
@@ -381,7 +386,8 @@ pub async fn install_minecraft_version(
                 selected_pack_id
             );
 
-            let norisk_downloader_service = NoriskPackDownloadService::with_concurrency(launcher_config.concurrent_downloads);
+            let norisk_downloader_service =
+                NoriskPackDownloadService::with_concurrency(launcher_config.concurrent_downloads);
             let loader_str = modloader_enum.as_str();
 
             match norisk_downloader_service
