@@ -208,34 +208,13 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    // Emit assets download event
-    let assets_event_id = emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "Assets werden heruntergeladen...",
-        0.0,
-        None,
-    )
-    .await?;
-
     info!("\nDownloading assets...");
     let assets_service = MinecraftAssetsDownloadService::new()
         .with_concurrent_downloads(launcher_config.concurrent_downloads);
     assets_service
-        .download_assets(&piston_meta.asset_index)
+        .download_assets_with_progress(&piston_meta.asset_index, profile.id)
         .await?;
     info!("Asset download completed!");
-
-    emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "Assets Download abgeschlossen!",
-        1.0,
-        None,
-    )
-    .await?;
 
     // Download NoRiskClient assets if profile has a selected pack
     info!("\nDownloading NoRiskClient assets...");
