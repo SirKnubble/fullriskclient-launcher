@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { launcherStartCompleted } from "$lib/utils/missilaniousUtils";
+    import { launcherStartCompleted } from "$lib/utils/missilaniousUtils";
     import { closeTabDirection, resetCloseTabDirection } from "$lib/utils/navigationUtils";
     import { onMount } from "svelte";
 

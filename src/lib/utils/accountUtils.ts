@@ -1,4 +1,4 @@
-import { beginLogin, getAccounts, setActiveAccount } from "$lib/api/accounts";
+import { beginLogin, getAccounts, removeAccount as removeAccountInternal, setActiveAccount } from "$lib/api/accounts";
 import type { MinecraftAccount } from "$lib/types/minecraft";
 import { get, writable, type Writable } from "svelte/store";
 
@@ -31,4 +31,9 @@ export async function selectAccount(accountId: string) {
     } else {
         console.error(`Account with ID ${accountId} not found.`);
     }
+}
+
+export async function removeAccount(accountId: string) {
+    await removeAccountInternal(accountId);
+    loadAccounts();
 }

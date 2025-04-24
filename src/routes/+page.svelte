@@ -8,6 +8,7 @@
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
     import { loadProfiles } from '$lib/utils/profileUtils';
   import { loadAccounts } from '$lib/utils/accountUtils';
+  import Settings from '$lib/pages/Settings.svelte';
 
     $: lang = $translations;
     
@@ -32,6 +33,8 @@
                 <Play />
             {:else if $activeTab == 'capes'}
                 <Capes />
+            {:else if $activeTab == 'settings'}
+                <Settings />
             {/if}
         </div>
         <!-- svelte-ignore element_invalid_self_closing_tag -->

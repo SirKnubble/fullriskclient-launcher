@@ -12,7 +12,7 @@
     font-size: 30px;
     -webkit-appearance: none;
     color: var(--font-color);
-    transition-duration: 0.2s;
+    transition: 0.2s ease;
 }
 
 ::-webkit-scrollbar {
@@ -33,7 +33,6 @@ img {
 
 body {
     background-color: var(--background-color);
-    user-select: none;
     --primary-color: #00afe8;
     --secondary-color: #0383cd;
     --primary-color-text-shadow: #094f86;
