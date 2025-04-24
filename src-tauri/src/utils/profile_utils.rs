@@ -274,25 +274,30 @@ pub async fn export_profile_to_noriskpack(
                 continue;
             }
             
-            let file_name = match file_path.file_name() {
-                Some(name) => name.to_string_lossy().to_string(),
-                None => {
-                    debug!("Skipping file with no name: {}", file_path.display());
-                    continue;
+            // Get source path and relative path within the profile
+            let profile_instance_path = state.profile_manager.get_profile_instance_path(profile_id).await?;
+            
+            // Only process files that are within the profile instance path
+            if let Ok(rel_path) = file_path.strip_prefix(&profile_instance_path) {
+                let target_path = overrides_dir.join(rel_path);
+                
+                // Create parent directories if needed
+                if let Some(parent) = target_path.parent() {
+                    fs::create_dir_all(parent).await.map_err(|e| AppError::Io(e))?;
                 }
-            };
-            
-            let target_path = overrides_dir.join(&file_name);
-            
-            if file_path.is_dir() {
-                // Copy directory recursively
-                copy_dir_recursively(&file_path, &target_path).await?;
+                
+                if file_path.is_dir() {
+                    // Copy directory recursively
+                    copy_dir_recursively(&file_path, &target_path).await?;
+                    debug!("Copied directory {} to {}", file_path.display(), target_path.display());
+                } else {
+                    // Copy file
+                    fs::copy(&file_path, &target_path).await.map_err(|e| AppError::Io(e))?;
+                    debug!("Copied file {} to {}", file_path.display(), target_path.display());
+                }
             } else {
-                // Copy file
-                fs::copy(&file_path, &target_path).await.map_err(|e| AppError::Io(e))?;
+                debug!("Skipping file outside profile path: {}", file_path.display());
             }
-            
-            debug!("Copied {} to {}", file_path.display(), target_path.display());
         }
     }
     
@@ -382,7 +387,8 @@ async fn create_zip_archive(src_dir: &Path, dst_file: &Path) -> Result<()> {
     let file = fs::File::create(dst_file).await.map_err(|e| AppError::Io(e))?;
     let mut writer = ZipFileWriter::with_tokio(file);
     
-    // Add all files from the src_dir recursively
+    // Add all files from the src_dir recursively, but maintain proper relative paths
+    // Only files inside the src_dir should be included
     add_dir_to_zip(&mut writer, src_dir, src_dir).await?;
     
     // Close the zip file
@@ -404,14 +410,14 @@ fn add_dir_to_zip<'a>(
         while let Some(entry) = entries.next_entry().await.map_err(|e| AppError::Io(e))? {
             let path = entry.path();
             
-            // Create relative path from root
+            // Create relative path from root - this ensures proper directory structure in the zip
             let rel_path = path.strip_prefix(root_dir)
                 .map_err(|e| AppError::Other(format!("Path prefix error: {}", e)))?
                 .to_string_lossy()
                 .to_string();
                 
             if path.is_dir() {
-                // For directories, first add an empty directory entry
+                // For directories, first add an empty directory entry (if not root)
                 if !rel_path.is_empty() {  // Skip root directory
                     let dir_path = if rel_path.ends_with('/') { 
                         rel_path.clone() 
