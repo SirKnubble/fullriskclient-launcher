@@ -13,11 +13,20 @@ use uuid::Uuid;
 
 pub struct ForgeInstaller {
     java_path: PathBuf,
+    concurrent_downloads: usize,
 }
 
 impl ForgeInstaller {
     pub fn new(java_path: PathBuf) -> Self {
-        Self { java_path }
+        Self { 
+            java_path,
+            concurrent_downloads: 10, // Default value
+        }
+    }
+    
+    pub fn set_concurrent_downloads(&mut self, count: usize) -> &mut Self {
+        self.concurrent_downloads = count;
+        self
     }
 
     pub async fn install(&self, version_id: &str, profile: &Profile) -> Result<ForgeInstallResult> {
@@ -39,8 +48,12 @@ impl ForgeInstaller {
 
         // Initialize services
         let forge_api = ForgeApi::new();
-        let forge_libraries_download = ForgeLibrariesDownload::new();
-        let forge_installer_download = ForgeInstallerDownloadService::new();
+        let mut forge_libraries_download = ForgeLibrariesDownload::new();
+        let mut forge_installer_download = ForgeInstallerDownloadService::new();
+        
+        // Setze die Anzahl der konkurrenten Downloads
+        forge_libraries_download.set_concurrent_downloads(self.concurrent_downloads);
+        // Forge installer hat möglicherweise keine set_concurrent_downloads Methode
 
         // Get all Forge versions metadata
         let forge_metadata = forge_api.get_all_versions().await?;

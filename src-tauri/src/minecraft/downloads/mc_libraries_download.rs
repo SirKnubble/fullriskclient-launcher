@@ -28,6 +28,11 @@ impl MinecraftLibrariesDownloadService {
         }
     }
 
+    pub fn with_concurrent_downloads(mut self, concurrent_downloads: usize) -> Self {
+        self.concurrent_downloads = concurrent_downloads;
+        self
+    }
+
     pub async fn download_libraries(&self, libraries: &[Library]) -> Result<()> {
         let futures = libraries.iter().map(|library| {
             let self_clone = self.clone();

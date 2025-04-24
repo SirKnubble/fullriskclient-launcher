@@ -12,11 +12,20 @@ use uuid::Uuid;
 
 pub struct NeoForgeInstaller {
     java_path: PathBuf,
+    concurrent_downloads: usize,
 }
 
 impl NeoForgeInstaller {
     pub fn new(java_path: PathBuf) -> Self {
-        Self { java_path }
+        Self { 
+            java_path,
+            concurrent_downloads: 10, // Default value
+        }
+    }
+    
+    pub fn set_concurrent_downloads(&mut self, count: usize) -> &mut Self {
+        self.concurrent_downloads = count;
+        self
     }
 
     pub async fn install(&self, version_id: &str, profile: &Profile) -> Result<NeoForgeInstallResult> {
@@ -38,8 +47,11 @@ impl NeoForgeInstaller {
 
         // Initialize services
         let neoforge_api = NeoForgeApi::new();
-        let neoforge_libraries_download = NeoForgeLibrariesDownload::new();
+        let mut neoforge_libraries_download = NeoForgeLibrariesDownload::new();
         let neoforge_installer_download = NeoForgeInstallerDownloadService::new();
+        
+        // Setze die Anzahl der konkurrenten Downloads
+        neoforge_libraries_download.set_concurrent_downloads(self.concurrent_downloads);
 
         // Get all NeoForge versions metadata
         let neoforge_metadata = neoforge_api.get_all_versions().await?;

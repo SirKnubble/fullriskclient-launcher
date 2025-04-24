@@ -123,54 +123,8 @@ impl ConfigManager {
         self.config.read().await.clone()
     }
     
-    pub async fn set_experimental_mode(&self, is_experimental: bool) -> Result<()> {
-        {
-            let mut config = self.config.write().await;
-            if config.is_experimental == is_experimental {
-                debug!("Experimental mode already set to {}, no change needed", is_experimental);
-                return Ok(());
-            }
-            
-            info!("Setting experimental mode to: {}", is_experimental);
-            config.is_experimental = is_experimental;
-        }
-        
-        // Save the updated config
-        self.save_config().await
-    }
-    
     pub async fn is_experimental_mode(&self) -> bool {
         self.config.read().await.is_experimental
-    }
-    
-    pub async fn set_auto_check_updates(&self, auto_check: bool) -> Result<()> {
-        {
-            let mut config = self.config.write().await;
-            if config.auto_check_updates == auto_check {
-                return Ok(());
-            }
-            
-            info!("Setting auto check updates to: {}", auto_check);
-            config.auto_check_updates = auto_check;
-        }
-        
-        // Save the updated config
-        self.save_config().await
-    }
-    
-    pub async fn set_concurrent_downloads(&self, count: usize) -> Result<()> {
-        {
-            let mut config = self.config.write().await;
-            if config.concurrent_downloads == count {
-                return Ok(());
-            }
-            
-            info!("Setting concurrent downloads to: {}", count);
-            config.concurrent_downloads = count;
-        }
-        
-        // Save the updated config
-        self.save_config().await
     }
 
     pub async fn set_config(&self, new_config: LauncherConfig) -> Result<()> {

@@ -9,11 +9,20 @@ use log::info;
 use uuid::Uuid;
 use std::path::PathBuf;
 
-pub struct QuiltInstaller;
+pub struct QuiltInstaller {
+    concurrent_downloads: usize,
+}
 
 impl QuiltInstaller {
     pub fn new() -> Self {
-        Self
+        Self {
+            concurrent_downloads: 10, // Default value
+        }
+    }
+    
+    pub fn set_concurrent_downloads(&mut self, count: usize) -> &mut Self {
+        self.concurrent_downloads = count;
+        self
     }
 
     pub async fn install(&self, version_id: &str, profile: &Profile) -> Result<Vec<PathBuf>> {
@@ -33,7 +42,10 @@ impl QuiltInstaller {
 
         info!("\nInstalling Quilt...");
         let quilt_api = QuiltApi::new();
-        let quilt_libraries_download = QuiltLibrariesDownloadService::new();
+        let mut quilt_libraries_download = QuiltLibrariesDownloadService::new();
+        
+        // Setze die Anzahl der konkurrenten Downloads
+        quilt_libraries_download.set_concurrent_downloads(self.concurrent_downloads);
 
         // --- Determine Quilt Version --- 
         let quilt_version = match &profile.loader_version {

@@ -29,6 +29,12 @@ impl MinecraftAssetsDownloadService {
         }
     }
 
+    /// Sets the number of concurrent downloads to use
+    pub fn with_concurrent_downloads(mut self, concurrent_downloads: usize) -> Self {
+        self.concurrent_downloads = concurrent_downloads;
+        self
+    }
+
     pub async fn download_assets(&self, asset_index: &AssetIndex) -> Result<()> {
         trace!("[Assets Download] Starting download process for asset index: {}", asset_index.id);
         let asset_index_content = self.download_asset_index(asset_index).await?;

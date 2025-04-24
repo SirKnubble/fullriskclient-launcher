@@ -25,6 +25,36 @@ impl ModloaderFactory {
             ModLoader::Vanilla => Box::new(VanillaInstaller),
         }
     }
+    
+    pub fn create_installer_with_config(
+        modloader: &ModLoader, 
+        java_path: PathBuf,
+        concurrent_downloads: usize
+    ) -> Box<dyn ModloaderInstaller> {
+        match modloader {
+            ModLoader::Fabric => {
+                let mut installer = FabricInstaller::new();
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::Quilt => {
+                let mut installer = QuiltInstaller::new();
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::Forge => {
+                let mut installer = ForgeInstaller::new(java_path);
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::NeoForge => {
+                let mut installer = NeoForgeInstaller::new(java_path);
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::Vanilla => Box::new(VanillaInstaller),
+        }
+    }
 }
 
 #[async_trait]
