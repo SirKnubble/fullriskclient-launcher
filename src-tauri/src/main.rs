@@ -34,7 +34,7 @@ use commands::profile_command::{
     get_standard_profiles, get_system_ram_mb, import_local_mods, import_profile_from_file,
     launch_profile, list_profiles, open_profile_folder, search_profiles, set_custom_mod_enabled,
     set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
-    get_profile_directory_structure, copy_profile,
+    get_profile_directory_structure, copy_profile, export_profile,
 };
 
 // Use statements for registered commands only
@@ -206,6 +206,7 @@ async fn main() {
             get_standard_profiles,
             get_profile_directory_structure,
             copy_profile,
+            export_profile,
             get_launcher_config,
             set_launcher_config
         ])

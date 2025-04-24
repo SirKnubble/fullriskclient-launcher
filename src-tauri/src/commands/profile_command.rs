@@ -51,6 +51,14 @@ pub struct CopyProfileParams {
     include_files: Option<Vec<PathBuf>>,
 }
 
+// Export profile command parameters
+#[derive(Deserialize)]
+pub struct ExportProfileParams {
+    profile_id: Uuid,
+    output_path: Option<String>,
+    include_files: Option<Vec<PathBuf>>,
+}
+
 // CRUD Commands
 #[tauri::command]
 pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, CommandError> {
@@ -870,5 +878,21 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
     }
     
     Ok(new_profile_id)
+}
+
+/// Exports a profile to a .noriskpack file format
+#[tauri::command]
+pub async fn export_profile(params: ExportProfileParams) -> Result<String, CommandError> {
+    info!("Executing export_profile command for profile {}", params.profile_id);
+    
+    let output_path = params.output_path.map(PathBuf::from);
+    
+    let result_path = profile_utils::export_profile_to_noriskpack(
+        params.profile_id,
+        output_path,
+        params.include_files,
+    ).await?;
+    
+    Ok(result_path.to_string_lossy().to_string())
 }
 
