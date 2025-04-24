@@ -8,6 +8,7 @@ use base64::Engine;
 use byteorder::BigEndian;
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use log::info;
 use machineid_rs::{Encryption, HWIDComponent, IdBuilder};
 use p256::ecdsa::signature::Signer;
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
@@ -21,12 +22,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Digest;
 use std::sync::Arc;
-use log::info;
 use tokio::fs;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
+use crate::minecraft::api::NoRiskApi;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NoRiskTokenClaims {
@@ -487,12 +488,49 @@ impl MinecraftAuthStore {
                 "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, HWID: {}",
                 force_update, maybe_update, hwid
             );
-            //let norisk_token = ApiEndpoints::refresh_norisk_token(creds.access_token.as_str(), &hwid, true).await?;
 
-            let mut copied_credentials = creds.clone();
-            self.save().await?;
-            info!("[Token Refresh] Token refresh completed successfully");
-            Ok(copied_credentials)
+            // Use NoRiskApi for token refresh with proper error handling
+            info!("[NoRisk Token] Starting token refresh using NoRiskApi");
+
+            // Determine if we're using experimental or production mode
+            // This is an example - adjust according to your actual code structure
+            let is_experimental = false; // Replace with actual logic to determine mode
+            info!(
+                "[NoRisk Token] Mode: {}",
+                if is_experimental {
+                    "Experimental"
+                } else {
+                    "Production"
+                }
+            );
+
+            match NoRiskApi::refresh_norisk_token(creds.access_token.as_str(), &hwid, true).await {
+                Ok(norisk_token) => {
+                    info!("[NoRisk Token] Successfully refreshed token");
+                    let mut copied_credentials = creds.clone();
+
+                    if is_experimental {
+                        info!("[NoRisk Token] Storing token in experimental credentials");
+                        copied_credentials.norisk_credentials.experimental = Some(norisk_token);
+                    } else {
+                        info!("[NoRisk Token] Storing token in production credentials");
+                        copied_credentials.norisk_credentials.production = Some(norisk_token);
+                    }
+
+                    // Update the account in storage
+                    info!("[NoRisk Token] Updating account in storage");
+                    self.update_or_insert(copied_credentials.clone()).await?;
+
+                    info!("[Token Refresh] Token refresh completed successfully");
+                    Ok(copied_credentials)
+                }
+                Err(e) => {
+                    info!("[NoRisk Token] Token refresh failed: {:?}", e);
+                    info!("[NoRisk Token] Falling back to original credentials");
+                    // Return the original credentials if token refresh fails
+                    Ok(creds.clone())
+                }
+            }
         } else {
             info!("[Token Refresh] Token is still valid, no refresh needed");
             Ok(creds.clone())
