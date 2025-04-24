@@ -187,6 +187,11 @@ impl MinecraftLauncher {
         // Add recommended GC flags
         command.arg("-XX:+UnlockExperimentalVMOptions");
         command.arg("-XX:+UseG1GC");
+        // Add additional G1GC optimization flags like vanilla launcher
+        command.arg("-XX:G1NewSizePercent=20");
+        command.arg("-XX:G1ReservePercent=20");
+        command.arg("-XX:MaxGCPauseMillis=50");
+        command.arg("-XX:G1HeapRegionSize=32M");
 
         // Add additional JVM arguments
         for arg in params.additional_jvm_args {
