@@ -137,7 +137,7 @@ pub async fn launch_profile(id: Uuid) -> Result<(), CommandError> {
                 })?;
             
             // Convert standard profile to a temporary profile
-            info!("Converting standard profile '{}' to a temporary profile", standard_profile.display_name);
+            info!("Converting standard profile '{}' to a temporary profile", standard_profile.name);
             let converted_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(standard_profile)?;
             
             // Return the converted profile without saving it
@@ -742,7 +742,7 @@ pub async fn get_profile_directory_structure(
                 })?;
             
             // Konvertiere Standard-Profil zu einem temporären Profil
-            log::info!("Converting standard profile '{}' to a user profile for directory structure", standard_profile.display_name);
+            log::info!("Converting standard profile '{}' to a user profile for directory structure", standard_profile.name);
             norisk_versions::convert_standard_to_user_profile(standard_profile)?
         }
     };
@@ -783,7 +783,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
                 })?;
             
             // Konvertiere Standard-Profil zu einem temporären Profil
-            info!("Converting standard profile '{}' to a user profile for copying", standard_profile.display_name);
+            info!("Converting standard profile '{}' to a user profile for copying", standard_profile.name);
             norisk_versions::convert_standard_to_user_profile(standard_profile)?
         }
     };
