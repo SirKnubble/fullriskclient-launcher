@@ -1,13 +1,21 @@
 <script lang="ts">
-    import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
-    import type { ModrinthVersion } from '$lib/types/modrinth';
-    import type { NoriskModpacksConfig, NoriskPackDefinition } from '$lib/types/noriskPacks'; // Assuming these types are needed
-    import type { FileNode } from '$lib/types/fileSystem'; // Add FileNode import
-    import ProfileContent from './ProfileContent.svelte'; // Import ProfileContent
-    import ProfileCopy from './ProfileCopy.svelte'; // Import ProfileCopy instead
-    import Modal from './Modal.svelte'; // Import Modal component
-    import { invoke } from '@tauri-apps/api/core';
-    import { copyProfile } from '$lib/api/profiles';
+    import type {
+        Profile,
+        Mod,
+        NoriskModIdentifier,
+    } from "$lib/stores/profileStore";
+    import type { ModrinthVersion } from "$lib/types/modrinth";
+    import type {
+        NoriskModpacksConfig,
+        NoriskPackDefinition,
+    } from "$lib/types/noriskPacks"; // Assuming these types are needed
+    import type { FileNode } from "$lib/types/fileSystem"; // Add FileNode import
+    import ProfileContent from "./ProfileContent.svelte"; // Import ProfileContent
+    import ProfileCopy from "./ProfileCopy.svelte"; // Import ProfileCopy instead
+    import Modal from "./Modal.svelte"; // Import Modal component
+    import { invoke } from "@tauri-apps/api/core";
+    import { copyProfile } from "$lib/api/profiles";
+    import ProfileExport from "./ProfileExport.svelte"; // Import ProfileExport
 
     // Local definition until $lib/types is fixed
     interface CustomModInfo {
@@ -27,7 +35,7 @@
     }
 
     // Define props passed from ProfileManager
-    let { 
+    let {
         profile,
         noriskPacksConfig, // Needed for pack name/mods
         profileCustomMods, // Direct list for this profile
@@ -35,7 +43,7 @@
         profileCustomModsError,
         profileUpdates, // Set of mod IDs with updates for this profile
         // Props related to the globally active version dropdown
-        activeVersionDropdown, // { profileId, modId } | null 
+        activeVersionDropdown, // { profileId, modId } | null
         versionsForCurrentDropdown, // ModrinthVersion[]
         errorForCurrentDropdown, // string | null
         hasAlternativeVersions, // boolean
@@ -43,15 +51,15 @@
         isDropdownOpenForThisMod,
         // NEW: Prop to check if alternatives exist for THIS mod
         doAlternativesExistForThisMod,
-        profileEvents // Added prop for events
-    } = $props<{ 
+        profileEvents, // Added prop for events
+    } = $props<{
         profile: Profile & { path?: string };
         noriskPacksConfig: NoriskModpacksConfig | null;
         profileCustomMods: CustomModInfo[] | undefined;
         profileCustomModsLoading: boolean;
         profileCustomModsError: string | null;
         profileUpdates: Set<string>;
-        activeVersionDropdown: { profileId: string, modId: string } | null;
+        activeVersionDropdown: { profileId: string; modId: string } | null;
         versionsForCurrentDropdown: ModrinthVersion[];
         errorForCurrentDropdown: string | null;
         hasAlternativeVersions: boolean; // Kept for potential template logic if needed
@@ -65,31 +73,36 @@
     let directoryStructureLoading = $state(false);
     let directoryStructureError = $state<string | null>(null);
     let selectedFiles = $state(new Set<string>());
-    
+
     // State for Modal
     let showFileViewerModal = $state(false);
 
     // Event dispatcher
-    import { createEventDispatcher, onMount } from 'svelte';
+    import { createEventDispatcher, onMount } from "svelte";
     const dispatch = createEventDispatcher();
 
     // State for Copy Profile modal
     let showCopyProfileModal = $state(false);
+    
+    // State for Export Profile modal
+    let showExportProfileModal = $state(false);
 
     // Manuelle Logging-Funktion für den Status
     function logStatus() {
-        console.log("[FileNodeViewer Debug] Structure state:", { 
-            directoryStructure, 
-            directoryStructureLoading, 
-            directoryStructureError, 
+        console.log("[FileNodeViewer Debug] Structure state:", {
+            directoryStructure,
+            directoryStructureLoading,
+            directoryStructureError,
             selectedFiles: selectedFiles.size,
             hasRootNode: directoryStructure !== null,
-            rootNodeDetails: directoryStructure ? {
-                name: directoryStructure.name,
-                path: directoryStructure.path,
-                isDir: directoryStructure.is_dir,
-                childrenCount: directoryStructure.children?.length || 0
-            } : 'null'
+            rootNodeDetails: directoryStructure
+                ? {
+                      name: directoryStructure.name,
+                      path: directoryStructure.path,
+                      isDir: directoryStructure.is_dir,
+                      childrenCount: directoryStructure.children?.length || 0,
+                  }
+                : "null",
         });
     }
 
@@ -98,12 +111,22 @@
     function getModDisplayName(mod: Mod): string {
         if (mod.display_name) return mod.display_name;
         switch (mod.source.type) {
-            case 'modrinth': return mod.source.file_name ?? mod.source.project_id ?? 'Modrinth Mod';
-            case 'local': return mod.source.file_name ?? 'Local Mod';
-            case 'url': return mod.source.file_name ?? mod.source.url ?? 'URL Mod';
-            case 'maven': return mod.source.coordinates ?? 'Maven Mod';
-            case 'embedded': return mod.source.name ?? 'Embedded Mod';
-            default: return `Unknown Mod (${mod.id})`;
+            case "modrinth":
+                return (
+                    mod.source.file_name ??
+                    mod.source.project_id ??
+                    "Modrinth Mod"
+                );
+            case "local":
+                return mod.source.file_name ?? "Local Mod";
+            case "url":
+                return mod.source.file_name ?? mod.source.url ?? "URL Mod";
+            case "maven":
+                return mod.source.coordinates ?? "Maven Mod";
+            case "embedded":
+                return mod.source.name ?? "Embedded Mod";
+            default:
+                return `Unknown Mod (${mod.id})`;
         }
     }
 
@@ -112,10 +135,14 @@
             return "Kein Norisk Pack";
         }
         const packDefinition = noriskPacksConfig.packs[packId];
-        return packDefinition ? packDefinition.displayName : `Unbekannt (${packId})`;
+        return packDefinition
+            ? packDefinition.displayName
+            : `Unbekannt (${packId})`;
     }
 
-    function getNoriskPackDefinition(packId: string | null): NoriskPackDefinition | null {
+    function getNoriskPackDefinition(
+        packId: string | null,
+    ): NoriskPackDefinition | null {
         if (!packId || !noriskPacksConfig?.packs) {
             return null;
         }
@@ -123,29 +150,33 @@
     }
 
     function isNoriskModDisabled(packModId: string): boolean {
-        if (!profile.selected_norisk_pack_id || !profile.disabled_norisk_mods_detailed) {
-            return false; 
+        if (
+            !profile.selected_norisk_pack_id ||
+            !profile.disabled_norisk_mods_detailed
+        ) {
+            return false;
         }
-        return profile.disabled_norisk_mods_detailed.some((identifier: NoriskModIdentifier) => 
-            identifier.pack_id === profile.selected_norisk_pack_id &&
-            identifier.mod_id === packModId &&
-            identifier.game_version === profile.game_version &&
-            identifier.loader === profile.loader
+        return profile.disabled_norisk_mods_detailed.some(
+            (identifier: NoriskModIdentifier) =>
+                identifier.pack_id === profile.selected_norisk_pack_id &&
+                identifier.mod_id === packModId &&
+                identifier.game_version === profile.game_version &&
+                identifier.loader === profile.loader,
         );
     }
 
     // Shape alias needed by getModrinthVersionId
-    type ModrinthSourceShape = { 
-        type: 'modrinth'; 
-        project_id: string; 
-        version_id: string; 
+    type ModrinthSourceShape = {
+        type: "modrinth";
+        project_id: string;
+        version_id: string;
         file_name: string;
         download_url: string;
         file_hash_sha1: string | null | undefined;
     };
 
-    function getModrinthVersionId(source: Mod['source']): string | null {
-        if (source.type === 'modrinth') {
+    function getModrinthVersionId(source: Mod["source"]): string | null {
+        if (source.type === "modrinth") {
             return (source as ModrinthSourceShape).version_id;
         }
         return null;
@@ -160,42 +191,42 @@
 
     // Example: Dispatch event when delete button is clicked
     function handleDeleteMod(modId: string) {
-        dispatch('deleteMod', { modId });
+        dispatch("deleteMod", { modId });
     }
-    
+
     function handleToggleMod(modId: string, event: Event) {
-        dispatch('toggleMod', { modId, originalEvent: event });
+        dispatch("toggleMod", { modId, originalEvent: event });
     }
 
     function handleToggleNoriskMod(packModId: string, event: Event) {
-        dispatch('toggleNoriskMod', { packModId, originalEvent: event });
+        dispatch("toggleNoriskMod", { packModId, originalEvent: event });
     }
 
     function handleToggleCustomMod(filename: string, event: Event) {
-        dispatch('toggleCustomMod', { filename, originalEvent: event });
+        dispatch("toggleCustomMod", { filename, originalEvent: event });
     }
 
     function handleOpenVersionDropdown(modId: string) {
-        dispatch('openVersionDropdown', { modId });
+        dispatch("openVersionDropdown", { modId });
     }
 
     function handleVersionChange(mod: Mod, event: Event) {
-        dispatch('changeVersion', { mod, originalEvent: event });
+        dispatch("changeVersion", { mod, originalEvent: event });
     }
 
     function handleCancelVersionChange() {
-        dispatch('cancelVersionChange');
+        dispatch("cancelVersionChange");
     }
 
     // Load directory structure and open modal
     async function openFileViewerModal() {
         showFileViewerModal = true;
-        
+
         if (!directoryStructure) {
             await loadDirectoryStructure();
         }
     }
-    
+
     // Close modal
     function closeFileViewerModal() {
         showFileViewerModal = false;
@@ -203,51 +234,74 @@
 
     // New function to load directory structure using Tauri's invoke directly
     async function loadDirectoryStructure() {
-        console.log("[FileNodeViewer Debug] Loading directory structure for profile:", profile.id);
-        
+        console.log(
+            "[FileNodeViewer Debug] Loading directory structure for profile:",
+            profile.id,
+        );
+
         if (!profile.id) {
-            console.error("[FileNodeViewer Debug] Cannot load structure - missing profile ID");
-            directoryStructureError = 'Profile ID is missing';
+            console.error(
+                "[FileNodeViewer Debug] Cannot load structure - missing profile ID",
+            );
+            directoryStructureError = "Profile ID is missing";
             return;
         }
-        
+
         directoryStructureLoading = true;
         directoryStructure = null;
         directoryStructureError = null;
-        
+
         try {
             // Call the method using Tauri's invoke directly with generics
-            console.log("[FileNodeViewer Debug] Calling Tauri command with args:", { profileId: profile.id });
-            
+            console.log(
+                "[FileNodeViewer Debug] Calling Tauri command with args:",
+                { profileId: profile.id },
+            );
+
             // Hier wird der Typ automatisch aus FileNode abgeleitet
-            const result = await invoke<FileNode>('get_profile_directory_structure', { 
-                profileId: profile.id 
-            });
-            
+            const result = await invoke<FileNode>(
+                "get_profile_directory_structure",
+                {
+                    profileId: profile.id,
+                },
+            );
+
             console.log("[FileNodeViewer Debug] Received raw result:", result);
-            
+
             // Prüfe und konvertiere das Ergebnis
             if (result) {
                 directoryStructure = result;
-                console.log("[FileNodeViewer Debug] Structure assigned to directoryStructure:", directoryStructure);
+                console.log(
+                    "[FileNodeViewer Debug] Structure assigned to directoryStructure:",
+                    directoryStructure,
+                );
             } else {
                 directoryStructureError = "Response was empty";
-                console.error("[FileNodeViewer Debug] Empty response from Tauri");
+                console.error(
+                    "[FileNodeViewer Debug] Empty response from Tauri",
+                );
             }
         } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
-            console.error("[FileNodeViewer Debug] Exception while loading structure:", errorMsg, error);
+            const errorMsg =
+                error instanceof Error
+                    ? error.message
+                    : "An unknown error occurred";
+            console.error(
+                "[FileNodeViewer Debug] Exception while loading structure:",
+                errorMsg,
+                error,
+            );
             directoryStructureError = errorMsg;
         } finally {
             directoryStructureLoading = false;
             logStatus(); // Log status nach Statusänderung
-            
+
             // Zusätzliche Prüfung nach einiger Zeit, um zu sehen, ob die Werte korrekt gesetzt wurden
             setTimeout(() => {
-                console.log("[FileNodeViewer Debug] State after delay:", { 
+                console.log("[FileNodeViewer Debug] State after delay:", {
                     directoryStructure,
                     directoryStructureLoading,
-                    directoryStructureError
+                    directoryStructureError,
                 });
             }, 500);
         }
@@ -255,11 +309,14 @@
 
     // Handle file selection change
     function handleFileSelectionChange(event: CustomEvent) {
-        console.log("[FileNodeViewer Debug] File selection changed:", event.detail);
+        console.log(
+            "[FileNodeViewer Debug] File selection changed:",
+            event.detail,
+        );
         selectedFiles = new Set(event.detail.selectedFiles);
-        dispatch('fileSelectionChange', { 
+        dispatch("fileSelectionChange", {
             profileId: profile.id,
-            selectedFiles: [...selectedFiles]
+            selectedFiles: [...selectedFiles],
         });
         logStatus(); // Log status nach Statusänderung
     }
@@ -278,6 +335,21 @@
         // Optional: Show success message
         console.log("Profile copied successfully");
     }
+
+    // Open and close export profile modal
+    function openExportProfileModal() {
+        showExportProfileModal = true;
+    }
+    
+    function closeExportProfileModal() {
+        showExportProfileModal = false;
+    }
+    
+    function handleExportSuccess() {
+        showExportProfileModal = false;
+        // Optional: Show success message
+        console.log("Profile exported successfully");
+    }
 </script>
 
 <!-- Moved HTML structure for a single profile item here -->
@@ -287,19 +359,30 @@
             <h4>{profile.name}</h4>
             <p>Version: {profile.game_version}</p>
             <p>Mod Loader: {profile.loader}</p>
-            {#if profile.loader !== 'vanilla'}
-                <p>Loader Version: {profile.loader_version || 'Default (Latest)'}</p>
+            {#if profile.loader !== "vanilla"}
+                <p>
+                    Loader Version: {profile.loader_version ||
+                        "Default (Latest)"}
+                </p>
             {/if}
             <p>Erstellt: {new Date(profile.created).toLocaleDateString()}</p>
-            <p>Norisk Pack: {getNoriskPackName(profile.selected_norisk_pack_id)}</p>
-            <p>Pfad: {profile.path || 'Unbekannt'}</p>
+            <p>
+                Norisk Pack: {getNoriskPackName(
+                    profile.selected_norisk_pack_id,
+                )}
+            </p>
+            <p>Pfad: {profile.path || "Unbekannt"}</p>
             {#if profile.last_played}
-                <p>Zuletzt gespielt: {new Date(profile.last_played).toLocaleDateString()}</p>
+                <p>
+                    Zuletzt gespielt: {new Date(
+                        profile.last_played,
+                    ).toLocaleDateString()}
+                </p>
             {/if}
-            
+
             <!-- Letztes Event für dieses Profil -->
             {#if profileEvents && profileEvents.length > 0}
-                {@const lastEvent = getLastEvent(profileEvents)} 
+                {@const lastEvent = getLastEvent(profileEvents)}
                 {#if lastEvent}
                     <div class="last-event">
                         <p class="event-message">{lastEvent.message}</p>
@@ -314,13 +397,27 @@
         </div>
         <div class="profile-actions">
             <!-- Dispatch events -->
-            <button on:click={() => dispatch('launch')}>Launch</button>
-            <button on:click={() => dispatch('edit')}>Edit</button>
-            <button on:click={() => dispatch('delete')}>Delete</button>
-            <button on:click={() => dispatch('openFolder')} title="Open profile folder">Open Folder</button>
-            <button on:click={() => dispatch('importLocalMods')} title="Import local .jar mods">Import Mods</button>
+            <button on:click={() => dispatch("launch")}>Launch</button>
+            <button on:click={() => dispatch("edit")}>Edit</button>
+            <button on:click={() => dispatch("delete")}>Delete</button>
+            <button
+                on:click={() => dispatch("openFolder")}
+                title="Open profile folder">Open Folder</button
+            >
+            <button
+                on:click={() => dispatch("importLocalMods")}
+                title="Import local .jar mods">Import Mods</button
+            >
             <!-- New Copy Profile button -->
-            <button on:click={openCopyProfileModal} title="Copy profile with selected files">Copy Profile</button>
+            <button
+                on:click={openCopyProfileModal}
+                title="Copy profile with selected files">Copy Profile</button
+            >
+            <!-- Export Profile button - updated to open modal -->
+            <button
+                on:click={openExportProfileModal}
+                title="Export profile as .noriskpack">Export</button
+            >
         </div>
     </div>
 
@@ -329,85 +426,133 @@
         <!-- Filter mods based on game version AND loader compatibility -->
         {@const compatibleMods = profile.mods.filter((mod: Mod) => {
             // Check 1: Game Version
-            const gameVersionMatch = mod.game_versions == null || 
-                                   (mod.game_versions && mod.game_versions.includes(profile.game_version));
-            
+            const gameVersionMatch =
+                mod.game_versions == null ||
+                (mod.game_versions &&
+                    mod.game_versions.includes(profile.game_version));
+
             // Check 2: Loader
-            const loaderMatch = mod.associated_loader != null && 
-                              mod.associated_loader === profile.loader;
+            const loaderMatch =
+                mod.associated_loader != null &&
+                mod.associated_loader === profile.loader;
 
             // Mod is compatible only if both match
             return gameVersionMatch && loaderMatch;
         })}
         <div class="mods-section user-mods">
             <!-- Use the length of the filtered list for the count -->
-            <h4>Mods ({compatibleMods.length}):</h4> 
+            <h4>Mods ({compatibleMods.length}):</h4>
             <ul class="mods-list">
-                {#each compatibleMods as mod (mod.id)} 
+                {#each compatibleMods as mod (mod.id)}
                     <!-- Removed the inner #if block as filtering is done above -->
                     {@const hasUpdate = profileUpdates.has(mod.id)}
-                    {@const isDropdownOpen = isDropdownOpenForThisMod(mod.id)} 
-                    {@const alternativesExist = doAlternativesExistForThisMod(mod.id)}
+                    {@const isDropdownOpen = isDropdownOpenForThisMod(mod.id)}
+                    {@const alternativesExist = doAlternativesExistForThisMod(
+                        mod.id,
+                    )}
                     <li class="mod-item {mod.enabled ? 'enabled' : 'disabled'}">
                         <input
                             type="checkbox"
                             checked={mod.enabled}
                             aria-label={`Toggle mod ${getModDisplayName(mod)}`}
                             class="mod-toggle-checkbox"
-                            on:change={(event) => handleToggleMod(mod.id, event)}
+                            on:change={(event) =>
+                                handleToggleMod(mod.id, event)}
                         />
                         <span class="mod-name">{getModDisplayName(mod)}</span>
-                        
+
                         {#if hasUpdate}
-                            <span class="update-indicator" title="Update available">⬆️</span>
+                            <span
+                                class="update-indicator"
+                                title="Update available">⬆️</span
+                            >
                         {/if}
 
                         <!-- Modrinth Version Changer -->
-                        {#if mod.source.type === 'modrinth'}
-                            {@const currentVersionId = getModrinthVersionId(mod.source)!}
+                        {#if mod.source.type === "modrinth"}
+                            {@const currentVersionId = getModrinthVersionId(
+                                mod.source,
+                            )!}
                             <div class="mod-version-changer">
                                 {#if isDropdownOpen}
-                                     <!-- Dropdown ist offen -->
-                                    {#if errorForCurrentDropdown} 
-                                        <span class="version-info error" title={errorForCurrentDropdown}>Error!</span>
-                                        <button class="cancel-version-btn" on:click={handleCancelVersionChange} title="Abbrechen">✖</button>
-                                    {:else if alternativesExist} 
-                                        <select class="version-select" on:change={(event) => handleVersionChange(mod, event)} value={currentVersionId}>
-                                            <option value={currentVersionId} disabled>
-                                                {mod.version ?? currentVersionId} (Aktuell)
+                                    <!-- Dropdown ist offen -->
+                                    {#if errorForCurrentDropdown}
+                                        <span
+                                            class="version-info error"
+                                            title={errorForCurrentDropdown}
+                                            >Error!</span
+                                        >
+                                        <button
+                                            class="cancel-version-btn"
+                                            on:click={handleCancelVersionChange}
+                                            title="Abbrechen">✖</button
+                                        >
+                                    {:else if alternativesExist}
+                                        <select
+                                            class="version-select"
+                                            on:change={(event) =>
+                                                handleVersionChange(mod, event)}
+                                            value={currentVersionId}
+                                        >
+                                            <option
+                                                value={currentVersionId}
+                                                disabled
+                                            >
+                                                {mod.version ??
+                                                    currentVersionId} (Aktuell)
                                             </option>
-                                            {#each versionsForCurrentDropdown.filter((v: ModrinthVersion) => v.id !== currentVersionId) as version (version.id)} 
+                                            {#each versionsForCurrentDropdown.filter((v: ModrinthVersion) => v.id !== currentVersionId) as version (version.id)}
                                                 <option value={version.id}>
-                                                    {version.name} ({version.version_number}) - {version.version_type} [{new Date(version.date_published).toLocaleDateString()}]
+                                                    {version.name} ({version.version_number})
+                                                    - {version.version_type} [{new Date(
+                                                        version.date_published,
+                                                    ).toLocaleDateString()}]
                                                 </option>
                                             {/each}
                                         </select>
-                                        <button class="cancel-version-btn" on:click={handleCancelVersionChange} title="Abbrechen">✖</button>
+                                        <button
+                                            class="cancel-version-btn"
+                                            on:click={handleCancelVersionChange}
+                                            title="Abbrechen">✖</button
+                                        >
                                     {:else}
-                                         <span class="version-info">Keine alternativen Versionen.</span>
-                                         <button class="cancel-version-btn" on:click={handleCancelVersionChange} title="Abbrechen">✖</button>
+                                        <span class="version-info"
+                                            >Keine alternativen Versionen.</span
+                                        >
+                                        <button
+                                            class="cancel-version-btn"
+                                            on:click={handleCancelVersionChange}
+                                            title="Abbrechen">✖</button
+                                        >
                                     {/if}
                                 {:else}
-                                     <!-- Dropdown geschlossen -->
-                                     <span class="version-info">{mod.version ?? currentVersionId}</span>
-                                     {#if alternativesExist} 
-                                        <button 
-                                            class="change-version-btn" 
+                                    <!-- Dropdown geschlossen -->
+                                    <span class="version-info"
+                                        >{mod.version ?? currentVersionId}</span
+                                    >
+                                    {#if alternativesExist}
+                                        <button
+                                            class="change-version-btn"
                                             title="Version ändern"
-                                            on:click={() => handleOpenVersionDropdown(mod.id)}>
+                                            on:click={() =>
+                                                handleOpenVersionDropdown(
+                                                    mod.id,
+                                                )}
+                                        >
                                             🔄
                                         </button>
-                                     {/if}
+                                    {/if}
                                 {/if}
                             </div>
                         {/if}
                         <!-- *** Ende: Modrinth Version Changer *** -->
 
                         <!-- Delete Button -->
-                        <button 
-                            class="delete-mod-button" 
+                        <button
+                            class="delete-mod-button"
                             title={`Delete mod ${getModDisplayName(mod)}`}
-                            on:click={() => handleDeleteMod(mod.id)}>
+                            on:click={() => handleDeleteMod(mod.id)}
+                        >
                             🗑️
                         </button>
                     </li>
@@ -421,30 +566,42 @@
     {/if}
 
     <!-- Display Norisk Pack Mods -->
-    {#if getNoriskPackDefinition(profile.selected_norisk_pack_id)} 
-        {@const packDef = getNoriskPackDefinition(profile.selected_norisk_pack_id)!}
-        {@const compatiblePackMods = packDef.mods?.filter(mod => {
-            const gameVersion = profile.game_version;
-            const loader = profile.loader;
-            return mod.compatibility?.[gameVersion]?.[loader]; 
-        }) ?? []}
-    
+    {#if getNoriskPackDefinition(profile.selected_norisk_pack_id)}
+        {@const packDef = getNoriskPackDefinition(
+            profile.selected_norisk_pack_id,
+        )!}
+        {@const compatiblePackMods =
+            packDef.mods?.filter((mod) => {
+                const gameVersion = profile.game_version;
+                const loader = profile.loader;
+                return mod.compatibility?.[gameVersion]?.[loader];
+            }) ?? []}
+
         {#if compatiblePackMods.length > 0}
             <div class="mods-section pack-mods">
-                <h4>Mods from {packDef.displayName} ({compatiblePackMods.length}):</h4> 
+                <h4>
+                    Mods from {packDef.displayName} ({compatiblePackMods.length}):
+                </h4>
                 <ul class="mods-list">
-                    {#each compatiblePackMods as packMod (packMod.id)} 
+                    {#each compatiblePackMods as packMod (packMod.id)}
                         {@const isDisabled = isNoriskModDisabled(packMod.id)}
-                        <li class="mod-item pack-mod-item {isDisabled ? 'disabled' : 'enabled'}">
-                            <input 
+                        <li
+                            class="mod-item pack-mod-item {isDisabled
+                                ? 'disabled'
+                                : 'enabled'}"
+                        >
+                            <input
                                 type="checkbox"
                                 checked={!isDisabled}
                                 aria-label={`Toggle Norisk Pack mod ${packMod.displayName}`}
                                 class="mod-toggle-checkbox"
-                                title={isDisabled ? 'Click to enable' : 'Click to disable'}
-                                on:change={(event) => handleToggleNoriskMod(packMod.id, event)}
+                                title={isDisabled
+                                    ? "Click to enable"
+                                    : "Click to disable"}
+                                on:change={(event) =>
+                                    handleToggleNoriskMod(packMod.id, event)}
                             />
-                            <span class="mod-name">{packMod.displayName}</span> 
+                            <span class="mod-name">{packMod.displayName}</span>
                         </li>
                     {/each}
                 </ul>
@@ -461,29 +618,45 @@
             <p class="error-message small">{profileCustomModsError}</p>
         {:else if profileCustomMods && profileCustomMods.length > 0}
             <ul class="mods-list">
-                {#each profileCustomMods as customMod (customMod.filename)} 
-                    <li class="mod-item local-mod-item {customMod.is_enabled ? 'enabled' : 'disabled'}">
-                        <input 
+                {#each profileCustomMods as customMod (customMod.filename)}
+                    <li
+                        class="mod-item local-mod-item {customMod.is_enabled
+                            ? 'enabled'
+                            : 'disabled'}"
+                    >
+                        <input
                             type="checkbox"
                             checked={customMod.is_enabled}
                             aria-label={`Toggle local mod ${customMod.filename}`}
                             class="mod-toggle-checkbox"
-                            title={customMod.is_enabled ? 'Click to disable' : 'Click to enable'}
-                            on:change={(event) => handleToggleCustomMod(customMod.filename, event)}
+                            title={customMod.is_enabled
+                                ? "Click to disable"
+                                : "Click to enable"}
+                            on:change={(event) =>
+                                handleToggleCustomMod(
+                                    customMod.filename,
+                                    event,
+                                )}
                         />
-                        <span class="mod-name">{customMod.filename}</span> 
+                        <span class="mod-name">{customMod.filename}</span>
                         <!-- Delete Button for Custom Mod -->
-                        <button 
-                            class="delete-mod-button custom-delete" 
+                        <button
+                            class="delete-mod-button custom-delete"
                             title={`Delete custom mod ${customMod.filename}`}
-                            on:click={() => dispatch('deleteCustomMod', { filename: customMod.filename })}>
+                            on:click={() =>
+                                dispatch("deleteCustomMod", {
+                                    filename: customMod.filename,
+                                })}
+                        >
                             🗑️
                         </button>
                     </li>
                 {/each}
             </ul>
         {:else}
-             <p class="no-mods">Keine lokalen Mods gefunden im `custom_mods` Ordner.</p>
+            <p class="no-mods">
+                Keine lokalen Mods gefunden im `custom_mods` Ordner.
+            </p>
         {/if}
     </div>
 
@@ -491,7 +664,7 @@
     <div class="additional-content">
         <ProfileContent profileId={profile.id} />
     </div>
-    
+
     <!-- Copy Profile Modal -->
     {#if showCopyProfileModal}
         <Modal show={true}>
@@ -500,6 +673,18 @@
                 sourceProfileName={profile.name}
                 onClose={closeCopyProfileModal}
                 onSuccess={handleCopySuccess}
+            />
+        </Modal>
+    {/if}
+    
+    <!-- Export Profile Modal -->
+    {#if showExportProfileModal}
+        <Modal show={true}>
+            <ProfileExport
+                profileId={profile.id}
+                profileName={profile.name}
+                onClose={closeExportProfileModal}
+                onSuccess={handleExportSuccess}
             />
         </Modal>
     {/if}
@@ -630,17 +815,17 @@
         padding-left: 1em;
         margin: 0;
         font-size: 0.9em;
-        max-height: 150px; 
-        overflow-y: auto; 
-        padding-right: 5px; 
+        max-height: 150px;
+        overflow-y: auto;
+        padding-right: 5px;
     }
 
     .mod-item {
         margin-bottom: 0.3em;
-        display: flex; 
-        align-items: center; 
-        gap: 0.5em; 
-        flex-wrap: wrap; 
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        flex-wrap: wrap;
     }
 
     .mod-item.disabled {
@@ -649,22 +834,22 @@
     }
 
     .mod-item .mod-name {
-        flex-grow: 1; 
-        margin-right: 10px; 
+        flex-grow: 1;
+        margin-right: 10px;
     }
 
     .mod-toggle-checkbox {
-        flex-shrink: 0; 
+        flex-shrink: 0;
         margin: 0;
         cursor: pointer;
     }
 
     .mod-version-changer {
-        display: inline-flex; 
+        display: inline-flex;
         align-items: center;
         gap: 5px;
-        margin-left: auto; 
-        margin-right: 5px; 
+        margin-left: auto;
+        margin-right: 5px;
         font-size: 0.9em;
     }
 
@@ -673,7 +858,7 @@
         padding: 2px 4px;
         background-color: #eee;
         border-radius: 3px;
-        white-space: nowrap; 
+        white-space: nowrap;
     }
     .version-info.loading {
         font-style: italic;
@@ -682,11 +867,11 @@
     .version-info.error {
         color: #e74c3c;
         background-color: #fbeae8;
-        cursor: help; 
+        cursor: help;
     }
 
-
-    .change-version-btn, .cancel-version-btn {
+    .change-version-btn,
+    .cancel-version-btn {
         padding: 1px 5px;
         font-size: 0.9em;
         line-height: 1;
@@ -695,9 +880,12 @@
         border: 1px solid #ccc;
         border-radius: 4px;
         cursor: pointer;
-        transition: background-color 0.2s, border-color 0.2s;
+        transition:
+            background-color 0.2s,
+            border-color 0.2s;
     }
-    .change-version-btn:hover, .cancel-version-btn:hover {
+    .change-version-btn:hover,
+    .cancel-version-btn:hover {
         background-color: #ddd;
         border-color: #bbb;
     }
@@ -706,7 +894,7 @@
         background-color: #fbeae8;
         border-color: #e74c3c;
     }
-     .cancel-version-btn:hover {
+    .cancel-version-btn:hover {
         background-color: #f8d7da;
         border-color: #d9534f;
     }
@@ -716,37 +904,39 @@
         font-size: 0.9em;
         border: 1px solid #ccc;
         border-radius: 4px;
-        max-width: 250px; 
+        max-width: 250px;
     }
     .version-select option {
-        font-size: 1em; 
+        font-size: 1em;
     }
 
-
     .delete-mod-button {
-       flex-shrink: 0; 
-       margin-left: 0; 
-       padding: 1px 5px; /* Smaller padding */
-       font-size: 0.9em;
-       line-height: 1;
-       background-color: #eee;
-       color: #e74c3c; /* Red color */
-       border: 1px solid #ccc;
-       border-radius: 4px;
-       cursor: pointer;
-       transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+        flex-shrink: 0;
+        margin-left: 0;
+        padding: 1px 5px; /* Smaller padding */
+        font-size: 0.9em;
+        line-height: 1;
+        background-color: #eee;
+        color: #e74c3c; /* Red color */
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        transition:
+            background-color 0.2s,
+            border-color 0.2s,
+            color 0.2s;
     }
 
     .delete-mod-button:hover {
-        background-color: #fbeae8; 
+        background-color: #fbeae8;
         border-color: #e74c3c;
-        color: #c0392b; 
+        color: #c0392b;
     }
 
     .mod-item.disabled .mod-name {
         color: #888;
         font-style: italic;
-        text-decoration: line-through; 
+        text-decoration: line-through;
     }
 
     .mods-section.no-mods p {
@@ -757,22 +947,20 @@
     }
 
     .mod-name {
-
     }
     .update-indicator {
-
     }
     .mod-version-changer {
-       margin-left: 0; 
+        margin-left: 0;
     }
     .delete-mod-button {
-        margin-left: 5px; 
+        margin-left: 5px;
     }
 
     .mods-section.custom-mods {
-        margin-top: 0.5em; 
+        margin-top: 0.5em;
         padding-top: 0.5em;
-        border-top: 1px dotted #aaa; 
+        border-top: 1px dotted #aaa;
     }
 
     .mods-section.custom-mods h4 {
@@ -784,7 +972,7 @@
     .mod-item.local-mod-item.disabled .mod-name {
         color: #888;
         font-style: italic;
-        text-decoration: line-through; 
+        text-decoration: line-through;
     }
 
     .loading-text {
@@ -801,4 +989,4 @@
         border-top: 1px solid #ddd;
         padding-top: 1rem;
     }
-</style> 
+</style>

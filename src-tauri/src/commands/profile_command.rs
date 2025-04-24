@@ -12,6 +12,7 @@ use crate::utils::path_utils::find_unique_profile_segment;
 use crate::utils::{profile_utils, resourcepack_utils, shaderpack_utils, path_utils};
 use chrono::Utc;
 use log::info;
+use noriskclient_launcher_v3_lib::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use sanitize_filename::sanitize;
 use serde::Deserialize;
 use std::collections::HashSet;
@@ -55,8 +56,10 @@ pub struct CopyProfileParams {
 #[derive(Deserialize)]
 pub struct ExportProfileParams {
     profile_id: Uuid,
-    output_path: Option<String>,
+    output_path: Option<String>, // This will be ignored but kept for backward compatibility
+    file_name: String,          // Base name without extension
     include_files: Option<Vec<PathBuf>>,
+    open_folder: bool,         // Whether to open the exports folder after export
 }
 
 // CRUD Commands
@@ -880,18 +883,48 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
     Ok(new_profile_id)
 }
 
-/// Exports a profile to a .noriskpack file format
+/// Exports a profile to a .noriskpack file format with a fixed export directory
 #[tauri::command]
-pub async fn export_profile(params: ExportProfileParams) -> Result<String, CommandError> {
+pub async fn export_profile(app_handle: tauri::AppHandle, params: ExportProfileParams) -> Result<String, CommandError> {
     info!("Executing export_profile command for profile {}", params.profile_id);
     
-    let output_path = params.output_path.map(PathBuf::from);
+    // Ensure the exports directory exists
+    let exports_dir = LAUNCHER_DIRECTORY.root_dir().join("exports");
+    TokioFs::create_dir_all(&exports_dir)
+        .await
+        .map_err(|e| CommandError::from(AppError::Io(e)))?;
     
+    // Sanitize the filename and add .noriskpack extension
+    let sanitized_name = sanitize(&params.file_name);
+    if sanitized_name.is_empty() {
+        return Err(CommandError::from(AppError::Other(
+            "Export filename is invalid after sanitization.".to_string(),
+        )));
+    }
+    
+    // Generate complete filename with extension
+    let noriskpack_filename = format!("{}.noriskpack", sanitized_name);
+    
+    // Create full export path
+    let export_path = exports_dir.join(&noriskpack_filename);
+    
+    info!("Exporting profile to {}", export_path.display());
+    
+    // Perform the export
     let result_path = profile_utils::export_profile_to_noriskpack(
         params.profile_id,
-        output_path,
+        Some(export_path.clone()),
         params.include_files,
     ).await?;
+    
+    // Open the export directory if requested
+    if params.open_folder {
+        info!("Opening export directory: {}", exports_dir.display());
+        if let Err(e) = app_handle.opener().open_path(exports_dir.to_string_lossy(), None::<&str>) {
+            info!("Failed to open export directory: {}", e);
+            // Don't fail the command if directory opening fails
+        }
+    }
     
     Ok(result_path.to_string_lossy().to_string())
 }
