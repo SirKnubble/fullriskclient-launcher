@@ -855,7 +855,7 @@ impl ProfileManager {
                 
                 // Check if it's a standard version ID
                 if let Some(standard_profile) = state.norisk_version_manager.get_profile_by_id(profile_id).await {
-                    log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.display_name);
+                    log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.name);
                     // Convert to a temporary profile
                     let temp_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(&standard_profile)?;
                     return self.calculate_instance_path_for_profile(&temp_profile);
