@@ -32,6 +32,13 @@
 - Aktivieren/Deaktivieren einzelner Mods innerhalb eines Packs
 - Kompatibilitätsprüfung für Mods innerhalb eines Packs
 
+### Launcher-Konfiguration
+- Globale Einstellungen für den Launcher
+- Experimental-Modus für NoRisk Client
+- Automatische Update-Überprüfung
+- Konfigurierbare Anzahl gleichzeitiger Downloads
+- Versionsbasierte Konfigurationsverwaltung für Zukunftskompatibilität
+
 ### Dateisystem-Integration
 - Anzeigen der Profilordnerstruktur
 - Auswählen einzelner Dateien oder Ordner
@@ -44,12 +51,14 @@
 - Starten von Minecraft mit ausgewähltem Profil
 - Anzeige von Launcher-Events und Status
 - Fortschrittsanzeige während des Launchvorgangs
+- Experimenteller Modus für NoRisk Client (globale Konfiguration)
 
 ### Benutzeroberfläche
 - Moderne, reaktive UI mit Svelte und TypeScript
 - Modal-System für verschiedene Aktionen
 - Detailansichten mit erweiterbaren Abschnitten
 - Benutzerfreundliches Profil-Kopieren über intuitive Dialoge
+- Konfigurationsseite für globale Launcher-Einstellungen
 - Debugansichten für Entwicklung
 
 ### Tauri-Integration
@@ -71,6 +80,7 @@
 - Dateisystem-Operationen für Profilverwaltung
 - Prozessmanagement für Minecraft-Ausführung
 - Konvertierung zwischen Standard-Versionen und benutzerdefinierten Profilen
+- Konfigurationsmanager für globale Launcher-Einstellungen
 
 ## Datenbankschema
 
@@ -113,6 +123,22 @@
 - `is_enabled` (BOOLEAN): Status des Mods (aktiviert/deaktiviert)
 - `path` (TEXT): Pfad zur Moddatei
 
+## Konfigurationssystem
+
+### Launcher-Konfiguration
+Die Launcher-Konfiguration wird in einer JSON-Datei gespeichert (`launcher_config.json`) und verwaltet folgende Einstellungen:
+
+- `version` (INTEGER): Versionsnummer der Konfiguration für zukünftige Kompatibilität
+- `is_experimental` (BOOLEAN): Aktiviert den experimentellen Modus für NoRisk Client
+- `auto_check_updates` (BOOLEAN): Automatische Überprüfung auf Updates
+- `concurrent_downloads` (INTEGER): Anzahl gleichzeitiger Downloads (1-10)
+
+Der ConfigManager stellt folgende Funktionen bereit:
+- `get_config()`: Gibt die aktuelle Konfiguration zurück
+- `set_experimental_mode(enabled)`: Setzt den experimentellen Modus
+- `set_auto_check_updates(enabled)`: Aktiviert/deaktiviert automatische Updates
+- `set_concurrent_downloads(count)`: Setzt die Anzahl gleichzeitiger Downloads
+
 ## Migrationen
 
 ### Migration 1: Initiales Schema
@@ -142,6 +168,18 @@
 - `norisk_versions.rs`: Verwaltet NoRisk Standard-Versionen
   - `convert_standard_to_user_profile`: Konvertiert eine Standard-Version in ein benutzerdefinierbares Profil
 
+### Konfiguration
+- `config_state.rs`: Verwaltet globale Launcher-Konfigurationen
+  - `ConfigManager`: Stellt Methoden zum Lesen und Schreiben der Konfiguration bereit
+  - `LauncherConfig`: Datenstruktur für die Konfiguration mit Versionsunterstützung
+
+### Befehle
+- `config_commands.rs`: Frontend-Befehle für die Konfigurationsverwaltung
+  - `get_launcher_config`: Gibt die aktuelle Konfiguration zurück
+  - `set_experimental_mode`: Setzt den experimentellen Modus
+  - `set_auto_check_updates`: Aktiviert/deaktiviert automatische Updates
+  - `set_concurrent_downloads`: Konfiguriert die Anzahl gleichzeitiger Downloads
+
 ## Frontend-Komponenten
 
 ### ProfileCopy.svelte
@@ -158,6 +196,11 @@
 - Checkbox-basierte Mehrfachauswahl
 - Unterstützung für Eltern-Kind-Selektion
 
+### LauncherSettings.svelte
+- Konfiguration des experimentellen Modus
+- Einstellungen für automatische Updates
+- Steuerung der Download-Parallelität
+
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
 - Möglicherweise Kompatibilitätsprobleme mit bestimmten Minecraft-Versionen
@@ -169,3 +212,4 @@
 - Automatische Updates für den Launcher
 - Mehrspieler-Serververwaltung
 - Backup-System für Profile
+- Erweiterte Konfigurationsoptionen
