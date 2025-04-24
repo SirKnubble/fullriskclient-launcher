@@ -16,17 +16,13 @@ impl NoRiskApi {
         Self
     }
 
-    pub async fn get_api_base() -> Result<String> {
-        // Get experimental mode from config state manager
-        let state = crate::state::State::get().await?;
-        let is_experimental = state.config_manager.is_experimental_mode().await;
-        
+    pub fn get_api_base(is_experimental: bool) -> String {
         if is_experimental {
             debug!("[NoRisk API] Using experimental API endpoint");
-            Ok(String::from("https://api-staging.norisk.gg/api/v1"))
+            String::from("https://api-staging.norisk.gg/api/v1")
         } else {
             debug!("[NoRisk API] Using production API endpoint");
-            Ok(String::from("https://api.norisk.gg/api/v1"))
+            String::from("https://api.norisk.gg/api/v1")
         }
     }
 
@@ -35,8 +31,9 @@ impl NoRiskApi {
         norisk_token: &str,
         params: &str,
         extra_params: Option<HashMap<&str, &str>>,
+        is_experimental: bool,
     ) -> Result<T> {
-        let base_url = Self::get_api_base().await?;
+        let base_url = Self::get_api_base(is_experimental);
         let url = format!("{}/{}", base_url, endpoint);
 
         debug!("[NoRisk API] Making request to endpoint: {}", endpoint);
@@ -88,9 +85,10 @@ impl NoRiskApi {
         })
     }
 
-    pub async fn refresh_norisk_token(token: &str, hwid: &str, force: bool) -> Result<NoRiskToken> {
+    pub async fn refresh_norisk_token(token: &str, hwid: &str, force: bool, is_experimental: bool) -> Result<NoRiskToken> {
         info!("[NoRisk API] Refreshing NoRisk token with HWID: {}", hwid);
         debug!("[NoRisk API] Force refresh: {}", force);
+        debug!("[NoRisk API] Experimental mode: {}", is_experimental);
 
         let force_str = force.to_string();
         let mut extra_params = HashMap::new();
@@ -103,6 +101,7 @@ impl NoRiskApi {
             token,
             "",
             Some(extra_params),
+            is_experimental,
         )
         .await
         {
@@ -122,17 +121,18 @@ impl NoRiskApi {
         endpoint: &str,
         norisk_token: &str,
         request_uuid: &str,
+        is_experimental: bool,
     ) -> Result<T> {
         debug!("[NoRisk API] Request from endpoint: {} with UUID: {}", endpoint, request_uuid);
         let mut extra_params = HashMap::new();
         extra_params.insert("uuid", request_uuid);
         
-        Self::post_from_norisk_endpoint_with_parameters(endpoint, norisk_token, "", Some(extra_params)).await
+        Self::post_from_norisk_endpoint_with_parameters(endpoint, norisk_token, "", Some(extra_params), is_experimental).await
     }
 
     /// Request norisk assets json for specific branch
-    pub async fn norisk_assets(branch: &str, norisk_token: &str, request_uuid: &str) -> Result<NoriskAssets> {
-        Self::request_from_norisk_endpoint(&format!("launcher/assets/{}", branch), norisk_token, request_uuid).await
+    pub async fn norisk_assets(branch: &str, norisk_token: &str, request_uuid: &str, is_experimental: bool) -> Result<NoriskAssets> {
+        Self::request_from_norisk_endpoint(&format!("launcher/assets/{}", branch), norisk_token, request_uuid, is_experimental).await
     }
 
     // Add more NoRisk API methods as needed

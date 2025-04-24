@@ -93,7 +93,7 @@ impl NoriskClientAssetsDownloadService {
 
         // Fetch assets JSON from NoRisk API
         info!("[NRC Assets Download] Fetching assets for branch: {} (experimental mode: {})", pack, is_experimental);
-        let assets = NoRiskApi::norisk_assets(&pack, &norisk_token, &request_uuid).await?;
+        let assets = NoRiskApi::norisk_assets(&pack, &norisk_token, &request_uuid, is_experimental).await?;
         
         // Download the assets
         self.download_nrc_assets(&pack, &assets).await

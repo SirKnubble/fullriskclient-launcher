@@ -510,7 +510,7 @@ impl MinecraftAuthStore {
                 }
             );
             
-            match NoRiskApi::refresh_norisk_token(creds.access_token.as_str(), &hwid, true).await {
+            match NoRiskApi::refresh_norisk_token(creds.access_token.as_str(), &hwid, true, experimental_mode).await {
                 Ok(norisk_token) => {
                     info!("[NoRisk Token] Successfully refreshed token");
                     let mut copied_credentials = creds.clone();
