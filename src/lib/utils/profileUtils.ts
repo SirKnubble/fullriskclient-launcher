@@ -1,6 +1,7 @@
-import type { NoriskVersionProfile, NoriskVersionsConfig } from "$lib/types/noriskVersions";
+import { getNoriskProfiles } from "$lib/api/noriskVersions";
+import { getProfiles } from "$lib/api/profiles";
+import type { NoriskVersionProfile } from "$lib/types/noriskVersions";
 import type { Profile } from "$lib/types/profile";
-import { invoke } from "@tauri-apps/api/core";
 import { get, writable, type Writable } from "svelte/store";
 
 export const profiles: Writable<Profile[]> = writable([]);
@@ -10,8 +11,8 @@ export const selectedProfile: Writable<Profile | NoriskVersionProfile | null> = 
 
 export async function loadProfiles(): Promise<void> {
     try {
-        const profileList = await invoke<Profile[]>('list_profiles');
-        const defaultProfileList = (await invoke<NoriskVersionsConfig>('get_standard_profiles')).profiles;
+        const profileList = await getProfiles();
+        const defaultProfileList = await getNoriskProfiles();
         profiles.set(profileList);
         defaultProfiles.set(defaultProfileList);
         

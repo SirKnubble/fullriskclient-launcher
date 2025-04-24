@@ -6,7 +6,7 @@
     import { translations } from '$lib/utils/translationUtils';
     import { IdleAnimation, SkinViewer } from "skinview3d";
     import { onMount } from 'svelte';
-    import { profiles, selectedProfileId } from '$lib/utils/profileUtils';
+    import { defaultProfiles, profiles, selectedProfileId } from '$lib/utils/profileUtils';
 
     $: lang = $translations;
 
@@ -71,7 +71,7 @@
         onclick={() => {}}
     >
         <p class="launch-text">{lang.play.button.launch}</p>
-        {#if launchButtonHovered && $profiles.length > 1}
+        {#if launchButtonHovered && ($profiles.length + $defaultProfiles.length) > 1}
             <div class="spacer" />
             <div class="dropdown-arrow-wrapper">
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
