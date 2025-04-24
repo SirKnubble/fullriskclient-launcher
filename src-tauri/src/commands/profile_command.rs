@@ -1,7 +1,7 @@
 use crate::error::{AppError, CommandError};
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
-use crate::integrations::norisk_packs::NoriskModpacksConfig;
+use crate::integrations::norisk_packs::{NoriskModpacksConfig, import_noriskpack_as_profile};
 use crate::integrations::norisk_versions::{self, NoriskVersionsConfig};
 use crate::minecraft::installer;
 use crate::state::profile_state::{
@@ -577,8 +577,8 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         app_handle
             .dialog()
             .file()
-            .add_filter("Modrinth Modpack", &["mrpack"])
-            .set_title("Select Modpack File (.mrpack)")
+            .add_filter("Modpack Files", &["mrpack", "noriskpack"])
+            .set_title("Select Modpack File (.mrpack or .noriskpack)")
             .blocking_pick_file() // Use the blocking version for single file selection
     })
     .await
@@ -601,38 +601,45 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
             file_path_buf
         );
 
-        // Check if the file extension is .mrpack (case-insensitive)
-        if file_path_buf
+        // Check the file extension
+        let file_extension = file_path_buf
             .extension()
             .and_then(|ext| ext.to_str())
-            .map_or(false, |ext| ext.eq_ignore_ascii_case("mrpack"))
-        {
-            log::info!("File extension is .mrpack, proceeding with processing.");
-            // Call the import function which returns the new profile ID
-            let new_profile_id = mrpack::import_mrpack_as_profile(file_path_buf).await?;
+            .map(|ext| ext.to_lowercase());
 
-            // Get state to emit event
-            let state = State::get().await?;
-            // Emit event to trigger UI update for the newly created profile
-            if let Err(e) = state
-                .event_state
-                .trigger_profile_update(new_profile_id)
-                .await
-            {
-                log::error!(
-                    "Failed to emit TriggerProfileUpdate event for new profile {}: {}",
-                    new_profile_id,
-                    e
-                );
+        let new_profile_id = match file_extension.as_deref() {
+            Some("mrpack") => {
+                log::info!("File extension is .mrpack, proceeding with mrpack processing.");
+                mrpack::import_mrpack_as_profile(file_path_buf).await?
+            },
+            Some("noriskpack") => {
+                log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
+                crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf).await?
+            },
+            _ => {
+                log::error!("Selected file has an invalid extension: {:?}", file_path_buf);
+                return Err(CommandError::from(AppError::Other(
+                    "Invalid file type selected. Please select a .mrpack or .noriskpack file.".to_string(),
+                )));
             }
+        };
 
-            Ok(())
-        } else {
-            log::error!("Selected file is not a .mrpack file: {:?}", file_path_buf);
-            Err(CommandError::from(AppError::Other(
-                "Invalid file type selected. Please select a .mrpack file.".to_string(),
-            )))
+        // Get state to emit event
+        let state = State::get().await?;
+        // Emit event to trigger UI update for the newly created profile
+        if let Err(e) = state
+            .event_state
+            .trigger_profile_update(new_profile_id)
+            .await
+        {
+            log::error!(
+                "Failed to emit TriggerProfileUpdate event for new profile {}: {}",
+                new_profile_id,
+                e
+            );
         }
+
+        Ok(())
     } else {
         log::info!("User cancelled the file import dialog.");
         Ok(())
@@ -727,7 +734,7 @@ pub async fn add_modrinth_content_to_profile(
     .map_err(CommandError::from)
 }
 
-// Command to get the directory structure of a profile
+/// Command to get the directory structure of a profile
 #[tauri::command]
 pub async fn get_profile_directory_structure(
     profile_id: Uuid,

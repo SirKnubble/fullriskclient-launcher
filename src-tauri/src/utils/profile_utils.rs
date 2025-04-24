@@ -355,7 +355,7 @@ fn sanitize_profile_for_export(profile: &Profile) -> Profile {
 }
 
 /// Recursively copies a directory
-fn copy_dir_recursively<'a>(src: &'a Path, dst: &'a Path) -> BoxFuture<'a, Result<()>> {
+pub fn copy_dir_recursively<'a>(src: &'a Path, dst: &'a Path) -> BoxFuture<'a, Result<()>> {
     Box::pin(async move {
         if !dst.exists() {
             fs::create_dir_all(dst).await.map_err(|e| AppError::Io(e))?;
