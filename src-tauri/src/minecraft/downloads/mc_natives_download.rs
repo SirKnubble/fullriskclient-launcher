@@ -159,8 +159,11 @@ impl MinecraftNativesDownloadService {
             let entry = &zip.file().entries().get(index).unwrap();
             let file_name = entry.filename().as_str().map_err(|e| AppError::Download(e.to_string()))?;
             
+            info!("  Extracting file: {}", file_name);
+            
             // Skip META-INF directory
             if file_name.starts_with("META-INF/") {
+                info!("    Skipping META-INF entry: {}", file_name);
                 continue;
             }
 
@@ -170,6 +173,7 @@ impl MinecraftNativesDownloadService {
             if entry_is_dir {
                 if !fs::try_exists(&path).await? {
                     fs::create_dir_all(&path).await?;
+                    info!("    Created directory: {:?}", path);
                 }
             } else {
                 // Create parent directories if they don't exist
@@ -188,6 +192,7 @@ impl MinecraftNativesDownloadService {
                 
                 // Write the content asynchronously
                 writer.write_all(&buffer).await?;
+                info!("    Extracted file to: {:?}", path);
             }
         }
 
