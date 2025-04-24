@@ -16,21 +16,13 @@ const NORISK_API_BASE_URL: &str = "https://api.noriskclient.com/v1";
 /// Represents a standard profile configuration from the NoRisk backend.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NoriskVersionProfile {
-    /// Unique identifier for the profile
     pub id: Uuid,
-    /// User-friendly display name
-    pub display_name: String,
-    /// Description of the profile
+    pub name: String,
     pub description: String,
-    /// Minecraft version (e.g., "1.21.4")
     pub mc_version: String,
-    /// Loader type (e.g., "fabric", "forge", "vanilla")
     pub loader: ModLoader,
-    /// Loader version
     pub loader_version: Option<String>,
-    /// Optional NoRisk client pack to use with this profile
     pub norisk_pack: Option<String>,
-    /// Optional custom path for the profile (if not using default)
     pub custom_path: PathBuf,
 }
 
@@ -152,7 +144,7 @@ pub fn convert_standard_to_user_profile(
 
     let profile = Profile {
         id: profile_id_to_use, // Uses the original standard profile ID
-        name: standard_profile.display_name.clone(),
+        name: standard_profile.name.clone(),
         path: profile_path_str, 
         game_version: standard_profile.mc_version.clone(),
         loader: standard_profile.loader, // Assuming ModLoader is Copy

@@ -79,7 +79,7 @@ impl MinecraftNativesDownloadService {
                             info!("      Size: {} bytes", native_info.size);
                             info!("      SHA1: {}", native_info.sha1);
                             info!("      Extracting...");
-                            self.extract_native_archive(native_info, natives_path).await?;
+                            self.extract_native_archive(native_info, natives_path, library).await?;
                         } else {
                             info!("    No native artifact found for classifier: {}", classifier);
                         }
@@ -133,7 +133,7 @@ impl MinecraftNativesDownloadService {
                         info!("      Size: {} bytes", artifact.size);
                         info!("      SHA1: {}", artifact.sha1);
                         info!("      Extracting...");
-                        self.extract_native_archive(artifact, natives_path).await?;
+                        self.extract_native_archive(artifact, natives_path, library).await?;
                     } else {
                         info!("      No artifact found");
                     }
@@ -145,7 +145,7 @@ impl MinecraftNativesDownloadService {
         Ok(())
     }
 
-    async fn extract_native_archive(&self, native: &DownloadInfo, natives_path: &PathBuf) -> Result<()> {
+    async fn extract_native_archive(&self, native: &DownloadInfo, natives_path: &PathBuf, library: &Library) -> Result<()> {
         let target_path = self.get_library_path(native);
         
         // Read the zip file content
@@ -155,12 +155,28 @@ impl MinecraftNativesDownloadService {
         
         let mut zip = ZipFileReader::with_tokio(&mut reader).await.map_err(|e| AppError::Download(e.to_string()))?;
         
+        // Extract exclude patterns if any
+        let exclude_patterns = if let Some(extract) = &library.extract {
+            extract.exclude.clone().unwrap_or_default()
+        } else {
+            // Default behavior - if no extract.exclude specified, we don't exclude anything
+            Vec::new()
+        };
+        
+        info!("    Using exclude patterns: {:?}", exclude_patterns);
+        
         for index in 0..zip.file().entries().len() {
             let entry = &zip.file().entries().get(index).unwrap();
             let file_name = entry.filename().as_str().map_err(|e| AppError::Download(e.to_string()))?;
             
-            // Skip META-INF directory
-            if file_name.starts_with("META-INF/") {
+            info!("  Extracting file: {}", file_name);
+            
+            // Check if file should be excluded
+            let should_exclude = !exclude_patterns.is_empty() && 
+                exclude_patterns.iter().any(|pattern| file_name.starts_with(pattern));
+            
+            if should_exclude {
+                info!("    Skipping excluded entry: {}", file_name);
                 continue;
             }
 
@@ -170,6 +186,7 @@ impl MinecraftNativesDownloadService {
             if entry_is_dir {
                 if !fs::try_exists(&path).await? {
                     fs::create_dir_all(&path).await?;
+                    info!("    Created directory: {:?}", path);
                 }
             } else {
                 // Create parent directories if they don't exist
@@ -188,6 +205,7 @@ impl MinecraftNativesDownloadService {
                 
                 // Write the content asynchronously
                 writer.write_all(&buffer).await?;
+                info!("    Extracted file to: {:?}", path);
             }
         }
 
