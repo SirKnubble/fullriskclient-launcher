@@ -85,7 +85,57 @@ impl NoRiskApi {
         })
     }
 
-    pub async fn refresh_norisk_token(token: &str, hwid: &str, force: bool, is_experimental: bool) -> Result<NoRiskToken> {
+    pub async fn get_from_norisk_endpoint_with_parameters<T: for<'de> Deserialize<'de>>(
+        endpoint: &str,
+        norisk_token: &str,
+        extra_params: Option<HashMap<&str, &str>>,
+        is_experimental: bool,
+    ) -> Result<T> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!("[NoRisk API] Making GET request to endpoint: {}", endpoint);
+        debug!("[NoRisk API] Full URL: {}", url);
+
+        let mut request = HTTP_CLIENT
+            .get(url)
+            .header("Authorization", format!("Bearer {}", norisk_token));
+
+        if let Some(extra) = extra_params {
+            debug!("[NoRisk API] Adding {} query parameters", extra.len());
+            request = request.query(&extra);
+        }
+
+        debug!("[NoRisk API] Sending GET request");
+        let response = request.send().await.map_err(|e| {
+            error!("[NoRisk API] GET request failed: {}", e);
+            AppError::RequestError(format!("Failed to send GET request to NoRisk API: {}", e))
+        })?;
+
+        let status = response.status();
+        debug!("[NoRisk API] Response status: {}", status);
+
+        if !status.is_success() {
+            error!("[NoRisk API] Error response: Status {}", status);
+            return Err(AppError::RequestError(format!(
+                "NoRisk API returned error status: {}",
+                status
+            )));
+        }
+
+        debug!("[NoRisk API] Parsing response body as JSON");
+        response.json::<T>().await.map_err(|e| {
+            error!("[NoRisk API] Failed to parse response: {}", e);
+            AppError::ParseError(format!("Failed to parse NoRisk API response: {}", e))
+        })
+    }
+
+    pub async fn refresh_norisk_token(
+        token: &str,
+        hwid: &str,
+        force: bool,
+        is_experimental: bool,
+    ) -> Result<NoRiskToken> {
         info!("[NoRisk API] Refreshing NoRisk token with HWID: {}", hwid);
         debug!("[NoRisk API] Force refresh: {}", force);
         debug!("[NoRisk API] Experimental mode: {}", is_experimental);
@@ -123,16 +173,60 @@ impl NoRiskApi {
         request_uuid: &str,
         is_experimental: bool,
     ) -> Result<T> {
-        debug!("[NoRisk API] Request from endpoint: {} with UUID: {}", endpoint, request_uuid);
+        debug!(
+            "[NoRisk API] Request from endpoint: {} with UUID: {}",
+            endpoint, request_uuid
+        );
         let mut extra_params = HashMap::new();
         extra_params.insert("uuid", request_uuid);
-        
-        Self::post_from_norisk_endpoint_with_parameters(endpoint, norisk_token, "", Some(extra_params), is_experimental).await
+
+        Self::post_from_norisk_endpoint_with_parameters(
+            endpoint,
+            norisk_token,
+            "",
+            Some(extra_params),
+            is_experimental,
+        )
+        .await
+    }
+
+    pub async fn get_from_norisk_endpoint<T: for<'de> Deserialize<'de>>(
+        endpoint: &str,
+        norisk_token: &str,
+        request_uuid: Option<&str>,
+        is_experimental: bool,
+    ) -> Result<T> {
+        debug!("[NoRisk API] GET request from endpoint: {}", endpoint);
+
+        let mut extra_params = HashMap::new();
+        if let Some(uuid) = request_uuid {
+            debug!("[NoRisk API] Adding UUID: {}", uuid);
+            extra_params.insert("uuid", uuid);
+        }
+
+        Self::get_from_norisk_endpoint_with_parameters(
+            endpoint,
+            norisk_token,
+            Some(extra_params),
+            is_experimental,
+        )
+        .await
     }
 
     /// Request norisk assets json for specific branch
-    pub async fn norisk_assets(branch: &str, norisk_token: &str, request_uuid: &str, is_experimental: bool) -> Result<NoriskAssets> {
-        Self::request_from_norisk_endpoint(&format!("launcher/assets/{}", branch), norisk_token, request_uuid, is_experimental).await
+    pub async fn norisk_assets(
+        pack: &str,
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<NoriskAssets> {
+        Self::get_from_norisk_endpoint(
+            &format!("launcher/branch/{}", pack),
+            norisk_token,
+            Some(request_uuid),
+            is_experimental,
+        )
+        .await
     }
 
     // Add more NoRisk API methods as needed

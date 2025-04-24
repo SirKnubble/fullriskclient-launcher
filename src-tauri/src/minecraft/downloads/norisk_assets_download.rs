@@ -2,7 +2,7 @@ use crate::error::{AppError, Result};
 use crate::minecraft::dto::norisk_meta::NoriskAssets;
 use crate::minecraft::dto::piston_meta::AssetObject;
 use crate::minecraft::api::NoRiskApi;
-use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::state::profile_state::Profile;
 use crate::minecraft::auth::minecraft_auth::Credentials;
 use std::path::PathBuf;
@@ -94,13 +94,19 @@ impl NoriskClientAssetsDownloadService {
         // Fetch assets JSON from NoRisk API
         info!("[NRC Assets Download] Fetching assets for branch: {} (experimental mode: {})", pack, is_experimental);
         let assets = NoRiskApi::norisk_assets(&pack, &norisk_token, &request_uuid, is_experimental).await?;
+        info!("[NRC Assets Download] Assets fetched successfully");
+        if let Some((key, obj)) = assets.objects.iter().next() {
+            info!("[NRC Assets Download] Sample asset - Key: {}, Hash: {}, Size: {}", key, obj.hash, obj.size);
+        } else {
+            info!("[NRC Assets Download] No assets found in the response");
+        }
         
         // Download the assets
-        self.download_nrc_assets(&pack, &assets).await
+        self.download_nrc_assets(&pack, &assets, is_experimental, &norisk_token).await
     }
 
     /// Downloads NoRisk client assets for a specific branch
-    pub async fn download_nrc_assets(&self, pack: &str, assets: &NoriskAssets) -> Result<()> {
+    pub async fn download_nrc_assets(&self, pack: &str, assets: &NoriskAssets, is_experimental: bool, norisk_token: &str) -> Result<()> {
         trace!("[NRC Assets Download] Starting download process for branch: {}", pack);
         
         let assets_path = self.base_path.join(NORISK_ASSETS_DIR).join(pack);
@@ -126,6 +132,7 @@ impl NoriskClientAssetsDownloadService {
             let name_clone = name.clone(); // Clone name for the async block
             let task_counter_clone = Arc::clone(&task_counter);
             let pack_clone = pack.to_string();
+            let norisk_token_clone = norisk_token.to_string();
 
             // Check if asset exists and size matches
             if fs::try_exists(&target_path).await? {
@@ -144,15 +151,25 @@ impl NoriskClientAssetsDownloadService {
                 let task_id = task_counter_clone.fetch_add(1, Ordering::SeqCst);
                 trace!("[NRC Assets Download Task {}] Starting download for: {}", task_id, name_clone);
                 
-                // Use the NoRisk API to get assets
+                // Determine prod/exp mode
+                let prod_or_exp = if is_experimental {
+                    "exp"
+                } else {
+                    "prod"
+                };
+                
+                // Use the NoRisk API to get assets with the correct URL structure
                 let url = format!(
-                    "https://api.norisk.gg/api/v1/launcher/assets/{}/{}/{}",
-                    pack_clone,
-                    &hash[0..2],
-                    &hash
+                    "{}/{}/{}/assets/{}",
+                    "https://cdn.norisk.gg/branches", prod_or_exp, pack_clone, name_clone
                 );
 
-                let response_result = reqwest::get(&url).await;
+                let mut request = HTTP_CLIENT.get(&url);
+                
+                // Add authorization with the actual token
+                request = request.header("Authorization", format!("Bearer {}", norisk_token_clone));
+
+                let response_result = request.send().await;
                 let response = match response_result {
                     Ok(resp) => resp,
                     Err(e) => {
