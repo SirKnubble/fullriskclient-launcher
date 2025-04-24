@@ -175,10 +175,16 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
         AppError::Json(e)
     })?;
     
+    // 5. Use the filename as the profile name if available
+    if let Some(file_name) = pack_path.file_stem().and_then(|s| s.to_str()) {
+        info!("Using noriskpack filename as profile name: {}", file_name);
+        exported_profile.name = file_name.to_string();
+    }
+    
     info!("Parsed profile data: Name='{}', Game Version={}, Loader={:?}", 
         exported_profile.name, exported_profile.game_version, exported_profile.loader);
 
-    // 5. Create a new profile with a unique path
+    // 6. Create a new profile with a unique path
     let base_profiles_dir = crate::state::profile_state::default_profile_path();
     let sanitized_base_name = sanitize(&exported_profile.name);
     if sanitized_base_name.is_empty() {
@@ -204,7 +210,7 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
     
     info!("Prepared new profile with path: {}", exported_profile.path);
 
-    // 6. Ensure the target profile directory exists
+    // 7. Ensure the target profile directory exists
     let target_dir = base_profiles_dir.join(&exported_profile.path);
     if !target_dir.exists() {
         fs::create_dir_all(&target_dir).await.map_err(|e| {
@@ -213,7 +219,7 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
         })?;
     }
 
-    // 7. Extract the overrides directory
+    // 8. Extract the overrides directory
     info!("Extracting overrides to profile directory: {:?}", target_dir);
     let num_entries = zip.file().entries().len();
     
@@ -301,7 +307,7 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
 
     info!("Successfully extracted overrides.");
 
-    // 8. Save the profile using ProfileManager
+    // 9. Save the profile using ProfileManager
     let state = State::get().await?;
     let profile_id = state.profile_manager.create_profile(exported_profile).await?;
     info!("Successfully created and saved profile with ID: {}", profile_id);
