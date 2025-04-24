@@ -31,6 +31,10 @@
 - Integration vorkonfigurierter Modpacks
 - Aktivieren/Deaktivieren einzelner Mods innerhalb eines Packs
 - Kompatibilitätsprüfung für Mods innerhalb eines Packs
+- Wiederverwendbare Extraktionslogik für `.noriskpack` und `.mrpack` Dateien
+- Gemeinsame Code-Basis für verschiedene Archivformate, die die `extract_mrpack_overrides` Funktion nutzt
+- Effiziente Extraktion von Overrides aus den Archiven in das Zielprofilverzeichnis
+- Unterstützung für den Import und Export von Modpacks
 
 ### Launcher-Konfiguration
 - Globale Einstellungen für den Launcher
@@ -191,6 +195,18 @@ Der ConfigManager stellt folgende Funktionen bereit:
   - `NoRiskCredentials`: Verwaltet sowohl Produktions- als auch experimentelle NoRisk-Tokens
   - `refresh_norisk_token_if_necessary`: Aktualisiert Token automatisch bei Bedarf
 
+### Modpack-Integration
+- `mrpack.rs`: Zentrale Komponente für Modpack-Verarbeitung
+  - `extract_mrpack_overrides`: Gemeinsame Extraktionsfunktion für `.mrpack` und `.noriskpack` Dateien
+  - `process_mrpack`: Parsen und Verarbeiten von Modpack-Manifesten
+  - `resolve_manifest_files`: Analyse und Auflösung von Modrinth-Mod-Referenzen
+  - `import_mrpack_as_profile`: Vollständiger Import-Workflow für Modpacks
+- `path_utils.rs`: Datei- und Pfadoperationen
+  - `import_noriskpack`: Spezifische Funktion für `.noriskpack`-Import, die intern `extract_mrpack_overrides` nutzt
+  - `find_unique_profile_segment`: Erzeugt eindeutige Profilpfade bei Imports
+- `profile_utils.rs`: Profilbezogene Funktionen
+  - `export_profile_to_noriskpack`: Exportiert Profile als `.noriskpack`-Dateien mit Overrides
+
 ### API-Integration
 - `norisk_api.rs`: Kommunikation mit NoRisk-API
   - `refresh_norisk_token`: Aktualisiert das NoRisk-Token mit HWID-Validierung
@@ -248,6 +264,23 @@ Der ConfigManager stellt folgende Funktionen bereit:
 - `production`: Option<NoRiskToken> für Produktionsumgebung
 - `experimental`: Option<NoRiskToken> für experimentelle Umgebung
 - Methoden zur Token-Auswahl basierend auf Launcher-Konfiguration
+
+### Modpack-Formate
+- `.noriskpack`: Eigenes Format für NoRisk-Client-Modpacks
+  - Enthält `profile.json` mit Profildaten
+  - Enthält `overrides/`-Verzeichnis mit Spiel- und Moddateien
+  - Verwendet das gleiche Extraktionssystem wie `.mrpack`
+- `.mrpack`: Standard-Format von Modrinth
+  - Enthält `modrinth.index.json` als Manifest
+  - Enthält `overrides/`-Verzeichnis mit zusätzlichen Dateien
+  - Definiert Mods mit Hashes für Integritätsprüfung
+  - Unterstützt Abhängigkeiten zwischen Mods
+  - Spezifiziert Minecraft-Version und Modloader
+- Gemeinsame Verarbeitungslogik:
+  - Extraktion von Metadaten und Konfigurationsdateien
+  - Auflösung von Mod-Referenzen gegen Modrinth-API
+  - Eindeutige Profilpfaderzeugung
+  - Kopieren von Overrides in Zielprofilverzeichnis
 
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
