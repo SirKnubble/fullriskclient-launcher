@@ -138,7 +138,7 @@ impl NoriskClientAssetsDownloadService {
             None
         ).await?;
         
-        self.copy_assets_to_game_dir(&pack, &assets, game_directory).await?;
+        self.copy_assets_to_game_dir(&pack, &assets, game_directory, Some(profile.id)).await?;
         
         // Final progress update
         self.emit_progress_event(
@@ -448,7 +448,7 @@ impl NoriskClientAssetsDownloadService {
     }
 
     /// Copy downloaded assets to the profile's game directory
-    pub async fn copy_assets_to_game_dir(&self, pack: &str, assets: &NoriskAssets, game_dir: PathBuf) -> Result<()> {
+    pub async fn copy_assets_to_game_dir(&self, pack: &str, assets: &NoriskAssets, game_dir: PathBuf, profile_id: Option<Uuid>) -> Result<()> {
         let source_dir = self.base_path.join(NORISK_ASSETS_DIR).join(pack);
         let target_dir = game_dir.join("NoRiskClient").join("assets");
         
@@ -466,57 +466,137 @@ impl NoriskClientAssetsDownloadService {
             
         let mut copied_count = 0;
         let mut skipped_count = 0;
+        let total_assets = assets_list.len();
         
-        for (name, asset) in assets_list {
-            let source_path = source_dir.join(&name);
-            let target_path = target_dir.join(&name);
-            
-            // Skip if the file doesn't exist in source
-            if !fs::try_exists(&source_path).await? {
-                warn!("[NRC Assets Copy] Source file doesn't exist: {}", source_path.display());
-                continue;
+        // Try to get state for events
+        let state = match State::get().await {
+            Ok(s) => Some(s),
+            Err(e) => {
+                warn!("[NRC Assets Copy] Couldn't get state for events: {}", e);
+                None
             }
+        };
+        
+        // Initial copy event
+        if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+            self.emit_copy_event(
+                state_ref,
+                profile_id_val,
+                &format!("Preparing to copy {} NoRiskClient assets to game directory", total_assets),
+                0.0,
+                None
+            ).await?;
+        }
+        
+        // Process assets in batches for more efficient progress reporting
+        let batch_size = 50;
+        let mut batch_count = 0;
+        
+        for chunk in assets_list.chunks(batch_size) {
+            let mut batch_copied = 0;
+            let mut batch_skipped = 0;
             
-            // Check if file already exists in target with correct size
-            let needs_copy = if fs::try_exists(&target_path).await? {
-                let source_metadata = fs::metadata(&source_path).await?;
-                let target_metadata = fs::metadata(&target_path).await?;
+            for (name, asset) in chunk {
+                let source_path = source_dir.join(&name);
+                let target_path = target_dir.join(&name);
                 
-                if source_metadata.len() != target_metadata.len() {
-                    debug!("[NRC Assets Copy] Size mismatch for {}, needs copy", name);
-                    true
-                } else {
-                    // Files exist with same size, skip copy
-                    trace!("[NRC Assets Copy] Skipping {}, already exists with same size", name);
-                    false
+                // Skip if the file doesn't exist in source
+                if !fs::try_exists(&source_path).await? {
+                    warn!("[NRC Assets Copy] Source file doesn't exist: {}", source_path.display());
+                    continue;
                 }
-            } else {
-                // Target doesn't exist, needs copy
-                debug!("[NRC Assets Copy] Target doesn't exist for {}, needs copy", name);
-                true
-            };
-            
-            if needs_copy {
-                // Ensure parent directory exists
-                if let Some(parent) = target_path.parent() {
-                    if !fs::try_exists(parent).await? {
-                        fs::create_dir_all(parent).await?;
+                
+                // Check if file already exists in target with correct size
+                let needs_copy = if fs::try_exists(&target_path).await? {
+                    let source_metadata = fs::metadata(&source_path).await?;
+                    let target_metadata = fs::metadata(&target_path).await?;
+                    
+                    if source_metadata.len() != target_metadata.len() {
+                        debug!("[NRC Assets Copy] Size mismatch for {}, needs copy", name);
+                        true
+                    } else {
+                        // Files exist with same size, skip copy
+                        trace!("[NRC Assets Copy] Skipping {}, already exists with same size", name);
+                        false
                     }
-                }
+                } else {
+                    // Target doesn't exist, needs copy
+                    debug!("[NRC Assets Copy] Target doesn't exist for {}, needs copy", name);
+                    true
+                };
                 
-                // Copy the file
-                fs::copy(&source_path, &target_path).await?;
-                copied_count += 1;
-                
-                if copied_count % 100 == 0 {
-                    info!("[NRC Assets Copy] Copied {} files so far...", copied_count);
+                if needs_copy {
+                    // Ensure parent directory exists
+                    if let Some(parent) = target_path.parent() {
+                        if !fs::try_exists(parent).await? {
+                            fs::create_dir_all(parent).await?;
+                        }
+                    }
+                    
+                    // Copy the file
+                    fs::copy(&source_path, &target_path).await?;
+                    copied_count += 1;
+                    batch_copied += 1;
+                } else {
+                    skipped_count += 1;
+                    batch_skipped += 1;
                 }
-            } else {
-                skipped_count += 1;
             }
+            
+            batch_count += 1;
+            
+            // Report batch progress
+            if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+                let progress = 0.1 + 0.9 * (batch_count as f64 * batch_size as f64 / total_assets as f64);
+                self.emit_copy_event(
+                    state_ref,
+                    profile_id_val,
+                    &format!("Copying NoRiskClient assets: Batch {}/{}, Copied: {}, Skipped: {}", 
+                        batch_count, 
+                        (total_assets + batch_size - 1) / batch_size, // Ceiling division
+                        copied_count,
+                        skipped_count),
+                    progress.min(0.95), // Cap at 95% until fully complete
+                    None
+                ).await?;
+            }
+        }
+        
+        // Final progress update
+        if let (Some(state_ref), Some(profile_id_val)) = (&state, profile_id) {
+            self.emit_copy_event(
+                state_ref,
+                profile_id_val,
+                &format!("NoRiskClient assets copied to game directory. Copied: {}, Skipped: {}", copied_count, skipped_count),
+                1.0,
+                None
+            ).await?;
         }
         
         info!("[NRC Assets Copy] Completed copying assets. Copied: {}, Skipped: {}", copied_count, skipped_count);
         Ok(())
+    }
+    
+    /// Helper method for emitting copy progress events
+    async fn emit_copy_event(
+        &self,
+        state: &State,
+        profile_id: Uuid,
+        message: &str,
+        progress: f64,
+        error: Option<String>,
+    ) -> Result<Uuid> {
+        let event_id = Uuid::new_v4();
+        state
+            .emit_event(EventPayload {
+                event_id,
+                event_type: EventType::CopyingNoRiskClientAssets,
+                target_id: Some(profile_id),
+                message: message.to_string(),
+                progress: Some(progress),
+                error,
+            })
+            .await?;
+        Ok(event_id)
     }
 } 
