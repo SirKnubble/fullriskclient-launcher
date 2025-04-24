@@ -125,7 +125,7 @@ impl NoriskClientAssetsDownloadService {
             let target_path = assets_path.join(&name);
             let name_clone = name.clone(); // Clone name for the async block
             let task_counter_clone = Arc::clone(&task_counter);
-            let branch_clone = pack.to_string();
+            let pack_clone = pack.to_string();
 
             // Check if asset exists and size matches
             if fs::try_exists(&target_path).await? {
@@ -146,9 +146,10 @@ impl NoriskClientAssetsDownloadService {
                 
                 // Use the NoRisk API to get assets
                 let url = format!(
-                    "https://api.norisk.gg/api/v1/launcher/assets/{}/files/{}",
-                    branch_clone,
-                    name_clone
+                    "https://api.norisk.gg/api/v1/launcher/assets/{}/{}/{}",
+                    pack_clone,
+                    &hash[0..2],
+                    &hash
                 );
 
                 let response_result = reqwest::get(&url).await;
