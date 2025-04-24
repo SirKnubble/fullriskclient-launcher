@@ -12,6 +12,7 @@ pub enum EventType {
     DownloadingLibraries,
     ExtractingNatives,
     DownloadingAssets,
+    ReusingMinecraftAssets,
     CopyingNoRiskClientAssets,
     DownloadingNoRiskClientAssets,
     DownloadingClient,

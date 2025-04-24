@@ -5,6 +5,11 @@ use log::{debug, error, info, warn};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use std::env;
+use crate::state::event_state::{EventPayload, EventType};
+use crate::state::State;
+use uuid::Uuid;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 /// Returns the path to the default .minecraft directory based on OS
 pub fn get_default_minecraft_dir() -> PathBuf {
@@ -39,6 +44,35 @@ pub fn get_default_minecraft_dir() -> PathBuf {
 /// Checks if standard Minecraft assets can be reused and copies them if possible
 /// Returns Ok(true) if assets were copied, Ok(false) if they weren't
 pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool> {
+    try_reuse_minecraft_assets_with_progress(asset_index, Uuid::nil()).await
+}
+
+/// Version of try_reuse_minecraft_assets that reports progress events
+pub async fn try_reuse_minecraft_assets_with_progress(asset_index: &AssetIndex, profile_id: Uuid) -> Result<bool> {
+    // Try to get state for events
+    let state = if profile_id != Uuid::nil() {
+        match State::get().await {
+            Ok(s) => Some(s),
+            Err(e) => {
+                warn!("[MC Utils] Couldn't get state for events: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+    
+    // Send initial progress event
+    if let Some(state_ref) = &state {
+        emit_reuse_progress(
+            state_ref,
+            profile_id,
+            &format!("Checking for existing Minecraft assets (index: {})", asset_index.id),
+            0.01,
+            None
+        ).await?;
+    }
+    
     // Log what we're trying to do
     info!("[MC Utils] Checking for existing Minecraft assets (index: {})", asset_index.id);
     
@@ -46,7 +80,29 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
     let default_mc_dir = get_default_minecraft_dir();
     if !default_mc_dir.exists() {
         info!("[MC Utils] Default Minecraft directory not found at: {}", default_mc_dir.display());
+        
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                "No existing Minecraft installation found, will download assets directly",
+                0.05,
+                None
+            ).await?;
+        }
+        
         return Ok(false);
+    }
+    
+    // Progress update
+    if let Some(state_ref) = &state {
+        emit_reuse_progress(
+            state_ref,
+            profile_id,
+            &format!("Found Minecraft directory at: {}", default_mc_dir.display()),
+            0.05,
+            None
+        ).await?;
     }
     
     let source_indexes_dir = default_mc_dir.join("assets").join("indexes");
@@ -55,6 +111,17 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
     // Check if the source index file exists
     if !source_index_file.exists() {
         info!("[MC Utils] Asset index file not found at: {}", source_index_file.display());
+        
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                &format!("Asset index {} not found in existing Minecraft installation", asset_index.id),
+                0.05,
+                None
+            ).await?;
+        }
+        
         return Ok(false);
     }
     
@@ -72,6 +139,17 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
             Ok(metadata) => {
                 if metadata.len() as i64 == asset_index.size {
                     info!("[MC Utils] Asset index already exists with correct size, no need to copy");
+                    
+                    if let Some(state_ref) = &state {
+                        emit_reuse_progress(
+                            state_ref,
+                            profile_id,
+                            "Asset index already exists with correct size, no need to copy",
+                            0.1,
+                            None
+                        ).await?;
+                    }
+                    
                     return Ok(false); // Already have it with correct size
                 }
                 info!("[MC Utils] Asset index exists but size mismatch, will copy from default MC dir");
@@ -80,6 +158,17 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
                 warn!("[MC Utils] Failed to get metadata for existing asset index: {}", e);
             }
         }
+    }
+    
+    // Progress update
+    if let Some(state_ref) = &state {
+        emit_reuse_progress(
+            state_ref,
+            profile_id,
+            "Found existing Minecraft assets, preparing to copy",
+            0.1,
+            None
+        ).await?;
     }
     
     // Create destination directories if they don't exist
@@ -92,9 +181,32 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
     match fs::copy(&source_index_file, &dest_index_file).await {
         Ok(_) => {
             info!("[MC Utils] Successfully copied asset index file");
+            
+            // Progress update
+            if let Some(state_ref) = &state {
+                emit_reuse_progress(
+                    state_ref,
+                    profile_id,
+                    "Successfully copied asset index file",
+                    0.15,
+                    None
+                ).await?;
+            }
         },
         Err(e) => {
             error!("[MC Utils] Failed to copy asset index file: {}", e);
+            
+            // Error progress update
+            if let Some(state_ref) = &state {
+                emit_reuse_progress(
+                    state_ref,
+                    profile_id,
+                    &format!("Failed to copy asset index file: {}", e),
+                    0.15,
+                    Some(e.to_string())
+                ).await?;
+            }
+            
             return Err(AppError::Io(e));
         }
     }
@@ -105,6 +217,18 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
     
     if !source_objects_dir.exists() {
         warn!("[MC Utils] Source objects directory not found at: {}", source_objects_dir.display());
+        
+        // Progress update
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                "Copied index but assets directory not found, will download assets directly",
+                0.2,
+                None
+            ).await?;
+        }
+        
         // Still return Ok(true) because we copied the index file
         return Ok(true);
     }
@@ -115,13 +239,32 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
     
     // Extract the objects
     if let Some(objects) = index_json.get("objects").and_then(|o| o.as_object()) {
-        info!("[MC Utils] Found {} assets to copy", objects.len());
+        let total_objects = objects.len();
+        info!("[MC Utils] Found {} assets to copy", total_objects);
+        
+        // Progress update
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                &format!("Found {} assets to reuse from existing Minecraft installation", total_objects),
+                0.2,
+                None
+            ).await?;
+        }
         
         let mut copied_count = 0;
         let mut skipped_count = 0;
         let mut error_count = 0;
         
-        for (_, object) in objects {
+        // Use atomic counters for progress tracking
+        let progress_counter = Arc::new(AtomicUsize::new(0));
+        let total_count = objects.len();
+        
+        // Batch size for progress updates - update every 5% or 100 files, whichever is smaller
+        let update_batch = (total_count / 20).max(1).min(100);
+        
+        for (asset_name, object) in objects {
             if let (Some(hash), Some(size)) = (object.get("hash").and_then(|h| h.as_str()), 
                                                object.get("size").and_then(|s| s.as_i64())) {
                 // Create hash folder (first 2 chars of hash)
@@ -148,6 +291,24 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
                             if metadata.len() as i64 == size {
                                 debug!("[MC Utils] Asset already exists with correct size: {}", hash);
                                 skipped_count += 1;
+                                
+                                // Update progress counter
+                                let progress = progress_counter.fetch_add(1, Ordering::SeqCst) + 1;
+                                
+                                // Report progress periodically
+                                if let Some(state_ref) = &state {
+                                    let percent_complete = progress as f64 / total_count as f64;
+                                    let scaled_progress = 0.2 + (percent_complete * 0.7); // Scale from 20% to 90%
+                                    
+                                    emit_reuse_progress(
+                                        state_ref,
+                                        profile_id,
+                                        &format!("Reusing Minecraft assets: {}/{} files processed", progress, total_count),
+                                        scaled_progress,
+                                        None
+                                    ).await?;
+                                }
+                                
                                 continue;
                             }
                         },
@@ -161,7 +322,7 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
                 if source_file.exists() {
                     match fs::copy(&source_file, &dest_file).await {
                         Ok(_) => {
-                            debug!("[MC Utils] Copied asset: {}", hash);
+                            debug!("[MC Utils] Copied asset: {} ({})", hash, asset_name);
                             copied_count += 1;
                         },
                         Err(e) => {
@@ -173,14 +334,76 @@ pub async fn try_reuse_minecraft_assets(asset_index: &AssetIndex) -> Result<bool
                     debug!("[MC Utils] Source asset not found: {}", source_file.display());
                     error_count += 1;
                 }
+                
+                // Update progress counter
+                let progress = progress_counter.fetch_add(1, Ordering::SeqCst) + 1;
+                
+                // Report progress periodically
+                if let Some(state_ref) = &state {
+                    let percent_complete = progress as f64 / total_count as f64;
+                    let scaled_progress = 0.2 + (percent_complete * 0.7); // Scale from 20% to 90%
+                    
+                    emit_reuse_progress(
+                        state_ref,
+                        profile_id,
+                        &format!("Reusing Minecraft assets: {}/{} files processed", progress, total_count),
+                        scaled_progress,
+                        None
+                    ).await?;
+                }
             }
         }
         
         info!("[MC Utils] Assets copy summary: copied {}, skipped {}, errors {}", 
               copied_count, skipped_count, error_count);
+              
+        // Final progress update
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                &format!("Successfully reused Minecraft assets: copied {}, reused {}, errors {}", 
+                    copied_count, skipped_count, error_count),
+                0.95,
+                None
+            ).await?;
+        }
     } else {
         warn!("[MC Utils] Failed to parse objects from asset index");
+        
+        // Error progress update
+        if let Some(state_ref) = &state {
+            emit_reuse_progress(
+                state_ref,
+                profile_id,
+                "Failed to parse objects from asset index",
+                0.5,
+                Some("Parse error".to_string())
+            ).await?;
+        }
     }
     
     Ok(true)
+}
+
+/// Helper function to emit progress events for asset reuse
+async fn emit_reuse_progress(
+    state: &State,
+    profile_id: Uuid,
+    message: &str,
+    progress: f64,
+    error: Option<String>,
+) -> Result<Uuid> {
+    let event_id = Uuid::new_v4();
+    state
+        .emit_event(EventPayload {
+            event_id,
+            event_type: EventType::ReusingMinecraftAssets,
+            target_id: Some(profile_id),
+            message: message.to_string(),
+            progress: Some(progress),
+            error,
+        })
+        .await?;
+    Ok(event_id)
 } 

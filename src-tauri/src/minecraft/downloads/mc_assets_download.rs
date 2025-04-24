@@ -57,7 +57,9 @@ impl MinecraftAssetsDownloadService {
         
         // Try to reuse existing Minecraft assets first
         info!("[Assets Download] Checking if we can reuse existing Minecraft assets");
-        let assets_reused = mc_utils::try_reuse_minecraft_assets(asset_index).await?;
+        
+        // Use the progress-aware version
+        let assets_reused = mc_utils::try_reuse_minecraft_assets_with_progress(asset_index, profile_id).await?;
         
         if assets_reused {
             info!("[Assets Download] Successfully reused existing Minecraft assets");
@@ -249,7 +251,7 @@ impl MinecraftAssetsDownloadService {
                 let completed = completed_counter.fetch_add(0, Ordering::SeqCst); // Just read current value
                 let total = total_to_download.load(Ordering::SeqCst);
                 
-                // Report progress every 50 assets or when significant progress is made
+                // Report progress every time
                 if total > 0 {
                     // Calculate progress from 0.2 to 0.9
                     let progress = 0.2 + 0.7 * (completed as f64 / total as f64);
