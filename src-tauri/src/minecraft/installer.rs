@@ -1,25 +1,17 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
-use crate::minecraft::api::fabric_api::FabricApi;
 use crate::minecraft::api::mc_api::MinecraftApiService;
-use crate::minecraft::api::quilt_api::QuiltApi;
-use crate::minecraft::downloads::fabric_libraries_download::FabricLibrariesDownloadService;
 use crate::minecraft::downloads::java_download::JavaDownloadService;
-use crate::minecraft::downloads::logging_config_download::MinecraftLoggingDownloadService;
 use crate::minecraft::downloads::mc_assets_download::MinecraftAssetsDownloadService;
 use crate::minecraft::downloads::mc_client_download::MinecraftClientDownloadService;
 use crate::minecraft::downloads::mc_libraries_download::MinecraftLibrariesDownloadService;
 use crate::minecraft::downloads::mc_natives_download::MinecraftNativesDownloadService;
-use crate::minecraft::downloads::quilt_libraries_download::QuiltLibrariesDownloadService;
-use crate::minecraft::downloads::ModDownloadService;
+use crate::minecraft::downloads::{ModDownloadService, NoriskClientAssetsDownloadService};
 use crate::minecraft::downloads::NoriskPackDownloadService;
-use crate::minecraft::downloads::{ForgeInstallerDownloadService, ForgeLibrariesDownload};
 use crate::minecraft::dto::JavaDistribution;
-use crate::minecraft::launch::forge_arguments::ForgeArguments;
-use crate::minecraft::launch::neo_forge_arguments::NeoForgeArguments;
 use crate::minecraft::{
-    ForgeApi, ForgePatcher, MinecraftLaunchParameters, MinecraftLauncher, NeoForgePatcher,
+    MinecraftLaunchParameters, MinecraftLauncher,
 };
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{ModLoader, Profile};
@@ -29,6 +21,9 @@ use uuid::Uuid;
 
 use super::minecraft_auth::Credentials;
 use super::modloader::ModloaderFactory;
+use crate::minecraft::downloads::{
+    MinecraftLoggingDownloadService,
+};
 
 async fn emit_progress_event(
     state: &State,
@@ -79,6 +74,20 @@ pub async fn install_minecraft_version(
         version_id, modloader_enum
     );
 
+    // Get experimental mode from global config
+    let state = State::get().await?;
+    let is_experimental_mode = state.config_manager.is_experimental_mode().await;
+    let launcher_config = state.config_manager.get_config().await;
+
+    info!(
+        "[Launch] Setting experimental mode: {}",
+        is_experimental_mode
+    );
+    info!(
+        "[Launch] Using concurrent downloads: {}",
+        launcher_config.concurrent_downloads
+    );
+
     let api_service = MinecraftApiService::new();
     let manifest = api_service.get_version_manifest().await?;
     let version = manifest
@@ -96,7 +105,6 @@ pub async fn install_minecraft_version(
     info!("\nChecking Java {} for Minecraft...", java_version);
 
     // Emit Java installation event
-    let state = State::get().await?;
     let event_id = emit_progress_event(
         &state,
         EventType::InstallingJava,
@@ -148,7 +156,8 @@ pub async fn install_minecraft_version(
 
     // Download all required files
     info!("\nDownloading libraries...");
-    let libraries_service = MinecraftLibrariesDownloadService::new();
+    let libraries_service = MinecraftLibrariesDownloadService::new()
+        .with_concurrent_downloads(launcher_config.concurrent_downloads);
     libraries_service
         .download_libraries(&piston_meta.libraries)
         .await?;
@@ -192,33 +201,26 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    // Emit assets download event
-    let assets_event_id = emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "Assets werden heruntergeladen...",
-        0.0,
-        None,
-    )
-    .await?;
-
     info!("\nDownloading assets...");
-    let assets_service = MinecraftAssetsDownloadService::new();
+    let assets_service = MinecraftAssetsDownloadService::new()
+        .with_concurrent_downloads(launcher_config.concurrent_downloads);
     assets_service
-        .download_assets(&piston_meta.asset_index)
+        .download_assets_with_progress(&piston_meta.asset_index, profile.id)
         .await?;
     info!("Asset download completed!");
 
-    emit_progress_event(
-        &state,
-        EventType::DownloadingAssets,
-        profile.id,
-        "Assets Download abgeschlossen!",
-        1.0,
-        None,
-    )
-    .await?;
+    // Download NoRiskClient assets if profile has a selected pack
+    info!("\nDownloading NoRiskClient assets...");
+    
+    let norisk_assets_service = NoriskClientAssetsDownloadService::new()
+        .with_concurrent_downloads(launcher_config.concurrent_downloads);
+    
+    // Download assets for this profile - progress events are now handled internally
+    norisk_assets_service
+        .download_nrc_assets_for_profile(&profile, credentials.as_ref(), is_experimental_mode)
+        .await?;
+        
+    info!("NoRiskClient Asset download completed!");
 
     // Emit client download event
     let client_event_id = emit_progress_event(
@@ -252,13 +254,18 @@ pub async fn install_minecraft_version(
     let launcher = MinecraftLauncher::new(java_path.clone(), game_directory.clone(), credentials);
 
     info!("\nPreparing launch parameters...");
+
     let mut launch_params = MinecraftLaunchParameters::new(profile.id, profile.settings.memory.max)
-        .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone());
+        .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone())
+        .with_experimental_mode(is_experimental_mode);
 
     // Install modloader using the factory
     if modloader_enum != ModLoader::Vanilla {
-        let modloader_installer =
-            ModloaderFactory::create_installer(&modloader_enum, java_path.clone());
+        let modloader_installer = ModloaderFactory::create_installer_with_config(
+            &modloader_enum,
+            java_path.clone(),
+            launcher_config.concurrent_downloads,
+        );
         let modloader_result = modloader_installer.install(version_id, profile).await?;
 
         // Apply modloader specific parameters to launch parameters
@@ -324,7 +331,8 @@ pub async fn install_minecraft_version(
         "Ensuring profile-defined mods for profile '{}' are downloaded to cache...",
         profile.name
     );
-    let mod_downloader_service = ModDownloadService::new();
+    let mod_downloader_service =
+        ModDownloadService::with_concurrency(launcher_config.concurrent_downloads);
     mod_downloader_service
         .download_mods_to_cache(&profile)
         .await?;
@@ -365,7 +373,8 @@ pub async fn install_minecraft_version(
                 selected_pack_id
             );
 
-            let norisk_downloader_service = NoriskPackDownloadService::new();
+            let norisk_downloader_service =
+                NoriskPackDownloadService::with_concurrency(launcher_config.concurrent_downloads);
             let loader_str = modloader_enum.as_str();
 
             match norisk_downloader_service

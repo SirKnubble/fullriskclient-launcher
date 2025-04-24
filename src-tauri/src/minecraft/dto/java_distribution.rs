@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::utils::system_info::{ARCHITECTURE, OS, Architecture};
+use crate::utils::system_info::{ARCHITECTURE, OS};
 use crate::error::{AppError, Result};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq)]

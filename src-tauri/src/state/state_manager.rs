@@ -1,6 +1,7 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::minecraft_auth::MinecraftAuthStore;
+use crate::state::config_state::ConfigManager;
 use crate::state::event_state::{EventPayload, EventState};
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::process_state::{default_processes_path, ProcessManager};
@@ -21,6 +22,7 @@ pub struct State {
     pub minecraft_account_manager_v2: MinecraftAuthStore,
     pub norisk_pack_manager: NoriskPackManager,
     pub norisk_version_manager: NoriskVersionManager,
+    pub config_manager: ConfigManager,
 }
 
 impl State {
@@ -41,6 +43,7 @@ impl State {
                         .await?,
                     norisk_version_manager: NoriskVersionManager::new(default_norisk_versions_path())
                         .await?,
+                    config_manager: ConfigManager::new().await?,
                 }))
             })
             .await?;
@@ -48,6 +51,10 @@ impl State {
         if let Ok(state) = crate::state::State::get().await {
             state.norisk_pack_manager.print_current_config().await;
             state.norisk_version_manager.print_current_config().await;
+            
+            // Log the current configuration
+            let config = state.config_manager.get_config().await;
+            tracing::info!("Launcher Config - Experimental mode: {}", config.is_experimental);
         }
 
         Ok(())

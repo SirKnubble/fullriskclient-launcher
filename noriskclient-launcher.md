@@ -31,39 +31,63 @@
 - Integration vorkonfigurierter Modpacks
 - Aktivieren/Deaktivieren einzelner Mods innerhalb eines Packs
 - Kompatibilitätsprüfung für Mods innerhalb eines Packs
+- Wiederverwendbare Extraktionslogik für `.noriskpack` und `.mrpack` Dateien
+- Gemeinsame Code-Basis für verschiedene Archivformate, die die `extract_mrpack_overrides` Funktion nutzt
+- Effiziente Extraktion von Overrides aus den Archiven in das Zielprofilverzeichnis
+- Unterstützung für den Import und Export von Modpacks
+
+### Launcher-Konfiguration
+- Globale Einstellungen für den Launcher
+- Experimental-Modus für NoRisk Client
+- Automatische Update-Überprüfung
+- Konfigurierbare Anzahl gleichzeitiger Downloads
+- Versionsbasierte Konfigurationsverwaltung für Zukunftskompatibilität
 
 ### Dateisystem-Integration
-- Anzeigen der Profilordnerstruktur
-- Auswählen einzelner Dateien oder Ordner
+- Anzeigen der Profilordnerstruktur mit hierarchischer Baumansicht
+- Interaktive Auswahl einzelner Dateien oder ganzer Ordner
 - Kopieren ausgewählter Dateien zwischen Profilen
-- Vorauswahl bestimmter Dateien (z.B. options.txt, shaderpacks)
+- Intelligente Vorauswahl bestimmter Dateien (z.B. options.txt, shaderpacks)
 - Benutzerfreundliche Dateiauswahl mit Hierarchie-Anzeige
 - Checkbox-basierte Selektion ganzer Verzeichnisse oder einzelner Dateien
+- Automatisches Ein-/Ausklappen von Ordnern
+- Anzeige von Dateimetadaten (Größe, Änderungsdatum)
 
 ### Minecraft-Launcher
 - Starten von Minecraft mit ausgewähltem Profil
 - Anzeige von Launcher-Events und Status
 - Fortschrittsanzeige während des Launchvorgangs
+- Experimenteller Modus für NoRisk Client (globale Konfiguration)
 
 ### Benutzeroberfläche
 - Moderne, reaktive UI mit Svelte und TypeScript
 - Modal-System für verschiedene Aktionen
 - Detailansichten mit erweiterbaren Abschnitten
 - Benutzerfreundliches Profil-Kopieren über intuitive Dialoge
+- Konfigurationsseite für globale Launcher-Einstellungen
 - Debugansichten für Entwicklung
+- Barrierefreie UI-Elemente mit zugangsoptimierter Bedienung
 
 ### Tauri-Integration
 - Kommunikation zwischen Frontend und Backend über Tauri-API
 - Ausführen von Betriebssystem-Operationen
 - Dateisystemzugriff mit Sicherheitsabstraktionen
 
+### Authentifizierung & Token-Management
+- Microsoft-Login für Minecraft-Konten
+- Automatische Token-Aktualisierung
+- Speicherung und sichere Verwaltung von Zugangsdaten
+- NoRisk-spezifisches Token-System für Premium-Funktionen
+- Unterstützung für experimentellen und produktiven Modus
+
 ## Technische Architektur
 
 ### Frontend
 - Svelte mit TypeScript für reaktive Benutzeroberfläche
-- Svelte Runes für Zustandsverwaltung
+- Svelte Runes für moderne Zustandsverwaltung
 - Modulare Komponenten für verschiedene Funktionen
 - Ereignisbasierte Kommunikation zwischen Komponenten
+- Reaktive Dateisystem-Visualisierung
 
 ### Backend
 - Rust-basiertes Backend über Tauri
@@ -71,6 +95,8 @@
 - Dateisystem-Operationen für Profilverwaltung
 - Prozessmanagement für Minecraft-Ausführung
 - Konvertierung zwischen Standard-Versionen und benutzerdefinierten Profilen
+- Konfigurationsmanager für globale Launcher-Einstellungen
+- Token-Management für NoRisk-Authentifizierung
 
 ## Datenbankschema
 
@@ -113,6 +139,22 @@
 - `is_enabled` (BOOLEAN): Status des Mods (aktiviert/deaktiviert)
 - `path` (TEXT): Pfad zur Moddatei
 
+## Konfigurationssystem
+
+### Launcher-Konfiguration
+Die Launcher-Konfiguration wird in einer JSON-Datei gespeichert (`launcher_config.json`) und verwaltet folgende Einstellungen:
+
+- `version` (INTEGER): Versionsnummer der Konfiguration für zukünftige Kompatibilität
+- `is_experimental` (BOOLEAN): Aktiviert den experimentellen Modus für NoRisk Client
+- `auto_check_updates` (BOOLEAN): Automatische Überprüfung auf Updates
+- `concurrent_downloads` (INTEGER): Anzahl gleichzeitiger Downloads (1-10)
+
+Der ConfigManager stellt folgende Funktionen bereit:
+- `get_config()`: Gibt die aktuelle Konfiguration zurück
+- `set_experimental_mode(enabled)`: Setzt den experimentellen Modus
+- `set_auto_check_updates(enabled)`: Aktiviert/deaktiviert automatische Updates
+- `set_concurrent_downloads(count)`: Setzt die Anzahl gleichzeitiger Downloads
+
 ## Migrationen
 
 ### Migration 1: Initiales Schema
@@ -142,6 +184,42 @@
 - `norisk_versions.rs`: Verwaltet NoRisk Standard-Versionen
   - `convert_standard_to_user_profile`: Konvertiert eine Standard-Version in ein benutzerdefinierbares Profil
 
+### Konfiguration
+- `config_state.rs`: Verwaltet globale Launcher-Konfigurationen
+  - `ConfigManager`: Stellt Methoden zum Lesen und Schreiben der Konfiguration bereit
+  - `LauncherConfig`: Datenstruktur für die Konfiguration mit Versionsunterstützung
+
+### Authentifizierung
+- `minecraft_auth.rs`: Verwaltet Minecraft- und NoRisk-Authentifizierung
+  - `NoRiskToken`: Struktur für NoRisk-API-Tokens mit einem Wertfeld
+  - `NoRiskCredentials`: Verwaltet sowohl Produktions- als auch experimentelle NoRisk-Tokens
+  - `refresh_norisk_token_if_necessary`: Aktualisiert Token automatisch bei Bedarf
+
+### Modpack-Integration
+- `mrpack.rs`: Zentrale Komponente für Modpack-Verarbeitung
+  - `extract_mrpack_overrides`: Gemeinsame Extraktionsfunktion für `.mrpack` und `.noriskpack` Dateien
+  - `process_mrpack`: Parsen und Verarbeiten von Modpack-Manifesten
+  - `resolve_manifest_files`: Analyse und Auflösung von Modrinth-Mod-Referenzen
+  - `import_mrpack_as_profile`: Vollständiger Import-Workflow für Modpacks
+- `path_utils.rs`: Datei- und Pfadoperationen
+  - `import_noriskpack`: Spezifische Funktion für `.noriskpack`-Import, die intern `extract_mrpack_overrides` nutzt
+  - `find_unique_profile_segment`: Erzeugt eindeutige Profilpfade bei Imports
+- `profile_utils.rs`: Profilbezogene Funktionen
+  - `export_profile_to_noriskpack`: Exportiert Profile als `.noriskpack`-Dateien mit Overrides
+
+### API-Integration
+- `norisk_api.rs`: Kommunikation mit NoRisk-API
+  - `refresh_norisk_token`: Aktualisiert das NoRisk-Token mit HWID-Validierung
+  - `norisk_assets`: Abrufen von NoRisk-Assets für spezifische Branches
+  - Unterstützung für Produktions- und Staging-API-Endpunkte
+
+### Befehle
+- `config_commands.rs`: Frontend-Befehle für die Konfigurationsverwaltung
+  - `get_launcher_config`: Gibt die aktuelle Konfiguration zurück
+  - `set_experimental_mode`: Setzt den experimentellen Modus
+  - `set_auto_check_updates`: Aktiviert/deaktiviert automatische Updates
+  - `set_concurrent_downloads`: Konfiguriert die Anzahl gleichzeitiger Downloads
+
 ## Frontend-Komponenten
 
 ### ProfileCopy.svelte
@@ -154,9 +232,55 @@
 - Optionen zum direkten Starten oder Kopieren als Profil
 
 ### FileNodeViewer.svelte
-- Hierarchische Dateisystem-Darstellung
-- Checkbox-basierte Mehrfachauswahl
-- Unterstützung für Eltern-Kind-Selektion
+- Hochinteraktive, hierarchische Dateisystem-Darstellung
+- Vollständige Baumstruktur mit dynamischem Ein-/Ausklappen von Ordnern
+- Checkbox-basierte Mehrfachauswahl mit Eltern-Kind-Selektionsmechanismus
+- Flexible Konfigurationsoptionen:
+  - Automatische Vorauswahl bestimmter Dateitypen oder Pfade
+  - Ein-/Ausblenden des Root-Knotens
+  - Standardmäßiges Ein-/Ausklappen des Root-Ordners
+  - Automatisches Auswählen aller Kindknoten bei Auswahl eines Elternordners
+- Anzeige von Dateimetadaten (Größe, Änderungsdatum)
+- Ereignisbasierte Kommunikation mit übergeordneten Komponenten
+- Integrierte Debug-Ansicht für Entwicklungszwecke
+- Zugänglichkeitsoptimierte Interaktionselemente
+- Performanceoptimierte Darstellung auch bei umfangreichen Dateistrukturen
+
+### LauncherSettings.svelte
+- Konfiguration des experimentellen Modus
+- Einstellungen für automatische Updates
+- Steuerung der Download-Parallelität
+
+## Datenstrukturen
+
+### NoRiskToken
+- `value`: String-Wert des JWT-Tokens für API-Autorisierung
+- Wird bei Minecraft-Start als JVM-Argument übergeben
+- Unterstützung für Produktions- und experimentelle Tokens
+- Automatische Aktualisierung bei Authentifizierung
+
+### NoRiskCredentials
+- Wrapper für NoRisk-Tokens
+- `production`: Option<NoRiskToken> für Produktionsumgebung
+- `experimental`: Option<NoRiskToken> für experimentelle Umgebung
+- Methoden zur Token-Auswahl basierend auf Launcher-Konfiguration
+
+### Modpack-Formate
+- `.noriskpack`: Eigenes Format für NoRisk-Client-Modpacks
+  - Enthält `profile.json` mit Profildaten
+  - Enthält `overrides/`-Verzeichnis mit Spiel- und Moddateien
+  - Verwendet das gleiche Extraktionssystem wie `.mrpack`
+- `.mrpack`: Standard-Format von Modrinth
+  - Enthält `modrinth.index.json` als Manifest
+  - Enthält `overrides/`-Verzeichnis mit zusätzlichen Dateien
+  - Definiert Mods mit Hashes für Integritätsprüfung
+  - Unterstützt Abhängigkeiten zwischen Mods
+  - Spezifiziert Minecraft-Version und Modloader
+- Gemeinsame Verarbeitungslogik:
+  - Extraktion von Metadaten und Konfigurationsdateien
+  - Auflösung von Mod-Referenzen gegen Modrinth-API
+  - Eindeutige Profilpfaderzeugung
+  - Kopieren von Overrides in Zielprofilverzeichnis
 
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
@@ -169,3 +293,6 @@
 - Automatische Updates für den Launcher
 - Mehrspieler-Serververwaltung
 - Backup-System für Profile
+- Erweiterte Konfigurationsoptionen
+- Optimierung der Dateisystem-Darstellung für noch größere Profile
+- Kontextsensitive Hilfe für komplexe Funktionen

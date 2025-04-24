@@ -1,5 +1,21 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::{PathBuf, Path};
+use tokio::fs::File;
+use tokio::io::{BufReader, AsyncWriteExt};
+use async_zip::tokio::read::seek::ZipFileReader;
+use crate::error::{AppError, Result};
+use uuid::Uuid;
+use chrono::Utc;
+use crate::state::profile_state::{Profile, ProfileSettings, ProfileState, ModLoader};
+use crate::state::state_manager::State;
+use tokio::fs;
+use log::{info, error, warn, debug};
+use sanitize_filename::sanitize;
+use std::collections::HashSet;
+use tempfile::tempdir;
+use reqwest::Client;
+use crate::utils::profile_utils::copy_dir_recursively;
 
 /// Represents the overall structure of the norisk_modpacks.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -105,4 +121,196 @@ pub fn get_norisk_pack_mod_filename(
             }
         }
     }
-} 
+}
+
+/// Imports a profile from a .noriskpack file.
+/// This function reads profile.json, creates a new profile, and extracts overrides.
+pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
+    info!("Starting import process for noriskpack: {:?}", pack_path);
+
+    // 1. Open the file and create a reader
+    let file = File::open(&pack_path).await.map_err(|e| {
+        error!("Failed to open noriskpack file {:?}: {}", pack_path, e);
+        AppError::Io(e)
+    })?;
+    let mut buf_reader = BufReader::new(file);
+
+    // 2. Create zip reader
+    let mut zip = ZipFileReader::with_tokio(&mut buf_reader).await.map_err(|e| {
+        error!("Failed to read noriskpack as ZIP: {}", e);
+        AppError::Other(format!("Failed to read noriskpack zip: {}", e))
+    })?;
+
+    // 3. Find and read profile.json
+    let entries = zip.file().entries();
+    let profile_entry_index = entries
+        .iter()
+        .position(|e| e.filename().as_str().map_or(false, |name| name == "profile.json"))
+        .ok_or_else(|| {
+            error!("profile.json not found in archive: {:?}", pack_path);
+            AppError::Other("profile.json not found in archive".into())
+        })?;
+
+    let profile_content = {
+        let mut entry_reader = zip.reader_with_entry(profile_entry_index).await.map_err(|e| {
+            error!("Failed to get entry reader for profile.json: {}", e);
+            AppError::Other(format!("Failed to read profile.json entry: {}", e))
+        })?;
+        
+        let mut buffer = Vec::new();
+        entry_reader.read_to_end_checked(&mut buffer).await.map_err(|e| {
+            error!("Failed to read profile.json content: {}", e);
+            AppError::Other(format!("Zip entry read error: {}", e)) 
+        })?;
+        
+        String::from_utf8(buffer).map_err(|e| {
+            error!("Failed to convert profile.json to string: {}", e);
+            AppError::Other(format!("profile.json content is not valid UTF-8: {}", e))
+        })?
+    };
+
+    // 4. Parse the profile.json
+    let mut exported_profile: Profile = serde_json::from_str(&profile_content).map_err(|e| {
+        error!("Failed to parse profile.json: {}", e);
+        AppError::Json(e)
+    })?;
+    
+    // 5. Use the filename as the profile name if available
+    if let Some(file_name) = pack_path.file_stem().and_then(|s| s.to_str()) {
+        info!("Using noriskpack filename as profile name: {}", file_name);
+        exported_profile.name = file_name.to_string();
+    }
+    
+    info!("Parsed profile data: Name='{}', Game Version={}, Loader={:?}", 
+        exported_profile.name, exported_profile.game_version, exported_profile.loader);
+
+    // 6. Create a new profile with a unique path
+    let base_profiles_dir = crate::state::profile_state::default_profile_path();
+    let sanitized_base_name = sanitize(&exported_profile.name);
+    if sanitized_base_name.is_empty() {
+        // Handle empty name after sanitization
+        let default_name = format!("imported-noriskpack-{}", Utc::now().timestamp_millis());
+        warn!("Profile name '{}' became empty after sanitization. Using default: {}", 
+            exported_profile.name, default_name);
+        exported_profile.name = default_name.clone();
+    }
+    
+    // Find a unique path segment
+    let unique_segment = crate::utils::path_utils::find_unique_profile_segment(
+        &base_profiles_dir, 
+        &sanitized_base_name
+    ).await?;
+    
+    // Update the profile with new values
+    exported_profile.path = unique_segment;
+    exported_profile.id = Uuid::new_v4(); // Generate a new UUID
+    exported_profile.created = Utc::now(); // Set creation time to now
+    exported_profile.last_played = None;
+    exported_profile.state = ProfileState::NotInstalled;
+    
+    info!("Prepared new profile with path: {}", exported_profile.path);
+
+    // 7. Ensure the target profile directory exists
+    let target_dir = base_profiles_dir.join(&exported_profile.path);
+    if !target_dir.exists() {
+        fs::create_dir_all(&target_dir).await.map_err(|e| {
+            error!("Failed to create target profile directory {:?}: {}", target_dir, e);
+            AppError::Io(e)
+        })?;
+    }
+
+    // 8. Extract the overrides directory
+    info!("Extracting overrides to profile directory: {:?}", target_dir);
+    let num_entries = zip.file().entries().len();
+    
+    for index in 0..num_entries {
+        let entry = match zip.file().entries().get(index) {
+            Some(e) => e,
+            None => continue,
+        };
+        
+        let original_file_name = match entry.filename().as_str() {
+            Ok(s) => s,
+            Err(_) => { 
+                error!("Non UTF-8 filename at index {}", index); 
+                continue; 
+            }
+        };
+
+        let is_override = original_file_name.starts_with("overrides/");
+        let is_directory = original_file_name.ends_with('/');
+        let uncompressed_size = if is_override && !is_directory {
+            entry.uncompressed_size() as usize
+        } else {
+            0
+        };
+        
+        let owned_filename = original_file_name.to_string();
+
+        if is_override {
+            let relative_path_in_overrides = match owned_filename.strip_prefix("overrides/") {
+                Some(p) if !p.is_empty() => p,
+                _ => continue,
+            };
+            
+            let final_dest_path = target_dir.join(relative_path_in_overrides);
+
+            if is_directory {
+                // Directory Creation
+                if !final_dest_path.exists() {
+                    info!("Creating directory: {:?}", final_dest_path);
+                    fs::create_dir_all(&final_dest_path).await.map_err(|e| {
+                        error!("Failed to create directory {:?}: {}", final_dest_path, e);
+                        AppError::Io(e)
+                    })?;
+                }
+            } else {
+                // File Extraction
+                info!("Extracting override file: '{}' -> {:?}", owned_filename, final_dest_path);
+                
+                if let Some(parent) = final_dest_path.parent() {
+                    if !fs::try_exists(parent).await? {
+                        info!("Creating parent directory: {:?}", parent);
+                        fs::create_dir_all(parent).await.map_err(|e| {
+                            error!("Failed to create parent directory {:?}: {}", parent, e);
+                            AppError::Io(e)
+                        })?;
+                    }
+                }
+
+                // Extract file content
+                let mut entry_reader = zip.reader_with_entry(index).await.map_err(|e| {
+                    error!("Failed to get reader for zip entry '{}': {}", owned_filename, e);
+                    AppError::Other(format!("Failed to read zip entry {}: {}", index, e))
+                })?;
+                
+                let mut writer = fs::File::create(&final_dest_path).await.map_err(|e| {
+                    error!("Failed to create destination file {:?}: {}", final_dest_path, e);
+                    AppError::Io(e)
+                })?;
+
+                let mut buffer = Vec::with_capacity(uncompressed_size);
+                entry_reader.read_to_end_checked(&mut buffer).await.map_err(|e| {
+                    error!("Failed to read zip entry content '{}': {}", owned_filename, e);
+                    AppError::Other(format!("Failed to read zip entry content: {}", e))
+                })?;
+                
+                writer.write_all(&buffer).await.map_err(|e| {
+                    error!("Failed to write content to {:?}: {}", final_dest_path, e);
+                    AppError::Io(e)
+                })?;
+                
+                info!("Successfully extracted to: {}", final_dest_path.display());
+            }
+        }
+    }
+
+    info!("Successfully extracted overrides.");
+
+    // 9. Save the profile using ProfileManager
+    let state = State::get().await?;
+    let profile_id = state.profile_manager.create_profile(exported_profile).await?;
+    info!("Successfully created and saved profile with ID: {}", profile_id);
+
+    Ok(profile_id)
+}

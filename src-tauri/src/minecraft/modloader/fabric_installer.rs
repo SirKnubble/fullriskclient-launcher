@@ -9,11 +9,20 @@ use log::info;
 use uuid::Uuid;
 use std::path::PathBuf;
 
-pub struct FabricInstaller;
+pub struct FabricInstaller {
+    concurrent_downloads: usize,
+}
 
 impl FabricInstaller {
     pub fn new() -> Self {
-        Self
+        Self {
+            concurrent_downloads: 10, // Default value
+        }
+    }
+    
+    pub fn set_concurrent_downloads(&mut self, count: usize) -> &mut Self {
+        self.concurrent_downloads = count;
+        self
     }
 
     pub async fn install(&self, version_id: &str, profile: &Profile) -> Result<Vec<PathBuf>> {
@@ -33,7 +42,10 @@ impl FabricInstaller {
 
         info!("\nInstalling Fabric...");
         let fabric_api = FabricApi::new();
-        let fabric_libraries_download = FabricLibrariesDownloadService::new();
+        let mut fabric_libraries_download = FabricLibrariesDownloadService::new();
+        
+        // Setze die Anzahl der konkurrenten Downloads
+        fabric_libraries_download.set_concurrent_downloads(self.concurrent_downloads);
 
         // --- Determine Fabric Version --- 
         let fabric_version = match &profile.loader_version {

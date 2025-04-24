@@ -8,6 +8,7 @@ use base64::Engine;
 use byteorder::BigEndian;
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use log::info;
 use machineid_rs::{Encryption, HWIDComponent, IdBuilder};
 use p256::ecdsa::signature::Signer;
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
@@ -21,12 +22,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Digest;
 use std::sync::Arc;
-use log::info;
 use tokio::fs;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
+use crate::minecraft::api::NoRiskApi;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NoRiskTokenClaims {
@@ -440,6 +441,7 @@ impl MinecraftAuthStore {
         &self,
         creds: &Credentials,
         force_update: bool,
+        experimental_mode: bool,
     ) -> Result<Credentials> {
         info!(
             "[Token Refresh] Starting NoRisk token refresh check for user: {}",
@@ -449,7 +451,14 @@ impl MinecraftAuthStore {
         let mut maybe_update = false;
 
         if !force_update {
-            if let Some(token) = &creds.norisk_credentials.production {
+            // Choose token based on experimental mode
+            let token_ref = if experimental_mode {
+                &creds.norisk_credentials.experimental
+            } else {
+                &creds.norisk_credentials.production
+            };
+            
+            if let Some(token) = token_ref {
                 let key = DecodingKey::from_secret(&[]);
                 let mut validation = Validation::new(Algorithm::HS256);
                 validation.insecure_disable_signature_validation();
@@ -473,7 +482,7 @@ impl MinecraftAuthStore {
                     }
                 };
             } else {
-                info!("[Token Refresh] No production token found");
+                info!("[Token Refresh] No token found for the selected mode");
                 maybe_update = true;
             }
         }
@@ -487,12 +496,47 @@ impl MinecraftAuthStore {
                 "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, HWID: {}",
                 force_update, maybe_update, hwid
             );
-            //let norisk_token = ApiEndpoints::refresh_norisk_token(creds.access_token.as_str(), &hwid, true).await?;
-
-            let mut copied_credentials = creds.clone();
-            self.save().await?;
-            info!("[Token Refresh] Token refresh completed successfully");
-            Ok(copied_credentials)
+            
+            // Use NoRiskApi for token refresh with proper error handling
+            info!("[NoRisk Token] Starting token refresh using NoRiskApi");
+            
+            // Use the experimental_mode parameter instead of hardcoded value
+            info!(
+                "[NoRisk Token] Mode: {}",
+                if experimental_mode {
+                    "Experimental"
+                } else {
+                    "Production"
+                }
+            );
+            
+            match NoRiskApi::refresh_norisk_token(creds.access_token.as_str(), &hwid, true, experimental_mode).await {
+                Ok(norisk_token) => {
+                    info!("[NoRisk Token] Successfully refreshed token");
+                    let mut copied_credentials = creds.clone();
+                    
+                    if experimental_mode {
+                        info!("[NoRisk Token] Storing token in experimental credentials");
+                        copied_credentials.norisk_credentials.experimental = Some(norisk_token);
+                    } else {
+                        info!("[NoRisk Token] Storing token in production credentials");
+                        copied_credentials.norisk_credentials.production = Some(norisk_token);
+                    }
+                    
+                    // Update the account in storage
+                    info!("[NoRisk Token] Updating account in storage");
+                    self.update_or_insert(copied_credentials.clone()).await?;
+                    
+                    info!("[Token Refresh] Token refresh completed successfully");
+                    Ok(copied_credentials)
+                }
+                Err(e) => {
+                    info!("[NoRisk Token] Token refresh failed: {:?}", e);
+                    info!("[NoRisk Token] Falling back to original credentials");
+                    // Return the original credentials if token refresh fails
+                    Ok(creds.clone())
+                }
+            }
         } else {
             info!("[Token Refresh] Token is still valid, no refresh needed");
             Ok(creds.clone())
@@ -591,6 +635,7 @@ impl MinecraftAuthStore {
     pub async fn update_norisk_and_microsoft_token(
         &self,
         creds: &Credentials,
+        experimental_mode: bool,
     ) -> Result<Option<Credentials>> {
         info!(
             "[Token Check] Starting token validation check for user: {}",
@@ -612,7 +657,7 @@ impl MinecraftAuthStore {
                     return if val.is_some() {
                         info!("[Token Check] Successfully refreshed Microsoft token");
                         Ok(Some(
-                            self.refresh_norisk_token_if_necessary(&val.unwrap().clone(), false)
+                            self.refresh_norisk_token_if_necessary(&val.unwrap().clone(), false, experimental_mode)
                                 .await?,
                         ))
                     } else {
@@ -638,7 +683,7 @@ impl MinecraftAuthStore {
             info!("[Token Check] Microsoft token is still valid");
             info!("[Token Check] Checking NoRisk token status");
             Ok(Some(
-                self.refresh_norisk_token_if_necessary(&creds.clone(), false)
+                self.refresh_norisk_token_if_necessary(&creds.clone(), false, experimental_mode)
                     .await?,
             ))
         }
@@ -646,6 +691,11 @@ impl MinecraftAuthStore {
 
     pub async fn get_active_account(&self) -> Result<Option<Credentials>> {
         info!("[Account Manager] Starting get_active_account process");
+
+        // Get the global state to check the experimental mode
+        let state = crate::state::State::get().await?;
+        let is_experimental = state.config_manager.is_experimental_mode().await;
+        info!("[Account Manager] Global experimental mode is: {}", is_experimental);
 
         // Zuerst nur lesen um den aktiven Account zu finden
         let active_account = {
@@ -666,7 +716,7 @@ impl MinecraftAuthStore {
                 account.username
             );
             // Refresh credentials if needed
-            let updated_account = self.update_norisk_and_microsoft_token(&account).await?;
+            let updated_account = self.update_norisk_and_microsoft_token(&account, is_experimental).await?;
 
             if let Some(updated) = updated_account {
                 // Aktualisiere den Account in der Liste

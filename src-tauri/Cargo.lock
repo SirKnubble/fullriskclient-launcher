@@ -2945,6 +2945,7 @@ dependencies = [
  "chrono",
  "dashmap",
  "directories",
+ "dirs",
  "env_logger",
  "flate2",
  "futures",

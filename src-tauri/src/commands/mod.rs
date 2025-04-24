@@ -4,3 +4,4 @@ pub mod process_command;
 pub mod minecraft_auth_command;
 pub mod modrinth_commands;
 pub mod file_command;
+pub mod config_commands;

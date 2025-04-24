@@ -34,7 +34,7 @@ use commands::profile_command::{
     get_standard_profiles, get_system_ram_mb, import_local_mods, import_profile_from_file,
     launch_profile, list_profiles, open_profile_folder, search_profiles, set_custom_mod_enabled,
     set_norisk_mod_status, set_profile_mod_enabled, update_modrinth_mod_version, update_profile,
-    get_profile_directory_structure, copy_profile,
+    get_profile_directory_structure, copy_profile, export_profile,
 };
 
 // Use statements for registered commands only
@@ -44,6 +44,11 @@ use commands::modrinth_commands::{
 }; // Remove or comment out if not needed
 
 use commands::file_command::{delete_file, open_file_directory, set_file_enabled};
+
+// Import config commands
+use commands::config_commands::{
+    get_launcher_config, set_launcher_config
+};
 
 #[tokio::main]
 async fn main() {
@@ -201,6 +206,9 @@ async fn main() {
             get_standard_profiles,
             get_profile_directory_structure,
             copy_profile,
+            export_profile,
+            get_launcher_config,
+            set_launcher_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

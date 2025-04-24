@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use crate::error::Result;
 use crate::state::profile_state::{ModLoader, Profile};
 use fabric_installer::FabricInstaller;
-use forge_installer::{ForgeInstaller, ForgeInstallResult};
-use neoforge_installer::{NeoForgeInstaller, NeoForgeInstallResult};
+use forge_installer::ForgeInstaller;
+use neoforge_installer::NeoForgeInstaller;
 use quilt_installer::QuiltInstaller;
 use async_trait::async_trait;
-use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::config::ProjectDirsExt;
 
 pub struct ModloaderFactory;
 
@@ -22,6 +22,36 @@ impl ModloaderFactory {
             ModLoader::Quilt => Box::new(QuiltInstaller::new()),
             ModLoader::Forge => Box::new(ForgeInstaller::new(java_path)),
             ModLoader::NeoForge => Box::new(NeoForgeInstaller::new(java_path)),
+            ModLoader::Vanilla => Box::new(VanillaInstaller),
+        }
+    }
+    
+    pub fn create_installer_with_config(
+        modloader: &ModLoader, 
+        java_path: PathBuf,
+        concurrent_downloads: usize
+    ) -> Box<dyn ModloaderInstaller> {
+        match modloader {
+            ModLoader::Fabric => {
+                let mut installer = FabricInstaller::new();
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::Quilt => {
+                let mut installer = QuiltInstaller::new();
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::Forge => {
+                let mut installer = ForgeInstaller::new(java_path);
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
+            ModLoader::NeoForge => {
+                let mut installer = NeoForgeInstaller::new(java_path);
+                installer.set_concurrent_downloads(concurrent_downloads);
+                Box::new(installer)
+            },
             ModLoader::Vanilla => Box::new(VanillaInstaller),
         }
     }
