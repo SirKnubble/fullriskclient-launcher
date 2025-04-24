@@ -28,7 +28,7 @@ fn default_config_version() -> u32 {
 }
 
 fn default_concurrent_downloads() -> usize {
-    3
+    5
 }
 
 impl Default for LauncherConfig {
