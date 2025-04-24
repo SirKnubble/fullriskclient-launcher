@@ -8,7 +8,7 @@ use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
 use log::info;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 pub struct ForgeInstaller {
@@ -49,7 +49,7 @@ impl ForgeInstaller {
         // Initialize services
         let forge_api = ForgeApi::new();
         let mut forge_libraries_download = ForgeLibrariesDownload::new();
-        let mut forge_installer_download = ForgeInstallerDownloadService::new();
+        let forge_installer_download = ForgeInstallerDownloadService::new();
         
         // Setze die Anzahl der konkurrenten Downloads
         forge_libraries_download.set_concurrent_downloads(self.concurrent_downloads);

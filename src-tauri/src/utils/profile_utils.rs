@@ -2,7 +2,7 @@ use crate::error::{AppError, Result};
 use crate::integrations::modrinth::{ModrinthProjectType, ModrinthVersion};
 use crate::state::profile_state::Profile;
 use crate::utils::{resourcepack_utils, shaderpack_utils, hash_utils};
-use log::{debug, info, warn};
+use log::{debug, info};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;

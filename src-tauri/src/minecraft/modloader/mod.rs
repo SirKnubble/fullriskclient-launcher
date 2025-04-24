@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use crate::error::Result;
 use crate::state::profile_state::{ModLoader, Profile};
 use fabric_installer::FabricInstaller;
-use forge_installer::{ForgeInstaller, ForgeInstallResult};
-use neoforge_installer::{NeoForgeInstaller, NeoForgeInstallResult};
+use forge_installer::ForgeInstaller;
+use neoforge_installer::NeoForgeInstaller;
 use quilt_installer::QuiltInstaller;
 use async_trait::async_trait;
-use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::config::ProjectDirsExt;
 
 pub struct ModloaderFactory;
 

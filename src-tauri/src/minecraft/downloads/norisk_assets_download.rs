@@ -9,12 +9,10 @@ use crate::state::State;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use reqwest;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use futures::stream::{StreamExt, iter};
 use log::{info, error, debug, warn, trace};
-use std::collections::HashMap;
 use crate::state::event_state::{EventPayload, EventType};
 use uuid::Uuid;
 

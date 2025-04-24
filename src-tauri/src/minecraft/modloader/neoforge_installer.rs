@@ -7,7 +7,7 @@ use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
 use log::info;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 pub struct NeoForgeInstaller {

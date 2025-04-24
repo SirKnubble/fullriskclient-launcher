@@ -1,6 +1,6 @@
 use crate::error::{AppError, Result};
 use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
-use crate::minecraft::dto::piston_meta::{Logging, LoggingClient};
+use crate::minecraft::dto::piston_meta::LoggingClient;
 use std::path::PathBuf;
 use reqwest;
 use tokio::fs;

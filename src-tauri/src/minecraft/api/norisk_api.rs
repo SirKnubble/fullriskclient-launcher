@@ -4,9 +4,8 @@ use crate::{
     config::HTTP_CLIENT,
     error::{AppError, Result},
 };
-use log::{debug, error, info, warn};
-use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
+use log::{debug, error, info};
+use serde::Deserialize;
 use std::collections::HashMap;
 
 pub struct NoRiskApi;

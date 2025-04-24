@@ -1,10 +1,9 @@
 use crate::error::{CommandError, AppError};
 use crate::integrations::modrinth::{self, ModrinthProjectContext, search_mods, search_projects, ModrinthSearchHit, ModrinthSearchResponse, get_mod_versions as get_modrinth_versions_api, ModrinthVersion, ModrinthProjectType, ModrinthSortType};
 use crate::integrations::mrpack;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use uuid::Uuid;
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 #[tauri::command]
 pub async fn search_modrinth_projects(

@@ -1,29 +1,22 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
-use crate::minecraft::api::fabric_api::FabricApi;
 use crate::minecraft::api::mc_api::MinecraftApiService;
-use crate::minecraft::api::quilt_api::QuiltApi;
-use crate::minecraft::downloads::fabric_libraries_download::FabricLibrariesDownloadService;
 use crate::minecraft::downloads::java_download::JavaDownloadService;
 use crate::minecraft::downloads::mc_assets_download::MinecraftAssetsDownloadService;
 use crate::minecraft::downloads::mc_client_download::MinecraftClientDownloadService;
 use crate::minecraft::downloads::mc_libraries_download::MinecraftLibrariesDownloadService;
 use crate::minecraft::downloads::mc_natives_download::MinecraftNativesDownloadService;
-use crate::minecraft::downloads::quilt_libraries_download::QuiltLibrariesDownloadService;
 use crate::minecraft::downloads::{ModDownloadService, NoriskClientAssetsDownloadService};
 use crate::minecraft::downloads::NoriskPackDownloadService;
-use crate::minecraft::downloads::{ForgeInstallerDownloadService, ForgeLibrariesDownload};
 use crate::minecraft::dto::JavaDistribution;
-use crate::minecraft::launch::forge_arguments::ForgeArguments;
-use crate::minecraft::launch::neo_forge_arguments::NeoForgeArguments;
 use crate::minecraft::{
-    ForgeApi, ForgePatcher, MinecraftLaunchParameters, MinecraftLauncher, NeoForgePatcher,
+    MinecraftLaunchParameters, MinecraftLauncher,
 };
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{ModLoader, Profile};
 use crate::state::state_manager::State;
-use log::{error, info, warn};
+use log::{error, info};
 use uuid::Uuid;
 
 use super::minecraft_auth::Credentials;

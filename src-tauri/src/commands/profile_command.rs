@@ -1,5 +1,4 @@
 use crate::error::{AppError, CommandError};
-use crate::integrations::modrinth::ModrinthProjectType;
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;

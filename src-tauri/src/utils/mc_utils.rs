@@ -2,7 +2,7 @@ use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::AssetIndex;
 use log::{debug, error, info, warn};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tokio::fs;
 use std::env;
 use crate::state::event_state::{EventPayload, EventType};

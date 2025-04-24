@@ -1,6 +1,6 @@
 use crate::error::{AppError, CommandError};
 use crate::state::{config_state::LauncherConfig, State};
-use tauri::{command, Runtime};
+use tauri::command;
 
 type Result<T> = std::result::Result<T, CommandError>;
 

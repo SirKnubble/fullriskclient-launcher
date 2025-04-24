@@ -1,7 +1,7 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::minecraft_auth::MinecraftAuthStore;
-use crate::state::config_state::{ConfigManager, default_config_path};
+use crate::state::config_state::ConfigManager;
 use crate::state::event_state::{EventPayload, EventState};
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::process_state::{default_processes_path, ProcessManager};

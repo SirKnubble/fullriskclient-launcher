@@ -35,8 +35,8 @@ impl MinecraftLibrariesDownloadService {
 
     pub async fn download_libraries(&self, libraries: &[Library]) -> Result<()> {
         let futures = libraries.iter().map(|library| {
-            let self_clone = self.clone();
-            let library_clone = library.clone();
+            let self_clone = self;
+            let library_clone = library;
             async move { self_clone.download_library(&library_clone).await }
         });
         

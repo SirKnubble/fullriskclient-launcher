@@ -176,7 +176,7 @@ impl FabricLibrariesDownloadService {
         // Create a stream of download tasks
         let downloads = futures::stream::iter(all_libraries.into_iter())
             .map(|library| {
-                let self_clone = self.clone();
+                let self_clone = self;
                 async move {
                     let result = self_clone.download_library(&library).await;
                     
