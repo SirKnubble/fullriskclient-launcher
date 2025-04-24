@@ -1,6 +1,7 @@
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::{AssetIndex, AssetIndexContent, AssetObject};
 use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::utils::mc_utils;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -37,6 +38,19 @@ impl MinecraftAssetsDownloadService {
 
     pub async fn download_assets(&self, asset_index: &AssetIndex) -> Result<()> {
         trace!("[Assets Download] Starting download process for asset index: {}", asset_index.id);
+        
+        // Try to reuse existing Minecraft assets first
+        info!("[Assets Download] Checking if we can reuse existing Minecraft assets");
+        let assets_reused = mc_utils::try_reuse_minecraft_assets(asset_index).await?;
+        
+        if assets_reused {
+            info!("[Assets Download] Successfully reused existing Minecraft assets");
+            // Even if we copied the index, we should check if any assets are missing
+            debug!("[Assets Download] Checking for any missing assets that need to be downloaded");
+        } else {
+            info!("[Assets Download] No existing assets found or could not be reused, proceeding with download");
+        }
+        
         let asset_index_content = self.download_asset_index(asset_index).await?;
 
         let assets: Vec<(String, AssetObject)> = asset_index_content.objects.into_iter().collect();
@@ -145,6 +159,11 @@ impl MinecraftAssetsDownloadService {
             });
         }
         info!("[Assets Download] Queued {} actual download tasks.", job_count);
+
+        if job_count == 0 {
+            info!("[Assets Download] No downloads needed, all assets already exist with correct sizes");
+            return Ok(());
+        }
 
         info!("[Assets Download] Processing tasks with {} concurrent downloads...", self.concurrent_downloads);
         let results: Vec<Result<()>> = iter(downloads)
