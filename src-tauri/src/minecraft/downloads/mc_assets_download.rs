@@ -8,7 +8,7 @@ use reqwest;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use futures::stream::{StreamExt, iter};
-use log::{info, error, debug, warn};
+use log::{info, error, debug, warn, trace};
 
 const ASSETS_DIR: &str = "assets";
 const DEFAULT_CONCURRENT_DOWNLOADS: usize = 12;
@@ -30,7 +30,7 @@ impl MinecraftAssetsDownloadService {
     }
 
     pub async fn download_assets(&self, asset_index: &AssetIndex) -> Result<()> {
-        info!("[Assets Download] Starting download process for asset index: {}", asset_index.id);
+        trace!("[Assets Download] Starting download process for asset index: {}", asset_index.id);
         let asset_index_content = self.download_asset_index(asset_index).await?;
 
         let assets: Vec<(String, AssetObject)> = asset_index_content.objects.into_iter().collect();
@@ -38,7 +38,7 @@ impl MinecraftAssetsDownloadService {
         let assets_path = self.assets_path.clone();
         let task_counter = Arc::new(AtomicUsize::new(1)); // Start counter at 1
 
-        info!("[Assets Download] Preparing {} potential jobs...", assets.len());
+        trace!("[Assets Download] Preparing {} potential jobs...", assets.len());
         let mut job_count = 0;
         for (name, asset) in assets {
             let hash = asset.hash.clone();
@@ -54,7 +54,7 @@ impl MinecraftAssetsDownloadService {
             if fs::try_exists(&target_path).await? {
                 if let Ok(metadata) = fs::metadata(&target_path).await {
                     if metadata.len() as i64 == size {
-                        debug!("[Assets Download] Skipping asset {} (already exists with correct size)", name_clone);
+                        trace!("[Assets Download] Skipping asset {} (already exists with correct size)", name_clone);
                         continue; // Skip this asset
                     }
                     warn!("[Assets Download] Asset {} exists but size mismatch (expected {}, got {}), redownloading.", name_clone, size, metadata.len());
@@ -64,7 +64,7 @@ impl MinecraftAssetsDownloadService {
             job_count += 1;
             downloads.push(async move {
                 let task_id = task_counter_clone.fetch_add(1, Ordering::SeqCst);
-                info!("[Assets Download Task {}] Starting download for: {}", task_id, name_clone);
+                trace!("[Assets Download Task {}] Starting download for: {}", task_id, name_clone);
                 let url = format!(
                     "https://resources.download.minecraft.net/{}/{}",
                     &hash[..2],

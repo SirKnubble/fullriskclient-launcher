@@ -469,7 +469,7 @@ impl ProcessManager {
 
         loop {
             interval.tick().await;
-            log::debug!("Running periodic process check...");
+            log::trace!("Running periodic process check...");
 
             let mut pids_to_check: Vec<(Uuid, u32)> = Vec::new();
             {
