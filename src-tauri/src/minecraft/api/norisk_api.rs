@@ -1,4 +1,5 @@
 use crate::minecraft::auth::minecraft_auth::NoRiskToken;
+use crate::minecraft::dto::norisk_meta::NoriskAssets;
 use crate::{
     config::HTTP_CLIENT,
     error::{AppError, Result},
@@ -15,11 +16,17 @@ impl NoRiskApi {
         Self
     }
 
-    pub fn get_api_base(is_experimental: bool) -> String {
+    pub async fn get_api_base() -> Result<String> {
+        // Get experimental mode from config state manager
+        let state = crate::state::State::get().await?;
+        let is_experimental = state.config_manager.is_experimental_mode().await;
+        
         if is_experimental {
-            String::from("https://api-staging.norisk.gg/api/v1")
+            debug!("[NoRisk API] Using experimental API endpoint");
+            Ok(String::from("https://api-staging.norisk.gg/api/v1"))
         } else {
-            String::from("https://api.norisk.gg/api/v1")
+            debug!("[NoRisk API] Using production API endpoint");
+            Ok(String::from("https://api.norisk.gg/api/v1"))
         }
     }
 
@@ -29,8 +36,7 @@ impl NoRiskApi {
         params: &str,
         extra_params: Option<HashMap<&str, &str>>,
     ) -> Result<T> {
-        let is_experimental = false; // Change as needed or add parameter
-        let base_url = Self::get_api_base(is_experimental);
+        let base_url = Self::get_api_base().await?;
         let url = format!("{}/{}", base_url, endpoint);
 
         debug!("[NoRisk API] Making request to endpoint: {}", endpoint);
@@ -110,6 +116,23 @@ impl NoRiskApi {
                 Err(e)
             }
         }
+    }
+
+    pub async fn request_from_norisk_endpoint<T: for<'de> Deserialize<'de>>(
+        endpoint: &str,
+        norisk_token: &str,
+        request_uuid: &str,
+    ) -> Result<T> {
+        debug!("[NoRisk API] Request from endpoint: {} with UUID: {}", endpoint, request_uuid);
+        let mut extra_params = HashMap::new();
+        extra_params.insert("uuid", request_uuid);
+        
+        Self::post_from_norisk_endpoint_with_parameters(endpoint, norisk_token, "", Some(extra_params)).await
+    }
+
+    /// Request norisk assets json for specific branch
+    pub async fn norisk_assets(branch: &str, norisk_token: &str, request_uuid: &str) -> Result<NoriskAssets> {
+        Self::request_from_norisk_endpoint(&format!("launcher/assets/{}", branch), norisk_token, request_uuid).await
     }
 
     // Add more NoRisk API methods as needed

@@ -6,13 +6,12 @@ use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::minecraft::api::quilt_api::QuiltApi;
 use crate::minecraft::downloads::fabric_libraries_download::FabricLibrariesDownloadService;
 use crate::minecraft::downloads::java_download::JavaDownloadService;
-use crate::minecraft::downloads::logging_config_download::MinecraftLoggingDownloadService;
 use crate::minecraft::downloads::mc_assets_download::MinecraftAssetsDownloadService;
 use crate::minecraft::downloads::mc_client_download::MinecraftClientDownloadService;
 use crate::minecraft::downloads::mc_libraries_download::MinecraftLibrariesDownloadService;
 use crate::minecraft::downloads::mc_natives_download::MinecraftNativesDownloadService;
 use crate::minecraft::downloads::quilt_libraries_download::QuiltLibrariesDownloadService;
-use crate::minecraft::downloads::ModDownloadService;
+use crate::minecraft::downloads::{ModDownloadService, NoriskClientAssetsDownloadService};
 use crate::minecraft::downloads::NoriskPackDownloadService;
 use crate::minecraft::downloads::{ForgeInstallerDownloadService, ForgeLibrariesDownload};
 use crate::minecraft::dto::JavaDistribution;
@@ -24,11 +23,14 @@ use crate::minecraft::{
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{ModLoader, Profile};
 use crate::state::state_manager::State;
-use log::{error, info};
+use log::{error, info, warn};
 use uuid::Uuid;
 
 use super::minecraft_auth::Credentials;
 use super::modloader::ModloaderFactory;
+use crate::minecraft::downloads::{
+    MinecraftLoggingDownloadService,
+};
 
 async fn emit_progress_event(
     state: &State,
@@ -230,6 +232,40 @@ pub async fn install_minecraft_version(
         EventType::DownloadingAssets,
         profile.id,
         "Assets Download abgeschlossen!",
+        1.0,
+        None,
+    )
+    .await?;
+
+    // Emit assets download event
+    let assets_event_id = emit_progress_event(
+        &state,
+        EventType::DownloadingAssets,
+        profile.id,
+        "NoRiskClient Assets werden heruntergeladen...",
+        0.0,
+        None,
+    )
+    .await?;
+
+    info!("\nDownloading NoRiskClient assets...");
+    
+    // Download NoRisk assets if profile has a selected pack
+    let norisk_assets_service = NoriskClientAssetsDownloadService::new()
+        .with_concurrent_downloads(launcher_config.concurrent_downloads);
+    
+    // Download assets for this profile
+    norisk_assets_service
+        .download_nrc_assets_for_profile(&profile, credentials.as_ref(), is_experimental_mode)
+        .await?;
+        
+    info!("NoRiskClient Asset download completed!");
+
+    emit_progress_event(
+        &state,
+        EventType::DownloadingAssets,
+        profile.id,
+        "NoRiskClient Assets Download abgeschlossen!",
         1.0,
         None,
     )
