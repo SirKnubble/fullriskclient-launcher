@@ -14,20 +14,14 @@ pub async fn get_launcher_config() -> Result<LauncherConfig> {
 #[command]
 pub async fn set_experimental_mode(enabled: bool) -> Result<bool> {
     let state = State::get().await?;
-    state
-        .config_manager
-        .set_experimental_mode(enabled)
-        .await?;
+    state.config_manager.set_experimental_mode(enabled).await?;
     Ok(enabled)
 }
 
 #[command]
 pub async fn set_auto_check_updates(enabled: bool) -> Result<bool> {
     let state = State::get().await?;
-    state
-        .config_manager
-        .set_auto_check_updates(enabled)
-        .await?;
+    state.config_manager.set_auto_check_updates(enabled).await?;
     Ok(enabled)
 }
 
@@ -41,9 +35,25 @@ pub async fn set_concurrent_downloads(count: usize) -> Result<usize> {
     }
 
     let state = State::get().await?;
-    state
-        .config_manager
-        .set_concurrent_downloads(count)
-        .await?;
+    state.config_manager.set_concurrent_downloads(count).await?;
     Ok(count)
+}
+
+#[command]
+pub async fn set_launcher_config(config: LauncherConfig) -> Result<LauncherConfig> {
+    let state = State::get().await?;
+    
+    // Validate concurrent downloads value
+    if config.concurrent_downloads == 0 || config.concurrent_downloads > 10 {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Concurrent downloads must be between 1 and 10 (got: {})",
+            config.concurrent_downloads
+        ))));
+    }
+    
+    // Set the entire configuration
+    state.config_manager.set_config(config.clone()).await?;
+    
+    // Return the updated config
+    Ok(config)
 }

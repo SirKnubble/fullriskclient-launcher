@@ -172,6 +172,52 @@ impl ConfigManager {
         // Save the updated config
         self.save_config().await
     }
+
+    pub async fn set_config(&self, new_config: LauncherConfig) -> Result<()> {
+        let should_save = {
+            let mut config = self.config.write().await;
+            let current = &*config;
+            
+            // Check if there's any change to avoid unnecessary saves
+            if current.is_experimental == new_config.is_experimental && 
+               current.auto_check_updates == new_config.auto_check_updates &&
+               current.concurrent_downloads == new_config.concurrent_downloads {
+                debug!("No config changes detected, skipping save");
+                false
+            } else {
+                // Preserve version during replacement
+                let version = config.version;
+                
+                // Log changes
+                if current.is_experimental != new_config.is_experimental {
+                    info!("Changing experimental mode: {} -> {}", current.is_experimental, new_config.is_experimental);
+                }
+                if current.auto_check_updates != new_config.auto_check_updates {
+                    info!("Changing auto check updates: {} -> {}", current.auto_check_updates, new_config.auto_check_updates);
+                }
+                if current.concurrent_downloads != new_config.concurrent_downloads {
+                    info!("Changing concurrent downloads: {} -> {}", current.concurrent_downloads, new_config.concurrent_downloads);
+                }
+                
+                // Update config while preserving version
+                *config = LauncherConfig {
+                    version,
+                    is_experimental: new_config.is_experimental,
+                    auto_check_updates: new_config.auto_check_updates,
+                    concurrent_downloads: new_config.concurrent_downloads,
+                };
+                
+                true
+            }
+        };
+        
+        // Save the updated config if needed
+        if should_save {
+            self.save_config().await?;
+        }
+        
+        Ok(())
+    }
 }
 
 pub fn default_config_path() -> PathBuf {

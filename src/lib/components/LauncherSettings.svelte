@@ -10,6 +10,7 @@
   }
 
   let config: LauncherConfig | null = $state(null);
+  let tempConfig: LauncherConfig | null = $state(null); // Temporäre Konfiguration für Änderungen
   let loading = $state(true);
   let error: string | null = $state(null);
   let saving = $state(false);
@@ -23,85 +24,55 @@
     loading = true;
     error = null;
     try {
-      config = await invoke<LauncherConfig>("get_launcher_config");
+      const loadedConfig = await invoke<LauncherConfig>("get_launcher_config");
+      config = loadedConfig;
+      
+      // Type-Assertion verwenden, um den Compiler zu beruhigen
+      tempConfig = { ...loadedConfig } as LauncherConfig;
       console.log("Loaded launcher config:", config);
     } catch (err) {
       console.error("Failed to load launcher config:", err);
       error = err instanceof Error ? err.message : String(err);
       config = null;
+      tempConfig = null;
     } finally {
       loading = false;
     }
   }
 
-  async function saveExperimentalMode(enabled: boolean) {
-    if (!config) return;
+  // Methode zum Speichern der gesamten Konfiguration
+  async function saveConfig() {
+    if (!tempConfig) return;
     
     saving = true;
     saveSuccess = false;
     error = null;
     
     try {
-      await invoke<boolean>("set_experimental_mode", { enabled });
-      config.is_experimental = enabled;
-      console.log("Experimental mode set to:", enabled);
+      // Ganze Konfiguration auf einmal speichern
+      config = await invoke<LauncherConfig>("set_launcher_config", { config: tempConfig });
+      console.log("Configuration saved successfully:", config);
       saveSuccess = true;
       setTimeout(() => saveSuccess = false, 3000);
     } catch (err) {
-      console.error("Failed to save experimental mode:", err);
+      console.error("Failed to save configuration:", err);
       error = err instanceof Error ? err.message : String(err);
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function saveAutoCheckUpdates(enabled: boolean) {
-    if (!config) return;
-    
-    saving = true;
-    saveSuccess = false;
-    error = null;
-    
-    try {
-      await invoke<boolean>("set_auto_check_updates", { enabled });
-      config.auto_check_updates = enabled;
-      console.log("Auto check updates set to:", enabled);
-      saveSuccess = true;
-      setTimeout(() => saveSuccess = false, 3000);
-    } catch (err) {
-      console.error("Failed to save auto check updates:", err);
-      error = err instanceof Error ? err.message : String(err);
-    } finally {
-      saving = false;
-    }
-  }
-
-  async function saveConcurrentDownloads(count: number) {
-    if (!config) return;
-    
-    saving = true;
-    saveSuccess = false;
-    error = null;
-    
-    try {
-      await invoke<number>("set_concurrent_downloads", { count });
-      config.concurrent_downloads = count;
-      console.log("Concurrent downloads set to:", count);
-      saveSuccess = true;
-      setTimeout(() => saveSuccess = false, 3000);
-    } catch (err) {
-      console.error("Failed to save concurrent downloads:", err);
-      error = err instanceof Error ? err.message : String(err);
+      // Änderungen zurücksetzen
+      if (config) {
+        tempConfig = { ...config };
+      }
     } finally {
       saving = false;
     }
   }
 
   function handleConcurrentDownloadsChange(event: Event) {
+    if (!tempConfig) return;
+    
     const input = event.target as HTMLInputElement;
     const value = parseInt(input.value);
-    if (!isNaN(value) && config) {
-      saveConcurrentDownloads(value);
+    if (!isNaN(value)) {
+      tempConfig.concurrent_downloads = value;
     }
   }
 </script>
@@ -114,7 +85,7 @@
   {:else if error}
     <p class="error-message">{error}</p>
     <button on:click={loadConfig}>Erneut versuchen</button>
-  {:else if config}
+  {:else if config && tempConfig}
     <div class="settings-grid">
       <div class="setting">
         <label for="experimental-mode">Experimenteller Modus</label>
@@ -122,8 +93,7 @@
           <input 
             type="checkbox" 
             id="experimental-mode" 
-            checked={config.is_experimental}
-            on:change={(e) => saveExperimentalMode(e.currentTarget.checked)}
+            bind:checked={tempConfig.is_experimental}
             disabled={saving}
           />
           <span class="setting-description">Aktiviert experimentelle NoRisk Client Funktionen</span>
@@ -136,8 +106,7 @@
           <input 
             type="checkbox" 
             id="auto-updates" 
-            checked={config.auto_check_updates}
-            on:change={(e) => saveAutoCheckUpdates(e.currentTarget.checked)}
+            bind:checked={tempConfig.auto_check_updates}
             disabled={saving}
           />
           <span class="setting-description">Automatisch nach Updates suchen</span>
@@ -152,13 +121,29 @@
             id="concurrent-downloads" 
             min="1" 
             max="10" 
-            value={config.concurrent_downloads}
+            value={tempConfig.concurrent_downloads}
             on:change={handleConcurrentDownloadsChange}
             disabled={saving}
           />
           <span class="setting-description">Anzahl der gleichzeitigen Downloads (1-10)</span>
         </div>
       </div>
+    </div>
+    
+    <div class="actions">
+      <button 
+        on:click={saveConfig}
+        disabled={saving || JSON.stringify(config) === JSON.stringify(tempConfig)}
+      >
+        Einstellungen speichern
+      </button>
+      
+      <button 
+        on:click={() => { tempConfig = { ...config }; }}
+        disabled={saving || JSON.stringify(config) === JSON.stringify(tempConfig)}
+      >
+        Änderungen zurücksetzen
+      </button>
     </div>
     
     {#if saving}
@@ -195,6 +180,7 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    margin-bottom: 20px;
   }
   
   .setting {
@@ -278,9 +264,29 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9em;
+    margin-right: 10px;
   }
   
-  button:hover {
+  button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  button:hover:not(:disabled) {
     background-color: #2980b9;
+  }
+  
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+  }
+  
+  .actions button:nth-child(2) {
+    background-color: #e74c3c;
+  }
+  
+  .actions button:nth-child(2):hover:not(:disabled) {
+    background-color: #c0392b;
   }
 </style> 
