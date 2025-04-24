@@ -2,7 +2,7 @@
     "profiles": [
       {
         "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-        "display_name": "Fabric 1.21.4",
+        "name": "Fabric 1.21.4",
         "description": "Standard Fabric profile for Minecraft 1.21.4.",
         "mc_version": "1.21.4",
         "loader": "fabric",
@@ -12,7 +12,7 @@
       },
       {
         "id": "98e6a5c0-cb6b-4f30-8e4d-5b7f8f6a3e2b",
-        "display_name": "Forge 1.8.9",
+        "name": "Forge 1.8.9",
         "description": "Standard Forge profile for Minecraft 1.8.9.",
         "mc_version": "1.8.9",
         "loader": "forge",
@@ -22,7 +22,7 @@
       },
       {
         "id": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-        "display_name": "Fabric 1.20.1",
+        "name": "Fabric 1.20.1",
         "description": "Standard Fabric profile for Minecraft 1.20.1.",
         "mc_version": "1.20.1",
         "loader": "fabric",
