@@ -1,6 +1,6 @@
 export interface NoriskVersionProfile {
     id: string;
-    display_name: string;
+    name: string;
     description: string;
     mc_version: string;
     loader: string;

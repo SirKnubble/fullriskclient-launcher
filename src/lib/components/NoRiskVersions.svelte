@@ -104,14 +104,14 @@
         standardProfiles = [
             {
                 id: "test-1",
-                display_name: "Test NoRisk 1.8.9",
+                name: "Test NoRisk 1.8.9",
                 mc_version: "1.8.9",
                 loader: "forge",
                 description: "Test profile for debugging"
             },
             {
                 id: "test-2",
-                display_name: "Test NoRisk 1.12.2",
+                name: "Test NoRisk 1.12.2",
                 mc_version: "1.12.2",
                 loader: "forge",
                 description: "Another test profile for debugging"
@@ -142,7 +142,7 @@
             {#each standardProfiles as profile (profile.id)}
                 <div class="profile-card">
                     <div class="profile-header">
-                        <h4>{profile.display_name}</h4>
+                        <h4>{profile.name}</h4>
                         <span class="mc-version">{profile.mc_version} • {profile.loader}</span>
                     </div>
                     <p class="description">{profile.description}</p>
@@ -177,7 +177,7 @@
         <Modal>
             <ProfileCopy 
                 sourceProfileId={selectedProfileForCopy.id}
-                sourceProfileName={selectedProfileForCopy.display_name}
+                sourceProfileName={selectedProfileForCopy.name}
                 onClose={closeCopyProfileModal}
                 onSuccess={handleCopySuccess}
             />
