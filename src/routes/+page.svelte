@@ -7,11 +7,13 @@
     import TopNavigationBar from '$lib/components/TopNavigationBar.svelte';
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
     import { loadProfiles } from '$lib/utils/profileUtils';
+  import { loadAccounts } from '$lib/utils/accountUtils';
 
     $: lang = $translations;
     
     onMount(() => {
         setLanguage('en_US');
+        loadAccounts();
         loadProfiles();
 
         setTimeout(() => {

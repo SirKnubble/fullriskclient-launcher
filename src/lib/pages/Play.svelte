@@ -6,7 +6,10 @@
     import { translations } from '$lib/utils/translationUtils';
     import { IdleAnimation, SkinViewer } from "skinview3d";
     import { onMount } from 'svelte';
-    import { defaultProfiles, profiles, selectedProfileId } from '$lib/utils/profileUtils';
+    import { defaultProfiles, profiles, selectedProfile } from '$lib/utils/profileUtils';
+    import { addAccount, selectedAccount } from '$lib/utils/accountUtils';
+    import NoUserSkin from '$lib/images/no_user_skin.png';
+    import NoUserSkinDark from '$lib/images/no_user_skin_dark.png';
 
     $: lang = $translations;
 
@@ -18,13 +21,21 @@
         launchButtonVisible = false;
     }
 
+    selectedAccount.subscribe((account) => {
+        if (account != null) {
+            skinViewer?.loadSkin(`https://crafatar.com/skins/${account.id}`);
+        } else {
+            skinViewer?.loadSkin(NoUserSkinDark);
+        }
+    });
+
     onMount(async() => {
         const canvas = document.createElement("canvas");
         skinViewer = new SkinViewer({
           canvas: canvas,
           width: 250,
           height: 420,
-          skin: `https://crafatar.com/skins/625dd22b-bad2-4b82-a0bc-e43ba1c1a7fd`,
+          skin: $selectedAccount != null ? `https://crafatar.com/skins/${$selectedAccount.id}` : NoUserSkinDark,
           animation: new IdleAnimation,
         });
         skinViewer.controls.enabled = false;
@@ -47,9 +58,9 @@
         {#if !launchButtonVisible && $launcherStartCompleted}
             <VersionList bind:isClosed={launchButtonVisible} />
         {:else}
-            <div class="profile-display" class:hidden={!launchButtonVisible}>
-                <p class="name" style={$profiles.find(p => p.id == $selectedProfileId)?.name?.length ?? 0 > 10 ? 'font-size: 120px; margin-top: -5px;' : 'font-size: 200px; margin-top: -25px;'}>{$profiles.find(p => p.id == $selectedProfileId)?.name.toLowerCase()}</p>
-                <p class="version">{$profiles.find(p => p.id == $selectedProfileId)?.game_version.toLowerCase()}</p>
+            <div class="profile-display" class:hidden={!launchButtonVisible || $selectedAccount == null}>
+                <p class="name" style={($selectedProfile?.name?.length ?? 0) > 13 ? 'font-size: 120px; margin-top: -5px;' : 'font-size: 200px; margin-top: -25px;'}>{$selectedProfile?.name.toLowerCase()}</p>
+                <p class="version">1.21.4</p>
             </div>
         {/if}
     </div>
@@ -68,10 +79,10 @@
         id="play-button"
         onmouseenter={() => launchButtonHovered = true}
         onmouseleave={() => launchButtonHovered = false}
-        onclick={() => {}}
+        onclick={$selectedAccount == null ? addAccount : () => {}}
     >
-        <p class="launch-text">{lang.play.button.launch}</p>
-        {#if launchButtonHovered && ($profiles.length + $defaultProfiles.length) > 1}
+        <p class="launch-text">{$selectedAccount == null ? lang.play.button.login : lang.play.button.launch}</p>
+        {#if launchButtonHovered && ($profiles.length + $defaultProfiles.length) > 1 && $selectedAccount != null}
             <div class="spacer" />
             <div class="dropdown-arrow-wrapper">
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

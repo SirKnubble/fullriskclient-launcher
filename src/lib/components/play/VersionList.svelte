@@ -1,7 +1,7 @@
 <script lang="ts">
     import VersionBackground from '$lib/images/versions/1.21.webp';
     import type { Profile } from '$lib/types/profile';
-    import { profiles, selectedProfileId, selectProfile } from '$lib/utils/profileUtils';
+    import { profiles, selectedProfile, selectProfile } from '$lib/utils/profileUtils';
     import { onMount } from 'svelte';
 
     export let isClosed: boolean;
@@ -24,7 +24,7 @@
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <div
                     class="profile-list-item"
-                    class:active={profile.id == $selectedProfileId}
+                    class:active={profile.id == $selectedProfile?.id}
                     style={`animation-delay: ${$profiles.indexOf(profile) * 0.035}s;`}
                     on:click={() => {
                         selectProfile(profile.id);
