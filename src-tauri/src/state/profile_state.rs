@@ -58,6 +58,7 @@ pub struct NoriskModIdentifier {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Profile {
+    #[serde(default = "Uuid::new_v4")] // Use new_v4 for a default ID
     pub id: Uuid,                    // Eindeutige ID
     pub name: String,                // Anzeigename
     pub path: String,                // Dateipfad
@@ -67,7 +68,9 @@ pub struct Profile {
     #[serde(default)]
     pub created: DateTime<Utc>,      // Erstellungsdatum
     pub last_played: Option<DateTime<Utc>>, // Letzter Start
+    #[serde(default)]
     pub settings: ProfileSettings,    // Profil Einstellungen
+    #[serde(default)]
     pub state: ProfileState,         // Aktueller Status
     #[serde(default)] // Add default for backward compatibility when loading old profiles
     pub mods: Vec<Mod>,              // List of mods for this profile
@@ -84,12 +87,12 @@ pub struct Profile {
     /// True if this is a standard profile template, false if it's a user profile.
     #[serde(default)] // Defaults to false for existing user profiles
     pub is_standard_version: bool, 
+    pub description: Option<String>,
     pub norisk_information: Option<NoriskInformation>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NoriskInformation {
-    pub description: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
@@ -154,6 +157,12 @@ pub enum ProfileState {
     Installed,       // Installiert und bereit
     Running,         // Läuft gerade
     Error,           // Fehler aufgetreten
+}
+
+impl Default for ProfileState {
+    fn default() -> Self {
+        ProfileState::NotInstalled
+    }
 }
 
 // --- Custom Mod Structs & Enums ---

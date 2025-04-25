@@ -114,6 +114,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
         group: None,
+        description: None,
         is_standard_version: false,
         norisk_information: None,
     };
@@ -901,6 +902,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         source_standard_profile_id: source_profile.source_standard_profile_id,
         group: source_profile.group.clone(),
         is_standard_version: false,
+        description: source_profile.description.clone(),
         norisk_information: None,
     };
     

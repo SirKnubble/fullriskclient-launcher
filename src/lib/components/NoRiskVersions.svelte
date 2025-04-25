@@ -1,11 +1,12 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
-    import type { NoriskVersionProfile, NoriskVersionsConfig } from '$lib/types/noriskVersions';
+    import type { NoriskVersionsConfig } from '$lib/types/noriskVersions';
+    import type { Profile } from '$lib/types/profile';
     import ProfileCopy from './ProfileCopy.svelte';
     import Modal from './Modal.svelte'; // Assuming you have a Modal component
     
-    let standardProfiles: NoriskVersionProfile[] = $state([]);
+    let standardProfiles: Profile[] = $state([]);
     let isLoading = $state(true);
     let errorMessage: string | null = $state(null);
     let debugInfo = $state<string[]>([]);
@@ -13,7 +14,7 @@
     
     // State for the copy profile modal
     let showCopyModal = $state(false);
-    let selectedProfileForCopy: NoriskVersionProfile | null = $state(null);
+    let selectedProfileForCopy: Profile | null = $state(null);
     
     function addDebugLog(message: string) {
         console.log(`[NoRiskVersions] ${message}`);
@@ -80,7 +81,7 @@
         }
     }
     
-    function openCopyProfileModal(profile: NoriskVersionProfile) {
+    function openCopyProfileModal(profile: Profile) {
         addDebugLog(`Opening copy modal for profile with ID: ${profile.id}`);
         selectedProfileForCopy = profile;
         showCopyModal = true;
@@ -101,22 +102,22 @@
     // Function to manually test with mock data
     async function addTestProfiles() {
         addDebugLog("Adding test profiles for debugging");
-        standardProfiles = [
+        /*standardProfiles = [
             {
                 id: "test-1",
                 name: "Test NoRisk 1.8.9",
-                mc_version: "1.8.9",
+                game_version: "1.8.9",
                 loader: "forge",
                 description: "Test profile for debugging"
             },
             {
                 id: "test-2",
                 name: "Test NoRisk 1.12.2",
-                mc_version: "1.12.2",
+                game_version: "1.12.2",
                 loader: "forge",
                 description: "Another test profile for debugging"
             }
-        ];
+        ];*/
         addDebugLog(`Added ${standardProfiles.length} test profiles`);
     }
 </script>
@@ -143,7 +144,7 @@
                 <div class="profile-card">
                     <div class="profile-header">
                         <h4>{profile.name}</h4>
-                        <span class="mc-version">{profile.mc_version} • {profile.loader}</span>
+                        <span class="mc-version">{profile.game_version} • {profile.loader}</span>
                     </div>
                     <p class="description">{profile.description}</p>
                     <div class="actions">

@@ -1,14 +1,5 @@
-export interface NoriskVersionProfile {
-    id: string;
-    name: string;
-    description: string;
-    mc_version: string;
-    loader: string;
-    norisk_pack?: string;
-    created_at?: string;
-    last_updated?: string;
-}
+import type { Profile } from "./profile";
 
 export interface NoriskVersionsConfig {
-    profiles: NoriskVersionProfile[];
+    profiles: Profile[];
 } 

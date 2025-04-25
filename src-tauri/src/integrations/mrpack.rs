@@ -157,6 +157,7 @@ pub async fn process_mrpack(pack_path: PathBuf) -> Result<(Profile, ModrinthInde
         source_standard_profile_id: None,
         group: Some("MODPACKS".to_string()),    
         is_standard_version: false,
+        description: None,
         norisk_information: None,
     };
 
