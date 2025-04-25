@@ -1,5 +1,6 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
+    import { convertFileSrc } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
     import type { NoriskVersionsConfig } from '$lib/types/noriskVersions';
     import type { Profile, ImageSource } from '$lib/types/profile';
@@ -37,8 +38,16 @@
                 profileId: profile.id
             });
             
-            addDebugLog(`Resolved image for ${profile.id}: ${resolved}`);
-            return resolved;
+            // Use convertFileSrc for local file paths to handle security restrictions
+            let finalPath = resolved;
+            if (resolved.startsWith('file://')) {
+                const localPath = resolved.replace('file://', '');
+                finalPath = convertFileSrc(localPath);
+                addDebugLog(`Converting ${resolved} to ${finalPath}`);
+            }
+            
+            addDebugLog(`Resolved image for ${profile.id}: ${finalPath}`);
+            return finalPath;
         } catch (error) {
             addDebugLog(`Error resolving image for ${profile.id}: ${error}`);
             return 'linear-gradient(135deg, #2c3e50, #3498db)';
