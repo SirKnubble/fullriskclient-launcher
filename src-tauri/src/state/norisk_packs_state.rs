@@ -97,6 +97,10 @@ impl NoriskPackManager {
         let config_guard = self.config.read().await;
         println!("--- Current Norisk Packs Config ---");
         println!("{:#?}", *config_guard); // Use pretty-print debug format
+        match config_guard.print_resolved_packs() {
+            Ok(_) => (),
+            Err(e) => error!("Failed to print resolved packs: {}", e),
+        }
         println!("--- End Norisk Packs Config ---");
     }
 
