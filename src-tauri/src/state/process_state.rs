@@ -16,6 +16,8 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 use tokio::time::{interval, Duration};
 use std::process::ExitStatus;
+use dashmap::DashMap;
+use tokio::task::JoinHandle;
 
 const PROCESSES_FILENAME: &str = "processes.json";
 
@@ -23,6 +25,7 @@ pub struct ProcessManager {
     processes: Arc<RwLock<HashMap<Uuid, Process>>>,
     processes_file_path: PathBuf,
     save_lock: Mutex<()>,
+    launching_processes: Arc<DashMap<Uuid, JoinHandle<()>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +66,7 @@ impl ProcessManager {
         );
         let processes = Arc::new(RwLock::new(HashMap::new()));
         let save_lock = Mutex::new(());
+        let launching_processes = Arc::new(DashMap::new());
         
         let processes_clone = Arc::clone(&processes);
 
@@ -70,6 +74,7 @@ impl ProcessManager {
             processes: processes_clone,
             processes_file_path: processes_file_path.clone(),
             save_lock,
+            launching_processes,
         };
         manager.load_processes().await?;
 
@@ -690,6 +695,39 @@ impl ProcessManager {
 
         log::info!("Successfully read {} bytes (lossy converted to string) from log file for process {}", log_bytes.len(), process_id);
         Ok(log_content)
+    }
+
+    /// Adds a task handle to the launching_processes map
+    pub fn add_launching_process(&self, profile_id: Uuid, handle: JoinHandle<()>) {
+        log::info!("Adding launching task for profile ID: {}", profile_id);
+        self.launching_processes.insert(profile_id, handle);
+    }
+
+    /// Removes a task handle from the launching_processes map
+    pub fn remove_launching_process(&self, profile_id: Uuid) {
+        log::info!("Removing launching task for profile ID: {}", profile_id);
+        self.launching_processes.remove(&profile_id);
+    }
+
+    /// Aborts an ongoing launch process for the given profile ID
+    pub fn abort_launch_process(&self, profile_id: Uuid) -> Result<()> {
+        if let Some((_, handle)) = self.launching_processes.remove(&profile_id) {
+            log::info!("Aborting launch task for profile ID: {}", profile_id);
+            
+            // Abort the task
+            handle.abort();
+            log::info!("Successfully aborted launch task for profile ID: {}", profile_id);
+            
+            return Ok(());
+        } else {
+            log::warn!("No launching task found for profile ID: {}", profile_id);
+            return Err(AppError::Other(format!("No launching task found for profile ID: {}", profile_id)));
+        }
+    }
+
+    /// Checks if a profile has an ongoing launch process
+    pub fn has_launching_process(&self, profile_id: Uuid) -> bool {
+        self.launching_processes.contains_key(&profile_id)
     }
 }
 

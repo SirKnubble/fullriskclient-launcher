@@ -87,6 +87,46 @@
     // State for Export Profile modal
     let showExportProfileModal = $state(false);
 
+    // Füge zur Statusverfolgung hinzu
+    let isLaunching = $state(false);
+
+    // Überprüfe den Status beim Laden der Komponente
+    onMount(async () => {
+        try {
+            isLaunching = await invoke<boolean>("is_profile_launching", {
+                profileId: profile.id
+            });
+            
+            // Wenn wir bereits starten, starte den Polling-Prozess
+            if (isLaunching) {
+                pollLaunchingStatus();
+            }
+        } catch (error) {
+            console.error("Error checking initial launch status:", error);
+        }
+    });
+
+    // Regelmäßige Statusprüfung als separate Funktion
+    function pollLaunchingStatus() {
+        const checkInterval = setInterval(async () => {
+            try {
+                const stillLaunching = await invoke<boolean>("is_profile_launching", {
+                    profileId: profile.id
+                });
+                
+                if (!stillLaunching) {
+                    // Prozess ist nicht mehr aktiv
+                    isLaunching = false;
+                    clearInterval(checkInterval);
+                }
+            } catch (error) {
+                console.error("Error checking launch status:", error);
+                isLaunching = false;
+                clearInterval(checkInterval);
+            }
+        }, 1000); // Prüfe jede Sekunde
+    }
+
     // Manuelle Logging-Funktion für den Status
     function logStatus() {
         console.log("[FileNodeViewer Debug] Structure state:", {
@@ -350,6 +390,31 @@
         // Optional: Show success message
         console.log("Profile exported successfully");
     }
+
+    // Behandeln des Launches und Abbruches
+    async function handleLaunch() {
+        if (isLaunching) {
+            // Wenn wir bereits starten, brechen wir den Prozess ab
+            try {
+                await invoke("abort_profile_launch", { profileId: profile.id });
+                isLaunching = false;
+            } catch (error) {
+                console.error("Failed to abort launch process:", error);
+            }
+        } else {
+            // Starte den Prozess
+            isLaunching = true;
+            try {
+                dispatch("launch");
+                
+                // Starte den Polling-Prozess
+                pollLaunchingStatus();
+            } catch (error) {
+                console.error("Failed to launch profile:", error);
+                isLaunching = false;
+            }
+        }
+    }
 </script>
 
 <!-- Moved HTML structure for a single profile item here -->
@@ -396,8 +461,16 @@
             {/if}
         </div>
         <div class="profile-actions">
-            <!-- Dispatch events -->
-            <button on:click={() => dispatch("launch")}>Launch</button>
+            <!-- Dynamischer Launch/Cancel Button -->
+            <button 
+                on:click={handleLaunch}
+                class={isLaunching ? "cancel-button" : "launch-button"}
+            >
+                {isLaunching ? "Abbrechen" : "Launch"}
+                {#if isLaunching}
+                <span class="loading-spinner"></span>
+                {/if}
+            </button>
             <button on:click={() => dispatch("edit")}>Edit</button>
             <button on:click={() => dispatch("delete")}>Delete</button>
             <button
@@ -730,12 +803,61 @@
         padding: 8px 12px; /* Slightly adjusted padding */
     }
 
-    .profile-actions button:first-child {
-        background-color: #2ecc71;
+    /* Styles für den Launch-Button */
+    .launch-button {
+        background-color: #2ecc71 !important;
     }
 
-    .profile-actions button:first-child:hover {
-        background-color: #27ae60;
+    .launch-button:hover {
+        background-color: #27ae60 !important;
+    }
+
+    /* Styles für den Cancel-Button */
+    .cancel-button {
+        background-color: #e74c3c !important;
+        color: white !important;
+        animation: pulse 1.5s infinite;
+    }
+
+    .cancel-button:hover {
+        background-color: #c0392b !important;
+        animation: none;
+    }
+
+    /* Pulsierender Animationseffekt für den Cancel-Button */
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+        100% {
+            opacity: 1;
+        }
+    }
+
+    /* Styles für den Loading-Spinner */
+    .loading-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        margin-left: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .profile-actions button:first-child {
+        background-color: #2ecc71;
     }
 
     .profile-actions button:nth-child(2) {

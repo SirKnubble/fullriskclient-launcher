@@ -58,6 +58,10 @@
 - Anzeige von Launcher-Events und Status
 - Fortschrittsanzeige während des Launchvorgangs
 - Experimenteller Modus für NoRisk Client (globale Konfiguration)
+- Abbrechen laufender Installations- und Launchprozesse
+- Visuelles Feedback zum Launchstatus (Button ändert Aussehen)
+- Prozessüberwachung mit DashMap zur Nachverfolgung laufender Installationen
+- Ereignisbenachrichtigungen beim Abbruch von Launchprozessen
 
 ### Benutzeroberfläche
 - Moderne, reaktive UI mit Svelte und TypeScript
@@ -67,6 +71,7 @@
 - Konfigurationsseite für globale Launcher-Einstellungen
 - Debugansichten für Entwicklung
 - Barrierefreie UI-Elemente mit zugangsoptimierter Bedienung
+- Dynamische Schaltflächen, die ihren Status und Funktion basierend auf aktuellen Prozessen ändern
 
 ### Tauri-Integration
 - Kommunikation zwischen Frontend und Backend über Tauri-API
@@ -88,15 +93,17 @@
 - Modulare Komponenten für verschiedene Funktionen
 - Ereignisbasierte Kommunikation zwischen Komponenten
 - Reaktive Dateisystem-Visualisierung
+- Interaktive Prozesssteuerung für Installationsprozesse
 
 ### Backend
 - Rust-basiertes Backend über Tauri
 - SQLite-Datenbank für Persistenz
 - Dateisystem-Operationen für Profilverwaltung
-- Prozessmanagement für Minecraft-Ausführung
+- Prozessmanagement für Minecraft-Ausführung und Installation
 - Konvertierung zwischen Standard-Versionen und benutzerdefinierten Profilen
 - Konfigurationsmanager für globale Launcher-Einstellungen
 - Token-Management für NoRisk-Authentifizierung
+- Task-Management mit tokio für asynchrone Prozesse
 
 ## Datenbankschema
 
@@ -174,11 +181,21 @@ Der ConfigManager stellt folgende Funktionen bereit:
 
 ## Backend-Komponentenübersicht
 
+### Prozessmanagement
+- `process_state.rs`: Verwaltet Minecraft- und Installationsprozesse
+  - `launching_processes`: DashMap zur Verfolgung laufender Installations- und Launchprozesse
+  - `add_launching_process`: Registriert einen neuen Installationsprozess für ein Profil
+  - `remove_launching_process`: Entfernt einen Installationsprozess nach Abschluss oder Abbruch
+  - `abort_launch_process`: Bricht einen laufenden Installationsprozess ab
+  - `has_launching_process`: Prüft, ob ein Profil gerade einen laufenden Installationsprozess hat
+
 ### Profile-Management
 - `profile_command.rs`: Hauptinterface für Profiloperationen
+  - `launch_profile`: Startet ein Profil oder eine NoRisk Standard-Version temporär
+  - `abort_profile_launch`: Bricht einen laufenden Installationsprozess ab und sendet ein Event
+  - `is_profile_launching`: Prüft den aktuellen Launchstatus eines Profils
   - `copy_profile`: Kopiert ein Profil oder eine NoRisk Standard-Version mit optionaler Dateiauswahl
   - `get_profile_directory_structure`: Liefert die Dateistruktur eines Profils oder einer Standard-Version
-  - `launch_profile`: Startet ein Profil oder eine NoRisk Standard-Version temporär
 
 ### NoRisk-Versionen
 - `norisk_versions.rs`: Verwaltet NoRisk Standard-Versionen
@@ -222,6 +239,14 @@ Der ConfigManager stellt folgende Funktionen bereit:
 
 ## Frontend-Komponenten
 
+### ProfileView.svelte
+- Anzeige und Steuerung eines einzelnen Profils
+- Unterstützung für Launch, Abbruch, Bearbeitung und Löschung
+- Dynamischer Launch-Button, der zum Abbruch-Button wird, wenn ein Installationsprozess läuft
+- Status-Polling zur Überprüfung, ob ein Launch-Prozess noch läuft
+- Visuelles Feedback durch Farbänderung und Ladeanimation während des Launchens
+- Vollständige Integration mit dem Backend über Tauri-Commands
+
 ### ProfileCopy.svelte
 - Benutzerfreundliche UI zum Kopieren von Profilen
 - Dateiauswahl mit Baumansicht
@@ -253,6 +278,19 @@ Der ConfigManager stellt folgende Funktionen bereit:
 
 ## Datenstrukturen
 
+### Prozessverwaltung
+- `ProcessManager`: Verwaltet laufende Prozesse und Installationen
+  - `processes`: RwLock-HashMap für reguläre Minecraft-Prozesse
+  - `launching_processes`: DashMap für laufende Installationsprozesse
+  - `JoinHandle<()>`: Tokio-Tasks für asynchrone Installationsprozesse
+  - Methoden zum Hinzufügen, Entfernen und Abbrechen von Prozessen
+- `ProcessMetadata`: Informationen zu laufenden Prozessen
+  - `id`: Eindeutige UUID des Prozesses
+  - `profile_id`: ID des zugehörigen Profils
+  - `start_time`: Zeitpunkt des Prozessstarts
+  - `state`: Aktueller Zustand des Prozesses
+  - `pid`: Prozess-ID des Betriebssystems
+
 ### NoRiskToken
 - `value`: String-Wert des JWT-Tokens für API-Autorisierung
 - Wird bei Minecraft-Start als JVM-Argument übergeben
@@ -281,6 +319,19 @@ Der ConfigManager stellt folgende Funktionen bereit:
   - Auflösung von Mod-Referenzen gegen Modrinth-API
   - Eindeutige Profilpfaderzeugung
   - Kopieren von Overrides in Zielprofilverzeichnis
+
+### EventSystem
+- `EventState`: Zentrale Komponente für Event-Handling
+- `EventPayload`: Datenstruktur für Events mit:
+  - `event_id`: Eindeutige Event-ID
+  - `event_type`: Typ des Events (z.B. "LaunchingMinecraft", "MinecraftProcessExited")
+  - `target_id`: Optionale Ziel-ID (z.B. Profil-ID)
+  - `message`: Textuelle Beschreibung
+  - `progress`: Optionaler Fortschrittswert
+  - `error`: Optionale Fehlermeldung
+- Spezifische Events:
+  - `MinecraftProcessExitedPayload`: Details zum Beenden eines Minecraft-Prozesses
+  - Abbruch-Events für Launch-Prozesse
 
 ## Bekannte Probleme und Einschränkungen
 - Tauri-Module müssen zur Laufzeit verfügbar sein
