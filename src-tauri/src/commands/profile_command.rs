@@ -12,6 +12,7 @@ use crate::utils::path_utils::find_unique_profile_segment;
 use crate::utils::{profile_utils, resourcepack_utils, shaderpack_utils, path_utils};
 use chrono::Utc;
 use log::info;
+use log::error;
 use noriskclient_launcher_v3_lib::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use sanitize_filename::sanitize;
 use serde::Deserialize;
@@ -169,24 +170,66 @@ pub async fn launch_profile(id: Uuid) -> Result<(), CommandError> {
         }
     };
 
-    tokio::spawn(async move {
-        match installer::install_minecraft_version(
+    let profile_id = profile.id;  // Store profile ID for later use
+    let profile_clone = profile.clone();
+    
+    // Spawn the installation task and get the JoinHandle
+    let handle = tokio::spawn(async move {
+        let install_result = installer::install_minecraft_version(
             &version,
             &modloader.as_str(),
-            &profile,
+            &profile_clone,
             credentials,
-        )
-        .await
-        {
-            Ok(_) => info!(
-                "Successfully installed/launched Minecraft version {}",
-                version
-            ),
-            Err(e) => info!("Error installing/launching Minecraft: {}", e),
+        ).await;
+        
+        // Get state again within the spawn context
+        if let Ok(state) = State::get().await {
+            // Ensure we remove the launching process tracking when done
+            state.process_manager.remove_launching_process(profile_id);
+            
+            match install_result {
+                Ok(_) => info!(
+                    "Successfully installed/launched Minecraft version {}",
+                    version
+                ),
+                Err(e) => info!("Error installing/launching Minecraft: {}", e),
+            }
         }
     });
+    
+    // Store the task handle for possible abortion
+    state.process_manager.add_launching_process(profile_id, handle);
 
     Ok(())
+}
+
+/// Aborts an ongoing launch process for a profile.
+/// This is useful to cancel a profile installation/launch that's taking too long.
+#[tauri::command]
+pub async fn abort_profile_launch(profile_id: Uuid) -> Result<(), CommandError> {
+    info!("Attempting to abort launch process for profile ID: {}", profile_id);
+    
+    let state = State::get().await?;
+    
+    // Check if the profile has an active launching process
+    if !state.process_manager.has_launching_process(profile_id) {
+        info!("No active launch process found for profile ID: {}", profile_id);
+        return Err(CommandError::from(AppError::Other(
+            format!("No active launch process found for profile ID: {}", profile_id)
+        )));
+    }
+    
+    // Attempt to abort the process
+    match state.process_manager.abort_launch_process(profile_id) {
+        Ok(_) => {
+            info!("Successfully aborted launch process for profile ID: {}", profile_id);
+            Ok(())
+        },
+        Err(e) => {
+            error!("Failed to abort launch process for profile ID {}: {}", profile_id, e);
+            Err(CommandError::from(e))
+        }
+    }
 }
 
 #[tauri::command]
@@ -934,5 +977,13 @@ pub async fn export_profile(app_handle: tauri::AppHandle, params: ExportProfileP
     }
     
     Ok(result_path.to_string_lossy().to_string())
+}
+
+/// Checks if a profile is currently being launched.
+/// Returns true if there's an active launch process for the given profile ID.
+#[tauri::command]
+pub async fn is_profile_launching(profile_id: Uuid) -> Result<bool, CommandError> {
+    let state = State::get().await?;
+    Ok(state.process_manager.has_launching_process(profile_id))
 }
 
