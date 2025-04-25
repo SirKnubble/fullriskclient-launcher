@@ -172,22 +172,79 @@ impl NeoForgeInstaller {
                 .download_installer_libraries(&neoforge_profile)
                 .await?;
 
-            state.emit_event(EventPayload {
-                event_id: neoforge_event_id,
-                event_type: EventType::InstallingNeoForge,
-                target_id: Some(profile.id),
-                message: "NeoForge wird gepatcht...".to_string(),
-                progress: Some(0.7),
-                error: None,
-            }).await?;
+            // Prüfen, ob Patching übersprungen werden kann
+            let mut should_run_patcher = true;
 
-            let forge_patcher = NeoForgePatcher::new(self.java_path.clone(), version_id);
-            // Use determined installer_path
-            forge_patcher
-                .with_event_id(neoforge_event_id)
-                .with_profile_id(profile.id)
-                .apply_processors(&neoforge_profile, version_id, true, &installer_path)
-                .await?;
+            // Nur noch PATCHED abrufen
+            if let Some(patched) = neoforge_profile.data.get("PATCHED") {
+                let client_path_str = &patched.client;
+                // Maven-Koordinaten extrahieren: [group:artifact:version:classifier]
+                if client_path_str.starts_with('[') && client_path_str.ends_with(']') {
+                    let maven_coords = &client_path_str[1..client_path_str.len() - 1];
+                    let parts: Vec<&str> = maven_coords.split(':').collect();
+
+                    if parts.len() >= 4 {
+                        let (group, artifact, version, classifier) =
+                            (parts[0], parts[1], parts[2], parts[3]);
+
+                        // Berechne Dateipfad
+                        let group_path = group.replace('.', "/");
+                        let file_name = format!("{}-{}-{}.jar", artifact, version, classifier);
+
+                        let library_path = LAUNCHER_DIRECTORY
+                            .meta_dir()
+                            .join("libraries")
+                            .join(group_path)
+                            .join(artifact)
+                            .join(version)
+                            .join(file_name);
+
+                        info!(
+                            "Checking for pre-patched NeoForge client: {}",
+                            library_path.display()
+                        );
+
+                        // Prüfe ob die Datei existiert
+                        if library_path.exists() {
+                            info!("✅ Pre-patched NeoForge client found: {}", library_path.display());
+                            should_run_patcher = false;
+                        } else {
+                            info!(
+                                "❌ Patched NeoForge client file not found, patching required: {}",
+                                library_path.display()
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Patcher nur ausführen, wenn nötig
+            if should_run_patcher {
+                state.emit_event(EventPayload {
+                    event_id: neoforge_event_id,
+                    event_type: EventType::InstallingNeoForge,
+                    target_id: Some(profile.id),
+                    message: "NeoForge wird gepatcht...".to_string(),
+                    progress: Some(0.7),
+                    error: None,
+                }).await?;
+
+                let neoforge_patcher = NeoForgePatcher::new(self.java_path.clone(), version_id);
+                neoforge_patcher
+                    .with_event_id(neoforge_event_id)
+                    .with_profile_id(profile.id)
+                    .apply_processors(&neoforge_profile, version_id, true, &installer_path)
+                    .await?;
+            } else {
+                state.emit_event(EventPayload {
+                    event_id: neoforge_event_id,
+                    event_type: EventType::InstallingNeoForge,
+                    target_id: Some(profile.id),
+                    message: "Vorgepatchte NeoForge-Client Datei gefunden, überspringe Patching...".to_string(),
+                    progress: Some(0.7),
+                    error: None,
+                }).await?;
+            }
 
             // Check if using neoforgeclient flag
             if neo_forge_game_arguments.contains(&"neoforgeclient".to_string()) {

@@ -203,11 +203,8 @@ impl ForgeInstaller {
             // Prüfen, ob Patching übersprungen werden kann
             let mut should_run_patcher = true;
 
-            // PATCHED und PATCHED_SHA aus den Daten abrufen
-            if let (Some(patched), Some(patched_sha)) = (
-                forge_profile.data.get("PATCHED"),
-                forge_profile.data.get("PATCHED_SHA"),
-            ) {
+            // Nur noch PATCHED abrufen
+            if let Some(patched) = forge_profile.data.get("PATCHED") {
                 let client_path_str = &patched.client;
                 // Maven-Koordinaten extrahieren: [group:artifact:version:classifier]
                 if client_path_str.starts_with('[') && client_path_str.ends_with(']') {
@@ -230,36 +227,18 @@ impl ForgeInstaller {
                             .join(version)
                             .join(file_name);
 
-                        // Directly access the client field, as 'patched_sha' is already unwrapped
-                        let client_sha_str = &patched_sha.client;
-                        let expected_hash = client_sha_str.trim_matches('\'');
-
                         info!(
                             "Checking for pre-patched Forge client: {}",
                             library_path.display()
                         );
-                        info!("Expected hash: {}", expected_hash);
 
                         // Prüfe ob die Datei existiert
                         if library_path.exists() {
-                            // Benutze die vorhandene Hash-Funktion
-                            match crate::utils::hash_utils::calculate_sha1(&library_path).await {
-                                Ok(actual_hash) => {
-                                    if actual_hash == expected_hash {
-                                        info!("✅ Pre-patched Forge client already exists with correct hash");
-                                        should_run_patcher = false;
-                                    } else {
-                                        info!("❌ Forge client exists but has incorrect hash. Expected: {}, Found: {}", 
-                                    expected_hash, actual_hash);
-                                    }
-                                }
-                                Err(e) => {
-                                    info!("❌ Error calculating hash for existing file: {}", e);
-                                }
-                            }
+                            info!("✅ Pre-patched Forge client found: {}", library_path.display());
+                            should_run_patcher = false;
                         } else {
                             info!(
-                                "❌ Patched Forge client file not found at: {}",
+                                "❌ Patched Forge client file not found, patching required: {}",
                                 library_path.display()
                             );
                         }
