@@ -20,12 +20,12 @@
 - Filtermechanismus für kompatible Mods basierend auf Game-Version und Loader
 - Importieren lokaler Mods
 
-### NoRisk Standard-Versionen
-- Anzeigen vordefinierter NoRisk Versionen
-- Direktes Starten von NoRisk Standard-Versionen
-- Kopieren von Standard-Versionen als benutzerdefinierte Profile
+### Standard-Profile (Vorlagen)
+- Anzeigen vordefinierter Profil-Vorlagen (früher "NoRisk Standard-Versionen")
+- Direktes Starten von Standard-Profilen (erstellt temporäres Benutzerprofil)
+- Kopieren von Standard-Profilen als benutzerdefinierte Profile
 - Selektives Übernehmen von Dateien beim Kopieren
-- Automatische Konvertierung von Standard-Versionen in benutzerdefinierte Profile
+- Standard-Profile sind reguläre `Profile`-Einträge mit `is_standard_version = true`.
 
 ### NoRisk-Pack System
 - Integration vorkonfigurierter Modpacks
@@ -35,6 +35,7 @@
 - Gemeinsame Code-Basis für verschiedene Archivformate, die die `extract_mrpack_overrides` Funktion nutzt
 - Effiziente Extraktion von Overrides aus den Archiven in das Zielprofilverzeichnis
 - Unterstützung für den Import und Export von Modpacks
+- Task-Management mit tokio für asynchrone Prozesse
 
 ### Launcher-Konfiguration
 - Globale Einstellungen für den Launcher
@@ -112,14 +113,17 @@
 #### profiles
 - `id` (TEXT): Primärschlüssel, UUID für das Profil
 - `name` (TEXT): Anzeigename des Profils
+- `description` (TEXT): Optionale Beschreibung des Profils (hauptsächlich für Standard-Profile)
+- `path` (TEXT): Pfad zum Profilordner (kann relativ oder ein Platzhalter für Standard-Profile sein)
 - `game_version` (TEXT): Minecraft-Version
 - `loader` (TEXT): Modloader-Typ (fabric, forge, vanilla, etc.)
 - `loader_version` (TEXT): Version des Modloaders
 - `created` (INTEGER): Unix-Timestamp der Erstellung
 - `last_played` (INTEGER): Unix-Timestamp der letzten Nutzung
 - `selected_norisk_pack_id` (TEXT): ID des ausgewählten NoRisk-Packs (kann NULL sein)
-- `path` (TEXT): Pfad zum Profilordner
-- `source_standard_profile_id` (TEXT): ID des Quell-Standard-Profils, falls kopiert (kann NULL sein)
+- `source_standard_profile_id` (TEXT): ID des Quell-Standard-Profils, falls dieses Profil davon kopiert wurde (kann NULL sein)
+- `group` (TEXT): Optionaler Gruppenname zur UI-Organisation (kann NULL sein)
+- `is_standard_version` (BOOLEAN): Gibt an, ob dies ein Standard-Profil (Vorlage) ist (`true`) oder ein Benutzerprofil (`false`).
 
 #### mods
 - `id` (TEXT): Primärschlüssel, UUID für den Mod
@@ -131,6 +135,7 @@
 - `associated_loader` (TEXT): Zugehöriger Modloader
 - `version` (TEXT): Version des Mods
 - `source_data` (TEXT): JSON-Objekt mit quellspezifischen Daten
+- Hinzufügen der `source_standard_profile_id`-Spalte zu `profiles`
 
 #### disabled_norisk_mods
 - `id` (INTEGER): Primärschlüssel
@@ -178,6 +183,11 @@ Der ConfigManager stellt folgende Funktionen bereit:
 
 ### Migration 4: Standard-Profil Quellreferenz
 - Hinzufügen der `source_standard_profile_id`-Spalte zu `profiles`
+
+### Migration 5: Standard-Profile Integration
+- Hinzufügen der `is_standard_version` Spalte (BOOLEAN, Default: false) zu `profiles`
+- Hinzufügen der `description` Spalte (TEXT, Nullable) zu `profiles`
+- Hinzufügen der `group` Spalte (TEXT, Nullable) zu `profiles` (falls nicht schon durch eine vorherige, undokumentierte Migration geschehen)
 
 ## Backend-Komponentenübersicht
 
@@ -248,7 +258,7 @@ Der ConfigManager stellt folgende Funktionen bereit:
 - Vollständige Integration mit dem Backend über Tauri-Commands
 
 ### ProfileCopy.svelte
-- Benutzerfreundliche UI zum Kopieren von Profilen
+- Benutzerfreundliche UI zum Kopieren von Profilen (Benutzer- oder Standard-Profile)
 - Dateiauswahl mit Baumansicht
 - Vorauswahl wichtiger Dateien (options.txt, shaderpacks, etc.)
 
