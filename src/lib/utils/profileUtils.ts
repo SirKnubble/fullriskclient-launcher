@@ -1,19 +1,16 @@
 import { getNoriskProfiles } from "$lib/api/noriskVersions";
 import { getProfiles } from "$lib/api/profiles";
-import type { NoriskVersionProfile } from "$lib/types/noriskVersions";
 import type { Profile } from "$lib/types/profile";
 import { get, writable, type Writable } from "svelte/store";
 
 export const profiles: Writable<Profile[]> = writable([]);
-export const defaultProfiles: Writable<NoriskVersionProfile[]> = writable([]);
-export const selectedProfile: Writable<Profile | NoriskVersionProfile | null> = writable(null);
+export const selectedProfile: Writable<Profile | null> = writable(null);
 
 export async function loadProfiles(): Promise<void> {
     try {
         const profileList = await getProfiles();
         const defaultProfileList = await getNoriskProfiles();
-        profiles.set(profileList);
-        defaultProfiles.set(defaultProfileList);
+        profiles.set([...defaultProfileList, ...profileList]);
         
         console.log("Profiles loaded:", profileList);
         console.log("Default profiles loaded:", defaultProfileList);
@@ -33,10 +30,8 @@ export async function loadProfiles(): Promise<void> {
 export function selectProfile(profileId: string | null): void {
     if (profileId) {
         const profileList = get(profiles);
-        const defaultProfileList = get(defaultProfiles);
         const selected = profileList.find(profile => profile.id === profileId);
-        const selectedDefault = defaultProfileList.find(profile => profile.id === profileId);
-        selectedProfile.set(selected || selectedDefault || null);
+        selectedProfile.set(selected || null);
     } else {
         selectedProfile.set(null);
     }

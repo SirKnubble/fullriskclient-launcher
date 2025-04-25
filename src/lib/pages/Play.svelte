@@ -6,7 +6,7 @@
     import { translations } from '$lib/utils/translationUtils';
     import { IdleAnimation, SkinViewer } from "skinview3d";
     import { onMount } from 'svelte';
-    import { defaultProfiles, profiles, selectedProfile } from '$lib/utils/profileUtils';
+    import { profiles, selectedProfile } from '$lib/utils/profileUtils';
     import { addAccount, selectedAccount } from '$lib/utils/accountUtils';
     import NoUserSkin from '$lib/images/no_user_skin.png';
     import NoUserSkinDark from '$lib/images/no_user_skin_dark.png';
@@ -37,6 +37,18 @@
         }
         await addAccount();
         startProgress = null;
+    }
+
+    async function launch() {
+        startProgress = {
+            target_id: '1',
+            event_id: '1',
+            event_type: 'launching_minecraft',
+            message: lang.play.button.launching,
+            progress: 0,
+            error: '',
+        }
+        await launchProfile($selectedProfile!.id);
     }
 
     selectedAccount.subscribe((account) => {
@@ -93,7 +105,7 @@
         {:else}
             <div class="profile-display" class:hidden={!launchButtonVisible || $selectedAccount == null}>
                 <p class="name" style={($selectedProfile?.name?.length ?? 0) > 13 ? 'font-size: 120px; margin-top: -5px;' : 'font-size: 200px; margin-top: -25px;'}>{$selectedProfile?.name.toLowerCase()}</p>
-                <p class="version">1.21.4</p>
+                <p class="version">{$selectedProfile?.game_version.toLowerCase()}</p>
             </div>
         {/if}
     </div>
@@ -117,9 +129,9 @@
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <p
             class="launch-text"
-            onclick={$selectedAccount == null ? login : () => {launchProfile($selectedProfile!.id);}}
+            onclick={$selectedAccount == null ? login : launch}
         >{$selectedAccount == null && startProgress == null ? lang.play.button.login : startProgress != null ? startProgress.message.toLowerCase() : lang.play.button.launch}</p>
-        {#if launchButtonHovered && startProgress == null && ($profiles.length + $defaultProfiles.length) > 1 && $selectedAccount != null}
+        {#if launchButtonHovered && startProgress == null && $profiles.length > 1 && $selectedAccount != null}
             <div class="spacer" />
             <div class="dropdown-arrow-wrapper">
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

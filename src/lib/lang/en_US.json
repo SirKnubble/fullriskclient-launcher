@@ -8,6 +8,7 @@
     "navbar.addons": "addons",
     "navbar.quit": "quit",
     "play.button.launch": "launch",
+    "play.button.launching": "launching...",
     "play.button.login": "login",
     "play.button.logging_in": "logging in...",
     "settings.accounts.modal.title": "accounts",
