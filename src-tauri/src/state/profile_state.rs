@@ -64,6 +64,7 @@ pub struct Profile {
     pub game_version: String,        // Minecraft Version
     pub loader: ModLoader,           // Modloader Typ
     pub loader_version: Option<String>, // Modloader Version
+    #[serde(default)]
     pub created: DateTime<Utc>,      // Erstellungsdatum
     pub last_played: Option<DateTime<Utc>>, // Letzter Start
     pub settings: ProfileSettings,    // Profil Einstellungen
@@ -80,6 +81,15 @@ pub struct Profile {
     /// Optional group name for UI organization and filtering
     #[serde(default)]
     pub group: Option<String>,
+    /// True if this is a standard profile template, false if it's a user profile.
+    #[serde(default)] // Defaults to false for existing user profiles
+    pub is_standard_version: bool, 
+    pub norisk_information: Option<NoriskInformation>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NoriskInformation {
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
@@ -860,8 +870,7 @@ impl ProfileManager {
                 if let Some(standard_profile) = state.norisk_version_manager.get_profile_by_id(profile_id).await {
                     log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.name);
                     // Convert to a temporary profile
-                    let temp_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(&standard_profile)?;
-                    return self.calculate_instance_path_for_profile(&temp_profile);
+                    return self.calculate_instance_path_for_profile(&standard_profile);
                 }
                 
                 log::warn!("Profile {} not found when getting instance path (not in regular profiles or standard versions).", profile_id);

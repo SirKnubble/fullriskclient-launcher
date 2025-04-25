@@ -1,6 +1,6 @@
 use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
 use crate::error::Result;
-use crate::integrations::norisk_versions::{NoriskVersionsConfig, NoriskVersionProfile};
+use crate::integrations::norisk_versions::{NoriskVersionsConfig};
 use log::{info, error};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,6 +8,8 @@ use tokio::fs;
 use tokio::sync::RwLock;
 use tokio::sync::Mutex;
 use uuid::Uuid;
+
+use super::profile_state::Profile;
 
 // Default filename for the Norisk versions configuration
 const NORISK_VERSIONS_FILENAME: &str = "norisk_versions.json";
@@ -105,7 +107,7 @@ impl NoriskVersionManager {
     }
 
     /// Returns a standard profile by ID if found
-    pub async fn get_profile_by_id(&self, id: Uuid) -> Option<NoriskVersionProfile> {
+    pub async fn get_profile_by_id(&self, id: Uuid) -> Option<Profile> {
         let config = self.config.read().await;
         config.profiles.iter()
             .find(|p| p.id == id)

@@ -12,27 +12,11 @@ use chrono::Utc;
 
 const NORISK_API_BASE_URL: &str = "https://api.noriskclient.com/v1";
 
-/// Represents a standard profile configuration from the NoRisk backend.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NoriskVersionProfile {
-    pub id: Uuid,
-    pub name: String,
-    pub description: String,
-    pub mc_version: String,
-    pub loader: ModLoader,
-    pub loader_version: Option<String>,
-    pub norisk_pack: Option<String>,
-    pub custom_path: PathBuf,
-    /// Optional group name for UI organization
-    #[serde(default)]
-    pub group: Option<String>,
-}
-
 /// Represents the overall structure of the standard profiles from the backend
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NoriskVersionsConfig {
     /// A list of standard profiles
-    pub profiles: Vec<NoriskVersionProfile>,
+    pub profiles: Vec<Profile>,
 }
 
 /// Loads standard profiles from the local `norisk_versions.json` file.
@@ -127,41 +111,4 @@ pub async fn load_dummy_versions() -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Converts a standard profile template into a new, initial user profile.
-pub fn convert_standard_to_user_profile(
-    standard_profile: &NoriskVersionProfile,
-) -> Result<Profile> {
-    debug!("Attempting to convert standard profile: {:?}", standard_profile);
-
-    // Note: Reusing standard_profile.id for the new profile ID is generally not recommended.
-    // Each user profile should ideally have a unique UUID.
-    let profile_id_to_use = standard_profile.id;
-    
-    // Convert PathBuf to String for the 'path' field.
-    // This stores the *entire* path from the standard profile definition.
-    let profile_path_str = standard_profile.custom_path.to_string_lossy().to_string();
-    debug!("Using path string for new profile: {}", profile_path_str);
-
-    let profile = Profile {
-        id: profile_id_to_use, // Uses the original standard profile ID
-        name: standard_profile.name.clone(),
-        path: profile_path_str, 
-        game_version: standard_profile.mc_version.clone(),
-        loader: standard_profile.loader, // Assuming ModLoader is Copy
-        loader_version: standard_profile.loader_version.clone(),
-        created: Utc::now(),
-        last_played: None,
-        settings: ProfileSettings::default(),
-        state: ProfileState::NotInstalled,
-        mods: Vec::new(), // Start with no mods, they will be added by installer/pack logic
-        selected_norisk_pack_id: standard_profile.norisk_pack.clone(),
-        disabled_norisk_mods_detailed: HashSet::new(),
-        source_standard_profile_id: Some(standard_profile.id), // Link back to the source
-        group: None, // Copy group assignment from standard profile
-    };
-
-    debug!("Successfully created new Profile struct: {:?}", profile);
-    Ok(profile)
 }
