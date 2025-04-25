@@ -34,7 +34,14 @@ pub struct NoriskPackDefinition {
     #[serde(rename = "displayName")]
     pub display_name: String,
     pub description: String,
-    /// List of mods included in this specific pack variant.
+    /// Optional: List of pack IDs this pack inherits mods from. Processed in order.
+    #[serde(rename = "inheritsFrom", default)]
+    pub inherits_from: Option<Vec<String>>,
+    /// Optional: List of mod IDs to exclude after inheritance and local mods are combined.
+    #[serde(rename = "excludeMods", default)]
+    pub exclude_mods: Option<Vec<String>>,
+    /// Optional: List of mods specifically defined for this pack. These override inherited mods.
+    #[serde(default)]
     pub mods: Vec<NoriskModEntryDefinition>,
 }
 
@@ -313,4 +320,97 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
     info!("Successfully created and saved profile with ID: {}", profile_id);
 
     Ok(profile_id)
+}
+
+impl NoriskModpacksConfig {
+    pub fn resolve_pack_mods(
+        &self,
+        pack_id: &str,
+        visited: &mut HashSet<String>, // To detect circular inheritance
+    ) -> Result<Vec<NoriskModEntryDefinition>> {
+        // --- 1. Circular Dependency Check ---
+        if !visited.insert(pack_id.to_string()) {
+            error!("Circular inheritance detected involving pack ID: {}", pack_id);
+            return Err(AppError::Other(format!(
+                "Circular inheritance detected involving pack ID: {}",
+                pack_id
+            )));
+        }
+
+        // --- 2. Get Base Definition ---
+        let base_definition = self.packs.get(pack_id).ok_or_else(|| {
+            error!("Pack ID '{}' not found in configuration.", pack_id);
+            AppError::Other(format!("Pack ID '{}' not found", pack_id))
+        })?;
+
+        // --- 3. Initialize Mod Map ---
+        // Use HashMap to handle overrides easily (Mod ID -> Mod Definition)
+        let mut resolved_mods: HashMap<String, NoriskModEntryDefinition> = HashMap::new();
+
+        // --- 4. Handle Inheritance ---
+        if let Some(parent_ids) = &base_definition.inherits_from {
+            for parent_id in parent_ids {
+                debug!("Pack '{}': Inheriting from parent '{}'", pack_id, parent_id);
+                // Recursively resolve parent mods
+                let parent_mods = self.resolve_pack_mods(parent_id, visited)?;
+                // Merge parent mods into the map. Later parents override earlier ones.
+                for mod_entry in parent_mods {
+                    resolved_mods.insert(mod_entry.id.clone(), mod_entry);
+                }
+            }
+        }
+
+        // --- 5. Handle Local Mods ---
+        // Local mods defined directly in the pack override any inherited mods.
+        if let local_mods = &base_definition.mods {
+             debug!("Pack '{}': Processing {} local mods", pack_id, local_mods.len());
+            for mod_entry in local_mods {
+                resolved_mods.insert(mod_entry.id.clone(), mod_entry.clone());
+            }
+        }
+
+        // --- 6. Handle Exclusions ---
+        // Exclusions are applied *after* inheritance and local overrides.
+        if let Some(excluded_mod_ids) = &base_definition.exclude_mods {
+            debug!("Pack '{}': Applying {} exclusions", pack_id, excluded_mod_ids.len());
+            for mod_id_to_exclude in excluded_mod_ids {
+                if resolved_mods.remove(mod_id_to_exclude).is_some() {
+                     debug!("Pack '{}': Excluded mod '{}'", pack_id, mod_id_to_exclude);
+                } else {
+                     warn!("Pack '{}': Exclusion requested for mod '{}', but it was not found in the resolved list.", pack_id, mod_id_to_exclude);
+                }
+            }
+        }
+
+        // --- 7. Finalize ---
+        // Remove the current pack from the visited set for the current resolution path
+        visited.remove(pack_id);
+
+        // Convert the HashMap values back to a Vec
+        let final_mod_list: Vec<NoriskModEntryDefinition> =
+            resolved_mods.into_values().collect();
+        
+        debug!("Pack '{}': Resolved to {} final mods.", pack_id, final_mod_list.len());
+        Ok(final_mod_list)
+    }
+
+    // Helper function to get a fully resolved pack definition (including mods)
+    // This combines the base definition with the resolved mods.
+     pub fn get_resolved_pack_definition(&self, pack_id: &str) -> Result<NoriskPackDefinition> {
+        let base_definition = self.packs.get(pack_id).ok_or_else(|| {
+            error!("Pack ID '{}' not found in configuration.", pack_id);
+            AppError::Other(format!("Pack ID '{}' not found", pack_id))
+        })?;
+
+        let mut visited = HashSet::new();
+        let resolved_mods_vec = self.resolve_pack_mods(pack_id, &mut visited)?;
+
+        Ok(NoriskPackDefinition {
+            display_name: base_definition.display_name.clone(),
+            description: base_definition.description.clone(),
+            inherits_from: base_definition.inherits_from.clone(), // Keep original inheritance info
+            exclude_mods: base_definition.exclude_mods.clone(),   // Keep original exclusion info
+            mods: resolved_mods_vec, // Use the fully resolved list here
+        })
+    }
 }
