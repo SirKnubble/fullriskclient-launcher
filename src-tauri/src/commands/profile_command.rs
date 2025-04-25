@@ -113,6 +113,11 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
+        group: None,
+        description: None,
+        banner: None,
+        is_standard_version: false,
+        norisk_information: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;
@@ -149,10 +154,9 @@ pub async fn launch_profile(id: Uuid) -> Result<(), CommandError> {
             
             // Convert standard profile to a temporary profile
             info!("Converting standard profile '{}' to a temporary profile", standard_profile.name);
-            let converted_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(standard_profile)?;
             
             // Return the converted profile without saving it
-            converted_profile
+            standard_profile.clone()
         }
     };
 
@@ -818,7 +822,7 @@ pub async fn get_profile_directory_structure(
             
             // Konvertiere Standard-Profil zu einem temporären Profil
             log::info!("Converting standard profile '{}' to a user profile for directory structure", standard_profile.name);
-            norisk_versions::convert_standard_to_user_profile(standard_profile)?
+            standard_profile.clone()
         }
     };
     
@@ -859,7 +863,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
             
             // Konvertiere Standard-Profil zu einem temporären Profil
             info!("Converting standard profile '{}' to a user profile for copying", standard_profile.name);
-            norisk_versions::convert_standard_to_user_profile(standard_profile)?
+            standard_profile.clone()
         }
     };
     
@@ -897,6 +901,11 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         selected_norisk_pack_id: source_profile.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
+        group: source_profile.group.clone(),
+        is_standard_version: false,
+        description: source_profile.description.clone(),
+        norisk_information: None,
+        banner: None,
     };
     
     // 6. Erstelle das neue Profilverzeichnis

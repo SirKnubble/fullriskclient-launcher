@@ -56,17 +56,39 @@ pub struct NoriskModIdentifier {
     pub loader: ModLoader,    
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum ImageSource {
+    Url { url: String },
+    RelativePath { path: String }, // Relative to launcher_directory
+    RelativeProfile { path: String }, // Relative to profile directory
+    AbsolutePath { path: String },
+    Base64 { 
+        data: String, 
+        mime_type: Option<String> // Optional MIME type, e.g., "image/png"
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProfileBanner {
+    pub source: ImageSource,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Profile {
+    #[serde(default = "Uuid::new_v4")] // Use new_v4 for a default ID
     pub id: Uuid,                    // Eindeutige ID
     pub name: String,                // Anzeigename
     pub path: String,                // Dateipfad
     pub game_version: String,        // Minecraft Version
     pub loader: ModLoader,           // Modloader Typ
     pub loader_version: Option<String>, // Modloader Version
+    #[serde(default)]
     pub created: DateTime<Utc>,      // Erstellungsdatum
     pub last_played: Option<DateTime<Utc>>, // Letzter Start
+    #[serde(default)]
     pub settings: ProfileSettings,    // Profil Einstellungen
+    #[serde(default)]
     pub state: ProfileState,         // Aktueller Status
     #[serde(default)] // Add default for backward compatibility when loading old profiles
     pub mods: Vec<Mod>,              // List of mods for this profile
@@ -77,6 +99,20 @@ pub struct Profile {
     /// Optional: If this profile was created from a standard profile, store its original ID
     #[serde(default)]
     pub source_standard_profile_id: Option<Uuid>,
+    /// Optional group name for UI organization and filtering
+    #[serde(default)]
+    pub group: Option<String>,
+    /// True if this is a standard profile template, false if it's a user profile.
+    #[serde(default)] // Defaults to false for existing user profiles
+    pub is_standard_version: bool, 
+    pub description: Option<String>,
+    #[serde(default)]
+    pub banner: Option<ProfileBanner>, // Banner/background image for the profile
+    pub norisk_information: Option<NoriskInformation>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NoriskInformation {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
@@ -141,6 +177,12 @@ pub enum ProfileState {
     Installed,       // Installiert und bereit
     Running,         // Läuft gerade
     Error,           // Fehler aufgetreten
+}
+
+impl Default for ProfileState {
+    fn default() -> Self {
+        ProfileState::NotInstalled
+    }
 }
 
 // --- Custom Mod Structs & Enums ---
@@ -857,8 +899,7 @@ impl ProfileManager {
                 if let Some(standard_profile) = state.norisk_version_manager.get_profile_by_id(profile_id).await {
                     log::info!("Found standard profile '{}', converting to temporary profile", standard_profile.name);
                     // Convert to a temporary profile
-                    let temp_profile = crate::integrations::norisk_versions::convert_standard_to_user_profile(&standard_profile)?;
-                    return self.calculate_instance_path_for_profile(&temp_profile);
+                    return self.calculate_instance_path_for_profile(&standard_profile);
                 }
                 
                 log::warn!("Profile {} not found when getting instance path (not in regular profiles or standard versions).", profile_id);

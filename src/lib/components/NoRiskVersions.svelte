@@ -1,29 +1,90 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
+    import { convertFileSrc } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
-    import type { NoriskVersionProfile, NoriskVersionsConfig } from '$lib/types/noriskVersions';
+    import type { NoriskVersionsConfig } from '$lib/types/noriskVersions';
+    import type { Profile, ImageSource } from '$lib/types/profile';
     import ProfileCopy from './ProfileCopy.svelte';
     import Modal from './Modal.svelte'; // Assuming you have a Modal component
+    import { appLocalDataDir } from '@tauri-apps/api/path';
     
-    let standardProfiles: NoriskVersionProfile[] = $state([]);
+    let standardProfiles: Profile[] = $state([]);
     let isLoading = $state(true);
     let errorMessage: string | null = $state(null);
     let debugInfo = $state<string[]>([]);
     let showDebugInfo = $state(true); // Always show debug info for troubleshooting
+    let launcherDir: string | null = $state(null);
+    let resolvedImages = $state<Record<string, string>>({});
     
     // State for the copy profile modal
     let showCopyModal = $state(false);
-    let selectedProfileForCopy: NoriskVersionProfile | null = $state(null);
+    let selectedProfileForCopy: Profile | null = $state(null);
     
     function addDebugLog(message: string) {
         console.log(`[NoRiskVersions] ${message}`);
         debugInfo = [...debugInfo, `${new Date().toLocaleTimeString()}: ${message}`];
     }
     
+    // Function to resolve image source using the backend command
+    async function resolveImageSource(profile: Profile): Promise<string> {
+        if (!profile.banner || !profile.banner.source) {
+            // Return a default gradient if no banner is specified
+            return 'linear-gradient(135deg, #2c3e50, #3498db)';
+        }
+        
+        try {
+            const resolved = await invoke<string>('resolve_image_path', {
+                imageSource: profile.banner.source,
+                profileId: profile.id
+            });
+            
+            // Use convertFileSrc for local file paths to handle security restrictions
+            let finalPath = resolved;
+            if (resolved.startsWith('file://')) {
+                const localPath = resolved.replace('file://', '');
+                finalPath = convertFileSrc(localPath);
+                addDebugLog(`Converting ${resolved} to ${finalPath}`);
+            }
+            
+            addDebugLog(`Resolved image for ${profile.id}: ${finalPath}`);
+            return finalPath;
+        } catch (error) {
+            addDebugLog(`Error resolving image for ${profile.id}: ${error}`);
+            return 'linear-gradient(135deg, #2c3e50, #3498db)';
+        }
+    }
+    
+    // Function to get the resolved image for a profile
+    async function getProfileBackground(profile: Profile): Promise<string> {
+        // Return cached resolved path if available
+        if (resolvedImages[profile.id]) {
+            return `url("${resolvedImages[profile.id]}")`;
+        }
+        
+        const resolvedImage = await resolveImageSource(profile);
+        
+        // Check if it's a URL or a gradient (fallback)
+        if (resolvedImage.startsWith('linear-gradient')) {
+            return resolvedImage;
+        }
+        
+        // Store in cache for future use
+        resolvedImages[profile.id] = resolvedImage;
+        return `url("${resolvedImage}") center / cover no-repeat`;
+    }
+    
     onMount(async () => {
         try {
             addDebugLog("Component mounted, fetching standard profiles config...");
             isLoading = true;
+            
+            // Get launcher directory for resolving relative paths
+            try {
+                launcherDir = await appLocalDataDir();
+                addDebugLog(`Launcher directory: ${launcherDir}`);
+            } catch (e) {
+                addDebugLog(`Failed to get launcher directory: ${e}`);
+            }
             
             addDebugLog("Calling invoke('get_standard_profiles')");
             const config = await invoke<NoriskVersionsConfig>("get_standard_profiles");
@@ -50,6 +111,16 @@
                     addDebugLog("WARNING: Config does not contain standard_profiles array, using empty array");
                     standardProfiles = [];
                 }
+            }
+            
+            // Pre-resolve all profile backgrounds
+            if (standardProfiles.length > 0) {
+                addDebugLog("Pre-resolving profile backgrounds...");
+                for (const profile of standardProfiles) {
+                    // Just invoke the function that caches results
+                    await getProfileBackground(profile);
+                }
+                addDebugLog("Background resolution complete");
             }
             
             addDebugLog(`State updated with ${standardProfiles.length} profiles (array: ${Array.isArray(standardProfiles)})`);
@@ -80,7 +151,7 @@
         }
     }
     
-    function openCopyProfileModal(profile: NoriskVersionProfile) {
+    function openCopyProfileModal(profile: Profile) {
         addDebugLog(`Opening copy modal for profile with ID: ${profile.id}`);
         selectedProfileForCopy = profile;
         showCopyModal = true;
@@ -101,22 +172,22 @@
     // Function to manually test with mock data
     async function addTestProfiles() {
         addDebugLog("Adding test profiles for debugging");
-        standardProfiles = [
+        /*standardProfiles = [
             {
                 id: "test-1",
                 name: "Test NoRisk 1.8.9",
-                mc_version: "1.8.9",
+                game_version: "1.8.9",
                 loader: "forge",
                 description: "Test profile for debugging"
             },
             {
                 id: "test-2",
                 name: "Test NoRisk 1.12.2",
-                mc_version: "1.12.2",
+                game_version: "1.12.2",
                 loader: "forge",
                 description: "Another test profile for debugging"
             }
-        ];
+        ];*/
         addDebugLog(`Added ${standardProfiles.length} test profiles`);
     }
 </script>
@@ -140,10 +211,13 @@
     {:else}
         <div class="profiles-grid">
             {#each standardProfiles as profile (profile.id)}
-                <div class="profile-card">
+                {@const bgStyle = resolvedImages[profile.id] ? 
+                    `background: url("${resolvedImages[profile.id]}") center / cover no-repeat` : 
+                    'background: linear-gradient(135deg, #2c3e50, #3498db)'}
+                <div class="profile-card" style={bgStyle}>
                     <div class="profile-header">
                         <h4>{profile.name}</h4>
-                        <span class="mc-version">{profile.mc_version} • {profile.loader}</span>
+                        <span class="mc-version">{profile.game_version} • {profile.loader}</span>
                     </div>
                     <p class="description">{profile.description}</p>
                     <div class="actions">
@@ -244,7 +318,13 @@
         border: 1px solid #eee;
         border-radius: 6px;
         padding: 15px;
-        background-color: #f9f9f9;
+        position: relative;
+        overflow: hidden;
+        color: white; /* Default text color, can be overridden by style */
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); /* Add text shadow for better readability on image backgrounds */
+        min-height: 180px; /* Ensure enough height even with minimal content */
+        display: flex;
+        flex-direction: column;
         transition: box-shadow 0.2s, transform 0.2s;
     }
     
@@ -253,19 +333,39 @@
         transform: translateY(-2px);
     }
     
+    /* Add a dark overlay for better text readability on image backgrounds */
+    .profile-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3); /* Semi-transparent overlay */
+        z-index: 1;
+        pointer-events: none; /* Allow clicking through to the card */
+    }
+    
+    /* Ensure all content is above the overlay */
+    .profile-card > * {
+        position: relative;
+        z-index: 2;
+    }
+    
     .profile-header {
         margin-bottom: 10px;
     }
     
     .profile-header h4 {
         margin: 0 0 5px 0;
-        color: #333;
+        color: inherit; /* Use the color from the parent */
+        font-size: 1.2rem;
     }
     
     .mc-version {
         font-size: 0.8em;
-        color: #666;
-        background-color: #eee;
+        color: inherit; /* Use the color from the parent */
+        background-color: rgba(0, 0, 0, 0.3);
         padding: 2px 6px;
         border-radius: 4px;
     }
@@ -273,8 +373,9 @@
     .description {
         margin: 10px 0;
         font-size: 0.9em;
-        color: #555;
+        color: inherit; /* Use the color from the parent */
         line-height: 1.4;
+        flex-grow: 1; /* Allow description to expand to fill space */
     }
     
     .actions {
@@ -296,6 +397,7 @@
     .launch-btn {
         background-color: #2ecc71;
         color: white;
+        font-weight: bold;
     }
     
     .launch-btn:hover {

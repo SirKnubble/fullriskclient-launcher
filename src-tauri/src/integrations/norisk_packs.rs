@@ -16,6 +16,8 @@ use std::collections::HashSet;
 use tempfile::tempdir;
 use reqwest::Client;
 use crate::utils::profile_utils::copy_dir_recursively;
+use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use std::env; // Added for env! macro
 
 /// Represents the overall structure of the norisk_modpacks.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,7 +36,14 @@ pub struct NoriskPackDefinition {
     #[serde(rename = "displayName")]
     pub display_name: String,
     pub description: String,
-    /// List of mods included in this specific pack variant.
+    /// Optional: List of pack IDs this pack inherits mods from. Processed in order.
+    #[serde(rename = "inheritsFrom", default)]
+    pub inherits_from: Option<Vec<String>>,
+    /// Optional: List of mod IDs to exclude after inheritance and local mods are combined.
+    #[serde(rename = "excludeMods", default)]
+    pub exclude_mods: Option<Vec<String>>,
+    /// Optional: List of mods specifically defined for this pack. These override inherited mods.
+    #[serde(default)]
     pub mods: Vec<NoriskModEntryDefinition>,
 }
 
@@ -313,4 +322,195 @@ pub async fn import_noriskpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
     info!("Successfully created and saved profile with ID: {}", profile_id);
 
     Ok(profile_id)
+}
+
+impl NoriskModpacksConfig {
+    pub fn resolve_pack_mods(
+        &self,
+        pack_id: &str,
+        visited: &mut HashSet<String>, // To detect circular inheritance
+    ) -> Result<Vec<NoriskModEntryDefinition>> {
+        // --- 1. Circular Dependency Check ---
+        if !visited.insert(pack_id.to_string()) {
+            error!("Circular inheritance detected involving pack ID: {}", pack_id);
+            return Err(AppError::Other(format!(
+                "Circular inheritance detected involving pack ID: {}",
+                pack_id
+            )));
+        }
+
+        // --- 2. Get Base Definition ---
+        let base_definition = self.packs.get(pack_id).ok_or_else(|| {
+            error!("Pack ID '{}' not found in configuration.", pack_id);
+            AppError::Other(format!("Pack ID '{}' not found", pack_id))
+        })?;
+
+        // --- 3. Initialize Mod Map ---
+        // Use HashMap to handle overrides easily (Mod ID -> Mod Definition)
+        let mut resolved_mods: HashMap<String, NoriskModEntryDefinition> = HashMap::new();
+
+        // --- 4. Handle Inheritance ---
+        if let Some(parent_ids) = &base_definition.inherits_from {
+            for parent_id in parent_ids {
+                debug!("Pack '{}': Inheriting from parent '{}'", pack_id, parent_id);
+                // Recursively resolve parent mods
+                let parent_mods = self.resolve_pack_mods(parent_id, visited)?;
+                // Merge parent mods into the map. Later parents override earlier ones.
+                for mod_entry in parent_mods {
+                    resolved_mods.insert(mod_entry.id.clone(), mod_entry);
+                }
+            }
+        }
+
+        // --- 5. Handle Local Mods ---
+        // Local mods defined directly in the pack override any inherited mods.
+        if let local_mods = &base_definition.mods {
+             debug!("Pack '{}': Processing {} local mods", pack_id, local_mods.len());
+            for mod_entry in local_mods {
+                resolved_mods.insert(mod_entry.id.clone(), mod_entry.clone());
+            }
+        }
+
+        // --- 6. Handle Exclusions ---
+        // Exclusions are applied *after* inheritance and local overrides.
+        if let Some(excluded_mod_ids) = &base_definition.exclude_mods {
+            debug!("Pack '{}': Applying {} exclusions", pack_id, excluded_mod_ids.len());
+            for mod_id_to_exclude in excluded_mod_ids {
+                if resolved_mods.remove(mod_id_to_exclude).is_some() {
+                     debug!("Pack '{}': Excluded mod '{}'", pack_id, mod_id_to_exclude);
+                } else {
+                     warn!("Pack '{}': Exclusion requested for mod '{}', but it was not found in the resolved list.", pack_id, mod_id_to_exclude);
+                }
+            }
+        }
+
+        // --- 7. Finalize ---
+        // Remove the current pack from the visited set for the current resolution path
+        visited.remove(pack_id);
+
+        // Convert the HashMap values back to a Vec
+        let final_mod_list: Vec<NoriskModEntryDefinition> =
+            resolved_mods.into_values().collect();
+        
+        debug!("Pack '{}': Resolved to {} final mods.", pack_id, final_mod_list.len());
+        Ok(final_mod_list)
+    }
+
+    // Helper function to get a fully resolved pack definition (including mods)
+    // This combines the base definition with the resolved mods.
+     pub fn get_resolved_pack_definition(&self, pack_id: &str) -> Result<NoriskPackDefinition> {
+        let base_definition = self.packs.get(pack_id).ok_or_else(|| {
+            error!("Pack ID '{}' not found in configuration.", pack_id);
+            AppError::Other(format!("Pack ID '{}' not found", pack_id))
+        })?;
+
+        let mut visited = HashSet::new();
+        let resolved_mods_vec = self.resolve_pack_mods(pack_id, &mut visited)?;
+
+        Ok(NoriskPackDefinition {
+            display_name: base_definition.display_name.clone(),
+            description: base_definition.description.clone(),
+            inherits_from: base_definition.inherits_from.clone(), // Keep original inheritance info
+            exclude_mods: base_definition.exclude_mods.clone(),   // Keep original exclusion info
+            mods: resolved_mods_vec, // Use the fully resolved list here
+        })
+    }
+
+    /// Prints the resolved mod list for each pack defined in the configuration.
+    /// Useful for debugging the inheritance and exclusion logic.
+    pub fn print_resolved_packs(&self) -> Result<()> {
+        info!("Printing resolved packs...");
+        // Collect pack IDs to avoid borrowing issues while iterating and resolving
+        let pack_ids: Vec<String> = self.packs.keys().cloned().collect();
+
+        for pack_id in pack_ids {
+            match self.get_resolved_pack_definition(&pack_id) {
+                Ok(resolved_pack) => {
+                    // Use debug logging for potentially large output
+                    debug!("--- Resolved Pack: '{}' ---", resolved_pack.display_name);
+                    debug!("  Description: {}", resolved_pack.description);
+                    if let Some(inherits) = &resolved_pack.inherits_from {
+                        debug!("  Inherits From: {:?}", inherits);
+                    }
+                    if let Some(excludes) = &resolved_pack.exclude_mods {
+                        debug!("  Excludes Mods: {:?}", excludes);
+                    }
+                    
+                    let mod_ids: Vec<&str> = resolved_pack.mods.iter().map(|m| m.id.as_str()).collect();
+                    debug!("  Final Mods ({}): {:?}", mod_ids.len(), mod_ids);
+                    
+                    // Example of printing more details (optional)
+                    // for mod_def in resolved_pack.mods {
+                    //     debug!("    - Mod ID: {}, Source Type: {:?}, Compatibility Keys: {:?}", 
+                    //            mod_def.id, 
+                    //            mod_def.source, // This might be verbose
+                    //            mod_def.compatibility.keys().collect::<Vec<_>>()
+                    //     );
+                    // }
+                    println!("Resolved Pack: '{}' - Final Mod IDs: {:?}", resolved_pack.display_name, mod_ids);
+                }
+                Err(e) => {
+                    error!("Failed to resolve pack '{}': {}", pack_id, e);
+                    // Decide if you want to continue or return the error
+                    // For a print function, continuing might be acceptable.
+                    // return Err(e); 
+                }
+            }
+        }
+        info!("Finished printing resolved packs.");
+        Ok(())
+    }
+}
+
+/// Copies a dummy/test `test_norisk_modpacks.json` from the project's source directory
+/// (assuming a development environment structure) to the launcher's root directory
+/// as `norisk_modpacks.json` if it doesn't already exist.
+///
+/// Note: This path resolution using CARGO_MANIFEST_DIR might not work correctly
+/// in a packaged production build. Consider using Tauri's resource resolver for that.
+pub async fn load_dummy_modpacks() -> Result<()> {
+    let target_dir = LAUNCHER_DIRECTORY.root_dir();
+    let target_file = target_dir.join("norisk_modpacks.json");
+
+    // Only copy if the target file doesn't exist
+    if target_file.exists() {
+        //info!("Target modpacks file {:?} already exists. Skipping dummy loading.", target_file);
+        //return Ok(());
+    }
+
+    // --- Path resolution based on CARGO_MANIFEST_DIR --- 
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // Assuming the project root is one level above the crate's manifest (src-tauri)
+    let project_root = manifest_dir.parent().ok_or_else(|| {
+        AppError::Other("Failed to get parent directory of CARGO_MANIFEST_DIR".to_string())
+    })?;
+    
+    // Use the test file as the source
+    let source_path = project_root.join("minecraft-data/nrc/norisk_modpacks.json"); 
+    // --- End path resolution ---
+
+    if source_path.exists() {
+        info!("Found dummy modpacks source at: {:?}", source_path);
+        // Ensure the target directory exists
+        fs::create_dir_all(&target_dir).await.map_err(|e| {
+            error!("Failed to create target directory {:?}: {}", target_dir, e);
+            AppError::Io(e)
+        })?;
+
+        // Copy the file
+        fs::copy(&source_path, &target_file).await.map_err(|e| {
+            error!("Failed to copy dummy modpacks from {:?} to {:?}: {}", source_path, target_file, e);
+            AppError::Io(e)
+        })?;
+        info!("Successfully copied dummy modpacks to {:?}", target_file);
+    } else {
+        error!("Dummy modpacks source file not found at expected path: {:?}", source_path);
+        // Use a more general error as it's not a Tauri resource issue anymore
+        return Err(AppError::Other(format!(
+            "Source file not found for dummy modpacks: {}",
+            source_path.display()
+        )));
+    }
+
+    Ok(())
 }

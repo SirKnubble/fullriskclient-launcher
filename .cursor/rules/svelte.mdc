@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# IMPORTANT:
+
+# Always check src/lib/types before writing any code svelte code, reuse, create and modify types.
+
+# Use Typescript, Svelte and Tauri v2 to build precise and capsulated UI Components.
+
+

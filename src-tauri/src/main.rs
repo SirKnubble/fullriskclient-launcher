@@ -15,7 +15,8 @@ mod utils;
 use log::{error, info};
 use rand::seq::SliceRandom;
 use std::sync::Arc;
-use crate::integrations::norisk_versions;
+use crate::integrations::norisk_versions;   
+use crate::integrations::norisk_packs;
 
 use crate::commands::process_command::{
     get_full_log, get_process, get_processes, get_processes_by_profile, stop_process,
@@ -48,6 +49,11 @@ use commands::file_command::{delete_file, open_file_directory, set_file_enabled}
 // Import config commands
 use commands::config_commands::{
     get_launcher_config, set_launcher_config
+};
+
+// Import path commands
+use commands::path_commands::{
+    get_launcher_directory, resolve_image_path
 };
 
 #[tokio::main]
@@ -146,7 +152,8 @@ async fn main() {
             let app_handle = Arc::new(app.handle().clone());
 
             tauri::async_runtime::spawn(async move {
-                norisk_versions::load_dummy_versions().await;
+                let _ = norisk_versions::load_dummy_versions().await;
+                let _ = norisk_packs::load_dummy_modpacks().await;
 
                 if let Err(e) = state::state_manager::State::init(app_handle).await {
                     error!("Failed to initialize state: {}", e);
@@ -210,7 +217,9 @@ async fn main() {
             copy_profile,
             export_profile,
             get_launcher_config,
-            set_launcher_config
+            set_launcher_config,
+            get_launcher_directory,
+            resolve_image_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
