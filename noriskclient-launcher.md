@@ -38,11 +38,41 @@
 - Task-Management mit tokio für asynchrone Prozesse
 
 ### Launcher-Konfiguration
-- Globale Einstellungen für den Launcher
-- Experimental-Modus für NoRisk Client
-- Automatische Update-Überprüfung
-- Konfigurierbare Anzahl gleichzeitiger Downloads
-- Versionsbasierte Konfigurationsverwaltung für Zukunftskompatibilität
+Die Launcher-Konfiguration wird in einer JSON-Datei gespeichert (`launcher_config.json`) und verwaltet folgende Einstellungen:
+
+- `version` (INTEGER): Versionsnummer der Konfiguration für zukünftige Kompatibilität
+- `is_experimental` (BOOLEAN): Aktiviert den experimentellen Modus für NoRisk Client
+- `auto_check_updates` (BOOLEAN): Automatische Überprüfung auf Updates
+- `concurrent_downloads` (INTEGER): Anzahl gleichzeitiger Downloads (1-10)
+
+Der ConfigManager stellt folgende Funktionen bereit:
+- `get_config()`: Gibt die aktuelle Konfiguration zurück
+- `set_experimental_mode(enabled)`: Setzt den experimentellen Modus
+- `set_auto_check_updates(enabled)`: Aktiviert/deaktiviert automatische Updates
+- `set_concurrent_downloads(count)`: Setzt die Anzahl gleichzeitiger Downloads
+
+### Tauri-Konfiguration
+Die Tauri-spezifische Konfiguration wird in `tauri.conf.json` gespeichert und enthält wichtige Einstellungen für die App-Integration:
+
+- `productName`: Name der Anwendung
+- `version`: Versionsnummer der Anwendung
+- `identifier`: Eindeutiger Identifier im Format "gg.norisk.NoRiskClientLauncherV3"
+- `security`: Sicherheitseinstellungen
+  - `csp`: Content Security Policy (auf null gesetzt für maximale Flexibilität)
+  - `assetProtocol`: Asset-Protokoll-Konfiguration
+    - `enable`: true (Aktiviert das Asset-Protokoll)
+    - `scope`: Definiert den erlaubten Zugriff
+      - `requireLiteralLeadingDot`: false
+      - `allow`: ["**/*"] (Erlaubt Zugriff auf alle Dateitypen)
+- `plugins`: Konfiguration der Tauri-Plugins
+  - `minecraft_auth`: Minecraft-Authentifizierung
+- `build`: Build-Konfiguration
+  - `beforeDevCommand`: "npm run dev"
+  - `devUrl`: "http://localhost:1420"
+  - `beforeBuildCommand`: "npm run build"
+  - `frontendDist`: "../build"
+
+Diese Konfiguration ist entscheidend für die korrekte Funktionsweise des Asset-Protokolls, welches für die Anzeige lokaler Bilder in der Benutzeroberfläche benötigt wird.
 
 ### Dateisystem-Integration
 - Anzeigen der Profilordnerstruktur mit hierarchischer Baumansicht
@@ -78,6 +108,16 @@
 - Kommunikation zwischen Frontend und Backend über Tauri-API
 - Ausführen von Betriebssystem-Operationen
 - Dateisystemzugriff mit Sicherheitsabstraktionen
+- Asset-Handling für Profilbilder und UI-Elemente:
+  - Backend-Kommando `resolve_image_path` zur Auflösung verschiedener Bildquellentypen
+  - Frontend-Konvertierung mit `convertFileSrc` für lokale Dateipfade
+  - Sicheres Caching von Bild-URLs im Frontend für verbesserte Performance
+  - Unterstützung für verschiedene Bildquellentypen:
+    - URL-basierte Bilder (remote)
+    - Dateibasierte Bilder (lokal)
+    - Profilrelative Bilder
+    - Base64-codierte Bilder
+    - Absolute Pfade
 
 ### Authentifizierung & Token-Management
 - Microsoft-Login für Minecraft-Konten
@@ -95,6 +135,10 @@
 - Ereignisbasierte Kommunikation zwischen Komponenten
 - Reaktive Dateisystem-Visualisierung
 - Interaktive Prozesssteuerung für Installationsprozesse
+- Tauri v2 API Integration für Systemfunktionen
+  - `@tauri-apps/api/core` für Basisfunktionen wie `invoke` und `convertFileSrc`
+  - `@tauri-apps/api/path` für Pfadoperationen und Dateisystemzugriff
+  - Korrekte Handhabung lokaler Dateipfade für Bilddarstellung im UI mit `convertFileSrc`
 
 ### Backend
 - Rust-basiertes Backend über Tauri
@@ -105,6 +149,10 @@
 - Konfigurationsmanager für globale Launcher-Einstellungen
 - Token-Management für NoRisk-Authentifizierung
 - Task-Management mit tokio für asynchrone Prozesse
+- Asset-Protokollverarbeitung für sichere Ressourcenanzeige
+  - Konfiguration des Asset-Protokolls in `tauri.conf.json`
+  - Rückgabe von `file://` URLs für `resolve_image_path`
+  - Frontend-seitige Konvertierung mit `convertFileSrc`
 
 ## Datenbankschema
 
@@ -166,6 +214,29 @@ Der ConfigManager stellt folgende Funktionen bereit:
 - `set_experimental_mode(enabled)`: Setzt den experimentellen Modus
 - `set_auto_check_updates(enabled)`: Aktiviert/deaktiviert automatische Updates
 - `set_concurrent_downloads(count)`: Setzt die Anzahl gleichzeitiger Downloads
+
+### Tauri-Konfiguration
+Die Tauri-spezifische Konfiguration wird in `tauri.conf.json` gespeichert und enthält wichtige Einstellungen für die App-Integration:
+
+- `productName`: Name der Anwendung
+- `version`: Versionsnummer der Anwendung
+- `identifier`: Eindeutiger Identifier im Format "gg.norisk.NoRiskClientLauncherV3"
+- `security`: Sicherheitseinstellungen
+  - `csp`: Content Security Policy (auf null gesetzt für maximale Flexibilität)
+  - `assetProtocol`: Asset-Protokoll-Konfiguration
+    - `enable`: true (Aktiviert das Asset-Protokoll)
+    - `scope`: Definiert den erlaubten Zugriff
+      - `requireLiteralLeadingDot`: false
+      - `allow`: ["**/*"] (Erlaubt Zugriff auf alle Dateitypen)
+- `plugins`: Konfiguration der Tauri-Plugins
+  - `minecraft_auth`: Minecraft-Authentifizierung
+- `build`: Build-Konfiguration
+  - `beforeDevCommand`: "npm run dev"
+  - `devUrl`: "http://localhost:1420"
+  - `beforeBuildCommand`: "npm run build"
+  - `frontendDist`: "../build"
+
+Diese Konfiguration ist entscheidend für die korrekte Funktionsweise des Asset-Protokolls, welches für die Anzeige lokaler Bilder in der Benutzeroberfläche benötigt wird.
 
 ## Migrationen
 
@@ -247,6 +318,14 @@ Der ConfigManager stellt folgende Funktionen bereit:
   - `set_experimental_mode`: Setzt den experimentellen Modus
   - `set_auto_check_updates`: Aktiviert/deaktiviert automatische Updates
   - `set_concurrent_downloads`: Konfiguriert die Anzahl gleichzeitiger Downloads
+- `path_commands.rs`: Befehle für Dateipfad- und Asset-Management
+  - `get_launcher_directory`: Gibt den Hauptordner des Launchers zurück
+  - `resolve_image_path`: Intelligente Auflösung verschiedener Bildquellen für die UI
+    - Handhabung von URL-basierten Ressourcen
+    - Konvertierung Base64-codierter Bilder in darstellbare Formate
+    - Auflösung von relativen und absoluten Pfaden zu lokalen Dateien
+    - Rückgabe von `file://` URLs für Frontend-seitige Verarbeitung mit `convertFileSrc`
+    - Fallback zu Standardwerten bei Ladeproblemen
 
 ## Frontend-Komponenten
 
@@ -266,6 +345,15 @@ Der ConfigManager stellt folgende Funktionen bereit:
 ### NoRiskVersions.svelte
 - Anzeige verfügbarer NoRisk Standard-Versionen
 - Optionen zum direkten Starten oder Kopieren als Profil
+- Hintergrundvisualisierung mit dynamischem Image-Loading:
+  - Integration mit Backend über `resolve_image_path` Kommando
+  - Konvertierung lokaler Dateipfade mit `convertFileSrc` aus Tauri v2 API (`@tauri-apps/api/core`)
+  - Importieren von `invoke` aus `@tauri-apps/api/core` für API-Aufrufe
+  - Reaktives Caching aufgelöster Bild-URLs für verbesserte Performance
+  - Fallback-Darstellung mit Farbverläufen bei fehlenden Bildern
+  - Robuste Fehlerbehandlung bei Bildladefehlern
+- Detaillierte Debug-Anzeige für Entwicklungszwecke
+- Vollständige Integration mit dem Kopier-Mechanismus für Profile
 
 ### FileNodeViewer.svelte
 - Hochinteraktive, hierarchische Dateisystem-Darstellung
@@ -301,6 +389,19 @@ Der ConfigManager stellt folgende Funktionen bereit:
   - `start_time`: Zeitpunkt des Prozessstarts
   - `state`: Aktueller Zustand des Prozesses
   - `pid`: Prozess-ID des Betriebssystems
+
+### ImageSource
+- Enum in Rust und Interface in TypeScript zur Verwaltung verschiedener Bildquelltypen
+- Varianten:
+  - `Url`: Remote-Bilder über HTTP(S) URLs
+  - `RelativePath`: Pfade relativ zum Launcher-Verzeichnis
+  - `RelativeProfile`: Pfade relativ zum Profilordner
+  - `AbsolutePath`: Absolute Pfade im Dateisystem
+  - `Base64`: Base64-codierte Bilddaten mit optionalem MIME-Typ
+- Implementierungsdetails:
+  - Backend: Konvertierung zu darstellbaren URLs via `resolve_image_path`
+  - Frontend: Sichere Darstellung mittels `convertFileSrc` für lokale Dateien
+  - Caching: Speicherung aufgelöster Bildpfade als UI-Optimierung
 
 ### NoRiskToken
 - `value`: String-Wert des JWT-Tokens für API-Autorisierung
