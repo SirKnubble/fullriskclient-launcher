@@ -1,4 +1,4 @@
-use crate::config::{LAUNCHER_DIRECTORY, ProjectDirsExt};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::api::forge_api::ForgeApi;
 use crate::minecraft::downloads::{ForgeInstallerDownloadService, ForgeLibrariesDownload};
@@ -18,12 +18,12 @@ pub struct ForgeInstaller {
 
 impl ForgeInstaller {
     pub fn new(java_path: PathBuf) -> Self {
-        Self { 
+        Self {
             java_path,
             concurrent_downloads: 10, // Default value
         }
     }
-    
+
     pub fn set_concurrent_downloads(&mut self, count: usize) -> &mut Self {
         self.concurrent_downloads = count;
         self
@@ -50,7 +50,7 @@ impl ForgeInstaller {
         let forge_api = ForgeApi::new();
         let mut forge_libraries_download = ForgeLibrariesDownload::new();
         let forge_installer_download = ForgeInstallerDownloadService::new();
-        
+
         // Setze die Anzahl der konkurrenten Downloads
         forge_libraries_download.set_concurrent_downloads(self.concurrent_downloads);
         // Forge installer hat möglicherweise keine set_concurrent_downloads Methode
@@ -67,11 +67,14 @@ impl ForgeInstaller {
             )));
         }
 
-        // --- Determine Forge Version --- 
+        // --- Determine Forge Version ---
         let target_forge_version = match &profile.loader_version {
             Some(specific_version_str) if !specific_version_str.is_empty() => {
-                info!("Attempting to find specific Forge version: {}", specific_version_str);
-                
+                info!(
+                    "Attempting to find specific Forge version: {}",
+                    specific_version_str
+                );
+
                 // Check if the specific version exists in the compatible list
                 if compatible_versions.contains(specific_version_str) {
                     info!("Found specified Forge version: {}", specific_version_str);
@@ -87,8 +90,11 @@ impl ForgeInstaller {
             }
             _ => {
                 // Fallback to latest compatible if no specific version is set
-                info!("No specific Forge version set in profile, using latest for MC {}.", version_id);
-                 compatible_versions.first().unwrap().clone() // Unsafe unwrap okay due to is_empty check above
+                info!(
+                    "No specific Forge version set in profile, using latest for MC {}.",
+                    version_id
+                );
+                compatible_versions.first().unwrap().clone() // Unsafe unwrap okay due to is_empty check above
             }
         };
         // --- End Determine Forge Version ---
@@ -96,52 +102,70 @@ impl ForgeInstaller {
         info!("Using Forge version: {}", target_forge_version);
 
         // Emit Forge version found event (using the determined version)
-        state.emit_event(EventPayload {
-            event_id: forge_event_id, 
-            event_type: EventType::InstallingForge, 
-            target_id: Some(profile.id), 
-            message: format!("Forge Version {} wird verwendet", target_forge_version), 
-            progress: Some(0.1), 
-            error: None 
-        }).await?;
+        state
+            .emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: format!("Forge Version {} wird verwendet", target_forge_version),
+                progress: Some(0.1),
+                error: None,
+            })
+            .await?;
 
         // Download and extract Forge installer (using the determined version)
-        state.emit_event(EventPayload {
-            event_id: forge_event_id,
-            event_type: EventType::InstallingForge,
-            target_id: Some(profile.id),
-            message: "Forge Installer wird heruntergeladen...".to_string(),
-            progress: Some(0.2),
-            error: None,
-        }).await?;
+        state
+            .emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge Installer wird heruntergeladen...".to_string(),
+                progress: Some(0.2),
+                error: None,
+            })
+            .await?;
 
         forge_installer_download
             .download_installer(&target_forge_version)
             .await?;
 
-        state.emit_event(EventPayload {
-            event_id: forge_event_id,
-            event_type: EventType::InstallingForge,
-            target_id: Some(profile.id),
-            message: "Forge Installer wird extrahiert...".to_string(),
-            progress: Some(0.3),
-            error: None,
-        }).await?;
+        state
+            .emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge Installer wird extrahiert...".to_string(),
+                progress: Some(0.3),
+                error: None,
+            })
+            .await?;
 
-        let forge_version = forge_installer_download.extract_version_json(&target_forge_version).await?;
-        let profile_json = forge_installer_download.extract_install_profile(&target_forge_version).await?;
-        forge_installer_download.extract_data_folder(&target_forge_version).await?;
-        forge_installer_download.extract_maven_folder(&target_forge_version).await?;
-        forge_installer_download.extract_jars(&target_forge_version).await?;
+        let forge_version = forge_installer_download
+            .extract_version_json(&target_forge_version)
+            .await?;
+        let profile_json = forge_installer_download
+            .extract_install_profile(&target_forge_version)
+            .await?;
+        forge_installer_download
+            .extract_data_folder(&target_forge_version)
+            .await?;
+        forge_installer_download
+            .extract_maven_folder(&target_forge_version)
+            .await?;
+        forge_installer_download
+            .extract_jars(&target_forge_version)
+            .await?;
 
-        state.emit_event(EventPayload {
-            event_id: forge_event_id,
-            event_type: EventType::InstallingForge,
-            target_id: Some(profile.id),
-            message: "Forge Libraries werden heruntergeladen...".to_string(),
-            progress: Some(0.4),
-            error: None,
-        }).await?;
+        state
+            .emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge Libraries werden heruntergeladen...".to_string(),
+                progress: Some(0.4),
+                error: None,
+            })
+            .await?;
 
         // Download Forge libraries (still uses forge_version DTO derived from the installer)
         forge_libraries_download
@@ -161,49 +185,137 @@ impl ForgeInstaller {
         let mut use_custom_client_path = true;
 
         if let Some(forge_profile) = profile_json {
-            state.emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge Installer Libraries werden heruntergeladen...".to_string(),
-                progress: Some(0.6),
-                error: None,
-            }).await?;
+            state
+                .emit_event(EventPayload {
+                    event_id: forge_event_id,
+                    event_type: EventType::InstallingForge,
+                    target_id: Some(profile.id),
+                    message: "Forge Installer Libraries werden heruntergeladen...".to_string(),
+                    progress: Some(0.6),
+                    error: None,
+                })
+                .await?;
 
             forge_libraries_download
                 .download_installer_libraries(&forge_profile)
                 .await?;
 
-            state.emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Forge wird gepatcht...".to_string(),
-                progress: Some(0.7),
-                error: None,
-            }).await?;
+            // Prüfen, ob Patching übersprungen werden kann
+            let mut should_run_patcher = true;
 
-            let forge_patcher = ForgePatcher::new(self.java_path.clone(), version_id);
-            // Use determined installer_path
-            forge_patcher
-                .with_event_id(forge_event_id)
-                .with_profile_id(profile.id)
-                .apply_processors(&forge_profile, version_id, true, &installer_path)
-                .await?;
+            // PATCHED und PATCHED_SHA aus den Daten abrufen
+            if let (Some(patched), Some(patched_sha)) = (
+                forge_profile.data.get("PATCHED"),
+                forge_profile.data.get("PATCHED_SHA"),
+            ) {
+                let client_path_str = &patched.client;
+                // Maven-Koordinaten extrahieren: [group:artifact:version:classifier]
+                if client_path_str.starts_with('[') && client_path_str.ends_with(']') {
+                    let maven_coords = &client_path_str[1..client_path_str.len() - 1];
+                    let parts: Vec<&str> = maven_coords.split(':').collect();
+
+                    if parts.len() >= 4 {
+                        let (group, artifact, version, classifier) =
+                            (parts[0], parts[1], parts[2], parts[3]);
+
+                        // Berechne Dateipfad
+                        let group_path = group.replace('.', "/");
+                        let file_name = format!("{}-{}-{}.jar", artifact, version, classifier);
+
+                        let library_path = LAUNCHER_DIRECTORY
+                            .meta_dir()
+                            .join("libraries")
+                            .join(group_path)
+                            .join(artifact)
+                            .join(version)
+                            .join(file_name);
+
+                        // Directly access the client field, as 'patched_sha' is already unwrapped
+                        let client_sha_str = &patched_sha.client;
+                        let expected_hash = client_sha_str.trim_matches('\'');
+
+                        info!(
+                            "Checking for pre-patched Forge client: {}",
+                            library_path.display()
+                        );
+                        info!("Expected hash: {}", expected_hash);
+
+                        // Prüfe ob die Datei existiert
+                        if library_path.exists() {
+                            // Benutze die vorhandene Hash-Funktion
+                            match crate::utils::hash_utils::calculate_sha1(&library_path).await {
+                                Ok(actual_hash) => {
+                                    if actual_hash == expected_hash {
+                                        info!("✅ Pre-patched Forge client already exists with correct hash");
+                                        should_run_patcher = false;
+                                    } else {
+                                        info!("❌ Forge client exists but has incorrect hash. Expected: {}, Found: {}", 
+                                    expected_hash, actual_hash);
+                                    }
+                                }
+                                Err(e) => {
+                                    info!("❌ Error calculating hash for existing file: {}", e);
+                                }
+                            }
+                        } else {
+                            info!(
+                                "❌ Patched Forge client file not found at: {}",
+                                library_path.display()
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Patcher nur ausführen, wenn nötig
+            if should_run_patcher {
+                state
+                    .emit_event(EventPayload {
+                        event_id: forge_event_id,
+                        event_type: EventType::InstallingForge,
+                        target_id: Some(profile.id),
+                        message: "Forge wird gepatcht...".to_string(),
+                        progress: Some(0.7),
+                        error: None,
+                    })
+                    .await?;
+
+                let forge_patcher = ForgePatcher::new(self.java_path.clone(), version_id);
+                forge_patcher
+                    .with_event_id(forge_event_id)
+                    .with_profile_id(profile.id)
+                    .apply_processors(&forge_profile, version_id, true, &installer_path)
+                    .await?;
+            } else {
+                state
+                    .emit_event(EventPayload {
+                        event_id: forge_event_id,
+                        event_type: EventType::InstallingForge,
+                        target_id: Some(profile.id),
+                        message:
+                            "Vorgepatchte Forge-Client Datei gefunden, überspringe Patching..."
+                                .to_string(),
+                        progress: Some(0.7),
+                        error: None,
+                    })
+                    .await?;
+            }
 
             if version_id == "1.12.2" {
                 force_include_minecraft_jar = true;
             }
         } else {
             // Restore full event payload for legacy library download
-            state.emit_event(EventPayload {
-                event_id: forge_event_id,
-                event_type: EventType::InstallingForge,
-                target_id: Some(profile.id),
-                message: "Legacy Forge Libraries werden heruntergeladen...".to_string(),
-                progress: Some(0.8),
-                error: None,
-            }).await?;
+            state
+                .emit_event(EventPayload {
+                    event_id: forge_event_id,
+                    event_type: EventType::InstallingForge,
+                    target_id: Some(profile.id),
+                    message: "Legacy Forge Libraries werden heruntergeladen...".to_string(),
+                    progress: Some(0.8),
+                    error: None,
+                })
+                .await?;
 
             forge_libraries_download
                 .download_legacy_libraries(&forge_version)
@@ -214,14 +326,16 @@ impl ForgeInstaller {
 
         info!("Forge installation completed!");
 
-        state.emit_event(EventPayload {
-            event_id: forge_event_id,
-            event_type: EventType::InstallingForge,
-            target_id: Some(profile.id),
-            message: "Forge Installation abgeschlossen!".to_string(),
-            progress: Some(1.0),
-            error: None,
-        }).await?;
+        state
+            .emit_event(EventPayload {
+                event_id: forge_event_id,
+                event_type: EventType::InstallingForge,
+                target_id: Some(profile.id),
+                message: "Forge Installation abgeschlossen!".to_string(),
+                progress: Some(1.0),
+                error: None,
+            })
+            .await?;
 
         let result = ForgeInstallResult {
             libraries,
@@ -233,7 +347,11 @@ impl ForgeInstaller {
             ),
             game_args: ForgeArguments::get_game_arguments(&forge_version),
             minecraft_arguments: forge_version.minecraft_arguments.clone(),
-            custom_client_path: if use_custom_client_path { Some(custom_client_path) } else { None },
+            custom_client_path: if use_custom_client_path {
+                Some(custom_client_path)
+            } else {
+                None
+            },
             force_include_minecraft_jar,
         };
 
@@ -249,4 +367,4 @@ pub struct ForgeInstallResult {
     pub minecraft_arguments: Option<String>,
     pub custom_client_path: Option<PathBuf>,
     pub force_include_minecraft_jar: bool,
-} 
+}
