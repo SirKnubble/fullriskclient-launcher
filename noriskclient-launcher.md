@@ -187,6 +187,7 @@ Der ConfigManager stellt folgende Funktionen bereit:
 ### Migration 5: Standard-Profile Integration
 - Hinzufügen der `is_standard_version` Spalte (BOOLEAN, Default: false) zu `profiles`
 - Hinzufügen der `description` Spalte (TEXT, Nullable) zu `profiles`
+- Hinzufügen der `banner` Spalte (TEXT, Nullable, JSON-Format) zu `profiles`. Speichert die Banner-Informationen als JSON.
 - Hinzufügen der `group` Spalte (TEXT, Nullable) zu `profiles` (falls nicht schon durch eine vorherige, undokumentierte Migration geschehen)
 
 ## Backend-Komponentenübersicht

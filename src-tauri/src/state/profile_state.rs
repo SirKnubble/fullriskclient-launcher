@@ -56,6 +56,25 @@ pub struct NoriskModIdentifier {
     pub loader: ModLoader,    
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum ImageSource {
+    Url { url: String },
+    RelativePath { path: String }, // Relative to launcher_directory
+    RelativeProfile { path: String }, // Relative to profile directory
+    AbsolutePath { path: String },
+    Base64 { 
+        data: String, 
+        mime_type: Option<String> // Optional MIME type, e.g., "image/png"
+    },
+    Default { name: Option<String> }, // Uses a default image, optionally with a name identifier
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ProfileBanner {
+    pub source: ImageSource,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Profile {
     #[serde(default = "Uuid::new_v4")] // Use new_v4 for a default ID
@@ -88,6 +107,8 @@ pub struct Profile {
     #[serde(default)] // Defaults to false for existing user profiles
     pub is_standard_version: bool, 
     pub description: Option<String>,
+    #[serde(default)]
+    pub banner: Option<ProfileBanner>, // Banner/background image for the profile
     pub norisk_information: Option<NoriskInformation>,
 }
 

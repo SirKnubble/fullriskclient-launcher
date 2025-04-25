@@ -51,6 +51,11 @@ use commands::config_commands::{
     get_launcher_config, set_launcher_config
 };
 
+// Import path commands
+use commands::path_commands::{
+    get_launcher_directory, resolve_image_path
+};
+
 #[tokio::main]
 async fn main() {
     if let Err(e) = logging::setup_logging().await {
@@ -212,7 +217,9 @@ async fn main() {
             copy_profile,
             export_profile,
             get_launcher_config,
-            set_launcher_config
+            set_launcher_config,
+            get_launcher_directory,
+            resolve_image_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -4,6 +4,56 @@ export type ModLoader = 'vanilla' | 'forge' | 'fabric' | 'quilt' | 'neoforge';
 
 export type ProfileState = 'not_installed' | 'installing' | 'installed' | 'running' | 'error';
 
+// --- Image related types ---
+
+// Base interfaces for ImageSource discriminated union
+interface ImageSourceBase {
+  type: 'url' | 'relativePath' | 'relativeProfile' | 'absolutePath' | 'base64' | 'default';
+}
+
+export interface ImageSourceUrl extends ImageSourceBase {
+  type: 'url';
+  url: string;
+}
+
+export interface ImageSourceRelativePath extends ImageSourceBase {
+  type: 'relativePath';
+  path: string;
+}
+
+export interface ImageSourceRelativeProfile extends ImageSourceBase {
+  type: 'relativeProfile';
+  path: string;
+}
+
+export interface ImageSourceAbsolutePath extends ImageSourceBase {
+  type: 'absolutePath';
+  path: string;
+}
+
+export interface ImageSourceBase64 extends ImageSourceBase {
+  type: 'base64';
+  data: string;
+  mime_type?: string; // Optional MIME type
+}
+
+export interface ImageSourceDefault extends ImageSourceBase {
+  type: 'default';
+  name: string | null; // Option<String> -> string | null
+}
+
+export type ImageSource =
+  | ImageSourceUrl
+  | ImageSourceRelativePath
+  | ImageSourceRelativeProfile
+  | ImageSourceAbsolutePath
+  | ImageSourceBase64
+  | ImageSourceDefault;
+
+export interface ProfileBanner {
+  source: ImageSource;
+}
+
 // --- Dependent Structs/Interfaces ---
 
 export interface MemorySettings {
@@ -111,5 +161,6 @@ export interface Profile {
   group: string | null;             // Option<String> -> string | null
   is_standard_version: boolean;
   description: string | null;
+  banner: ProfileBanner | null;     // Option<ProfileBanner> -> ProfileBanner | null
   norisk_information: NoriskInformation | null; // Option<NoriskInformation> -> NoriskInformation | null
 }
