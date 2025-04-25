@@ -306,6 +306,13 @@ Diese Konfiguration ist entscheidend für die korrekte Funktionsweise des Asset-
 - `profile_utils.rs`: Profilbezogene Funktionen
   - `export_profile_to_noriskpack`: Exportiert Profile als `.noriskpack`-Dateien mit Overrides
 
+### Modloader Installation (Forge/NeoForge)
+- `forge_installer.rs` / `neoforge_installer.rs`: Verantwortlich für die Installation von Forge bzw. NeoForge.
+  - Laden der `install_profile.json` aus dem Installer.
+  - **Optimierung:** Prüft, ob die gepatchte Client-JAR (definiert im `PATCHED`-Eintrag des Install-Profils) bereits existiert. Wenn ja, wird der aufwändige Patching-Prozess übersprungen, was die Installation beschleunigt.
+  - Ausführung des `ForgePatcher` / `NeoForgePatcher`, falls die gepatchte Datei nicht vorhanden ist, um die notwendigen Modifikationen anzuwenden.
+  - Bereitstellung der resultierenden Bibliotheken, JVM-Argumente und Hauptklasse für den Minecraft-Start.
+
 ### API-Integration
 - `norisk_api.rs`: Kommunikation mit NoRisk-API
   - `refresh_norisk_token`: Aktualisiert das NoRisk-Token mit HWID-Validierung
