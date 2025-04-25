@@ -113,6 +113,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
+        group: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;
@@ -897,6 +898,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         selected_norisk_pack_id: source_profile.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
+        group: source_profile.group.clone(),
     };
     
     // 6. Erstelle das neue Profilverzeichnis

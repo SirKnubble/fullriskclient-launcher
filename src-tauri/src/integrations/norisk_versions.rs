@@ -23,6 +23,9 @@ pub struct NoriskVersionProfile {
     pub loader_version: Option<String>,
     pub norisk_pack: Option<String>,
     pub custom_path: PathBuf,
+    /// Optional group name for UI organization
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 /// Represents the overall structure of the standard profiles from the backend
@@ -156,6 +159,7 @@ pub fn convert_standard_to_user_profile(
         selected_norisk_pack_id: standard_profile.norisk_pack.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: Some(standard_profile.id), // Link back to the source
+        group: None, // Copy group assignment from standard profile
     };
 
     debug!("Successfully created new Profile struct: {:?}", profile);

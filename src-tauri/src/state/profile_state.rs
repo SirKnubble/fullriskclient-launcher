@@ -77,6 +77,9 @@ pub struct Profile {
     /// Optional: If this profile was created from a standard profile, store its original ID
     #[serde(default)]
     pub source_standard_profile_id: Option<Uuid>,
+    /// Optional group name for UI organization and filtering
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]

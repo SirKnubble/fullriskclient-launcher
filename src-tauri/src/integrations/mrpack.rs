@@ -155,6 +155,7 @@ pub async fn process_mrpack(pack_path: PathBuf) -> Result<(Profile, ModrinthInde
         selected_norisk_pack_id: None,
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
+        group: Some("MODPACKS".to_string()),
     };
 
     info!("Prepared potential profile object for '{}'", profile.name);
