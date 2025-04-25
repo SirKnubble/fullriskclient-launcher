@@ -10,7 +10,6 @@
         "selected_norisk_pack_id": null,
         "path": "noriskclient",
         "is_standard_version": true,
-        "description": "Standard Fabric profile for Minecraft 1.21.4.",
         "norisk_information": {}
       },
       {
@@ -23,7 +22,6 @@
         "selected_norisk_pack_id": null,
         "path": "noriskclient",
         "is_standard_version": true,
-        "description": "Standard Forge profile for Minecraft 1.8.9.",
         "norisk_information": {}
       },
       {
@@ -37,7 +35,6 @@
         "selected_norisk_pack_id": "noriskclient",
         "path": "noriskclient",
         "is_standard_version": true,
-        "description": "Standard Fabric profile for Minecraft 1.20.1.",
         "norisk_information": {}
       }
     ]
