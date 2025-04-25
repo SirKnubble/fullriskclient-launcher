@@ -10,7 +10,7 @@ export interface ProcessMetadata {
 
 export interface EventPayload {
     event_id: string;
-    event_type: string;
+    event_type: 'installing_java' | 'downloading_libraries' | 'extracting_natives' | 'downloading_assets' | 'reusing_minecraft_assets' | 'copying_norisk_client_assets' | 'downloading_norisk_client_assets' | 'downloading_client' | 'installing_fabric' | 'installing_quilt' | 'installing_forge' | 'installing_neoforge' | 'patching_forge' | 'downloading_mods' | 'syncing_mods' | 'launching_minecraft' | 'minecraft_output' | 'account_login' | 'account_refresh' | 'account_logout' | 'profile_update' | 'trigger_profile_update' | 'minecraft_process_exited' | 'error';
     target_id: string | null;
     message: string;
     progress: number | null;

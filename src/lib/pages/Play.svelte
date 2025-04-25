@@ -10,6 +10,9 @@
     import { addAccount, selectedAccount } from '$lib/utils/accountUtils';
     import NoUserSkin from '$lib/images/no_user_skin.png';
     import NoUserSkinDark from '$lib/images/no_user_skin_dark.png';
+    import { launchProfile } from '$lib/api/profiles';
+    import type { EventPayload } from '$lib/types/core';
+    import { currentEvent } from '$lib/utils/eventUtils';
 
     $: lang = $translations;
 
@@ -17,8 +20,23 @@
     let launchButtonHovered = false;
     let launchButtonVisible = $launcherStartCompleted;
 
+    let startProgress: EventPayload | null = null;
+
     function selectVersion() {
         launchButtonVisible = false;
+    }
+
+    async function login() {
+        startProgress = {
+            target_id: '1',
+            event_id: '1',
+            event_type: 'account_login',
+            message: lang.play.button.logging_in,
+            progress: 0,
+            error: '',
+        }
+        await addAccount();
+        startProgress = null;
     }
 
     selectedAccount.subscribe((account) => {
@@ -26,6 +44,21 @@
             skinViewer?.loadSkin(`https://crafatar.com/skins/${account.id}`);
         } else {
             skinViewer?.loadSkin(NoUserSkinDark);
+        }
+    });
+
+    currentEvent.subscribe((event) => {
+        if (!event) return;
+        if (!['minecraft_output', 'account_login', 'account_refresh', 'account_logout', 'profile_update', 'trigger_profile_update', 'minecraft_process_exited', 'error'].includes(event.event_type)) {
+            startProgress = event;
+
+            if (event.event_type === 'launching_minecraft') {
+                setTimeout(() => {
+                    startProgress = null;
+                }, 5000);
+            }
+        } else if (event.event_type === 'minecraft_process_exited') {
+            startProgress = null;
         }
     });
 
@@ -72,20 +105,25 @@
         id="skin"
     />
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div
         class="play-button"
         class:hidden={!launchButtonVisible}
+        class:is-start-progress={startProgress != null}
         id="play-button"
         onmouseenter={() => launchButtonHovered = true}
         onmouseleave={() => launchButtonHovered = false}
-        onclick={$selectedAccount == null ? addAccount : () => {}}
     >
-        <p class="launch-text">{$selectedAccount == null ? lang.play.button.login : lang.play.button.launch}</p>
-        {#if launchButtonHovered && ($profiles.length + $defaultProfiles.length) > 1 && $selectedAccount != null}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <p
+            class="launch-text"
+            onclick={$selectedAccount == null ? login : () => {launchProfile($selectedProfile!.id);}}
+        >{$selectedAccount == null && startProgress == null ? lang.play.button.login : startProgress != null ? startProgress.message.toLowerCase() : lang.play.button.launch}</p>
+        {#if launchButtonHovered && startProgress == null && ($profiles.length + $defaultProfiles.length) > 1 && $selectedAccount != null}
             <div class="spacer" />
             <div class="dropdown-arrow-wrapper">
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <p class="dropdown-arrow" onclick={selectVersion}>></p>
             </div>
         {/if}
@@ -166,7 +204,6 @@
         z-index: 100;
         justify-content: center;
         align-items: center;
-        display: flex;
         flex-direction: row;
         background-color: var(--secondary-color);
         border: var(--primary-color) 6.5px solid;
@@ -177,12 +214,25 @@
         transform: translateY(500%);
     }
 
+    .play-button.is-start-progress {
+        filter: brightness(0.9);
+        pointer-events: none;
+        width: 450px;
+        transform: scale(1);
+    }
+
     .play-button .launch-text {
         font-size: 60px;
-        height: 65px;
         width: 100%;
+        height: 65px;
         text-align: center;
         color: var(--background-color);
+    }
+
+    .play-button.play-button.is-start-progress .launch-text {
+        font-size: 30px;
+        height: 30px;
+        color: white;
     }
 
     .play-button:hover {

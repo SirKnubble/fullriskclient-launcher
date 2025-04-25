@@ -14,9 +14,10 @@ export async function loadAccounts() {
     console.log("Accounts loaded:", loadedAccounts);
 }
 
-export async function addAccount(): Promise<void> {
-    await beginLogin();
+export async function addAccount(): Promise<any> {
+    const account = await beginLogin();
     await loadAccounts();
+    return account;
 }
 
 export async function selectAccount(accountId: string) {

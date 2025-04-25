@@ -7,10 +7,26 @@
     import TopNavigationBar from '$lib/components/TopNavigationBar.svelte';
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
     import { loadProfiles } from '$lib/utils/profileUtils';
-  import { loadAccounts } from '$lib/utils/accountUtils';
-  import Settings from '$lib/pages/Settings.svelte';
+    import { loadAccounts } from '$lib/utils/accountUtils';
+    import Settings from '$lib/pages/Settings.svelte';
+    import { listen } from '@tauri-apps/api/event';
+    import type { EventPayload, ParsedExitPayload } from '$lib/types/core';
+  import { currentEvent } from '$lib/utils/eventUtils';
 
     $: lang = $translations;
+
+    let unlistenFunction: (() => void) | null = null;
+
+    const initializeListener = async () => {
+        try {
+            unlistenFunction = await listen<EventPayload>('state_event', (event) => {
+                console.log('State Event Received:', event.payload); // Zum Debuggen
+                currentEvent.set(event.payload);
+            });
+        } catch (error) {
+            console.error("Failed to initialize event listener:", error);
+        }
+    }
     
     onMount(() => {
         setLanguage('en_US');
@@ -20,6 +36,14 @@
         setTimeout(() => {
             launcherStartCompleted.set(true);
         }, 1000);
+
+        initializeListener();
+    	return () => {
+			if (unlistenFunction) {
+                console.log("Cleaning up state_event listener.");
+				unlistenFunction();
+			}
+		};
     });
 </script>
 
