@@ -67,7 +67,6 @@ pub enum ImageSource {
         data: String, 
         mime_type: Option<String> // Optional MIME type, e.g., "image/png"
     },
-    Default { name: Option<String> }, // Uses a default image, optionally with a name identifier
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

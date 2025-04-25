@@ -8,7 +8,7 @@ export type ProfileState = 'not_installed' | 'installing' | 'installed' | 'runni
 
 // Base interfaces for ImageSource discriminated union
 interface ImageSourceBase {
-  type: 'url' | 'relativePath' | 'relativeProfile' | 'absolutePath' | 'base64' | 'default';
+  type: 'url' | 'relativePath' | 'relativeProfile' | 'absolutePath' | 'base64';
 }
 
 export interface ImageSourceUrl extends ImageSourceBase {
@@ -37,18 +37,12 @@ export interface ImageSourceBase64 extends ImageSourceBase {
   mime_type?: string; // Optional MIME type
 }
 
-export interface ImageSourceDefault extends ImageSourceBase {
-  type: 'default';
-  name: string | null; // Option<String> -> string | null
-}
-
 export type ImageSource =
   | ImageSourceUrl
   | ImageSourceRelativePath
   | ImageSourceRelativeProfile
   | ImageSourceAbsolutePath
-  | ImageSourceBase64
-  | ImageSourceDefault;
+  | ImageSourceBase64;
 
 export interface ProfileBanner {
   source: ImageSource;

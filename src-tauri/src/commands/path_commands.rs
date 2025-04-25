@@ -50,8 +50,8 @@ pub async fn resolve_image_path(app_handle: AppHandle, image_source: ImageSource
             debug!("Resolved relative path to: {:?}", full_path);
             if !full_path.exists() {
                 error!("Image file does not exist: {:?}", full_path);
-                // Return a fallback or error image path
-                return Ok("error_image.png".to_string());
+                // Return an error instead of a fallback image
+                return Err(AppError::Other(format!("Image file does not exist: {:?}", full_path)).into());
             }
             
             Ok(format!("file://{}", full_path.to_string_lossy()))
@@ -62,7 +62,7 @@ pub async fn resolve_image_path(app_handle: AppHandle, image_source: ImageSource
             // We need a profile ID for this type
             if profile_id.is_none() {
                 error!("Profile ID is required for relativeProfile image source");
-                return Ok("error_image.png".to_string());
+                return Err(AppError::Other("Profile ID is required for relativeProfile image source".to_string()).into());
             }
 
             let state = State::get().await?;
@@ -73,7 +73,7 @@ pub async fn resolve_image_path(app_handle: AppHandle, image_source: ImageSource
                 Ok(uuid) => uuid,
                 Err(e) => {
                     error!("Failed to parse profile UUID: {}", e);
-                    return Ok("error_image.png".to_string());
+                    return Err(AppError::Other(format!("Failed to parse profile UUID: {}", e)).into());
                 }
             };
             
@@ -84,7 +84,7 @@ pub async fn resolve_image_path(app_handle: AppHandle, image_source: ImageSource
             debug!("Resolved profile-relative path to: {:?}", full_path);
             if !full_path.exists() {
                 error!("Image file does not exist: {:?}", full_path);
-                return Ok("error_image.png".to_string());
+                return Err(AppError::Other(format!("Image file does not exist: {:?}", full_path)).into());
             }
             
             Ok(format!("file://{}", full_path.to_string_lossy()))
@@ -97,28 +97,10 @@ pub async fn resolve_image_path(app_handle: AppHandle, image_source: ImageSource
             debug!("Using absolute path: {:?}", path_buf);
             if !path_buf.exists() {
                 error!("Image file does not exist: {:?}", path_buf);
-                return Ok("error_image.png".to_string());
+                return Err(AppError::Other(format!("Image file does not exist: {:?}", path_buf)).into());
             }
             
             Ok(format!("file://{}", path_buf.to_string_lossy()))
-        },
-
-        // Default: Return a predefined default image based on the name
-        ImageSource::Default { name } => {
-            match name {
-                Some(name_str) => {
-                    // Return different default images based on name
-                    match name_str.as_str() {
-                        "fabric" => Ok("fabric_default.png".to_string()),
-                        "forge" => Ok("forge_default.png".to_string()),
-                        _ => Ok("default.png".to_string())
-                    }
-                },
-                None => {
-                    // Generic default
-                    Ok("default.png".to_string())
-                }
-            }
         }
     }
 } 
