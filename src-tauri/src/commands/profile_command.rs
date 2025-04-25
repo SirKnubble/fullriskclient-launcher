@@ -223,6 +223,21 @@ pub async fn abort_profile_launch(profile_id: Uuid) -> Result<(), CommandError> 
     match state.process_manager.abort_launch_process(profile_id) {
         Ok(_) => {
             info!("Successfully aborted launch process for profile ID: {}", profile_id);
+            
+            // Emit an event to notify the UI that the process was aborted
+            let event_payload = crate::state::event_state::EventPayload {
+                event_id: Uuid::new_v4(),
+                event_type: crate::state::event_state::EventType::LaunchingMinecraft,
+                target_id: Some(profile_id),
+                message: "Launch process wurde abgebrochen".to_string(),
+                progress: Some(0.0), // Reset progress
+                error: Some("Der Launch-Prozess wurde manuell abgebrochen".to_string()),
+            };
+            
+            if let Err(e) = state.event_state.emit(event_payload).await {
+                error!("Failed to emit abort event for profile {}: {}", profile_id, e);
+            }
+            
             Ok(())
         },
         Err(e) => {
