@@ -9,7 +9,8 @@
     "navbar.quit": "quit",
     "play.button.launch": "launch",
     "play.button.login": "login",
-    "play.button.logging_in": "Logging in...",
+    "play.button.logging_in": "logging in...",
     "settings.accounts.modal.title": "accounts",
-    "settings.accounts.modal.button.add": "add account"
+    "settings.accounts.modal.button.add": "add account",
+    "settings.accounts.modal.dummy_account_name": "logging in..."
 }

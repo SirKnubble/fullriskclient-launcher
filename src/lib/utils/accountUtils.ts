@@ -1,6 +1,7 @@
 import { beginLogin, getAccounts, removeAccount as removeAccountInternal, setActiveAccount } from "$lib/api/accounts";
 import type { MinecraftAccount } from "$lib/types/minecraft";
 import { get, writable, type Writable } from "svelte/store";
+import { translations } from "./translationUtils";
 
 export const accounts: Writable<MinecraftAccount[] | null> = writable(null);
 export const selectedAccount: Writable<MinecraftAccount | null> = writable(null);
@@ -14,10 +15,17 @@ export async function loadAccounts() {
     console.log("Accounts loaded:", loadedAccounts);
 }
 
-export async function addAccount(): Promise<any> {
-    const account = await beginLogin();
+export async function addAccount(): Promise<void> {
+    accounts.set([...get(accounts) ?? [], {
+        id: 'ADD_ACCOUNT',
+        username: get(translations).settings.accounts.modal.dummy_account_name,
+        active: false,
+        access_token: '',
+        refresh_token: '',
+        expires: ''
+    }]);
+    await beginLogin();
     await loadAccounts();
-    return account;
 }
 
 export async function selectAccount(accountId: string) {
