@@ -209,19 +209,26 @@ impl DiscordManager {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
+
+        let icon = "icon_512px";
         
+        
+        //TODO warum geht das nicht
+        let download_button = activity::Button::new("DOWNLOAD", "https://norisk.gg/");
+        let buttons = vec![download_button];
+
         debug!("Creating activity for Discord state: {:?}", state);
         match state {
             DiscordState::Idle => {
                 activity::Activity::new()
-                    .state("Idle")
-                    .details("In the launcher")
+                    .state("Idling...")
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
             DiscordState::BrowsingProfiles => {
                 activity::Activity::new()
@@ -229,10 +236,11 @@ impl DiscordManager {
                     .details("Setting up Minecraft")
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
             DiscordState::LaunchingMinecraft(profile) => {
                 // Create a 'static string by leaking memory (intentionally)
@@ -244,10 +252,11 @@ impl DiscordManager {
                     .details(profile_details)
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
             DiscordState::PlayingMinecraft(profile) => {
                 // Create a 'static string by leaking memory (intentionally)
@@ -259,10 +268,11 @@ impl DiscordManager {
                     .details(profile_details)
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
             DiscordState::ChangingSkins => {
                 activity::Activity::new()
@@ -270,10 +280,11 @@ impl DiscordManager {
                     .details("Customizing appearance")
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
             DiscordState::ManagingMods => {
                 activity::Activity::new()
@@ -281,10 +292,11 @@ impl DiscordManager {
                     .details("Customizing gameplay")
                     .assets(
                         activity::Assets::new()
-                            .large_image("norisk_logo")
+                            .large_image(icon)
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
+                    .buttons(buttons)
             },
         }
     }
