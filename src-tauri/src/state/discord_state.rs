@@ -120,6 +120,10 @@ impl DiscordManager {
         Ok(())
     }
     
+    /* TODO
+    lass mal brainstormen wie wir das handhaben wollen also imagine wir starten ein profil 
+    und dann editieren wir was im mods oder so... dann würden wir ja das spiel quasi überschreiben check?
+     */
     // Public method that catches errors to prevent application crashes
     pub async fn set_state(&self, state: DiscordState) -> Result<()> {
         debug!("Setting Discord state to: {:?}", state);
