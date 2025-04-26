@@ -541,7 +541,7 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    launcher.launch(&piston_meta, launch_params).await?;
+    launcher.launch(&piston_meta, launch_params, Some(profile.clone())).await?;
 
     emit_progress_event(
         &state,
