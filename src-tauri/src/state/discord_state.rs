@@ -339,9 +339,9 @@ impl DiscordManager {
         };
         
         if !is_game_running {
-            debug!("Focus handling: DRP enabled, no game running. Forcing state to Idle.");
-            // Force update to Idle. Public set_state handles internal errors.
-            // Using public set_state which handles errors internally now
+            debug!("Focus handling: DRP enabled, no game running. Ensuring idle timestamp and state.");
+            self.ensure_idle_timestamp_set().await; // Ensure timestamp is set
+            // Force update to Idle state (will use the timestamp we just potentially set)
             self.set_state_internal(DiscordState::Idle, true).await?; 
         } else {
             debug!("Focus handling: Game is running, yielding DRP control.");
@@ -355,5 +355,28 @@ impl DiscordManager {
     pub async fn notify_game_start(&self, process_id: Uuid) {
         debug!("Received game start notification for process {}, clearing idle timestamp.", process_id);
         self.clear_idle_timestamp().await; 
+    }
+
+    /// Ensures the idle_start_timestamp is set to the current time if it is None.
+    /// This is typically called when transitioning to an Idle state when no game is running.
+    async fn ensure_idle_timestamp_set(&self) {
+        // This check might seem redundant if called only when DRP is enabled,
+        // but it's good practice for a private helper.
+        if !*self.enabled.read().await {
+            return;
+        }
+        let mut timestamp_lock = self.idle_start_timestamp.write().await;
+        if timestamp_lock.is_none() {
+            debug!("ensure_idle_timestamp_set: Timestamp was None, setting to current time.");
+            *timestamp_lock = Some(SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or_else(|_| {
+                    error!("System time is before UNIX EPOCH!");
+                    0 // Fallback timestamp
+                }));
+        } else {
+            debug!("ensure_idle_timestamp_set: Timestamp already set.");
+        }
     }
 } 
