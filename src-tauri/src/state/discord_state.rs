@@ -8,6 +8,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task;
 use tokio::time::{sleep, Duration};
 use tauri::Manager; // Keep for app_handle.state()
+use uuid::Uuid;
 
 // Discord application ID for NoRiskClient
 const DISCORD_APP_ID: &str = "775352010345021450"; // Replace with actual Discord application ID
@@ -288,6 +289,21 @@ impl DiscordManager {
         Ok(())
     }
     
+    /// Clears the idle start timestamp, typically called when a non-idle activity begins.
+    pub async fn clear_idle_timestamp(&self) {
+        if !*self.enabled.read().await {
+            debug!("Discord is disabled, skipping clear_idle_timestamp.");
+            return;
+        }
+        let mut timestamp_lock = self.idle_start_timestamp.write().await;
+        if timestamp_lock.is_some() {
+            debug!("Clearing Discord idle start timestamp.");
+            *timestamp_lock = None;
+        } else {
+            debug!("Discord idle start timestamp was already None.");
+        }
+    }
+    
     pub async fn get_current_state(&self) -> DiscordState {
         let state = self.current_state.read().await.clone();
         debug!("Getting current Discord state: {:?}", state);
@@ -332,5 +348,12 @@ impl DiscordManager {
         }
 
         Ok(())
+    }
+
+    /// Notifies the Discord manager that a game process has started.
+    /// This will clear the idle timestamp if Discord is enabled.
+    pub async fn notify_game_start(&self, process_id: Uuid) {
+        debug!("Received game start notification for process {}, clearing idle timestamp.", process_id);
+        self.clear_idle_timestamp().await; 
     }
 } 
