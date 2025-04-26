@@ -309,33 +309,39 @@
             {#if selectedProcessId && logs[selectedProcessId] && logs[selectedProcessId].lines.length > 0}
                 <div class="log-controls">
                     <div class="search-container">
-                        <input 
-                            type="text" 
-                            placeholder="Search logs..." 
-                            value={searchQuery}
-                            on:input={handleSearchInput}
-                            class="search-input"
-                        />
+                        <div class="search-input-wrapper">
+                            <input 
+                                type="text" 
+                                placeholder="Search logs..." 
+                                value={searchQuery}
+                                on:input={handleSearchInput}
+                                class="search-input"
+                            />
+                            {#if searchQuery}
+                                <button class="clear-search-button" on:click={clearSearch}>×</button>
+                            {/if}
+                        </div>
                         {#if searchQuery}
-                            <button class="clear-search-button" on:click={clearSearch}>×</button>
                             <div class="search-results">
                                 {filteredLogs.length} matches
                             </div>
                         {/if}
                     </div>
 
-                    <!-- Upload Button as Icon -->
+                    <!-- Upload Button -->
                     <div class="upload-section">
                         <button 
-                            class="upload-button-icon" 
+                            class="upload-button" 
                             on:click={uploadAndCopyLog} 
                             disabled={isUploadingLog[selectedProcessId]}
-                            title={isUploadingLog[selectedProcessId] ? "Uploading..." : (mclogsUrls[selectedProcessId] ? "Copy URL Again" : "Upload & Copy URL")}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                            </svg>
+                            {#if isUploadingLog[selectedProcessId]}
+                                Uploading...
+                            {:else if mclogsUrls[selectedProcessId]}
+                                Copy URL Again
+                            {:else}
+                                Upload & Copy URL
+                            {/if}
                         </button>
                         {#if uploadError[selectedProcessId]}
                             <span class="upload-error">Error: {uploadError[selectedProcessId]}</span>
@@ -358,13 +364,7 @@
             {:else if fullLogError.has(selectedProcessId)}
                 <div class="error">{fullLogError.get(selectedProcessId)}</div>
             {:else if logs[selectedProcessId] && logs[selectedProcessId].lines.length > 0}
-                <pre class="log-content">
-                    {#if isFiltering}
-                        {filteredLogs.join('\n')}
-                    {:else}
-                        {logs[selectedProcessId].lines.join('\n')}
-                    {/if}
-                </pre>
+<pre class="log-content">{#if isFiltering}{filteredLogs.join('\n')}{:else}{logs[selectedProcessId].lines.join('\n')}{/if}</pre>
                 <div class="log-footer">
                     <label class="autoscroll-label">
                         <input 
@@ -487,14 +487,31 @@
         margin-right: 1rem;
     }
 
-    .search-input {
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
         width: 100%;
-        padding: 0.5rem;
         border-radius: 4px;
         border: 1px solid var(--border-color);
         background-color: var(--background-primary);
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.5rem;
+        border: none;
+        background-color: transparent;
         color: var(--text-primary);
         font-size: 0.9rem;
+        outline: none;
+    }
+
+    .search-input:focus {
+        box-shadow: 0 0 0 2px var(--accent-color);
+        opacity: 0.9;
     }
 
     .clear-search-button {
@@ -509,6 +526,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+    }
+
+    .clear-search-button:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: var(--text-primary);
     }
 
     .search-results {
@@ -516,27 +541,28 @@
         font-size: 0.8rem;
         color: var(--text-secondary);
         white-space: nowrap;
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
     }
 
-    .upload-button-icon {
+    .upload-button {
+        padding: 0.5rem 1rem;
         background-color: var(--accent-color);
         color: white;
         border: none;
         border-radius: 4px;
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        font-size: 0.9rem;
+        font-weight: 500;
         cursor: pointer;
         transition: background-color 0.2s;
     }
 
-    .upload-button-icon:hover:not(:disabled) {
+    .upload-button:hover:not(:disabled) {
         background-color: var(--accent-hover);
     }
 
-    .upload-button-icon:disabled {
+    .upload-button:disabled {
         background-color: var(--border-color);
         cursor: wait;
     }
