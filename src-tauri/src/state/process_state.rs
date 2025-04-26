@@ -18,6 +18,7 @@ use tokio::time::{interval, Duration};
 use std::process::ExitStatus;
 use dashmap::DashMap;
 use tokio::task::JoinHandle;
+use tauri::Manager;
 
 const PROCESSES_FILENAME: &str = "processes.json";
 
@@ -291,6 +292,19 @@ impl ProcessManager {
             let mut processes_map = self.processes.write().await;
             processes_map.insert(process_id, process_entry);
         }
+
+        // --- BEGIN Discord State Update --- 
+        match State::get().await {
+            Ok(state) => {
+                log::debug!("Notifying Discord manager about game process {} start.", process_id);
+                state.discord_manager.notify_game_start(process_id).await;
+            }
+            Err(e) => {
+                log::error!("Failed to get global state to update Discord timestamp for process {}: {}. Discord state might be incorrect.", process_id, e);
+                // Continue execution, Discord state update is not critical for process start
+            }
+        }
+        // --- END Discord State Update ---
 
         if let Err(e) = self.save_processes().await {
              log::error!(
