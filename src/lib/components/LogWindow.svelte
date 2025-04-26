@@ -426,6 +426,42 @@
                         </div>
 
                         <div class="process-details">
+                            {#if process.profile_name}
+                            <div class="detail-row">
+                                <span class="label">Profile:</span>
+                                <span class="value">{process.profile_name}</span>
+                            </div>
+                            {/if}
+                            {#if process.account_name}
+                            <div class="detail-row">
+                                <span class="label">Account:</span>
+                                <span class="value">{process.account_name}</span>
+                            </div>
+                            {/if}
+                            {#if process.account_uuid}
+                            <div class="detail-row">
+                                <span class="label">Account UUID:</span>
+                                <span class="value">{process.account_uuid.slice(0, 8)}...</span>
+                            </div>
+                            {/if}
+                            {#if process.minecraft_version}
+                            <div class="detail-row">
+                                <span class="label">Minecraft:</span>
+                                <span class="value">{process.minecraft_version}</span>
+                            </div>
+                            {/if}
+                            {#if process.modloader}
+                            <div class="detail-row">
+                                <span class="label">Modloader:</span>
+                                <span class="value">{process.modloader} {process.modloader_version || ''}</span>
+                            </div>
+                            {/if}
+                            {#if process.norisk_pack}
+                            <div class="detail-row">
+                                <span class="label">NoRiskPack:</span>
+                                <span class="value">{process.norisk_pack}</span>
+                            </div>
+                            {/if}
                             <div class="detail-row">
                                 <span class="label">Profile ID:</span>
                                 <span class="value">{process.profile_id.slice(0, 8)}</span>

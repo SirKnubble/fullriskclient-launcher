@@ -8,6 +8,7 @@ use crate::minecraft::minecraft_auth::Credentials;
 use crate::minecraft::ClasspathBuilder;
 use crate::minecraft::GameArguments;
 use crate::minecraft::JvmArguments;
+use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
 use uuid::Uuid;
 
@@ -104,7 +105,7 @@ impl MinecraftLauncher {
     fn process_old_arguments(&self, minecraft_arguments: Option<String>, piston_meta: &PistonMeta) -> Option<Vec<String>> {
         minecraft_arguments.map(|args_string| {
             info!("\nProcessing old format arguments (with advanced splitting):");
-            
+
             // 1. Create the helper to resolve variables
             let game_args_resolver = GameArguments::new(
                 self.credentials.clone(),
@@ -113,17 +114,17 @@ impl MinecraftLauncher {
                 piston_meta.version_type.clone(),
                 piston_meta.asset_index.id.clone(),
             );
-            
+
             // 2. Split the *original* string by whitespace
             let tokens = args_string.split_whitespace();
-            
+
             // 3. Iterate and replace variables in each token
             let mut processed_args: Vec<String> = Vec::new();
             for token in tokens {
                 // Use the resolver's method for each token
                 processed_args.push(game_args_resolver.replace_variables(token));
             }
-            
+
             info!("Processed old arguments: {:?}", processed_args);
             processed_args
         })
@@ -133,6 +134,7 @@ impl MinecraftLauncher {
         &self,
         piston_meta: &PistonMeta,
         params: MinecraftLaunchParameters,
+        profile: Option<Profile>
     ) -> Result<()> {
         let state = State::get().await?;
         let process_manager = &state.process_manager;
@@ -144,7 +146,7 @@ impl MinecraftLauncher {
         // 2. Java-Befehl initialisieren
         let mut command = Command::new(&self.java_path);
         command.current_dir(&self.game_directory);
-        
+
         // Define paths
         let natives_path = LAUNCHER_DIRECTORY.meta_dir().join("natives").join(&piston_meta.id);
 
@@ -174,7 +176,7 @@ impl MinecraftLauncher {
         info!("\nProcessing JVM arguments:");
         let mut has_classpath = false;
         let mut has_natives = false;
-        
+
         if let Some(arguments) = &piston_meta.arguments {
             let processed_jvm_args = jvm_args.process_arguments(&arguments.jvm);
             for arg in &processed_jvm_args {
@@ -215,7 +217,7 @@ impl MinecraftLauncher {
             } else {
                 info!("[NoRisk Launcher] No NoRisk token available for the selected mode");
             }
-            
+
             // Add experimental mode parameter
             info!("[NoRisk Launcher] Setting experimental mode: {}", params.is_experimental_mode);
             command.arg(format!("-Dnorisk.experimental={}", params.is_experimental_mode));
@@ -271,8 +273,39 @@ impl MinecraftLauncher {
 
         info!("Executing command: {:?}", command);
 
-        // Start the process using ProcessManager
-        process_manager.start_process(params.profile_id, command).await?;
+        // Extract account information from credentials
+        let (account_uuid, account_name) = if let Some(creds) = &self.credentials {
+            (
+                Some(creds.id.to_string()),
+                Some(creds.username.clone())
+            )
+        } else {
+            (None, None)
+        };
+
+        // Extract optional profile information for process metadata
+        let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name) = match profile {
+            Some(p) => (
+                Some(p.loader.as_str().to_string()),
+                p.loader_version,
+                p.selected_norisk_pack_id,
+                Some(p.name)
+            ),
+            None => (None, None, None, None),
+        };
+
+        // Start the process using ProcessManager with additional metadata
+        process_manager.start_process(
+            params.profile_id,
+            command,
+            account_uuid,
+            account_name,
+            Some(piston_meta.id.clone()),
+            profile_loader,
+            profile_loader_version,
+            profile_norisk_pack,
+            profile_name
+        ).await?;
 
         Ok(())
     }
