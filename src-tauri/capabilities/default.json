@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "NoriskClient Launcher Capabilities",
-  "windows": ["main"],
+  "description": "Capability for the main window",
+  "windows": ["main", "log_window"],
   "permissions": [
     "core:default",
     "opener:default",
+    "clipboard-manager:allow-write-text",
     "core:window:allow-close",
     "core:window:allow-show",
     "core:window:allow-start-dragging"

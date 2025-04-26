@@ -7,6 +7,7 @@ use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackMana
 use crate::state::process_state::{default_processes_path, ProcessManager};
 use crate::state::profile_state::ProfileManager;
 use crate::state::norisk_versions_state::{default_norisk_versions_path, NoriskVersionManager};
+use crate::state::skin_state::{default_skins_path, SkinManager};
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
@@ -23,6 +24,7 @@ pub struct State {
     pub norisk_pack_manager: NoriskPackManager,
     pub norisk_version_manager: NoriskVersionManager,
     pub config_manager: ConfigManager,
+    pub skin_manager: SkinManager,
 }
 
 impl State {
@@ -44,6 +46,7 @@ impl State {
                     norisk_version_manager: NoriskVersionManager::new(default_norisk_versions_path())
                         .await?,
                     config_manager: ConfigManager::new().await?,
+                    skin_manager: SkinManager::new(default_skins_path()).await?,
                 }))
             })
             .await?;
@@ -51,7 +54,7 @@ impl State {
         if let Ok(state) = crate::state::State::get().await {
             state.norisk_pack_manager.print_current_config().await;
             state.norisk_version_manager.print_current_config().await;
-            
+
             // Log the current configuration
             let config = state.config_manager.get_config().await;
             tracing::info!("Launcher Config - Experimental mode: {}", config.is_experimental);

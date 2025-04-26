@@ -10,6 +10,7 @@
     import ProfileView from './ProfileView.svelte'; // Import the new component
     import NoRiskVersions from './NoRiskVersions.svelte'; // Import the NoRiskVersions component
     import LauncherSettings from './LauncherSettings.svelte'; // Import the LauncherSettings component
+    import SkinChanger from './SkinChanger.svelte'; // Import the SkinChanger component
     import { profiles, loadProfiles as loadProfilesFromStore, selectedProfileId } from '$lib/stores/profileStore';
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     // Import Norisk Pack types from the new file
@@ -1213,6 +1214,7 @@
 
     <ModrinthSearch />
     <AccountManager />
+    <SkinChanger />
     <LauncherSettings />
     
     <!-- NoRiskVersions Component -->

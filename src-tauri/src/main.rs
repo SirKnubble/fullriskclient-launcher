@@ -19,7 +19,7 @@ use crate::integrations::norisk_versions;
 use crate::integrations::norisk_packs;
 
 use crate::commands::process_command::{
-    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process,
+    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process, open_log_window,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
@@ -27,6 +27,10 @@ use commands::minecraft_auth_command::{
 use commands::minecraft_command::{
     get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
     get_quilt_loader_versions, upload_log_to_mclogs_command,
+    // Skin management commands
+    get_user_skin_data, upload_skin, reset_skin, apply_skin_from_base64,
+    // Local skin database commands
+    get_all_skins, get_skin_by_id, add_skin, remove_skin, update_skin_properties
 };
 use commands::profile_command::{
     add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
@@ -177,6 +181,7 @@ async fn main() {
             get_process,
             get_processes_by_profile,
             stop_process,
+            open_log_window,
             begin_login,
             remove_account,
             get_active_account,
@@ -219,7 +224,18 @@ async fn main() {
             get_launcher_config,
             set_launcher_config,
             get_launcher_directory,
-            resolve_image_path
+            resolve_image_path,
+            // Skin management commands
+            get_user_skin_data,
+            upload_skin,
+            reset_skin,
+            apply_skin_from_base64,
+            // Local skin database commands
+            get_all_skins,
+            get_skin_by_id,
+            add_skin,
+            remove_skin,
+            update_skin_properties
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
