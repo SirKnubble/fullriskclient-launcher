@@ -2,8 +2,12 @@ use crate::minecraft::dto::version_manifest::VersionManifest;
 use crate::minecraft::dto::piston_meta::PistonMeta;
 use crate::error::{AppError, Result};
 use reqwest;
+use std::path::Path;
+use std::fs;
 
 const VERSION_MANIFEST_URL: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+const MOJANG_API_URL: &str = "https://api.mojang.com";
+const MOJANG_SESSION_URL: &str = "https://sessionserver.mojang.com";
 
 pub struct MinecraftApiService;
 
@@ -36,5 +40,86 @@ impl MinecraftApiService {
             .map_err(AppError::MinecraftApi)?;
         
         Ok(meta)
+    }
+    
+    // Get user profile including skin information
+    pub async fn get_user_profile(&self, uuid: &str) -> Result<serde_json::Value> {
+        let url = format!("{}/session/minecraft/profile/{}", MOJANG_SESSION_URL, uuid);
+        
+        let response = reqwest::get(&url)
+            .await
+            .map_err(AppError::MinecraftApi)?;
+            
+        let profile = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(AppError::MinecraftApi)?;
+            
+        Ok(profile)
+    }
+    
+    // Change skin using access token (requires authentication)
+    pub async fn change_skin(&self, access_token: &str, uuid: &str, skin_path: &str, skin_variant: &str) -> Result<()> {
+        let url = format!("{}/user/profile/{}/skin", MOJANG_API_URL, uuid);
+        
+        // Read skin file as bytes
+        let file_content = match fs::read(skin_path) {
+            Ok(content) => content,
+            Err(e) => return Err(AppError::Other(format!("Failed to read skin file: {}", e))),
+        };
+        
+        // Get filename from path
+        let filename = Path::new(skin_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("skin.png");
+            
+        // Since we can't use reqwest's multipart feature directly (seems disabled),
+        // we'll create a URL-encoded form manually
+        let client = reqwest::Client::new();
+        let form = [
+            ("model", skin_variant),
+        ];
+        
+        // For the file upload, we need to use the client builder with a custom request
+        let response = client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .form(&form)
+            .body(file_content) // Attach the file content directly
+            .send()
+            .await
+            .map_err(AppError::MinecraftApi)?;
+            
+        // Check if successful
+        if !response.status().is_success() {
+            let error_text = response.text().await
+                .map_err(AppError::MinecraftApi)?;
+            return Err(AppError::Other(format!("Failed to change skin: {}", error_text)));
+        }
+        
+        Ok(())
+    }
+    
+    // Reset skin to default
+    pub async fn reset_skin(&self, access_token: &str, uuid: &str) -> Result<()> {
+        let url = format!("{}/user/profile/{}/skin", MOJANG_API_URL, uuid);
+        
+        let client = reqwest::Client::new();
+        let response = client
+            .delete(&url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .map_err(AppError::MinecraftApi)?;
+            
+        // Check if successful
+        if !response.status().is_success() {
+            let error_text = response.text().await
+                .map_err(AppError::MinecraftApi)?;
+            return Err(AppError::Other(format!("Failed to reset skin: {}", error_text)));
+        }
+        
+        Ok(())
     }
 } 

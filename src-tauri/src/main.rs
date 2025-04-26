@@ -27,6 +27,8 @@ use commands::minecraft_auth_command::{
 use commands::minecraft_command::{
     get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
     get_quilt_loader_versions, upload_log_to_mclogs_command,
+    // Skin management commands
+    get_user_skin_data, upload_skin, reset_skin
 };
 use commands::profile_command::{
     add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
@@ -219,7 +221,11 @@ async fn main() {
             get_launcher_config,
             set_launcher_config,
             get_launcher_directory,
-            resolve_image_path
+            resolve_image_path,
+            // Skin management commands
+            get_user_skin_data,
+            upload_skin,
+            reset_skin
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
