@@ -193,27 +193,6 @@ impl ConfigManager {
         
         Ok(())
     }
-
-    // Method to toggle Discord Rich Presence
-    pub async fn toggle_discord_presence(&self, enabled: bool) -> Result<()> {
-        let mut config = self.get_config().await;
-        
-        // Only update if there's a change
-        if config.enable_discord_presence != enabled {
-            info!("Toggling Discord Rich Presence: {} -> {}", config.enable_discord_presence, enabled);
-            config.enable_discord_presence = enabled;
-            self.set_config(config).await?;
-            
-            // Directly update the Discord manager
-            if let Ok(state) = crate::state::State::get().await {
-                if let Err(e) = state.discord_manager.set_enabled(enabled).await {
-                    warn!("Error updating Discord enabled state: {}, but continuing", e);
-                }
-            }
-        }
-        
-        Ok(())
-    }
 }
 
 pub fn default_config_path() -> PathBuf {
