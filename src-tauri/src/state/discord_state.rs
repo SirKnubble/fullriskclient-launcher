@@ -16,22 +16,31 @@ const DISCORD_APP_ID: &str = "775352010345021450"; // Replace with actual Discor
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiscordState {
     Idle,
+    // TODO: Add other states like InGame(profile_name), Editing(profile_name) etc.
 }
 
 pub struct DiscordManager {
     client: Arc<Mutex<Option<DiscordIpcClient>>>,
     current_state: Arc<RwLock<DiscordState>>,
     enabled: Arc<RwLock<bool>>,
+    idle_start_timestamp: Arc<RwLock<Option<i64>>>, // Added timestamp for idle state
 }
 
 impl DiscordManager {
     pub async fn new(enabled: bool) -> Result<Self> {
         info!("Initializing Discord Rich Presence Manager (enabled: {})", enabled);
         
+        // Get current time for initial idle timestamp
+        let initial_timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .ok();
+
         let manager = Self {
             client: Arc::new(Mutex::new(None)),
             current_state: Arc::new(RwLock::new(DiscordState::Idle)),
             enabled: Arc::new(RwLock::new(enabled)),
+            idle_start_timestamp: Arc::new(RwLock::new(initial_timestamp)), // Initialize with current time or None
         };
         
         // Initialize Discord presence if enabled
@@ -122,9 +131,9 @@ impl DiscordManager {
     und dann editieren wir was im mods oder so... dann würden wir ja das spiel quasi überschreiben check?
      */
     // Public method that catches errors to prevent application crashes
-    pub async fn set_state(&self, state: DiscordState) -> Result<()> {
+    pub async fn set_state(&self, state: DiscordState, force: bool) -> Result<()> {
         debug!("Setting Discord state to: {:?}", state);
-        match self.set_state_internal(state, false).await {
+        match self.set_state_internal(state, force).await {
             Ok(_) => Ok(()),
             Err(e) => {
                 error!("Error setting Discord state: {}. Continuing without Discord presence.", e);
@@ -167,8 +176,8 @@ impl DiscordManager {
         }
         
         if let Some(client_ref) = client_lock.as_mut() {
-            // Create activity for current state
-            let activity = self.create_activity_for_state(&state);
+            // Create activity for current state (pass self to access timestamp)
+            let activity = self.create_activity_for_state(&state).await; // Make async
             
             debug!("Sending activity to Discord...");
             match client_ref.set_activity(activity).map_err(|e| AppError::DiscordError(format!("Discord activity error: {}", e))) {
@@ -186,7 +195,7 @@ impl DiscordManager {
                     
                     debug!("Reconnection successful, trying to set activity again...");
                     // Try setting activity again after reconnect with a new activity
-                    let new_activity = self.create_activity_for_state(&state);
+                    let new_activity = self.create_activity_for_state(&state).await;
                     if let Err(retry_e) = client_ref.set_activity(new_activity).map_err(|e| AppError::DiscordError(format!("Discord activity error after reconnect: {}", e))) {
                         error!("Failed to update Discord Rich Presence after reconnect: {}", retry_e);
                         return Err(retry_e);
@@ -195,28 +204,35 @@ impl DiscordManager {
                 }
             }
         } else {
+            // This case should be less likely now due to the reconnect logic above
             warn!("Failed to get Discord client, cannot set activity");
         }
         
         Ok(())
     }
     
-    fn create_activity_for_state(&self, state: &DiscordState) -> activity::Activity {
-        let start_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
-
-        let icon = "icon_512px";
+    // Make async to allow reading the timestamp lock
+    async fn create_activity_for_state(&self, state: &DiscordState) -> activity::Activity {
+        let icon = "icon_512px"; // Use a consistent icon name
         
-        
-        //TODO warum geht das nicht
+        // TODO: Resolve button issue
         let download_button = activity::Button::new("DOWNLOAD", "https://norisk.gg/");
         let buttons = vec![download_button];
 
         debug!("Creating activity for Discord state: {:?}", state);
         match state {
             DiscordState::Idle => {
+                // Read the idle start timestamp
+                let idle_timestamp = *self.idle_start_timestamp.read().await;
+
+                let start_time = idle_timestamp.unwrap_or_else(|| {
+                     warn!("Idle state detected but no idle timestamp found. Using current time.");
+                     SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_secs() as i64)
+                        .unwrap_or(0) // Fallback if time is before epoch
+                });
+
                 activity::Activity::new()
                     .state("Idling...")
                     .assets(
@@ -225,7 +241,7 @@ impl DiscordManager {
                             .large_text("NoRiskClient")
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
+                    .buttons(buttons) // Include buttons here
             }
         }
     }
@@ -310,7 +326,7 @@ impl DiscordManager {
             debug!("Focus handling: DRP enabled, no game running. Forcing state to Idle.");
             // Force update to Idle. Public set_state handles internal errors.
             // Using public set_state which handles errors internally now
-            self.set_state(DiscordState::Idle).await?; 
+            self.set_state_internal(DiscordState::Idle, true).await?; 
         } else {
             debug!("Focus handling: Game is running, yielding DRP control.");
         }
