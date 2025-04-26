@@ -4,6 +4,13 @@ export interface ProcessMetadata {
     start_time: string;
     state: ProcessState;
     pid: number;
+    account_uuid?: string;
+    account_name?: string;
+    minecraft_version?: string;
+    modloader?: string;
+    modloader_version?: string;
+    norisk_pack?: string;
+    profile_name?: string;
 }
 
 export type ProcessState = 'Starting' | 'Running' | 'Stopping' | 'Stopped' | 'Crashed';
