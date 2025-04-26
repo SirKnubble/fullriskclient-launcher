@@ -38,6 +38,11 @@
     let localSkinsError: string | null = $state(null);
     let selectedLocalSkin: LocalSkin | null = $state(null);
 
+    // Editing state
+    let editingSkin: LocalSkin | null = $state(null);
+    let editSkinName: string = $state("");
+    let editSkinVariant: string = $state("classic");
+
     onMount(async () => {
         // Initialize accounts if not already loaded
         if (!$activeAccount) {
@@ -235,6 +240,67 @@
             loading = false;
         }
     }
+
+    // Start editing a skin
+    function startEditSkin(skin: LocalSkin, event: MouseEvent) {
+        // Prevent the click from triggering the parent's click handler (applyLocalSkin)
+        event.stopPropagation();
+
+        editingSkin = skin;
+        editSkinName = skin.name;
+        editSkinVariant = skin.variant;
+    }
+
+    // Cancel editing a skin
+    function cancelEditSkin() {
+        editingSkin = null;
+    }
+
+    // Save edited skin properties
+    async function saveEditSkin() {
+        if (!editingSkin) return;
+
+        error = null;
+        successMessage = null;
+        localSkinsError = null;
+        localSkinsLoading = true;
+
+        try {
+            // Call the backend to update the skin properties
+            const updatedSkin = await invoke<LocalSkin | null>("update_skin_properties", {
+                id: editingSkin.id,
+                name: editSkinName,
+                variant: editSkinVariant
+            });
+
+            if (updatedSkin) {
+                successMessage = `Successfully updated skin: ${updatedSkin.name}`;
+
+                // Update the skin in the local list
+                const index = localSkins.findIndex(s => s.id === updatedSkin.id);
+                if (index !== -1) {
+                    localSkins[index] = updatedSkin;
+                }
+
+                // If this was the selected skin, update the selection
+                if (selectedLocalSkin?.id === updatedSkin.id) {
+                    selectedLocalSkin = updatedSkin;
+                }
+            } else {
+                localSkinsError = "Skin not found. It may have been deleted.";
+            }
+        } catch (err) {
+            console.error("Error updating skin properties:", err);
+            if (typeof err === 'object' && err !== null && 'message' in err) {
+                localSkinsError = String(err.message);
+            } else {
+                localSkinsError = `Failed to update skin: ${String(err)}`;
+            }
+        } finally {
+            localSkinsLoading = false;
+            editingSkin = null; // Exit edit mode
+        }
+    }
 </script>
 
 <div class="skin-changer">
@@ -305,27 +371,70 @@
             {:else if localSkins.length === 0}
                 <p class="note">No local skins found. Upload skins to add them to your library.</p>
             {:else}
-                <div class="local-skins-grid">
-                    {#each localSkins as skin (skin.id)}
-                        <div 
-                            class="local-skin-item" 
-                            class:selected={selectedLocalSkin?.id === skin.id}
-                            on:click={() => applyLocalSkin(skin)}
-                        >
-                            <div class="local-skin-preview">
-                                <img 
-                                    src={`data:image/png;base64,${skin.base64_data}`} 
-                                    alt={skin.name} 
-                                    class="local-skin-image" 
-                                />
-                            </div>
-                            <div class="local-skin-info">
-                                <p class="local-skin-name">{skin.name}</p>
-                                <p class="local-skin-variant">{skin.variant === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)'}</p>
+                {#if editingSkin}
+                    <div class="edit-skin-form">
+                        <h4>Edit Skin Properties</h4>
+                        <div class="form-group">
+                            <label for="skinName">Skin Name:</label>
+                            <input 
+                                type="text" 
+                                id="skinName" 
+                                bind:value={editSkinName} 
+                                placeholder="Enter skin name"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>Skin Variant:</label>
+                            <div class="variant-selector">
+                                <label>
+                                    <input type="radio" bind:group={editSkinVariant} value="classic" />
+                                    Classic (Steve)
+                                </label>
+                                <label>
+                                    <input type="radio" bind:group={editSkinVariant} value="slim" />
+                                    Slim (Alex)
+                                </label>
                             </div>
                         </div>
-                    {/each}
-                </div>
+                        <div class="edit-buttons">
+                            <button on:click={saveEditSkin} disabled={localSkinsLoading}>
+                                Save Changes
+                            </button>
+                            <button on:click={cancelEditSkin} class="cancel-button" disabled={localSkinsLoading}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                {:else}
+                    <div class="local-skins-grid">
+                        {#each localSkins as skin (skin.id)}
+                            <div 
+                                class="local-skin-item" 
+                                class:selected={selectedLocalSkin?.id === skin.id}
+                                on:click={() => applyLocalSkin(skin)}
+                            >
+                                <div class="local-skin-preview">
+                                    <img 
+                                        src={`data:image/png;base64,${skin.base64_data}`} 
+                                        alt={skin.name} 
+                                        class="local-skin-image" 
+                                    />
+                                </div>
+                                <div class="local-skin-info">
+                                    <p class="local-skin-name">{skin.name}</p>
+                                    <p class="local-skin-variant">{skin.variant === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)'}</p>
+                                </div>
+                                <button 
+                                    class="edit-button" 
+                                    on:click={(e) => startEditSkin(skin, e)}
+                                    title="Edit skin properties"
+                                >
+                                    Edit
+                                </button>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             {/if}
         </div>
     {/if}
@@ -537,5 +646,74 @@
         margin: 0;
         font-size: 0.8em;
         color: #666;
+    }
+
+    /* Edit button styles */
+    .edit-button {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        padding: 3px 8px;
+        background-color: rgba(74, 144, 226, 0.8);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        font-size: 0.8em;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .local-skin-item {
+        position: relative; /* For absolute positioning of edit button */
+    }
+
+    .local-skin-item:hover .edit-button {
+        opacity: 1;
+    }
+
+    .edit-button:hover {
+        background-color: rgba(53, 122, 189, 1);
+    }
+
+    /* Edit form styles */
+    .edit-skin-form {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    .form-group input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1em;
+    }
+
+    .edit-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .cancel-button {
+        background-color: #e74c3c;
+    }
+
+    .cancel-button:hover:not(:disabled) {
+        background-color: #c0392b;
     }
 </style> 

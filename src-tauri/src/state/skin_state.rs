@@ -183,6 +183,33 @@ impl SkinManager {
 
         Ok(removed)
     }
+
+    /// Update skin properties (name and variant)
+    pub async fn update_skin_properties(&self, id: &str, name: String, variant: String) -> Result<Option<MinecraftSkin>> {
+        debug!("Updating skin properties for ID: {}", id);
+        debug!("New name: {}, New variant: {}", name, variant);
+
+        let mut skins = self.skins.write().await;
+
+        // Find the skin with the given ID
+        if let Some(index) = skins.skins.iter().position(|s| s.id == id) {
+            // Update the skin properties
+            skins.skins[index].name = name;
+            skins.skins[index].variant = variant;
+
+            let updated_skin = skins.skins[index].clone();
+            debug!("Successfully updated skin properties for ID: {}", id);
+
+            // Save the updated database
+            drop(skins); // Release the write lock before saving
+            self.save_skins().await?;
+
+            Ok(Some(updated_skin))
+        } else {
+            debug!("No skin found with ID: {}", id);
+            Ok(None)
+        }
+    }
 }
 
 /// Get the default path for the skins database file

@@ -30,7 +30,7 @@ use commands::minecraft_command::{
     // Skin management commands
     get_user_skin_data, upload_skin, reset_skin, apply_skin_from_base64,
     // Local skin database commands
-    get_all_skins, get_skin_by_id, add_skin, remove_skin
+    get_all_skins, get_skin_by_id, add_skin, remove_skin, update_skin_properties
 };
 use commands::profile_command::{
     add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
@@ -233,7 +233,8 @@ async fn main() {
             get_all_skins,
             get_skin_by_id,
             add_skin,
-            remove_skin
+            remove_skin,
+            update_skin_properties
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

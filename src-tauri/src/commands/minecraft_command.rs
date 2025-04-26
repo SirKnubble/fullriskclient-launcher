@@ -441,3 +441,48 @@ pub async fn apply_skin_from_base64(
     debug!("Command completed: apply_skin_from_base64");
     Ok(())
 }
+
+/// Update skin properties (name and variant)
+#[tauri::command]
+pub async fn update_skin_properties(
+    id: String,
+    name: String,
+    variant: String,
+) -> Result<Option<MinecraftSkin>, CommandError> {
+    debug!("Command called: update_skin_properties for ID: {}", id);
+    debug!("New name: {}, New variant: {}", name, variant);
+
+    // Validate skin variant
+    if variant != "classic" && variant != "slim" {
+        debug!("Invalid skin variant: {}", variant);
+        return Err(CommandError::from(
+            AppError::Other(format!("Invalid skin variant. Must be 'classic' or 'slim'"))
+        ));
+    }
+
+    let state = match State::get().await {
+        Ok(s) => s,
+        Err(e) => {
+            debug!("Failed to get state: {:?}", e);
+            return Err(CommandError::from(e));
+        }
+    };
+
+    let updated_skin = match state.skin_manager.update_skin_properties(&id, name, variant).await {
+        Ok(skin) => {
+            if let Some(s) = &skin {
+                debug!("Successfully updated skin properties for ID: {}", id);
+            } else {
+                debug!("No skin found with ID: {}", id);
+            }
+            skin
+        },
+        Err(e) => {
+            debug!("Failed to update skin properties: {:?}", e);
+            return Err(CommandError::from(e));
+        }
+    };
+
+    debug!("Command completed: update_skin_properties");
+    Ok(updated_skin)
+}
