@@ -62,6 +62,11 @@ use commands::path_commands::{
     get_launcher_directory, resolve_image_path
 };
 
+// Import cape commands
+use commands::cape_command::{
+    browse_capes, get_player_capes
+};
+
 use tauri::Manager;
 
 #[tokio::main]
@@ -263,7 +268,10 @@ async fn main() {
             add_skin,
             remove_skin,
             update_skin_properties,
-            set_discord_state
+            set_discord_state,
+            // Cape commands
+            browse_capes,
+            get_player_capes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

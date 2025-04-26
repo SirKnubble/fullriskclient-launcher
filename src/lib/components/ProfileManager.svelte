@@ -11,6 +11,7 @@
     import NoRiskVersions from './NoRiskVersions.svelte'; // Import the NoRiskVersions component
     import LauncherSettings from './LauncherSettings.svelte'; // Import the LauncherSettings component
     import SkinChanger from './SkinChanger.svelte'; // Import the SkinChanger component
+    import CapeBrowser from './CapeBrowser.svelte'; // Import the CapeBrowser component
     import { profiles, loadProfiles as loadProfilesFromStore, selectedProfileId } from '$lib/stores/profileStore';
     import type { Profile, Mod, NoriskModIdentifier } from '$lib/stores/profileStore';
     // Import Norisk Pack types from the new file
@@ -151,7 +152,7 @@
         await loadProfilesFromStore(); // Load profiles first
         console.log('Profiles loaded into store');
         await loadNoriskPacks(); // Load Norisk packs
-        
+
         // --- Load initial data AFTER profiles are available ---
         if ($profiles.length > 0) {
             console.log("Initial load: Loading custom mods and version checks...");
@@ -173,7 +174,7 @@
 
     async function setupEventListeners() {
         console.log('Setting up event listeners...');
-        
+
         await listen<EventPayload>('state_event', (event) => {
             console.log('Received state_event:', event);
             const payload = event.payload;
@@ -537,7 +538,7 @@
             // Check if compatibility exists for the profile's game version and loader
             return mod.compatibility?.[gameVersion]?.[loader]; 
         });
-        
+
         return compatibleMods;
     }
 
@@ -729,10 +730,10 @@
                 newVersionDetails: selectedVersionObject 
             });
             console.log("Successfully requested mod version update.");
-            
+
             // Reload profiles to get the updated profile state from backend
             await loadProfilesFromStore(); 
-            
+
             // Manually remove the update indicator for this mod
             const currentUpdateMap = modsWithUpdates; // Read the current map
             const profileSet = currentUpdateMap.get(profile.id);
@@ -817,7 +818,7 @@
                 await invoke('get_latest_modrinth_versions_for_contexts', { 
                     contexts: contextsToCheck 
                 });
-            
+
             console.log(`Received update check results for profile ${profileId}:`, results);
 
             // 3. Process results and compare versions
@@ -902,7 +903,7 @@
                             game_version: profile.game_version
                         };
                         const contextKey = `${context.project_id}::${context.loader}::${context.game_version}`;
-                        
+
                         // Add context to fetch list only if it's the first time we see this *key* needing fetch
                         if (!uniqueContextKeysToFetch.has(contextKey)) {
                             contextsToFetch.push(context);
@@ -963,12 +964,12 @@
                             profileCache.set(modDetails.modId, result.error);
                         } else if (result.versions && result.versions.length > 0) {
                             profileCache.set(modDetails.modId, result.versions);
-                            
+
                             // Check for updates *only for this newly fetched data*
                             let latestVersion = result.versions.reduce((latest, current) => {
                                 return new Date(current.date_published) > new Date(latest.date_published) ? current : latest;
                             });
-                            
+
                             if (latestVersion && latestVersion.id !== modDetails.currentVersionId) {
                                 updateFound = true;
                             }
@@ -1000,7 +1001,7 @@
                     }
                 }
             }
-            
+
             // Update state variables reactively with the modified copies
             allFetchedVersions = newAllFetchedVersions;
             modsWithUpdates = newModsWithUpdates;
@@ -1062,7 +1063,7 @@
             // Not an array (could be error string or 'No versions found') -> no known alternatives
             return false; 
         }
-        
+
         // Array exists, check if it contains versions different from the current one
         const profile = $profiles.find(p => p.id === profileId);
         const mod = profile?.mods.find(m => m.id === modId);
@@ -1167,7 +1168,7 @@
         try {
             await invoke('delete_custom_mod', { profileId: profileId, filename: filename });
             console.log(`Successfully deleted custom mod ${filename} from profile ${profileId}`);
-            
+
             // Reload custom mods for this specific profile after successful deletion
             const profileToUpdate = $profiles.find(p => p.id === profileId);
             if (profileToUpdate) {
@@ -1215,8 +1216,9 @@
     <ModrinthSearch />
     <AccountManager />
     <SkinChanger />
+    <CapeBrowser />
     <LauncherSettings />
-    
+
     <!-- NoRiskVersions Component -->
     <div class="norisk-versions-section">
         <NoRiskVersions />
@@ -1276,7 +1278,7 @@
                         isDropdownOpenForThisMod={(modId) => isDropdownOpenForMod(profile.id, modId)}
                         doAlternativesExistForThisMod={(modId) => checkAlternativesForMod(profile.id, modId)}
                         profileEvents={getProfileEvents(profile.id)}
-                        
+
                         on:launch={() => launchGame(profile.id)}
                         on:edit={() => editProfile(profile)}
                         on:delete={() => deleteProfile(profile.id)}
@@ -1697,7 +1699,7 @@
     .mod-item.pack-mod-item {
         /* Specific styles for pack mods if needed */
     }
-    
+
     .mod-item.pack-mod-item.disabled .mod-name {
         /* Style for disabled pack mod names */
         color: #888;
@@ -1779,7 +1781,7 @@
     .mod-item.local-mod-item {
         /* Specific styles if needed */
     }
-    
+
     .mod-item.local-mod-item.disabled .mod-name {
         color: #888;
         font-style: italic;
