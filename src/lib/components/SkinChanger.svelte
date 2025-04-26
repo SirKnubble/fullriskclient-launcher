@@ -14,6 +14,16 @@
         TexturesDictionary
     } from '$lib/types/minecraft';
 
+    // Define interface for local skin type
+    interface LocalSkin {
+        id: string;
+        name: string;
+        base64_data: string;
+        variant: string;
+        description: string;
+        added_at: string;
+    }
+
     let skinData: MinecraftProfile | null = $state(null);
     let skinUrl: string | null = $state(null);
     let skinModel: string | null = $state(null);
@@ -22,14 +32,23 @@
     let error: string | null = $state(null);
     let successMessage: string | null = $state(null);
 
+    // Local skins state
+    let localSkins: LocalSkin[] = $state([]);
+    let localSkinsLoading: boolean = $state(false);
+    let localSkinsError: string | null = $state(null);
+    let selectedLocalSkin: LocalSkin | null = $state(null);
+
     onMount(async () => {
         // Initialize accounts if not already loaded
         if (!$activeAccount) {
             await initializeAccounts();
         }
-        
+
         // Load skin data if we have an active account
         await loadSkinData();
+
+        // Load local skins regardless of account status
+        await loadLocalSkins();
     });
 
     // Reactive effect to reload skin data when active account changes
@@ -45,20 +64,20 @@
 
     async function loadSkinData() {
         if (!$activeAccount) return;
-        
+
         loading = true;
         error = null;
         successMessage = null;
-        
+
         try {
             // Pass UUID and access token to the command
             const data = await invoke<MinecraftProfile>("get_user_skin_data", {
                 uuid: $activeAccount.id,
                 accessToken: $activeAccount.access_token
             });
-            
+
             skinData = data;
-            
+
             // Extract the skin URL from the properties
             if (data && data.properties) {
                 const textures = data.properties.find(prop => prop.name === "textures");
@@ -67,13 +86,13 @@
                         // The value is a base64 encoded JSON
                         const decodedValue = atob(textures.value);
                         const texturesJson = JSON.parse(decodedValue) as TexturesData;
-                        
+
                         // Set the skin URL
                         skinUrl = texturesJson.textures?.SKIN?.url || null;
-                        
+
                         // Get the skin model (slim or classic)
                         skinModel = texturesJson.textures?.SKIN?.metadata?.model || null;
-                        
+
                         // Auto-select the skin variant based on the current skin
                         if (skinModel === "slim") {
                             skinVariant = "slim";
@@ -95,21 +114,23 @@
 
     async function handleUploadSkin() {
         if (!$activeAccount) return;
-        
+
         error = null;
         successMessage = null;
         loading = true;
-        
+
         try {
             await invoke("upload_skin", {
                 uuid: $activeAccount.id,
                 accessToken: $activeAccount.access_token,
                 skinVariant
             });
-            
-            successMessage = "Skin updated successfully!";
+
+            successMessage = "Skin updated successfully and added to your local library!";
             // Reload skin data to display the new skin
             await loadSkinData();
+            // Reload local skins to show the newly added skin
+            await loadLocalSkins();
         } catch (err) {
             console.error("Error uploading skin:", err);
             // More detailed error handling
@@ -118,7 +139,7 @@
             } else {
                 error = `Failed to upload skin: ${String(err)}`;
             }
-            
+
             // Add helpful message
             if (error.includes("No skin file selected")) {
                 error = "Please select a valid PNG skin file to upload.";
@@ -132,21 +153,21 @@
 
     async function handleResetSkin() {
         if (!$activeAccount) return;
-        
+
         if (!confirm("Are you sure you want to reset your skin to the default?")) {
             return;
         }
-        
+
         error = null;
         successMessage = null;
         loading = true;
-        
+
         try {
             await invoke("reset_skin", {
                 uuid: $activeAccount.id,
                 accessToken: $activeAccount.access_token
             });
-            
+
             successMessage = "Skin reset to default!";
             // Reload skin data to display the default skin
             await loadSkinData();
@@ -157,11 +178,68 @@
             loading = false;
         }
     }
+
+    // Load all local skins from the database
+    async function loadLocalSkins() {
+        localSkinsLoading = true;
+        localSkinsError = null;
+
+        try {
+            const skins = await invoke<LocalSkin[]>("get_all_skins");
+            localSkins = skins;
+            console.log(`Loaded ${skins.length} local skins`);
+        } catch (err) {
+            console.error("Error loading local skins:", err);
+            localSkinsError = err instanceof Error ? err.message : String(err);
+        } finally {
+            localSkinsLoading = false;
+        }
+    }
+
+    // Apply a local skin to the current user
+    async function applyLocalSkin(skin: LocalSkin) {
+        if (!$activeAccount) {
+            error = "You must be logged in to apply a skin";
+            return;
+        }
+
+        error = null;
+        successMessage = null;
+        loading = true;
+        selectedLocalSkin = skin;
+
+        try {
+            // Set the skin variant based on the selected skin
+            skinVariant = skin.variant;
+
+            // Apply the skin using the base64 data
+            await invoke("apply_skin_from_base64", {
+                uuid: $activeAccount.id,
+                accessToken: $activeAccount.access_token,
+                base64Data: skin.base64_data,
+                skinVariant: skin.variant
+            });
+
+            successMessage = `Successfully applied skin: ${skin.name} (${skin.variant} model)`;
+
+            // Reload skin data to display the new skin
+            await loadSkinData();
+        } catch (err) {
+            console.error("Error applying local skin:", err);
+            if (typeof err === 'object' && err !== null && 'message' in err) {
+                error = String(err.message);
+            } else {
+                error = `Failed to apply skin: ${String(err)}`;
+            }
+        } finally {
+            loading = false;
+        }
+    }
 </script>
 
 <div class="skin-changer">
     <h3>Minecraft Skin Manager</h3>
-    
+
     {#if $accountLoading}
         <p class="loading">Loading account data...</p>
     {:else if $accountError}
@@ -187,7 +265,7 @@
                     <div class="no-skin">Default Steve/Alex skin</div>
                 {/if}
             </div>
-            
+
             <div class="skin-controls">
                 <div class="variant-selector">
                     <h4>Choose skin model:</h4>
@@ -200,7 +278,7 @@
                         Slim (Alex)
                     </label>
                 </div>
-                
+
                 <div class="skin-buttons">
                     <button on:click={handleUploadSkin} disabled={loading}>
                         Upload New Skin
@@ -209,11 +287,46 @@
                         Reset to Default
                     </button>
                 </div>
-                
+
                 {#if successMessage}
                     <p class="success">{successMessage}</p>
                 {/if}
             </div>
+        </div>
+
+        <!-- Local Skins Section -->
+        <div class="local-skins-section">
+            <h3>Local Skin Library</h3>
+
+            {#if localSkinsLoading}
+                <p class="loading">Loading local skins...</p>
+            {:else if localSkinsError}
+                <p class="error">{localSkinsError}</p>
+            {:else if localSkins.length === 0}
+                <p class="note">No local skins found. Upload skins to add them to your library.</p>
+            {:else}
+                <div class="local-skins-grid">
+                    {#each localSkins as skin (skin.id)}
+                        <div 
+                            class="local-skin-item" 
+                            class:selected={selectedLocalSkin?.id === skin.id}
+                            on:click={() => applyLocalSkin(skin)}
+                        >
+                            <div class="local-skin-preview">
+                                <img 
+                                    src={`data:image/png;base64,${skin.base64_data}`} 
+                                    alt={skin.name} 
+                                    class="local-skin-image" 
+                                />
+                            </div>
+                            <div class="local-skin-info">
+                                <p class="local-skin-name">{skin.name}</p>
+                                <p class="local-skin-variant">{skin.variant === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)'}</p>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
         </div>
     {/if}
 </div>
@@ -225,24 +338,24 @@
         border-radius: 5px;
         margin-bottom: 20px;
     }
-    
+
     h3 {
         margin-top: 0;
         margin-bottom: 15px;
     }
-    
+
     h4 {
         margin-top: 0;
         margin-bottom: 10px;
         font-size: 1em;
     }
-    
+
     .skin-container {
         display: flex;
         gap: 20px;
         align-items: flex-start;
     }
-    
+
     .skin-preview {
         flex: 0 0 auto;
         border: 1px solid #ccc;
@@ -250,7 +363,7 @@
         border-radius: 5px;
         background-color: #f5f5f5;
     }
-    
+
     .skin-image {
         width: 128px;
         height: 128px;
@@ -258,19 +371,19 @@
         background-color: #e0e0e0;
         display: block;
     }
-    
+
     .skin-info {
         display: flex;
         flex-direction: column;
         align-items: center;
     }
-    
+
     .skin-model {
         margin: 8px 0 0 0;
         font-size: 0.9em;
         color: #666;
     }
-    
+
     .no-skin {
         width: 128px;
         height: 128px;
@@ -282,30 +395,30 @@
         color: #666;
         font-size: 0.9em;
     }
-    
+
     .skin-controls {
         flex: 1;
     }
-    
+
     .variant-selector {
         margin-bottom: 15px;
         display: flex;
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .variant-selector label {
         display: flex;
         align-items: center;
         gap: 8px;
     }
-    
+
     .skin-buttons {
         display: flex;
         gap: 10px;
         margin-top: 5px;
     }
-    
+
     button {
         padding: 8px 16px;
         background-color: #4a90e2;
@@ -315,29 +428,29 @@
         cursor: pointer;
         transition: background-color 0.2s;
     }
-    
+
     button:hover:not(:disabled) {
         background-color: #357abd;
     }
-    
+
     button:disabled {
         background-color: #ccc;
         cursor: not-allowed;
     }
-    
+
     .reset-button {
         background-color: #e74c3c;
     }
-    
+
     .reset-button:hover:not(:disabled) {
         background-color: #c0392b;
     }
-    
+
     .loading {
         color: #666;
         font-style: italic;
     }
-    
+
     .error {
         color: #e74c3c;
         padding: 10px;
@@ -345,7 +458,7 @@
         border: 1px solid #e74c3c;
         border-radius: 4px;
     }
-    
+
     .success {
         color: #2ecc71;
         padding: 10px;
@@ -354,9 +467,75 @@
         border-radius: 4px;
         margin-top: 15px;
     }
-    
+
     .note {
         color: #666;
         font-style: italic;
+    }
+
+    /* Local Skins Section Styles */
+    .local-skins-section {
+        margin-top: 30px;
+        border-top: 1px solid #ddd;
+        padding-top: 20px;
+    }
+
+    .local-skins-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .local-skin-item {
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        background-color: #f9f9f9;
+    }
+
+    .local-skin-item:hover {
+        border-color: #4a90e2;
+        transform: translateY(-2px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .local-skin-item.selected {
+        border-color: #2ecc71;
+        background-color: #e8f8f5;
+    }
+
+    .local-skin-preview {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 8px;
+    }
+
+    .local-skin-image {
+        width: 64px;
+        height: 64px;
+        image-rendering: pixelated;
+        background-color: #e0e0e0;
+    }
+
+    .local-skin-info {
+        text-align: center;
+    }
+
+    .local-skin-name {
+        margin: 0 0 4px 0;
+        font-weight: bold;
+        font-size: 0.9em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .local-skin-variant {
+        margin: 0;
+        font-size: 0.8em;
+        color: #666;
     }
 </style> 

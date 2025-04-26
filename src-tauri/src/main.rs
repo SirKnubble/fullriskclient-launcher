@@ -28,7 +28,9 @@ use commands::minecraft_command::{
     get_fabric_loader_versions, get_forge_versions, get_minecraft_versions, get_neoforge_versions,
     get_quilt_loader_versions, upload_log_to_mclogs_command,
     // Skin management commands
-    get_user_skin_data, upload_skin, reset_skin
+    get_user_skin_data, upload_skin, reset_skin, apply_skin_from_base64,
+    // Local skin database commands
+    get_all_skins, get_skin_by_id, add_skin, remove_skin
 };
 use commands::profile_command::{
     add_modrinth_content_to_profile, add_modrinth_mod_to_profile, create_profile,
@@ -225,7 +227,13 @@ async fn main() {
             // Skin management commands
             get_user_skin_data,
             upload_skin,
-            reset_skin
+            reset_skin,
+            apply_skin_from_base64,
+            // Local skin database commands
+            get_all_skins,
+            get_skin_by_id,
+            add_skin,
+            remove_skin
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

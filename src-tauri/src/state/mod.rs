@@ -5,5 +5,5 @@ pub mod norisk_packs_state;
 pub mod norisk_versions_state;
 pub mod state_manager;
 pub mod config_state;
+pub mod skin_state;
 pub use state_manager::State;
- 
