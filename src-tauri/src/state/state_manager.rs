@@ -44,7 +44,7 @@ impl State {
                         LAUNCHER_DIRECTORY.root_dir().join("profiles.json"),
                     )
                     .await?,
-                    event_state: EventState::new(Some(app)),
+                    event_state: EventState::new(Some(app.clone())),
                     process_manager: ProcessManager::new(default_processes_path()).await?,
                     minecraft_account_manager_v2: MinecraftAuthStore::new().await?,
                     norisk_pack_manager: NoriskPackManager::new(default_norisk_packs_path())
@@ -53,7 +53,7 @@ impl State {
                         .await?,
                     config_manager,
                     skin_manager: SkinManager::new(default_skins_path()).await?,
-                    discord_manager: DiscordManager::new(config.enable_discord_presence).await?,
+                    discord_manager: DiscordManager::new( config.enable_discord_presence).await?,
                 }))
             })
             .await?;

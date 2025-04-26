@@ -1,4 +1,5 @@
 use crate::error::{AppError, Result};
+use crate::state; // Need this for State and ProcessState access
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use log::{debug, error, info, warn};
 use std::sync::Arc;
@@ -6,6 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::{Mutex, RwLock};
 use tokio::task;
 use tokio::time::{sleep, Duration};
+use tauri::Manager; // Keep for app_handle.state()
 
 // Discord application ID for NoRiskClient
 const DISCORD_APP_ID: &str = "775352010345021450"; // Replace with actual Discord application ID
@@ -14,11 +16,6 @@ const DISCORD_APP_ID: &str = "775352010345021450"; // Replace with actual Discor
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiscordState {
     Idle,
-    BrowsingProfiles,
-    LaunchingMinecraft(String), // Profile name
-    PlayingMinecraft(String),   // Profile name
-    ChangingSkins,
-    ManagingMods,
 }
 
 pub struct DiscordManager {
@@ -229,75 +226,7 @@ impl DiscordManager {
                     )
                     .timestamps(activity::Timestamps::new().start(start_time))
                     .buttons(buttons)
-            },
-            DiscordState::BrowsingProfiles => {
-                activity::Activity::new()
-                    .state("Browsing Profiles")
-                    .details("Setting up Minecraft")
-                    .assets(
-                        activity::Assets::new()
-                            .large_image(icon)
-                            .large_text("NoRiskClient")
-                    )
-                    .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
-            },
-            DiscordState::LaunchingMinecraft(profile) => {
-                // Create a 'static string by leaking memory (intentionally)
-                // This is safe because Discord RPC strings need to live for the duration of the Discord connection
-                let profile_details = Box::leak(format!("Profile: {}", profile).into_boxed_str());
-                
-                activity::Activity::new()
-                    .state("Launching Minecraft")
-                    .details(profile_details)
-                    .assets(
-                        activity::Assets::new()
-                            .large_image(icon)
-                            .large_text("NoRiskClient")
-                    )
-                    .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
-            },
-            DiscordState::PlayingMinecraft(profile) => {
-                // Create a 'static string by leaking memory (intentionally)
-                // This is safe because Discord RPC strings need to live for the duration of the Discord connection
-                let profile_details = Box::leak(format!("Profile: {}", profile).into_boxed_str());
-                
-                activity::Activity::new()
-                    .state("Playing Minecraft")
-                    .details(profile_details)
-                    .assets(
-                        activity::Assets::new()
-                            .large_image(icon)
-                            .large_text("NoRiskClient")
-                    )
-                    .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
-            },
-            DiscordState::ChangingSkins => {
-                activity::Activity::new()
-                    .state("Changing Skins")
-                    .details("Customizing appearance")
-                    .assets(
-                        activity::Assets::new()
-                            .large_image(icon)
-                            .large_text("NoRiskClient")
-                    )
-                    .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
-            },
-            DiscordState::ManagingMods => {
-                activity::Activity::new()
-                    .state("Managing Mods")
-                    .details("Customizing gameplay")
-                    .assets(
-                        activity::Assets::new()
-                            .large_image(icon)
-                            .large_text("NoRiskClient")
-                    )
-                    .timestamps(activity::Timestamps::new().start(start_time))
-                    .buttons(buttons)
-            },
+            }
         }
     }
     
@@ -353,5 +282,39 @@ impl DiscordManager {
         let enabled = *self.enabled.read().await;
         debug!("Checking if Discord is enabled: {}", enabled);
         enabled
+    }
+
+    pub async fn handle_focus_event(&self) -> Result<()> {
+        debug!("Handling focus event within DiscordManager.");
+        
+        if !self.is_enabled().await {
+            debug!("Focus handling: DRP is disabled, doing nothing.");
+            return Ok(());
+        }
+        
+        // Get the global state and check processes
+        let is_game_running = match state::State::get().await {
+            Ok(state) => {
+                // Access process manager via the successfully retrieved state
+                let processes = state.process_manager.list_processes().await;
+                processes.iter().any(|p| p.state == state::process_state::ProcessState::Running)
+            }
+            Err(e) => {
+                error!("Focus handling: Failed to get global state using State::get(): {}. Assuming game might be running.", e);
+                // Safety measure: Assume a game *might* be running if we can't get state.
+                true 
+            }
+        };
+        
+        if !is_game_running {
+            debug!("Focus handling: DRP enabled, no game running. Forcing state to Idle.");
+            // Force update to Idle. Public set_state handles internal errors.
+            // Using public set_state which handles errors internally now
+            self.set_state(DiscordState::Idle).await?; 
+        } else {
+            debug!("Focus handling: Game is running, yielding DRP control.");
+        }
+
+        Ok(())
     }
 } 
