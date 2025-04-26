@@ -61,7 +61,7 @@ impl MinecraftApiService {
     
     // Change skin using access token (requires authentication)
     pub async fn change_skin(&self, access_token: &str, uuid: &str, skin_path: &str, skin_variant: &str) -> Result<()> {
-        let url = format!("{}/user/profile/{}/skin", MOJANG_API_URL, uuid);
+        let url = format!("https://api.minecraftservices.com/minecraft/profile/skins");
         
         // Read skin file as bytes
         let file_content = match fs::read(skin_path) {
@@ -75,19 +75,21 @@ impl MinecraftApiService {
             .and_then(|n| n.to_str())
             .unwrap_or("skin.png");
             
-        // Since we can't use reqwest's multipart feature directly (seems disabled),
-        // we'll create a URL-encoded form manually
         let client = reqwest::Client::new();
-        let form = [
-            ("model", skin_variant),
-        ];
         
-        // For the file upload, we need to use the client builder with a custom request
+        // Create form with file part and variant part
+        let form = reqwest::multipart::Form::new()
+            .part("file", reqwest::multipart::Part::bytes(file_content)
+                .file_name(filename.to_string())
+                .mime_str("image/png")
+                .map_err(|e| AppError::Other(format!("Invalid MIME type: {}", e)))?)
+            .text("variant", skin_variant.to_string());
+            
+        // Send multipart request
         let response = client
-            .post(&url)
+            .post(url)
             .header("Authorization", format!("Bearer {}", access_token))
-            .form(&form)
-            .body(file_content) // Attach the file content directly
+            .multipart(form)
             .send()
             .await
             .map_err(AppError::MinecraftApi)?;

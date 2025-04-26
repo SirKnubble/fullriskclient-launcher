@@ -112,7 +112,19 @@
             await loadSkinData();
         } catch (err) {
             console.error("Error uploading skin:", err);
-            error = err instanceof Error ? err.message : String(err);
+            // More detailed error handling
+            if (typeof err === 'object' && err !== null && 'message' in err) {
+                error = String(err.message);
+            } else {
+                error = `Failed to upload skin: ${String(err)}`;
+            }
+            
+            // Add helpful message
+            if (error.includes("No skin file selected")) {
+                error = "Please select a valid PNG skin file to upload.";
+            } else if (error.includes("access_token")) {
+                error = "Authentication error. Please try logging out and back in.";
+            }
         } finally {
             loading = false;
         }
