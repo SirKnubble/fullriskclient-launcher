@@ -6,3 +6,4 @@ pub mod modrinth_commands;
 pub mod file_command;
 pub mod config_commands;
 pub mod path_commands;
+pub mod cape_command;

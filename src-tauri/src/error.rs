@@ -7,61 +7,61 @@ use uuid::Uuid;
 pub enum AppError {
     #[error("Minecraft API error: {0}")]
     MinecraftApi(#[from] reqwest::Error),
-    
+
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("Download error: {0}")]
     Download(String),
-    
+
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
-    
+
     #[error("Task error: {0}")]
     Task(#[from] tokio::task::JoinError),
-    
+
     #[error("Zip error: {0}")]
     Zip(#[from] zip::result::ZipError),
-    
+
     #[error("Profile error: {0}")]
     Profile(String),
-    
+
     #[error("Java download error: {0}")]
     JavaDownload(String),
-    
+
     #[error("Version not found: {0}")]
     VersionNotFound(String),
-    
+
     #[error("Fabric error: {0}")]
     FabricError(String),
-    
+
     #[error("Quilt error: {0}")]
     QuiltError(String),
-    
+
     #[error("Unknown error: {0}")]
     Unknown(String),
-    
+
     #[error("Library not found: {0}")]
     LibraryNotFound(String),
-    
+
     #[error("Forge error: {0}")]
     ForgeError(String),
 
     #[error("NeoForge error: {0}")]
     NeoForgeError(String),
-    
+
     #[error("Profile not found: {0}")]
     ProfileNotFound(Uuid),
-    
+
     #[error("Mod with ID '{mod_id}' not found in profile '{profile_id}'")]
     ModNotFoundInProfile { profile_id: Uuid, mod_id: Uuid },
-    
+
     #[error("Other error: {0}")]
     Other(String),
-    
+
     #[error("Event state was not properly initialized")]
     EventStateNotInitialized,
 
@@ -70,13 +70,13 @@ pub enum AppError {
 
     #[error("Process error: {0}")]
     ProcessError(String),
-    
+
     #[error("Account error: {0}")]
     AccountError(String),
-    
+
     #[error("Event error: {0}")]
     EventError(String),
-    
+
     #[error("Discord error: {0}")]
     DiscordError(String),
 
@@ -115,7 +115,7 @@ pub enum AppError {
 
     #[error("Process kill failed: {0}")]
     ProcessKillFailed(u32),
-    
+
     #[error("Modrinth hash not found: {0}")]
     ModrinthHashNotFound(String),
 
@@ -136,6 +136,9 @@ pub enum AppError {
 
     #[error("Parse error: {0}")]
     ParseError(String),
+    
+    #[error("Invalid Input: {0}")]
+    InvalidInput(String),
 }
 
 #[derive(Serialize)]
