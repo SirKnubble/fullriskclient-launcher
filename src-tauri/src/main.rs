@@ -12,8 +12,9 @@ mod logging;
 mod minecraft;
 mod state;
 mod utils;
-use log::{error, info};
+use log::{error, info, debug, warn};
 use rand::seq::SliceRandom;
+use tauri::Listener;
 use std::sync::Arc;
 use crate::integrations::norisk_versions;   
 use crate::integrations::norisk_packs;
@@ -60,6 +61,8 @@ use commands::config_commands::{
 use commands::path_commands::{
     get_launcher_directory, resolve_image_path
 };
+
+use tauri::Manager;
 
 #[tokio::main]
 async fn main() {
@@ -153,17 +156,40 @@ async fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
-            // Initialize the state
-            let app_handle = Arc::new(app.handle().clone());
-
+            // Initialize the state asynchronously
+            let app_handle_for_state = Arc::new(app.handle().clone());
             tauri::async_runtime::spawn(async move {
                 let _ = norisk_versions::load_dummy_versions().await;
                 let _ = norisk_packs::load_dummy_modpacks().await;
 
-                if let Err(e) = state::state_manager::State::init(app_handle).await {
+                if let Err(e) = state::state_manager::State::init(app_handle_for_state).await {
                     error!("Failed to initialize state: {}", e);
+                    // Consider exiting or notifying the user if state init fails critically
                 }
             });
+
+            // --- Register Focus Event Listener for Discord RPC --- 
+            if let Some(main_window) = app.get_webview_window("main") { // Use get_webview_window
+                main_window.listen("tauri://focus", move |_event| {
+                    tokio::spawn(async move {
+                        debug!("Main window focus event received. Triggering DiscordManager handler.");
+                        // Get the global state using the static getter and call the handler
+                        match state::state_manager::State::get().await {
+                            Ok(state) => {
+                                if let Err(e) = state.discord_manager.handle_focus_event().await {
+                                     error!("Error during DiscordManager focus handling: {}", e);
+                                }
+                            }
+                            Err(e) => {
+                                error!("Focus event listener: Failed to get global state using State::get(): {}", e);
+                            }
+                        }
+                    });
+                });
+            } else {
+                error!("Could not get main window handle to attach focus listener!");
+            }
+            // --- End Focus Event Listener ---
 
             Ok(())
         })
