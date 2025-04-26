@@ -2,12 +2,14 @@ use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::minecraft_auth::MinecraftAuthStore;
 use crate::state::config_state::ConfigManager;
+use crate::state::discord_state::DiscordManager;
 use crate::state::event_state::{EventPayload, EventState};
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::process_state::{default_processes_path, ProcessManager};
 use crate::state::profile_state::ProfileManager;
 use crate::state::norisk_versions_state::{default_norisk_versions_path, NoriskVersionManager};
 use crate::state::skin_state::{default_skins_path, SkinManager};
+use log::error;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 
@@ -25,6 +27,7 @@ pub struct State {
     pub norisk_version_manager: NoriskVersionManager,
     pub config_manager: ConfigManager,
     pub skin_manager: SkinManager,
+    pub discord_manager: DiscordManager,
 }
 
 impl State {
@@ -32,6 +35,9 @@ impl State {
     pub async fn init(app: Arc<tauri::AppHandle>) -> Result<()> {
         let state = LAUNCHER_STATE
             .get_or_try_init(|| async {
+                let config_manager = ConfigManager::new().await?;
+                let config = config_manager.get_config().await;
+                
                 Ok::<Arc<State>, AppError>(Arc::new(Self {
                     initialized: true,
                     profile_manager: ProfileManager::new(
@@ -45,8 +51,9 @@ impl State {
                         .await?,
                     norisk_version_manager: NoriskVersionManager::new(default_norisk_versions_path())
                         .await?,
-                    config_manager: ConfigManager::new().await?,
+                    config_manager,
                     skin_manager: SkinManager::new(default_skins_path()).await?,
+                    discord_manager: DiscordManager::new(config.enable_discord_presence).await?,
                 }))
             })
             .await?;
@@ -58,6 +65,7 @@ impl State {
             // Log the current configuration
             let config = state.config_manager.get_config().await;
             tracing::info!("Launcher Config - Experimental mode: {}", config.is_experimental);
+            tracing::info!("Launcher Config - Discord Rich Presence: {}", config.enable_discord_presence);
         }
 
         Ok(())

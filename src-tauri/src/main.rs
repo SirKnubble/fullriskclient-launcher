@@ -20,6 +20,7 @@ use crate::integrations::norisk_packs;
 
 use crate::commands::process_command::{
     get_full_log, get_process, get_processes, get_processes_by_profile, stop_process, open_log_window,
+    set_discord_state,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
@@ -235,7 +236,8 @@ async fn main() {
             get_skin_by_id,
             add_skin,
             remove_skin,
-            update_skin_properties
+            update_skin_properties,
+            set_discord_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

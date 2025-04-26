@@ -1,6 +1,7 @@
 use crate::error::CommandError;
 use crate::state::state_manager::State;
 use crate::state::process_state::ProcessMetadata;
+use crate::state::discord_state::DiscordState;
 use tauri::Manager;
 use uuid::Uuid;
 
@@ -63,5 +64,45 @@ pub async fn open_log_window<R: tauri::Runtime>(
     .build()
     .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_discord_state(state_type: String, profile_name: Option<String>) -> Result<(), CommandError> {
+    let state = State::get().await?;
+    
+    // Convert string state_type to DiscordState enum
+    let discord_state = match state_type.as_str() {
+        "idle" => DiscordState::Idle,
+        "browsing_profiles" => DiscordState::BrowsingProfiles,
+        "launching_minecraft" => {
+            if let Some(name) = profile_name {
+                DiscordState::LaunchingMinecraft(name)
+            } else {
+                return Err(CommandError::from(crate::error::AppError::Other(
+                    "Profile name required for launching_minecraft state".to_string()
+                )));
+            }
+        },
+        "playing_minecraft" => {
+            if let Some(name) = profile_name {
+                DiscordState::PlayingMinecraft(name)
+            } else {
+                return Err(CommandError::from(crate::error::AppError::Other(
+                    "Profile name required for playing_minecraft state".to_string()
+                )));
+            }
+        },
+        "changing_skins" => DiscordState::ChangingSkins,
+        "managing_mods" => DiscordState::ManagingMods,
+        _ => return Err(CommandError::from(crate::error::AppError::Other(
+            format!("Unknown Discord state type: {}", state_type)
+        ))),
+    };
+    
+    // Set the Discord state directly
+    if let Err(e) = state.discord_manager.set_state(discord_state).await {
+        log::error!("Error setting Discord state: {}, but continuing", e);
+    }
     Ok(())
 }

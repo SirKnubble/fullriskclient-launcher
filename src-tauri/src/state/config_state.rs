@@ -21,6 +21,8 @@ pub struct LauncherConfig {
     pub auto_check_updates: bool,
     #[serde(default = "default_concurrent_downloads")]
     pub concurrent_downloads: usize,
+    #[serde(default = "default_discord_presence")]
+    pub enable_discord_presence: bool,
 }
 
 fn default_config_version() -> u32 {
@@ -31,6 +33,10 @@ fn default_concurrent_downloads() -> usize {
     5
 }
 
+fn default_discord_presence() -> bool {
+    true
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -38,6 +44,7 @@ impl Default for LauncherConfig {
             is_experimental: false,
             auto_check_updates: true,
             concurrent_downloads: default_concurrent_downloads(),
+            enable_discord_presence: default_discord_presence(),
         }
     }
 }
@@ -135,7 +142,8 @@ impl ConfigManager {
             // Check if there's any change to avoid unnecessary saves
             if current.is_experimental == new_config.is_experimental && 
                current.auto_check_updates == new_config.auto_check_updates &&
-               current.concurrent_downloads == new_config.concurrent_downloads {
+               current.concurrent_downloads == new_config.concurrent_downloads &&
+               current.enable_discord_presence == new_config.enable_discord_presence {
                 debug!("No config changes detected, skipping save");
                 false
             } else {
@@ -152,6 +160,9 @@ impl ConfigManager {
                 if current.concurrent_downloads != new_config.concurrent_downloads {
                     info!("Changing concurrent downloads: {} -> {}", current.concurrent_downloads, new_config.concurrent_downloads);
                 }
+                if current.enable_discord_presence != new_config.enable_discord_presence {
+                    info!("Changing Discord Rich Presence: {} -> {}", current.enable_discord_presence, new_config.enable_discord_presence);
+                }
                 
                 // Update config while preserving version
                 *config = LauncherConfig {
@@ -159,6 +170,7 @@ impl ConfigManager {
                     is_experimental: new_config.is_experimental,
                     auto_check_updates: new_config.auto_check_updates,
                     concurrent_downloads: new_config.concurrent_downloads,
+                    enable_discord_presence: new_config.enable_discord_presence,
                 };
                 
                 true
@@ -168,6 +180,36 @@ impl ConfigManager {
         // Save the updated config if needed
         if should_save {
             self.save_config().await?;
+            
+            // Update Discord status if it changed
+            if let Ok(state) = crate::state::State::get().await {
+                // Check if Discord status changed
+                let discord_enabled = new_config.enable_discord_presence;
+                if let Err(e) = state.discord_manager.set_enabled(discord_enabled).await {
+                    warn!("Error updating Discord after config change: {}, continuing anyway", e);
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    // Method to toggle Discord Rich Presence
+    pub async fn toggle_discord_presence(&self, enabled: bool) -> Result<()> {
+        let mut config = self.get_config().await;
+        
+        // Only update if there's a change
+        if config.enable_discord_presence != enabled {
+            info!("Toggling Discord Rich Presence: {} -> {}", config.enable_discord_presence, enabled);
+            config.enable_discord_presence = enabled;
+            self.set_config(config).await?;
+            
+            // Directly update the Discord manager
+            if let Ok(state) = crate::state::State::get().await {
+                if let Err(e) = state.discord_manager.set_enabled(enabled).await {
+                    warn!("Error updating Discord enabled state: {}, but continuing", e);
+                }
+            }
         }
         
         Ok(())

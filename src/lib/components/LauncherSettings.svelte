@@ -7,6 +7,7 @@
     is_experimental: boolean;
     auto_check_updates: boolean;
     concurrent_downloads: number;
+    enable_discord_presence: boolean;
   }
 
   let config: LauncherConfig | null = $state(null);
@@ -114,6 +115,19 @@
       </div>
       
       <div class="setting">
+        <label for="discord-presence">Discord Rich Presence</label>
+        <div class="setting-control">
+          <input 
+            type="checkbox" 
+            id="discord-presence" 
+            bind:checked={tempConfig.enable_discord_presence}
+            disabled={saving}
+          />
+          <span class="setting-description">Zeigt Deinen NoRisk Client Status in Discord an</span>
+        </div>
+      </div>
+      
+      <div class="setting">
         <label for="concurrent-downloads">Gleichzeitige Downloads</label>
         <div class="setting-control">
           <input 
@@ -139,7 +153,11 @@
       </button>
       
       <button 
-        on:click={() => { tempConfig = { ...config }; }}
+        on:click={() => { 
+          if (config) {
+            tempConfig = { ...config }; 
+          }
+        }}
         disabled={saving || JSON.stringify(config) === JSON.stringify(tempConfig)}
       >
         Änderungen zurücksetzen

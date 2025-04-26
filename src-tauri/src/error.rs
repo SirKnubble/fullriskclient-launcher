@@ -76,6 +76,9 @@ pub enum AppError {
     
     #[error("Event error: {0}")]
     EventError(String),
+    
+    #[error("Discord error: {0}")]
+    DiscordError(String),
 
     #[error("Minecraft authentication error: {0}")]
     MinecraftAuthenticationError(
