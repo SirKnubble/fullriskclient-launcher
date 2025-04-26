@@ -517,15 +517,17 @@
         background-color: var(--background-primary);
         padding: 0;
         overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Match log content shadow */
     }
 
     .search-input {
         width: 100%;
-        padding: 0.5rem;
+        padding: 0.75rem; /* Match log content padding */
         border: none;
         background-color: transparent;
-        color: var(--text-primary);
-        font-size: 0.9rem;
+        color: var(--text-secondary); /* Match log content text color */
+        font-family: monospace; /* Match log content font */
+        font-size: 0.8em; /* Match log content font size */
         outline: none;
     }
 
