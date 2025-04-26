@@ -53,6 +53,16 @@ impl NoriskClientAssetsDownloadService {
         let state = State::get().await?;
         let game_directory = state.profile_manager.calculate_instance_path_for_profile(profile)?;
 
+        // Check if keep_local_assets is enabled
+        let keep_local_assets = profile.norisk_information
+            .as_ref()
+            .map(|info| info.keep_local_assets)
+            .unwrap_or(false);
+
+        if keep_local_assets {
+            info!("[NRC Assets Download] Keep local assets flag is enabled for this profile");
+        }
+
         let pack = match &profile.selected_norisk_pack_id {
             Some(pack_id) if !pack_id.is_empty() => {
                 info!("[NRC Assets Download] Using pack ID from profile: {}", pack_id);
@@ -136,7 +146,7 @@ impl NoriskClientAssetsDownloadService {
             None
         ).await?;
         
-        self.copy_assets_to_game_dir(&pack, &assets, game_directory, Some(profile.id)).await?;
+        self.copy_assets_to_game_dir(&pack, &assets, keep_local_assets, game_directory, Some(profile.id)).await?;
         
         // Final progress update
         self.emit_progress_event(
@@ -446,7 +456,7 @@ impl NoriskClientAssetsDownloadService {
     }
 
     /// Copy downloaded assets to the profile's game directory
-    pub async fn copy_assets_to_game_dir(&self, pack: &str, assets: &NoriskAssets, game_dir: PathBuf, profile_id: Option<Uuid>) -> Result<()> {
+    pub async fn copy_assets_to_game_dir(&self, pack: &str, assets: &NoriskAssets, keep_local_assets: bool, game_dir: PathBuf, profile_id: Option<Uuid>) -> Result<()> {
         let source_dir = self.base_path.join(NORISK_ASSETS_DIR).join(pack);
         let target_dir = game_dir.join("NoRiskClient").join("assets");
         
@@ -504,18 +514,25 @@ impl NoriskClientAssetsDownloadService {
                     continue;
                 }
                 
-                // Check if file already exists in target with correct size
+                // Check if file already exists in target with correct size or keep_local_assets is enabled
                 let needs_copy = if fs::try_exists(&target_path).await? {
-                    let source_metadata = fs::metadata(&source_path).await?;
-                    let target_metadata = fs::metadata(&target_path).await?;
-                    
-                    if source_metadata.len() != target_metadata.len() {
-                        debug!("[NRC Assets Copy] Size mismatch for {}, needs copy", name);
-                        true
+                    // Check if we should keep local assets regardless of size
+                    if keep_local_assets {
+                        debug!("[NRC Assets Copy] Keeping local asset {} (keep_local_assets is enabled)", name);
+                        false // Skip copying this asset regardless of size match
                     } else {
-                        // Files exist with same size, skip copy
-                        trace!("[NRC Assets Copy] Skipping {}, already exists with same size", name);
-                        false
+                        // Regular size check if keep_local_assets is not enabled
+                        let source_metadata = fs::metadata(&source_path).await?;
+                        let target_metadata = fs::metadata(&target_path).await?;
+                        
+                        if source_metadata.len() != target_metadata.len() {
+                            debug!("[NRC Assets Copy] Size mismatch for {}, needs copy", name);
+                            true
+                        } else {
+                            // Files exist with same size, skip copy
+                            trace!("[NRC Assets Copy] Skipping {}, already exists with same size", name);
+                            false
+                        }
                     }
                 } else {
                     // Target doesn't exist, needs copy
