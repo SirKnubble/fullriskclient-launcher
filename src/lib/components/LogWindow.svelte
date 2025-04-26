@@ -30,6 +30,26 @@
     let isLoadingFullLogs = $state<string | null>(null);
     let fullLogError = $state<Map<string, string>>(new Map());
 
+    // Function to format log lines with appropriate styling
+    function formatLogLine(line: string): string {
+        // Check for log levels in the format [thread/LEVEL]
+        if (line.includes('/WARN')) {
+            return `<span class="log-line log-warn">${line}</span>`;
+        } else if (line.includes('/ERROR')) {
+            return `<span class="log-line log-error">${line}</span>`;
+        } else if (line.includes('/INFO')) {
+            return `<span class="log-line log-info">${line}</span>`;
+        } else {
+            // Default formatting for lines without recognized level
+            return `<span class="log-line">${line}</span>`;
+        }
+    }
+
+    // Format all log lines in an array
+    function formatLogLines(lines: string[]): string {
+        return lines.map(formatLogLine).join('');
+    }
+
     // Search/filter functionality
     let searchQuery = $state('');
     let filteredLogs = $state<string[]>([]);
@@ -548,22 +568,25 @@
 
     .upload-button {
         padding: 0.5rem 1rem;
-        background-color: var(--accent-color);
+        background-color: #2980b9; /* Explicit blue color instead of var for better visibility */
         color: white;
-        border: none;
+        border: 1px solid #1c638f; /* Add border for better definition */
         border-radius: 4px;
         font-size: 0.9rem;
-        font-weight: 500;
+        font-weight: 600; /* Increased font weight */
         cursor: pointer;
         transition: background-color 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add shadow for depth */
     }
 
     .upload-button:hover:not(:disabled) {
-        background-color: var(--accent-hover);
+        background-color: #3498db; /* Lighter blue on hover */
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); /* Enhanced shadow on hover */
     }
 
     .upload-button:disabled {
-        background-color: var(--border-color);
+        background-color: #95a5a6; /* Gray when disabled */
+        border-color: #7f8c8d;
         cursor: wait;
     }
 
@@ -605,6 +628,27 @@
         word-break: break-all;
         margin: 0;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add subtle shadow */
+    }
+
+    /* Log type styling */
+    .log-line {
+        display: block;
+        line-height: 1.4;
+    }
+
+    .log-info {
+        color: #2c3e50; /* Dark blue-gray for INFO */
+    }
+
+    .log-warn {
+        color: #f39c12; /* Orange for WARN */
+        font-weight: 500;
+    }
+
+    .log-error {
+        color: #e74c3c; /* Red for ERROR */
+        font-weight: 600;
+        background-color: rgba(231, 76, 60, 0.1); /* Light red background */
     }
 
     .process-list {
