@@ -1,5 +1,6 @@
 use crate::minecraft::dto::version_manifest::VersionManifest;
 use crate::minecraft::dto::piston_meta::PistonMeta;
+use crate::minecraft::dto::minecraft_profile::MinecraftProfile;
 use crate::error::{AppError, Result};
 use reqwest;
 use std::path::Path;
@@ -43,7 +44,7 @@ impl MinecraftApiService {
     }
     
     // Get user profile including skin information
-    pub async fn get_user_profile(&self, uuid: &str) -> Result<serde_json::Value> {
+    pub async fn get_user_profile(&self, uuid: &str) -> Result<MinecraftProfile> {
         let url = format!("{}/session/minecraft/profile/{}", MOJANG_SESSION_URL, uuid);
         
         let response = reqwest::get(&url)
@@ -51,7 +52,7 @@ impl MinecraftApiService {
             .map_err(AppError::MinecraftApi)?;
             
         let profile = response
-            .json::<serde_json::Value>()
+            .json::<MinecraftProfile>()
             .await
             .map_err(AppError::MinecraftApi)?;
             

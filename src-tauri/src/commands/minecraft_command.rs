@@ -1,6 +1,7 @@
 use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::error::{AppError, CommandError};
 use crate::minecraft::dto::VersionManifest;
+use crate::minecraft::dto::minecraft_profile::MinecraftProfile;
 use crate::minecraft::api::mclogs_api::upload_log_to_mclogs;
 use crate::minecraft::api::fabric_api::FabricApi;
 use crate::minecraft::dto::fabric_meta::FabricVersionInfo;
@@ -67,12 +68,12 @@ pub async fn get_neoforge_versions(minecraft_version: String) -> Result<Vec<Stri
 
 /// Get the current user skin data
 #[tauri::command]
-pub async fn get_user_skin_data(uuid: String, access_token: String) -> Result<serde_json::Value, CommandError> {
+pub async fn get_user_skin_data(uuid: String, access_token: String) -> Result<MinecraftProfile, CommandError> {
     let api_service = MinecraftApiService::new();
     
     let skin_data = api_service.get_user_profile(&uuid)
         .await
-        .map_err(|e| CommandError::from(e))?;
+        .map_err(CommandError::from)?;
         
     Ok(skin_data)
 }

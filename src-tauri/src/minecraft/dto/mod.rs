@@ -10,6 +10,8 @@ pub mod neo_forge_meta;
 pub mod neo_forge_install_profile;
 pub mod quilt_meta;
 pub mod norisk_meta;
+pub mod minecraft_profile;
 
 pub use java_distribution::*;
 pub use version_manifest::VersionManifest;
+pub use minecraft_profile::MinecraftProfile;

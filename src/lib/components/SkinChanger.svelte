@@ -7,19 +7,16 @@
         error as accountError,
         initializeAccounts
     } from '$lib/stores/accountStore';
-    import type { MinecraftAccount } from '$lib/types/minecraft';
+    import type { 
+        MinecraftAccount, 
+        MinecraftProfile, 
+        TexturesData, 
+        TexturesDictionary
+    } from '$lib/types/minecraft';
 
-    interface SkinData {
-        id: string;
-        name: string;
-        properties: {
-            name: string;
-            value: string;
-        }[];
-    }
-
-    let skinData: SkinData | null = $state(null);
+    let skinData: MinecraftProfile | null = $state(null);
     let skinUrl: string | null = $state(null);
+    let skinModel: string | null = $state(null);
     let skinVariant: string = $state("classic"); // "classic" or "slim"
     let loading: boolean = $state(false);
     let error: string | null = $state(null);
@@ -42,6 +39,7 @@
         } else {
             skinData = null;
             skinUrl = null;
+            skinModel = null;
         }
     });
 
@@ -54,7 +52,7 @@
         
         try {
             // Pass UUID and access token to the command
-            const data = await invoke<SkinData>("get_user_skin_data", {
+            const data = await invoke<MinecraftProfile>("get_user_skin_data", {
                 uuid: $activeAccount.id,
                 accessToken: $activeAccount.access_token
             });
@@ -68,8 +66,20 @@
                     try {
                         // The value is a base64 encoded JSON
                         const decodedValue = atob(textures.value);
-                        const texturesJson = JSON.parse(decodedValue);
+                        const texturesJson = JSON.parse(decodedValue) as TexturesData;
+                        
+                        // Set the skin URL
                         skinUrl = texturesJson.textures?.SKIN?.url || null;
+                        
+                        // Get the skin model (slim or classic)
+                        skinModel = texturesJson.textures?.SKIN?.metadata?.model || null;
+                        
+                        // Auto-select the skin variant based on the current skin
+                        if (skinModel === "slim") {
+                            skinVariant = "slim";
+                        } else {
+                            skinVariant = "classic";
+                        }
                     } catch (e) {
                         console.error("Error parsing skin textures:", e);
                     }
@@ -155,7 +165,12 @@
             <div class="skin-preview">
                 <h4>Current Skin: {$activeAccount.minecraft_username || $activeAccount.username}</h4>
                 {#if skinUrl}
-                    <img src={skinUrl} alt="Minecraft Skin" class="skin-image" />
+                    <div class="skin-info">
+                        <img src={skinUrl} alt="Minecraft Skin" class="skin-image" />
+                        <p class="skin-model">
+                            Model: {skinModel === 'slim' ? 'Slim (Alex)' : 'Classic (Steve)'}
+                        </p>
+                    </div>
                 {:else}
                     <div class="no-skin">Default Steve/Alex skin</div>
                 {/if}
@@ -163,6 +178,7 @@
             
             <div class="skin-controls">
                 <div class="variant-selector">
+                    <h4>Choose skin model:</h4>
                     <label>
                         <input type="radio" bind:group={skinVariant} value="classic" />
                         Classic (Steve)
@@ -231,6 +247,18 @@
         display: block;
     }
     
+    .skin-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .skin-model {
+        margin: 8px 0 0 0;
+        font-size: 0.9em;
+        color: #666;
+    }
+    
     .no-skin {
         width: 128px;
         height: 128px;
@@ -250,12 +278,20 @@
     .variant-selector {
         margin-bottom: 15px;
         display: flex;
-        gap: 20px;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .variant-selector label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
     
     .skin-buttons {
         display: flex;
         gap: 10px;
+        margin-top: 5px;
     }
     
     button {
