@@ -1,8 +1,9 @@
 export interface MinecraftAccount {
     id: string;
     username: string;
-    access_token: string;
-    refresh_token: string;
-    expires: string;
+    minecraft_username: string;
     active: boolean;
+    access_token: string;
+    refresh_token?: string;
+    expires_at?: string;
 } 

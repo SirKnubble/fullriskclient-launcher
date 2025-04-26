@@ -1,110 +1,62 @@
 <script lang="ts">
-    import { invoke } from '@tauri-apps/api/core';
-    import type { MinecraftAccount } from '../types/minecraft';
     import { onMount } from 'svelte';
-
-    let accounts: MinecraftAccount[] = [];
-    let loading = true;
-    let error: string | null = null;
+    import { 
+        accounts, 
+        activeAccount, 
+        isLoading, 
+        error, 
+        initializeAccounts, 
+        addAccount, 
+        removeAccount, 
+        setActiveAccount 
+    } from '$lib/stores/accountStore';
+    import type { MinecraftAccount } from '$lib/types/minecraft';
 
     onMount(async () => {
-        await loadAccounts();
+        // Initialize accounts if not already loaded
+        if ($accounts.length === 0) {
+            await initializeAccounts();
+        }
     });
-
-    async function loadAccounts() {
-        try {
-            loading = true;
-            // Ensure there's an active account
-            await invoke('get_active_account');
-            accounts = await invoke<MinecraftAccount[]>('get_accounts');
-            error = null;
-        } catch (err) {
-            console.error('Error loading accounts:', err);
-            error = err.message ?? 'Failed to load accounts';
-        } finally {
-            loading = false;
-        }
-    }
-
-    async function handleAddAccount() {
-        try {
-            const account = await invoke<MinecraftAccount>('begin_login');
-            console.log('Login result:', account);
-            
-            // Set the new account as active and deactivate all others
-            await invoke('set_active_account', { accountId: account.id });
-            
-            await loadAccounts(); // Reload accounts after adding a new one
-        } catch (err) {
-            console.error('Error during login:', err);
-            error = err instanceof Error ? err.message : 'Failed to add account';
-        }
-    }
-
-    async function handleDeleteAccount(id: string) {
-        if (!confirm('Are you sure you want to delete this account?')) {
-            return;
-        }
-
-        try {
-            await invoke('remove_account', { accountId: id });
-            // Ensure there's an active account after deletion
-            await invoke('get_active_account');
-            await loadAccounts(); // Reload accounts after deletion
-        } catch (err) {
-            console.error('Error deleting account:', err);
-            error = err instanceof Error ? err.message : 'Failed to delete account';
-        }
-    }
-
-    async function handleSetActive(id: string) {
-        try {
-            await invoke('set_active_account', { accountId: id });
-            await loadAccounts(); // Reload accounts after setting active
-        } catch (err) {
-            console.error('Error setting active account:', err);
-            error = err instanceof Error ? err.message : 'Failed to set active account';
-        }
-    }
 </script>
 
 <div class="account-manager">
     <h2>Account Manager</h2>
     
-    {#if error}
+    {#if $error}
         <div class="error-message">
-            {error}
+            {$error}
         </div>
     {/if}
     
     <div class="accounts-list">
-        {#if loading}
+        {#if $isLoading}
             <div class="loading-spinner">
                 Loading accounts...
             </div>
-        {:else if accounts.length === 0}
+        {:else if $accounts.length === 0}
             <p class="no-accounts">No accounts found</p>
         {:else}
-            {#each accounts as account}
+            {#each $accounts as account}
                 <div class="account-card">
                     <div class="account-info">
-                        <h3>{account.username}</h3>
+                        <h3>{account.minecraft_username || account.username}</h3>
                         <p class="account-id">ID: {account.id}</p>
                     </div>
                     <div class="account-actions">
                         {#if account.active}
                             <span class="active-badge">Active</span>
                         {:else}
-                            <button class="set-active-btn" on:click={() => handleSetActive(account.id)}>Set Active</button>
+                            <button class="set-active-btn" on:click={() => setActiveAccount(account.id)}>Set Active</button>
                         {/if}
-                        <button class="delete-btn" on:click={() => handleDeleteAccount(account.id)}>Delete</button>
+                        <button class="delete-btn" on:click={() => removeAccount(account.id)}>Delete</button>
                     </div>
                 </div>
             {/each}
         {/if}
     </div>
 
-    <button class="add-account-btn" on:click={handleAddAccount}>
+    <button class="add-account-btn" on:click={addAccount} disabled={$isLoading}>
         Add Account
     </button>
 </div>
@@ -220,8 +172,13 @@
         transition: background-color 0.2s;
     }
 
-    .add-account-btn:hover {
+    .add-account-btn:hover:not(:disabled) {
         background-color: #27ae60;
+    }
+
+    .add-account-btn:disabled {
+        background-color: #a5d6a7;
+        cursor: not-allowed;
     }
 
     .set-active-btn {

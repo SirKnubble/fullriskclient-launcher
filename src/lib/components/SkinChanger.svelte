@@ -1,14 +1,13 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { onMount } from "svelte";
-
-    interface MinecraftAccount {
-        id: string;
-        username: string;
-        minecraft_username: string;
-        active: boolean;
-        access_token: string;
-    }
+    import { 
+        activeAccount, 
+        isLoading as accountLoading, 
+        error as accountError,
+        initializeAccounts
+    } from '$lib/stores/accountStore';
+    import type { MinecraftAccount } from '$lib/types/minecraft';
 
     interface SkinData {
         id: string;
@@ -22,40 +21,32 @@
     let skinData: SkinData | null = $state(null);
     let skinUrl: string | null = $state(null);
     let skinVariant: string = $state("classic"); // "classic" or "slim"
-    let loading: boolean = $state(true);
+    let loading: boolean = $state(false);
     let error: string | null = $state(null);
     let successMessage: string | null = $state(null);
 
-    // Track the active account
-    let activeAccount: MinecraftAccount | null = $state(null);
-
     onMount(async () => {
-        await loadActiveAccount();
+        // Initialize accounts if not already loaded
+        if (!$activeAccount) {
+            await initializeAccounts();
+        }
+        
+        // Load skin data if we have an active account
+        await loadSkinData();
     });
 
-    async function loadActiveAccount() {
-        loading = true;
-        error = null;
-        
-        try {
-            // Get the active account (similar to AccountManager.svelte)
-            const account = await invoke<MinecraftAccount>('get_active_account');
-            activeAccount = account;
-            
-            if (account) {
-                await loadSkinData(account.id, account.access_token);
-            }
-        } catch (err) {
-            console.error("Error loading active account:", err);
-            error = err instanceof Error ? err.message : String(err);
-            activeAccount = null;
-        } finally {
-            loading = false;
+    // Reactive effect to reload skin data when active account changes
+    $effect(() => {
+        if ($activeAccount) {
+            loadSkinData();
+        } else {
+            skinData = null;
+            skinUrl = null;
         }
-    }
+    });
 
-    async function loadSkinData(uuid: string, accessToken: string) {
-        if (!uuid || !accessToken) return;
+    async function loadSkinData() {
+        if (!$activeAccount) return;
         
         loading = true;
         error = null;
@@ -64,8 +55,8 @@
         try {
             // Pass UUID and access token to the command
             const data = await invoke<SkinData>("get_user_skin_data", {
-                uuid,
-                accessToken
+                uuid: $activeAccount.id,
+                accessToken: $activeAccount.access_token
             });
             
             skinData = data;
@@ -93,7 +84,7 @@
     }
 
     async function handleUploadSkin() {
-        if (!activeAccount) return;
+        if (!$activeAccount) return;
         
         error = null;
         successMessage = null;
@@ -101,14 +92,14 @@
         
         try {
             await invoke("upload_skin", {
-                uuid: activeAccount.id,
-                accessToken: activeAccount.access_token,
+                uuid: $activeAccount.id,
+                accessToken: $activeAccount.access_token,
                 skinVariant
             });
             
             successMessage = "Skin updated successfully!";
             // Reload skin data to display the new skin
-            await loadSkinData(activeAccount.id, activeAccount.access_token);
+            await loadSkinData();
         } catch (err) {
             console.error("Error uploading skin:", err);
             error = err instanceof Error ? err.message : String(err);
@@ -118,7 +109,7 @@
     }
 
     async function handleResetSkin() {
-        if (!activeAccount) return;
+        if (!$activeAccount) return;
         
         if (!confirm("Are you sure you want to reset your skin to the default?")) {
             return;
@@ -130,13 +121,13 @@
         
         try {
             await invoke("reset_skin", {
-                uuid: activeAccount.id,
-                accessToken: activeAccount.access_token
+                uuid: $activeAccount.id,
+                accessToken: $activeAccount.access_token
             });
             
             successMessage = "Skin reset to default!";
             // Reload skin data to display the default skin
-            await loadSkinData(activeAccount.id, activeAccount.access_token);
+            await loadSkinData();
         } catch (err) {
             console.error("Error resetting skin:", err);
             error = err instanceof Error ? err.message : String(err);
@@ -149,7 +140,11 @@
 <div class="skin-changer">
     <h3>Minecraft Skin Manager</h3>
     
-    {#if !activeAccount}
+    {#if $accountLoading}
+        <p class="loading">Loading account data...</p>
+    {:else if $accountError}
+        <p class="error">{$accountError}</p>
+    {:else if !$activeAccount}
         <p class="note">Please log in to a Minecraft account to manage skins.</p>
     {:else if loading}
         <p class="loading">Loading skin data...</p>
@@ -158,7 +153,7 @@
     {:else}
         <div class="skin-container">
             <div class="skin-preview">
-                <h4>Current Skin: {activeAccount.minecraft_username}</h4>
+                <h4>Current Skin: {$activeAccount.minecraft_username || $activeAccount.username}</h4>
                 {#if skinUrl}
                     <img src={skinUrl} alt="Minecraft Skin" class="skin-image" />
                 {:else}
