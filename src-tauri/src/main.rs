@@ -19,7 +19,7 @@ use crate::integrations::norisk_versions;
 use crate::integrations::norisk_packs;
 
 use crate::commands::process_command::{
-    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process,
+    get_full_log, get_process, get_processes, get_processes_by_profile, stop_process, open_log_window,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
@@ -181,6 +181,7 @@ async fn main() {
             get_process,
             get_processes_by_profile,
             stop_process,
+            open_log_window,
             begin_login,
             remove_account,
             get_active_account,

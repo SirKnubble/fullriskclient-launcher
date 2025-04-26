@@ -84,14 +84,14 @@
                 try {
                     const fullLogContent: string = await invoke("get_full_log", { processId: id });
                     const lines = fullLogContent.split('\n').filter(line => line.trim() !== '');
-                    
+
                     logs[id] = { lines: lines, timestamp: Date.now() };
 
                     const MAX_LOG_LINES = 500;
                     if (logs[id].lines.length > MAX_LOG_LINES) {
                         logs[id].lines = logs[id].lines.slice(-MAX_LOG_LINES);
                     }
-                    
+
                     fullLogsLoaded.add(id);
                     if (shouldAutoscroll) {
                         await scrollToBottom(id);
@@ -140,6 +140,17 @@
         }
     }
 
+    // Open log window in a separate window
+    async function openLogWindow() {
+        try {
+            await invoke("open_log_window");
+            console.log("Opened log window");
+        } catch (e) {
+            console.error("Error opening log window:", e);
+            error = e instanceof Error ? e.message : String(e);
+        }
+    }
+
     // Upload logs and copy URL to clipboard
     async function uploadAndCopyLog(processId: string) {
         // Reset previous error for this process
@@ -161,14 +172,14 @@
         try {
             // Invoke the backend command
             const url: string = await invoke("upload_log_to_mclogs_command", { logContent });
-            
+
             // Store the URL
             mclogsUrls[processId] = url;
-            
+
             // Copy to clipboard
             await writeText(url);
             console.log("Copied mclo.gs URL to clipboard:", url);
-            
+
             // Optional: Visual feedback (z.B. kurz Button-Text ändern oder Benachrichtigung)
 
         } catch (e) {
@@ -195,15 +206,15 @@
                     if (payload.event_type === 'minecraft_output' && payload.target_id) {
                         const process_id = payload.target_id;
                         const raw_line = payload.message;
-                        
+
                         if (fullLogsLoaded.has(process_id)) {
                             if (!logs[process_id]) {
                                 logs[process_id] = { lines: [], timestamp: Date.now() };
                             }
-                            
+
                             logs[process_id].lines.push(raw_line);
                             logs[process_id].timestamp = Date.now();
-        
+
                             const MAX_LOG_LINES = 500;
                             if (logs[process_id].lines.length > MAX_LOG_LINES) {
                                 logs[process_id].lines.shift();
@@ -265,11 +276,11 @@
     function formatRuntime(startTime: string): string {
         const start = new Date(startTime);
         const diff = now.getTime() - start.getTime();
-        
+
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        
+
         if (hours > 0) {
             return `${hours}h ${minutes}m ${seconds}s`;
         } else if (minutes > 0) {
@@ -281,8 +292,13 @@
 </script>
 
 <div class="process-list">
-    <h3>Running Processes</h3>
-    
+    <div class="process-list-header">
+        <h3>Running Processes</h3>
+        <button class="log-window-button" on:click={openLogWindow}>
+            Open Log Window
+        </button>
+    </div>
+
     {#if isLoading}
         <div class="loading">Loading processes...</div>
     {:else if error}
@@ -299,7 +315,7 @@
                             {process.state}
                         </span>
                     </div>
-                    
+
                     <div class="process-details">
                         <div class="detail-row">
                             <span class="label">Profile ID:</span>
@@ -358,7 +374,7 @@
                                         Autoscroll
                                     </label>
                                     <span>Last update: {new Date(logs[process.id].timestamp).toLocaleTimeString()}</span>
-                                    
+
                                     <!-- Upload & Copy Button -->
                                     <div class="upload-section">
                                         {#if uploadError[process.id]}
@@ -401,10 +417,32 @@
         border-radius: 8px;
     }
 
+    .process-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
     .process-list h3 {
-        margin: 0 0 1rem 0;
+        margin: 0;
         color: var(--text-primary);
         font-size: 1.2rem;
+    }
+
+    .log-window-button {
+        padding: 0.5rem 1rem;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .log-window-button:hover {
+        background-color: #2980b9;
     }
 
     .process-grid {
