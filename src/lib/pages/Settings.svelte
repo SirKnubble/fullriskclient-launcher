@@ -10,6 +10,7 @@
 
 <SlidingPageWrapper page="settings">
     <AccountsModal bind:showAccountsModal />
+    
 </SlidingPageWrapper>
 
 <style>

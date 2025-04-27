@@ -23,3 +23,10 @@ export interface ParsedExitPayload {
     exit_code: number | null;
     success: boolean;
 }
+
+export interface LauncherConfig {
+    version: number;
+    is_experimental: boolean;
+    auto_check_updates: boolean;
+    concurrent_downloads: number;
+}

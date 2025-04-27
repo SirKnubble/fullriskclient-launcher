@@ -1,6 +1,8 @@
 <script>
     import { accounts, addAccount, removeAccount, selectAccount, selectedAccount } from '$lib/utils/accountUtils';
     import { translations } from '$lib/utils/translationUtils';
+    import NoUserSkinHead from '$lib/images/no_user_skin_head.png';
+    import NoUserSkinHeadDark from '$lib/images/no_user_skin_head_dark.png';
 	import Modal from './../Modal.svelte';
 
     export let showAccountsModal = false;
@@ -18,7 +20,7 @@
             >
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div class="info" onclick={() => selectAccount(account.id)}>
-                    <img src={`https://crafatar.com/avatars/${account.id}`} alt="Account Avatar" class="avatar" />
+                    <img src={account.id == 'ADD_ACCOUNT' ? NoUserSkinHeadDark : `https://crafatar.com/avatars/${account.id}`} alt="Account Avatar" class="avatar" />
                     <p class="name" style={account.username.length > 12 ? 'font-size: 35px;' : 'font-size: 40px;'}>{account.username.toLowerCase()}</p>
                 </div>
                 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

@@ -2,6 +2,7 @@ import { writable, type Writable } from "svelte/store";
 
 let translationCache: { [key: string]: any } = {};
 
+// default language = en_US
 export const language = writable("en_US");
 export const translations: Writable<{ [key: string]: any }> = writable({});
 

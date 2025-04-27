@@ -26,4 +26,4 @@ export interface FabricVersionInfo {
     loader: FabricLoaderVersionInfo;
     installer: FabricInstallerVersionInfo;
     // Note: The API actually returns an array of these objects directly.
-} 
+}

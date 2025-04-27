@@ -16,14 +16,16 @@
   "app": {
     "windows": [
       {
-        "title": "NoriskClient Launcher",
+        "title": "NoRiskClient Launcher",
         "width": 1200,
         "height": 800,
         "resizable": false,
+        "fullscreen": false,
         "decorations": false,
-        "useHttpsScheme": true,
+        "center": true,
         "visible": true,
-        "center": true
+        "focus": true,
+        "useHttpsScheme": true
       }
     ],
     "security": {

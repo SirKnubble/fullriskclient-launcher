@@ -3,15 +3,17 @@
 	import Play from './../lib/pages/Play.svelte';
     import { activeTab } from '$lib/utils/navigationUtils';
     import { onMount } from 'svelte';
-    import { setLanguage, translations } from '$lib/utils/translationUtils';
+    import { language, setLanguage, translations } from '$lib/utils/translationUtils';
     import TopNavigationBar from '$lib/components/TopNavigationBar.svelte';
     import { launcherStartCompleted } from '$lib/utils/missilaniousUtils';
     import { loadProfiles } from '$lib/utils/profileUtils';
     import { loadAccounts } from '$lib/utils/accountUtils';
     import Settings from '$lib/pages/Settings.svelte';
     import { listen } from '@tauri-apps/api/event';
-    import type { EventPayload, ParsedExitPayload } from '$lib/types/core';
-  import { currentEvent } from '$lib/utils/eventUtils';
+    import type { EventPayload } from '$lib/types/core';
+    import { currentEvent } from '$lib/utils/eventUtils';
+  import { loadConfig } from '$lib/utils/configUtils';
+  import Skins from '$lib/pages/Skins.svelte';
 
     $: lang = $translations;
 
@@ -29,7 +31,8 @@
     }
     
     onMount(() => {
-        setLanguage('en_US');
+        setLanguage($language);
+        loadConfig();
         loadAccounts();
         loadProfiles();
 
@@ -57,6 +60,8 @@
                 <Play />
             {:else if $activeTab == 'capes'}
                 <Capes />
+            {:else if $activeTab == 'skins'}
+                <Skins />
             {:else if $activeTab == 'settings'}
                 <Settings />
             {/if}
@@ -81,7 +86,8 @@
         width: 100%;
         height: 8.5%;
         z-index: 1000;
-        background-color: var(--background-contrast-color);
+        /* background-color: var(--background-contrast-color); */
+        background-color: #222126;
     }
 
     .content {

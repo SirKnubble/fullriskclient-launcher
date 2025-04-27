@@ -48,6 +48,11 @@ export async function launchProfile(id: string): Promise<void> {
     return invoke('launch_profile', { id });
 }
 
+// Profil start abbrechen
+export async function abortProfileLaunch(prodileId: string): Promise<void> {
+    return invoke('abort_profile_launch', { prodileId });
+}
+
 // Profil kopieren mit ausgewählten Dateien
 export async function copyProfile(params: CopyProfileParams): Promise<string> {
     return invoke('copy_profile', { params });
