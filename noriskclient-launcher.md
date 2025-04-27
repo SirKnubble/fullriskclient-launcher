@@ -141,6 +141,19 @@ The launcher integrates with mod platforms:
 - Props defined with $props()
 - TypeScript for type safety
 
+### Notification System (Frontend Feedback)
+- **Purpose**: To provide consistent visual feedback (success, error, info, warning messages) to the user without cluttering individual components.
+- **Store**: `src/lib/stores/notificationStore.ts` manages the list of active notifications.
+- **Component**: `src/lib/components/Notifications.svelte` subscribes to the store and renders the notifications, typically placed in the main layout file (`src/routes/+layout.svelte` or equivalent).
+- **Usage**: 
+  - Import the store: `import { notificationStore } from '$lib/stores/notificationStore';`
+  - Call helper functions to display messages:
+    - `notificationStore.success("Operation successful!");`
+    - `notificationStore.error("An error occurred: {errorDetails}");`
+    - `notificationStore.info("Profile updated.");`
+    - `notificationStore.warning("Low memory detected.");`
+  - Avoid using local state variables for simple success/error feedback messages within components; use the global notification store instead.
+
 ### TypeScript Conventions
 - Interfaces for data structures
 - Discriminated unions for type safety
