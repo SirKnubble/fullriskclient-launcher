@@ -7,12 +7,14 @@
     // Props
     const { 
         imageUrl, 
+        part = 'front',
         width = 400,
         height = 300,
         autoRotate = false,
         backgroundColor = "#f0f0f0"
     }: { 
-        imageUrl: string | undefined, 
+        imageUrl: string | undefined,
+        part?: 'front' | 'back',
         width?: number,
         height?: number,
         autoRotate?: boolean,
@@ -37,6 +39,18 @@
     const CAPE_HEIGHT = 16;
     const CAPE_SEGMENTS_X = 5;
     const CAPE_SEGMENTS_Y = 8;
+
+    // Constants for cape layout (copied from CapeImage.svelte)
+    const SCALE_FACTOR = 8;
+    const CAPE_SRC_WIDTH = 10 * SCALE_FACTOR;  // 80
+    const CAPE_SRC_HEIGHT = 16 * SCALE_FACTOR; // 128
+    const FRONT_X = 1 * SCALE_FACTOR;         // 8
+    const FRONT_Y = 1 * SCALE_FACTOR;         // 8
+    const BACK_X = 12 * SCALE_FACTOR;        // 96
+    const BACK_Y = 1 * SCALE_FACTOR;         // 8
+
+    // Track current part to detect changes
+    let currentPart = part;
 
     // Setup and cleanup
     onMount(() => {
@@ -78,13 +92,13 @@
 
         // Dispose of geometries and materials
         if (cape) {
-            cape.traverse((object) => {
+            cape.traverse((object: THREE.Object3D) => {
                 if (object instanceof THREE.Mesh) {
                     object.geometry.dispose();
                     if (object.material instanceof THREE.Material) {
                         object.material.dispose();
                     } else if (Array.isArray(object.material)) {
-                        object.material.forEach(material => material.dispose());
+                        object.material.forEach((material: THREE.Material) => material.dispose());
                     }
                 }
             });
@@ -170,19 +184,58 @@
         
         textureLoader.load(
             imageUrl,
-            (texture) => {
+            (texture: THREE.Texture) => {
                 // Texture loaded successfully
                 texture.magFilter = THREE.NearestFilter;
                 texture.minFilter = THREE.NearestFilter;
                 
-                createCapeModel(texture);
+                // Create a canvas to crop the texture
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                if (!context) {
+                    errorMessage = "Failed to create context for texture processing";
+                    isLoading = false;
+                    return;
+                }
+                
+                // Get image from texture
+                const image = texture.image;
+                if (!image) {
+                    errorMessage = "Failed to get texture image";
+                    isLoading = false;
+                    return;
+                }
+                
+                // Set canvas size to the size of cape part
+                canvas.width = CAPE_SRC_WIDTH;
+                canvas.height = CAPE_SRC_HEIGHT;
+                
+                // Determine source coordinates based on 'part' prop
+                const sx = part === 'back' ? BACK_X : FRONT_X;
+                const sy = part === 'back' ? BACK_Y : FRONT_Y;
+                
+                // Draw only the selected part of the cape texture
+                context.drawImage(
+                    image,
+                    sx, sy, CAPE_SRC_WIDTH, CAPE_SRC_HEIGHT,  // Source rectangle
+                    0, 0, CAPE_SRC_WIDTH, CAPE_SRC_HEIGHT     // Destination rectangle
+                );
+                
+                // Create a new texture from the canvas
+                const croppedTexture = new THREE.Texture(canvas);
+                croppedTexture.needsUpdate = true;
+                croppedTexture.magFilter = THREE.NearestFilter;
+                croppedTexture.minFilter = THREE.NearestFilter;
+                
+                createCapeModel(croppedTexture);
                 isLoading = false;
             },
-            (progress) => {
+            (progress: { loaded: number, total: number }) => {
                 // Loading progress
                 console.log(`[Cape3DRenderer] Loading: ${Math.round((progress.loaded / progress.total) * 100)}%`);
             },
-            (error) => {
+            (error: unknown) => {
                 // Error loading texture
                 console.error("[Cape3DRenderer] Error loading texture:", error);
                 errorMessage = "Failed to load cape texture";
@@ -312,6 +365,31 @@
             controls.autoRotate = autoRotate;
         }
     });
+
+    // Effect to update when part or imageUrl changes
+    $effect(() => {
+        if (scene && cape && (part !== currentPart || imageUrl)) {
+            console.log(`[Cape3DRenderer] Part changed from ${currentPart} to ${part}, reloading texture`);
+            currentPart = part;
+            
+            // Clear existing cape
+            scene.remove(cape);
+            cape.traverse((object: THREE.Object3D) => {
+                if (object instanceof THREE.Mesh) {
+                    object.geometry.dispose();
+                    if (object.material instanceof THREE.Material) {
+                        object.material.dispose();
+                    } else if (Array.isArray(object.material)) {
+                        object.material.forEach((material: THREE.Material) => material.dispose());
+                    }
+                }
+            });
+            cape = null;
+            
+            // Reload cape texture with new part
+            loadCapeTexture();
+        }
+    });
 </script>
 
 <div class="cape-3d-container" style="width: {width}px; height: {height}px;">
@@ -324,6 +402,7 @@
             height={height} 
             class="cape-canvas" 
             class:loading={isLoading}
+            title="Cape {part} 3D view"
         ></canvas>
         
         {#if isLoading}
