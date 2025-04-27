@@ -51,8 +51,8 @@
     // Filter and sort options
     let page: number = $state(0);
     let pageSize: number = $state(20);
-    let sortBy: string = $state("newest"); // newest, oldest, mostUsed
-    let filterHasElytra: boolean | null = $state(null);
+    let sortBy: string = $state("mostUsed"); // newest, oldest, mostUsed
+    let filterHasElytra: boolean | null = $state(true);
     let filterCreator: string | null = $state(null);
     let timeFrame: string = $state("allTime"); // allTime, weekly, monthly
 
