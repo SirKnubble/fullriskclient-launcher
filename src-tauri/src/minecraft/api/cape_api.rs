@@ -7,6 +7,8 @@ use log::{debug, error, info};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
+use tokio::fs;
 use uuid::Uuid;
 
 /// Represents a cosmetic cape
@@ -97,7 +99,7 @@ impl CapeApi {
     }
 
     /// Browse capes with optional parameters
-    /// 
+    ///
     /// Parameters:
     /// - page: Page number (default: 0)
     /// - pageSize: Number of items per page (default: 20)
@@ -154,7 +156,10 @@ impl CapeApi {
             query_params.insert("timeFrame", tf.to_string());
         }
 
-        debug!("[Cape API] Sending GET request with parameters: {:?}", query_params);
+        debug!(
+            "[Cape API] Sending GET request with parameters: {:?}",
+            query_params
+        );
 
         let response = HTTP_CLIENT
             .get(url)
@@ -186,7 +191,7 @@ impl CapeApi {
     }
 
     /// Get capes for a specific player
-    /// 
+    ///
     /// Parameters:
     /// - player_uuid: UUID of the player
     /// - page: Page number (default: 0)
@@ -207,7 +212,10 @@ impl CapeApi {
         let base_url = Self::get_api_base(is_experimental);
         let url = format!("{}/{}", base_url, endpoint);
 
-        debug!("[Cape API] Making request to player capes endpoint for player: {}", player_uuid);
+        debug!(
+            "[Cape API] Making request to player capes endpoint for player: {}",
+            player_uuid
+        );
         debug!("[Cape API] Full URL: {}", url);
 
         let mut query_params = HashMap::new();
@@ -227,7 +235,10 @@ impl CapeApi {
             query_params.insert("filterAccepted", fa.to_string());
         }
 
-        debug!("[Cape API] Sending GET request with parameters: {:?}", query_params);
+        debug!(
+            "[Cape API] Sending GET request with parameters: {:?}",
+            query_params
+        );
 
         let response = HTTP_CLIENT
             .get(url)
@@ -276,13 +287,19 @@ impl CapeApi {
         let base_url = Self::get_api_base(is_experimental);
         let url = format!("{}/{}", base_url, endpoint);
 
-        debug!("[Cape API] Making request to equip cape endpoint for player: {}", player_uuid);
+        debug!(
+            "[Cape API] Making request to equip cape endpoint for player: {}",
+            player_uuid
+        );
         debug!("[Cape API] Full URL: {}", url);
 
         let mut query_params = HashMap::new();
         query_params.insert("uuid", player_uuid.to_string());
 
-        debug!("[Cape API] Sending POST request with parameters: {:?}", query_params);
+        debug!(
+            "[Cape API] Sending POST request with parameters: {:?}",
+            query_params
+        );
 
         let response = HTTP_CLIENT
             .post(url)
@@ -300,18 +317,249 @@ impl CapeApi {
 
         match status {
             StatusCode::OK => {
-                info!("[Cape API] Cape {} equipped successfully for player {}", cape_hash, player_uuid);
+                info!(
+                    "[Cape API] Cape {} equipped successfully for player {}",
+                    cape_hash, player_uuid
+                );
                 Ok(())
             }
             _ => {
-                let response_text = response.text().await.unwrap_or_else(|e| {
-                    format!("Error reading error response body: {}", e)
-                });
-                error!("[Cape API] Error equipping cape: Status {}, Response: {}", status, response_text);
+                let response_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|e| format!("Error reading error response body: {}", e));
+                error!(
+                    "[Cape API] Error equipping cape: Status {}, Response: {}",
+                    status, response_text
+                );
                 Err(AppError::RequestError(format!(
                     "Failed to equip cape. Status: {}, Details: {}",
-                    status,
-                    response_text
+                    status, response_text
+                )))
+            }
+        }
+    }
+
+    /// Delete a specific cape owned by the player
+    ///
+    /// Parameters:
+    /// - norisk_token: Authentication token
+    /// - player_uuid: UUID of the player who owns the cape
+    /// - cape_hash: Hash of the cape to delete
+    /// - is_experimental: Whether to use the experimental API endpoint
+    pub async fn delete_cape(
+        &self,
+        norisk_token: &str,
+        player_uuid: &Uuid,
+        cape_hash: &str,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let endpoint = format!("cape/{}", cape_hash);
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!(
+            "[Cape API] Making request to delete cape endpoint for player: {} cape: {}",
+            player_uuid, cape_hash
+        );
+        debug!("[Cape API] Full URL: {}", url);
+
+        let mut query_params = HashMap::new();
+        query_params.insert("uuid", player_uuid.to_string());
+
+        debug!(
+            "[Cape API] Sending DELETE request with parameters: {:?}",
+            query_params
+        );
+
+        let response = HTTP_CLIENT
+            .delete(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&query_params)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!("Failed to send delete cape request: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        match status {
+            StatusCode::OK => {
+                info!(
+                    "[Cape API] Cape {} deleted successfully for player {}",
+                    cape_hash, player_uuid
+                );
+                Ok(())
+            }
+            _ => {
+                let response_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|e| format!("Error reading error response body: {}", e));
+                error!(
+                    "[Cape API] Error deleting cape: Status {}, Response: {}",
+                    status, response_text
+                );
+                Err(AppError::RequestError(format!(
+                    "Failed to delete cape. Status: {}, Details: {}",
+                    status, response_text
+                )))
+            }
+        }
+    }
+
+    /// Upload a new cape image for a player
+    ///
+    /// Parameters:
+    /// - norisk_token: Authentication token
+    /// - player_uuid: UUID of the player uploading the cape
+    /// - image_path: Path to the cape image file (PNG)
+    /// - is_experimental: Whether to use the experimental API endpoint
+    ///
+    /// Returns:
+    /// - Result containing the response text from the API (e.g., new cape hash or confirmation) on success.
+    pub async fn upload_cape(
+        &self,
+        norisk_token: &str,
+        player_uuid: &Uuid,
+        image_path: &PathBuf,
+        is_experimental: bool,
+    ) -> Result<String> {
+        let endpoint = "cape";
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!(
+            "[Cape API] Making request to upload cape endpoint for player: {}",
+            player_uuid
+        );
+        debug!("[Cape API] Image path: {:?}", image_path);
+        debug!("[Cape API] Full URL: {}", url);
+
+        // Read the image file content asynchronously
+        let image_data = fs::read(image_path).await.map_err(|e| {
+            error!(
+                "[Cape API] Failed to read image file {:?}: {}",
+                image_path, e
+            );
+            AppError::Io(e)
+        })?;
+
+        let mut query_params = HashMap::new();
+        query_params.insert("uuid", player_uuid.to_string());
+
+        debug!(
+            "[Cape API] Sending POST request with image data ({} bytes) and parameters: {:?}",
+            image_data.len(),
+            query_params
+        );
+
+        let response = HTTP_CLIENT
+            .post(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&query_params)
+            .body(image_data)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!("Failed to send upload cape request: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        let response_text = response.text().await.map_err(|e| {
+            error!("[Cape API] Failed to read response text: {}", e);
+            AppError::RequestError(format!("Failed to read upload cape response text: {}", e))
+        })?;
+
+        if status.is_success() {
+            info!(
+                "[Cape API] Cape uploaded successfully for player {}. Response: {}",
+                player_uuid, response_text
+            );
+            Ok(response_text)
+        } else {
+            error!(
+                "[Cape API] Error uploading cape: Status {}, Response: {}",
+                status, response_text
+            );
+            Err(AppError::RequestError(format!(
+                "Failed to upload cape. Status: {}, Details: {}",
+                status, response_text
+            )))
+        }
+    }
+
+    /// Unequip the currently equipped cape for a player
+    ///
+    /// Parameters:
+    /// - norisk_token: Authentication token
+    /// - player_uuid: UUID of the player
+    /// - is_experimental: Whether to use the experimental API endpoint
+    pub async fn unequip_cape(
+        &self,
+        norisk_token: &str,
+        player_uuid: &Uuid,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let endpoint = "cape/unequip";
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!(
+            "[Cape API] Making request to unequip cape endpoint for player: {}",
+            player_uuid
+        );
+        debug!("[Cape API] Full URL: {}", url);
+
+        let mut query_params = HashMap::new();
+        query_params.insert("uuid", player_uuid.to_string());
+
+        debug!(
+            "[Cape API] Sending DELETE request to unequip with parameters: {:?}",
+            query_params
+        );
+
+        // Note: Using DELETE method as per the original code for the unequip endpoint
+        let response = HTTP_CLIENT
+            .delete(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&query_params)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!("Failed to send unequip cape request: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        match status {
+            StatusCode::OK => {
+                info!(
+                    "[Cape API] Cape unequipped successfully for player {}",
+                    player_uuid
+                );
+                Ok(())
+            }
+            _ => {
+                let response_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|e| format!("Error reading error response body: {}", e));
+                error!(
+                    "[Cape API] Error unequipping cape: Status {}, Response: {}",
+                    status, response_text
+                );
+                Err(AppError::RequestError(format!(
+                    "Failed to unequip cape. Status: {}, Details: {}",
+                    status, response_text
                 )))
             }
         }
