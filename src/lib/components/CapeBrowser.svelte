@@ -10,6 +10,7 @@
     import { notificationStore } from '$lib/stores/notificationStore';
     import type { MinecraftProfile } from '$lib/types/minecraft';
     import PlayerHead from '$lib/components/PlayerHead.svelte';
+    import CapeImage from '$lib/components/CapeImage.svelte';
 
     // Generate a simple random string instead of using uuid
     function generateRequestId(): string {
@@ -415,12 +416,10 @@
                         onclick={() => selectCape(cape)}
                     >
                         <div class="cape-preview">
-                            <img 
-                                src={imageUrl}
-                                alt={`Cape ${cape._id || 'Unknown'}`} 
-                                class="cape-image" 
-                                onload={() => console.log(`Cape image loaded: ${imageUrl}`)}
-                                onerror={(e) => console.error(`Cape image failed to load: ${imageUrl}`, e)}
+                            <CapeImage 
+                                imageUrl={imageUrl} 
+                                part="front" 
+                                width={100}
                             />
                         </div>
                         <div class="cape-info">
