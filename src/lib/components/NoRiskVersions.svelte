@@ -310,7 +310,9 @@
                     
                     {#if lastEvent}
                         <div class="profile-event">
-                            <p class="event-message">{lastEvent.message}</p>
+                            <p class="event-message" title={lastEvent.message}>
+                                {lastEvent.message}
+                            </p>
                         </div>
                     {/if}
                     
@@ -573,5 +575,8 @@
         margin: 0;
         font-size: 0.9em;
         color: inherit;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 </style> 
