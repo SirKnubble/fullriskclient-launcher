@@ -7,6 +7,7 @@
         error as accountError,
         initializeAccounts
     } from '$lib/stores/accountStore';
+    import { notificationStore } from '$lib/stores/notificationStore';
     // Generate a simple random string instead of using uuid
     function generateRequestId(): string {
         return Math.random().toString(36).substring(2, 15) + 
@@ -60,8 +61,6 @@
 
     // Equip state
     let equipping: boolean = $state(false);
-    let equipError: string | null = $state(null);
-    let equipSuccess: string | null = $state(null);
 
     onMount(async () => {
         // Initialize accounts if not already loaded
@@ -244,29 +243,25 @@
     // Equip the selected cape
     async function equipCape(capeHash: string | undefined) {
         if (!capeHash) {
-            equipError = "Cape ID is missing."; // Use a general error state if needed elsewhere
+            notificationStore.error("Cannot equip cape: Cape ID is missing."); 
             console.error("Attempted to equip cape without a hash.");
             return;
         }
 
         equipping = true;
-        equipError = null;
-        equipSuccess = null; // Keep success/error state if needed for global notifications
 
         try {
             console.log(`Attempting to equip cape with hash: ${capeHash}`);
             await invoke("equip_cape", { capeHash: capeHash });
-            equipSuccess = `Cape ${capeHash.substring(0, 8)}... equipped successfully!`;
+            notificationStore.success(`Cape ${capeHash.substring(0, 8)}... equipped successfully!`); 
             console.log("Cape equipped successfully.");
-            // Maybe emit a global notification here instead of using local state
         } catch (err) {
             console.error("Error equipping cape:", err);
+            let errorMessage = "An unknown error occurred while equipping the cape.";
             if (typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string') {
-                equipError = err.message; 
-            } else {
-                equipError = "An unknown error occurred while equipping the cape.";
+                errorMessage = err.message; 
             }
-             // Maybe emit a global notification here
+            notificationStore.error(`Failed to equip cape: ${errorMessage}`); 
         } finally {
             equipping = false;
         }
