@@ -132,6 +132,9 @@
         });
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Enable physically correct lighting
+        renderer.physicallyCorrectLights = true;
 
         // Add orbit controls
         controls = new OrbitControls(camera, renderer.domElement);
@@ -140,21 +143,34 @@
         controls.autoRotate = autoRotate;
         controls.autoRotateSpeed = 1.0;
         controls.enableZoom = true;
-        controls.minDistance = 15;
-        controls.maxDistance = 50;
+        controls.minDistance = 10;  // Allow closer zoom
+        controls.maxDistance = 70;  // Allow further zoom out
 
-        // Add lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Enhanced lighting setup
+        // Main ambient light (increased intensity)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 5, 5);
+        // Main directional light (sun-like)
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(5, 10, 7);
+        directionalLight.castShadow = true;
         scene.add(directionalLight);
 
-        // Add a subtle backlight
-        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        // Front fill light
+        const frontFill = new THREE.DirectionalLight(0xffffff, 0.7);
+        frontFill.position.set(0, 0, 10);
+        scene.add(frontFill);
+
+        // Back light for depth
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
         backLight.position.set(-5, 3, -5);
         scene.add(backLight);
+        
+        // Bottom light for even illumination
+        const bottomLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        bottomLight.position.set(0, -10, 0);
+        scene.add(bottomLight);
 
         // Start animation loop
         animate();
