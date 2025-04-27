@@ -1,0 +1,546 @@
+{
+  "build": {
+    "branch": "norisk-dev",
+    "mc_version": "1.21",
+    "jre_version": 21,
+    "fabric_loader_version": "0.16.10"
+  },
+  "server": "",
+  "subsystem": {
+    "name": "fabric",
+    "manifest": "https://meta.fabricmc.net/v2/versions/loader/{MINECRAFT_VERSION}/{FABRIC_LOADER_VERSION}/profile/json",
+    "mod_directory": "mods"
+  },
+  "mods": [
+    {
+      "required": true,
+      "enabled": true,
+      "name": "Fabric API",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:fabric-api:0.102.0+1.21",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "Fabric Kotlin",
+      "source": {
+        "type": "repository",
+        "repository": "fabric",
+        "artifact": "net.fabricmc:fabric-language-kotlin:1.11.0+kotlin.2.0.0",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "Sodium",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:sodium:mc1.21-0.5.11",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "AppleSkin",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:appleskin:3.0.6+mc1.21",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "Silk",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:silk:1.10.7",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "Lithium",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:lithium:mc1.21-0.12.7",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "Indium",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:indium:1.0.35+mc1.21",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "Satin Api",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:satin-api:2.0.0",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "ModMenu",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:modmenu:11.0.3",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "ImmediatelyFast",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:immediatelyfast:1.6.5+1.21.1-fabric",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "Nvidium",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:nvidium:0.3.1",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "FerriteCore",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:ferrite-core:7.0.0-fabric",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "GeckoLib",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:geckolib:4.5.7-fabric",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "owo-lib",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:owo-lib:0.12.10+1.21",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "EntityCulling",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:entityculling:1.7.0-1.21,fabric",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "ModernFix",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:modernfix:5.19.1+mc1.21",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-Fabric-Utils",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:noriskclient-fabric-utils:1.21-2.2.33",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-UI",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:ui:1.21-2.2.122",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-Client",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:client:1.21-2.1.23",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-Cosmetics",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:cosmetics:1.21-2.2.60",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-Friends",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:friends:1.21-2.2.87",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-McReal",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:mcreal:1.21-2.0.53",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "NoRiskClient-Minigames",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:minigames:1.21-2.1.25",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "PlayerAnimator",
+      "source": {
+        "type": "repository",
+        "repository": "kosmx",
+        "artifact": "dev.kosmx.player-anim:player-animation-lib-fabric:1.0.2-rc1+1.21",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "SubwaySurfers",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:subwaysurfers:1.21-2.2.30",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "DataTracker",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:datatracker:1.21-1.0.18",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "owoplus",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:owoplus:1.21-1.0.25",
+        "url": null
+      }
+    },
+    {
+      "required": true,
+      "enabled": true,
+      "name": "Emotes",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:emote-lib:1.21-1.1.26",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "quests",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:quests:1.21-1.0.15",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "lobby-common",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:lobby-common:1.21-0.0.2",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "lobby-client",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:lobby-client:1.21-0.0.7",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "voicechat-client",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:voicechat-client:1.21-1.1.24",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "simple-voice-chat",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:simple-voice-chat:fabric-1.21.1-2.5.27",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "hero-api",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:hero-api:1.21-1.3.2",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "katara",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:katara:1.21-1.1.1",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "toph",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:toph:1.21-1.1.1",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "aang",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:aang:1.21-1.1.1",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "OldPvP-Common",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:oldpvp-common:1.21-1.0.6",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "ffa-common",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:ffa-common:1.21-1.0.3",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "ffa-client",
+      "source": {
+        "type": "repository",
+        "repository": "noriskproduction",
+        "artifact": "gg.norisk:ffa-client:1.21-1.1.8",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "Cloth-Config",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:cloth-config:15.0.140+fabric",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "MoreCulling",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:moreculling:0.26.0",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "3DSkins",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:3dskinlayers:s3z8zfIv",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "TierTagger",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:tiertagger:1.11.6+mc1.21",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "ukulib",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:ukulib:1.4.1+1.21",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "WaveyCapes",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:wavey-capes:oyiyHkeB",
+        "url": null
+      }
+    },
+    {
+      "required": false,
+      "enabled": true,
+      "name": "shulkerboxtooltip",
+      "source": {
+        "type": "repository",
+        "repository": "modrinth",
+        "artifact": "maven.modrinth:shulkerboxtooltip:5.1.2+1.21-fabric",
+        "url": null
+      }
+    }
+  ],
+  "repositories": {
+    "central": "https://repo1.maven.org/maven2/",
+    "fabric": "https://maven.fabricmc.net/",
+    "geckolib": "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/",
+    "jitpack": "https://jitpack.io/",
+    "kosmx": "https://maven.kosmx.dev/",
+    "modrinth": "https://api.modrinth.com/maven/",
+    "norisk": "https://dl.norisk.gg/",
+    "noriskproduction": "https://maven.norisk.gg/repository/norisk-production/",
+    "terraformersmc": "https://maven.terraformersmc.com/",
+    "viaversion": "https://repo.viaversion.com/",
+    "wispforest": "https://maven.wispforest.io/"
+  }
+}

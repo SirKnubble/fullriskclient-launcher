@@ -19,6 +19,24 @@
         "norisk_information": {}
       },
       {
+        "id": "ea361d90-5541-4a2a-8eea-8cf1f822d6cb",
+        "name": "Fabric 1.21",
+        "description": "Standard Fabric profile for Minecraft 1.21",
+        "game_version": "1.21",
+        "loader": "fabric",
+        "loader_version": "0.16.13",
+        "selected_norisk_pack_id": "norisk-dev",
+        "path": "noriskclient/new",
+        "is_standard_version": true,
+        "banner": {
+          "source": {
+            "type": "url",
+            "url": "https://fabricmc.net/assets/logo.png"
+          }
+        },
+        "norisk_information": {}
+      },
+      {
         "id": "98e6a5c0-cb6b-4f30-8e4d-5b7f8f6a3e2b",
         "name": "Forge 1.8.9",
         "description": "Standard Forge profile for Minecraft 1.8.9.",
@@ -44,7 +62,6 @@
         "game_version": "1.20.1",
         "loader": "fabric",
         "loader_version": "0.16.13",
-        "norisk_pack": null,
         "selected_norisk_pack_id": "noriskclient",
         "path": "noriskclient",
         "is_standard_version": true,
