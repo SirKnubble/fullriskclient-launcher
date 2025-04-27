@@ -479,8 +479,8 @@
                         <div class="cape-preview">
                             <CapeShowcase 
                                 imageUrl={imageUrl} 
-                                width={100}
-                                height={100}
+                                width={140}
+                                height={90}
                             />
                         </div>
                         <div class="cape-info">
