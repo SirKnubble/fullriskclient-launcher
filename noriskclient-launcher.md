@@ -159,6 +159,11 @@ The launcher integrates with mod platforms:
 - Discriminated unions for type safety
 - Type exports for shared types
 - Strict null checking
+- **Type Reusability**: 
+  - **Check First**: Before defining a new interface or type alias in a component or store, **always check `src/lib/types`** to see if a suitable type already exists.
+  - **Extend**: If an existing type is close but needs additions, consider extending it if appropriate, rather than creating a completely separate type.
+  - **Location**: All shared frontend types should reside in `src/lib/types`.
+  - **Usage**: Import types like any other module: `import type { MyType } from '$lib/types/myTypesFile';`
 
 ## Development Workflow
 

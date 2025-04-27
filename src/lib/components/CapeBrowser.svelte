@@ -8,6 +8,8 @@
         initializeAccounts
     } from '$lib/stores/accountStore';
     import { notificationStore } from '$lib/stores/notificationStore';
+    import type { MinecraftProfile } from '$lib/types/minecraft';
+
     // Generate a simple random string instead of using uuid
     function generateRequestId(): string {
         return Math.random().toString(36).substring(2, 15) + 
@@ -191,10 +193,6 @@
     }
 
     // Fetch creator username using their UUID and store it in the map
-    interface MinecraftProfile { // Re-define or import if needed
-        id: string;
-        name: string;
-    }
     async function fetchAndStoreCreatorName(creatorUuid: string) {
         // Check if already loading or fetched
         if (loadingCreatorNames.get(creatorUuid) || creatorNames.has(creatorUuid)) {
