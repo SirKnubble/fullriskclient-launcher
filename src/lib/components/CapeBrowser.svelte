@@ -480,7 +480,7 @@
                             <CapeShowcase 
                                 imageUrl={imageUrl} 
                                 width={140}
-                                height={90}
+                                height={180}
                             />
                         </div>
                         <div class="cape-info">
