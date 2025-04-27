@@ -19,29 +19,40 @@
 
     // Use $effect to react to changes in the property value
     $effect(() => {
-        if (!profilePropertyValue || !canvasElement) {
-            // If no value or canvas not ready, reset
-            isLoading = false;
-            errorMessage = !profilePropertyValue ? "No profile property value provided." : null;
-            // Clear canvas if it exists
-            const ctx = canvasElement?.getContext('2d');
-            if (ctx) {
-                ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            }
+        // Always clear previous error/state when prop changes
+        errorMessage = null;
+        isLoading = true;
+        const ctx = canvasElement?.getContext('2d');
+        if (ctx) {
+             ctx.clearRect(0, 0, canvasElement!.width, canvasElement!.height);
+        }
+
+        // Exit early if canvas isn't ready yet
+        if (!canvasElement) {
+            console.warn("[PlayerHead] Effect ran before canvas was ready.");
+            isLoading = false; // Not loading if canvas isn't there
+            return;
+        }
+
+        // Exit gracefully if no property value is provided
+        if (!profilePropertyValue) {
+            console.log("[PlayerHead] No profilePropertyValue provided.");
+            isLoading = false; // Nothing to load
+            // Clear canvas (already done above, but ensures it)
+             const ctxClear = canvasElement.getContext('2d');
+             if (ctxClear) ctxClear.clearRect(0, 0, canvasElement.width, canvasElement.height);
             return; 
         }
 
-        isLoading = true;
-        errorMessage = null;
-        const ctx = canvasElement!.getContext('2d');
+        // --- Start processing if we have a value and canvas ---
+        console.log("[PlayerHead] Processing new profilePropertyValue.");
+        
+        // Get context (should be safe now, but double-check)
         if (!ctx) {
             errorMessage = "Failed to get canvas context.";
             isLoading = false;
             return;
         }
-        
-        // Clear previous drawing
-        ctx.clearRect(0, 0, canvasElement!.width, canvasElement!.height);
 
         let skinUrl: string | undefined;
 
@@ -63,7 +74,7 @@
             return;
         }
 
-        // 2. Load Skin Image
+        // 2. Load Skin Image (onload handles the rest)
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.src = skinUrl;
@@ -139,9 +150,10 @@
             class:loading={isLoading}
             title="Player Head"
         ></canvas>
-        {#if isLoading && !errorMessage}
+        <!-- Loading state handled by canvas opacity now -->
+        <!-- {#if isLoading && !errorMessage}
             <div class="loading-overlay"></div>
-        {/if}
+        {/if} -->
     {/if}
 </div>
 
