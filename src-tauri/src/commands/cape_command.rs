@@ -25,10 +25,11 @@ pub async fn browse_capes(
     filter_creator: Option<String>,
     time_frame: Option<String>,
     norisk_token: Option<String>,
+    request_uuid: Option<String>,
 ) -> Result<CapesBrowseResponse, CommandError> {
     debug!("Command called: browse_capes");
-    debug!("Parameters: page={:?}, page_size={:?}, sort_by={:?}, filter_has_elytra={:?}, filter_creator={:?}, time_frame={:?}, norisk_token={:?}", 
-        page, page_size, sort_by, filter_has_elytra, filter_creator, time_frame, norisk_token);
+    debug!("Parameters: page={:?}, page_size={:?}, sort_by={:?}, filter_has_elytra={:?}, filter_creator={:?}, time_frame={:?}, norisk_token={:?}, request_uuid={:?}", 
+        page, page_size, sort_by, filter_has_elytra, filter_creator, time_frame, norisk_token, request_uuid);
 
     // Get the state manager
     let state = State::get().await?;
@@ -76,6 +77,18 @@ pub async fn browse_capes(
         None
     };
 
+    // Determine the request UUID to use
+    let uuid_to_use = match request_uuid {
+        Some(uuid) => {
+            debug!("Using provided request UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No request UUID provided, using active account ID: {}", active_account.id);
+            active_account.id.to_string()
+        }
+    };
+
     let result = cape_api
         .browse_capes(
             &token_to_use,
@@ -85,7 +98,7 @@ pub async fn browse_capes(
             filter_has_elytra,
             filter_creator_uuid.as_ref(),
             time_frame.as_deref(),
-            &active_account.id.to_string(),
+            &uuid_to_use,
             is_experimental,
         )
         .await
@@ -119,14 +132,15 @@ pub async fn get_player_capes(
     page_size: Option<u32>,
     filter_accepted: Option<bool>,
     norisk_token: Option<String>,
+    request_uuid: Option<String>,
 ) -> Result<CapesBrowseResponse, CommandError> {
     debug!(
         "Command called: get_player_capes for player: {}",
         player_uuid
     );
     debug!(
-        "Parameters: page={:?}, page_size={:?}, filter_accepted={:?}, norisk_token={:?}",
-        page, page_size, filter_accepted, norisk_token
+        "Parameters: page={:?}, page_size={:?}, filter_accepted={:?}, norisk_token={:?}, request_uuid={:?}",
+        page, page_size, filter_accepted, norisk_token, request_uuid
     );
 
     // Get the state manager
@@ -171,6 +185,18 @@ pub async fn get_player_capes(
         }
     };
 
+    // Determine the request UUID to use
+    let uuid_to_use = match request_uuid {
+        Some(uuid) => {
+            debug!("Using provided request UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No request UUID provided, using active account ID: {}", active_account.id);
+            active_account.id.to_string()
+        }
+    };
+
     let result = cape_api
         .get_player_capes(
             &token_to_use,
@@ -178,7 +204,7 @@ pub async fn get_player_capes(
             page,
             page_size,
             filter_accepted,
-            &active_account.id.to_string(),
+            &uuid_to_use,
             is_experimental,
         )
         .await
@@ -199,15 +225,16 @@ pub async fn get_player_capes(
 /// Equip a specific cape for a player
 ///
 /// Parameters:
-/// - player_uuid: UUID of the player
 /// - cape_hash: Hash of the cape to equip
 /// - norisk_token: Optional NoRisk token
+/// - player_uuid: Optional UUID of the player (defaults to active account)
 #[tauri::command]
 pub async fn equip_cape(
     cape_hash: String,
     norisk_token: Option<String>,
+    player_uuid: Option<Uuid>, // Changed to Option<Uuid>
 ) -> Result<(), CommandError> {
-    debug!("Command called: equip_cape for cape_hash: {}", cape_hash);
+    debug!("Command called: equip_cape for cape_hash: {}, player_uuid: {:?}", cape_hash, player_uuid);
 
     // Get the state manager
     let state = State::get().await?;
@@ -239,10 +266,22 @@ pub async fn equip_cape(
 
     let cape_api = CapeApi::new();
 
+    // Determine the player UUID to use
+    let uuid_to_use = match player_uuid {
+        Some(uuid) => {
+            debug!("Using provided player UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No player UUID provided, using active account ID: {}", active_account.id);
+            active_account.id
+        }
+    };
+
     let result = cape_api
         .equip_cape(
             &token_to_use,
-            &active_account.id,
+            &uuid_to_use, // Use the determined UUID
             &cape_hash,
             is_experimental,
         )
@@ -266,12 +305,14 @@ pub async fn equip_cape(
 /// Parameters:
 /// - cape_hash: Hash of the cape to delete
 /// - norisk_token: Optional NoRisk token
+/// - player_uuid: Optional UUID of the player (defaults to active account)
 #[tauri::command]
 pub async fn delete_cape(
     cape_hash: String,
     norisk_token: Option<String>,
+    player_uuid: Option<Uuid>, // Changed to Option<Uuid>
 ) -> Result<(), CommandError> {
-    debug!("Command called: delete_cape for cape_hash: {}", cape_hash);
+    debug!("Command called: delete_cape for cape_hash: {}, player_uuid: {:?}", cape_hash, player_uuid);
 
     // Get the state manager
     let state = State::get().await?;
@@ -303,10 +344,22 @@ pub async fn delete_cape(
 
     let cape_api = CapeApi::new();
 
+    // Determine the player UUID to use
+    let uuid_to_use = match player_uuid {
+        Some(uuid) => {
+            debug!("Using provided player UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No player UUID provided, using active account ID: {}", active_account.id);
+            active_account.id
+        }
+    };
+
     let result = cape_api
         .delete_cape(
             &token_to_use,
-            &active_account.id,
+            &uuid_to_use, // Use the determined UUID
             &cape_hash,
             is_experimental,
         )
@@ -330,12 +383,14 @@ pub async fn delete_cape(
 /// Parameters:
 /// - image_path: Path to the cape image file (PNG)
 /// - norisk_token: Optional NoRisk token
+/// - player_uuid: Optional UUID of the player (defaults to active account)
 #[tauri::command]
 pub async fn upload_cape(
     image_path: String,
     norisk_token: Option<String>,
+    player_uuid: Option<Uuid>, // Changed to Option<Uuid>
 ) -> Result<String, CommandError> {
-    debug!("Command called: upload_cape with image_path: {}", image_path);
+    debug!("Command called: upload_cape with image_path: {}, player_uuid: {:?}", image_path, player_uuid);
 
     // Get the state manager
     let state = State::get().await?;
@@ -367,13 +422,25 @@ pub async fn upload_cape(
 
     let cape_api = CapeApi::new();
 
+    // Determine the player UUID to use
+    let uuid_to_use = match player_uuid {
+        Some(uuid) => {
+            debug!("Using provided player UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No player UUID provided, using active account ID: {}", active_account.id);
+            active_account.id
+        }
+    };
+
     // Convert image_path string to PathBuf
     let image_path_buf = PathBuf::from(image_path);
 
     let result = cape_api
         .upload_cape(
             &token_to_use,
-            &active_account.id,
+            &uuid_to_use, // Use the determined UUID
             &image_path_buf,
             is_experimental,
         )
@@ -396,11 +463,13 @@ pub async fn upload_cape(
 ///
 /// Parameters:
 /// - norisk_token: Optional NoRisk token
+/// - player_uuid: Optional UUID of the player (defaults to active account)
 #[tauri::command]
 pub async fn unequip_cape(
     norisk_token: Option<String>,
+    player_uuid: Option<Uuid>, // Changed to Option<Uuid>
 ) -> Result<(), CommandError> {
-    debug!("Command called: unequip_cape");
+    debug!("Command called: unequip_cape for player_uuid: {:?}", player_uuid);
 
     // Get the state manager
     let state = State::get().await?;
@@ -432,10 +501,22 @@ pub async fn unequip_cape(
 
     let cape_api = CapeApi::new();
 
+    // Determine the player UUID to use
+    let uuid_to_use = match player_uuid {
+        Some(uuid) => {
+            debug!("Using provided player UUID: {}", uuid);
+            uuid
+        }
+        None => {
+            debug!("No player UUID provided, using active account ID: {}", active_account.id);
+            active_account.id
+        }
+    };
+
     let result = cape_api
         .unequip_cape(
             &token_to_use,
-            &active_account.id,
+            &uuid_to_use, // Use the determined UUID
             is_experimental,
         )
         .await
