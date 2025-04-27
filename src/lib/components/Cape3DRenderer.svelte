@@ -7,14 +7,12 @@
     // Props
     const { 
         imageUrl, 
-        part = 'front',
         width = 400,
         height = 300,
         autoRotate = false,
         backgroundColor = "#f0f0f0"
     }: { 
         imageUrl: string | undefined,
-        part?: 'front' | 'back',
         width?: number,
         height?: number,
         autoRotate?: boolean,
@@ -31,26 +29,33 @@
     let camera: THREE.PerspectiveCamera | null = null;
     let renderer: THREE.WebGLRenderer | null = null;
     let controls: OrbitControls | null = null;
-    let cape: THREE.Group | null = null;
+    let capeMesh: THREE.Mesh | null = null;
     let animationFrameId: number | null = null;
 
     // Cape dimensions (scaled for Minecraft proportions)
-    const CAPE_WIDTH = 10;
-    const CAPE_HEIGHT = 16;
-    const CAPE_SEGMENTS_X = 5;
-    const CAPE_SEGMENTS_Y = 8;
+    const CAPE_BOX_WIDTH = 10;
+    const CAPE_BOX_HEIGHT = 16;
+    const CAPE_BOX_DEPTH = 1; // Give it some thickness
 
-    // Constants for cape layout (copied from CapeImage.svelte)
-    const SCALE_FACTOR = 8;
-    const CAPE_SRC_WIDTH = 10 * SCALE_FACTOR;  // 80
-    const CAPE_SRC_HEIGHT = 16 * SCALE_FACTOR; // 128
-    const FRONT_X = 1 * SCALE_FACTOR;         // 8
-    const FRONT_Y = 1 * SCALE_FACTOR;         // 8
-    const BACK_X = 12 * SCALE_FACTOR;        // 96
-    const BACK_Y = 1 * SCALE_FACTOR;         // 8
+    // Texture coordinates constants (assuming standard 64x32 cape texture)
+    // Image dimensions
+    const IMG_W = 64;
+    const IMG_H = 32;
 
-    // Track current part to detect changes
-    let currentPart = part;
+    // UV coordinates helpers
+    const u = (x: number) => x / IMG_W;
+    const v = (y: number) => 1 - y / IMG_H; // Y is flipped
+
+    // Cape texture regions (in pixels) - Adjusted for clarity
+    const T_RIGHT =   [0,  1,  1, 16];
+    const T_FRONT =   [1,  1, 10, 16];
+    const T_LEFT =    [11, 1,  1, 16];
+    const T_BACK =    [12, 1, 10, 16];
+    const T_TOP =     [1,  0, 10,  1];
+    const T_BOTTOM =  [11, 0, 10,  1];
+
+    // Track current image URL to detect changes
+    let currentImageUrl = imageUrl;
 
     // Setup and cleanup
     onMount(() => {
@@ -90,25 +95,21 @@
             renderer.dispose();
         }
 
-        // Dispose of geometries and materials
-        if (cape) {
-            cape.traverse((object: THREE.Object3D) => {
-                if (object instanceof THREE.Mesh) {
-                    object.geometry.dispose();
-                    if (object.material instanceof THREE.Material) {
-                        object.material.dispose();
-                    } else if (Array.isArray(object.material)) {
-                        object.material.forEach((material: THREE.Material) => material.dispose());
-                    }
-                }
-            });
+        // Dispose of geometry and materials
+        if (capeMesh) {
+            capeMesh.geometry.dispose();
+            if (capeMesh.material instanceof THREE.Material) {
+                capeMesh.material.dispose();
+            } else if (Array.isArray(capeMesh.material)) {
+                capeMesh.material.forEach((material: THREE.Material) => material.dispose());
+            }
         }
 
         scene = null;
         camera = null;
         renderer = null;
         controls = null;
-        cape = null;
+        capeMesh = null;
     });
 
     // Initialize Three.js scene, camera, renderer
@@ -133,9 +134,6 @@
         renderer.setSize(width, height);
         renderer.setPixelRatio(window.devicePixelRatio);
         
-        // Enable physically correct lighting
-        renderer.physicallyCorrectLights = true;
-
         // Add orbit controls
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -147,27 +145,18 @@
         controls.maxDistance = 70;  // Allow further zoom out
 
         // Enhanced lighting setup
-        // Main ambient light (increased intensity)
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
-
-        // Main directional light (sun-like)
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(5, 10, 7);
         directionalLight.castShadow = true;
         scene.add(directionalLight);
-
-        // Front fill light
         const frontFill = new THREE.DirectionalLight(0xffffff, 0.7);
         frontFill.position.set(0, 0, 10);
         scene.add(frontFill);
-
-        // Back light for depth
         const backLight = new THREE.DirectionalLight(0xffffff, 0.5);
         backLight.position.set(-5, 3, -5);
         scene.add(backLight);
-        
-        // Bottom light for even illumination
         const bottomLight = new THREE.DirectionalLight(0xffffff, 0.3);
         bottomLight.position.set(0, -10, 0);
         scene.add(bottomLight);
@@ -194,6 +183,7 @@
 
         isLoading = true;
         errorMessage = null;
+        currentImageUrl = imageUrl; // Update tracked URL
 
         const textureLoader = new THREE.TextureLoader();
         textureLoader.crossOrigin = 'anonymous';
@@ -205,49 +195,11 @@
                 texture.magFilter = THREE.NearestFilter;
                 texture.minFilter = THREE.NearestFilter;
                 
-                // Create a canvas to crop the texture
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                
-                if (!context) {
-                    errorMessage = "Failed to create context for texture processing";
-                    isLoading = false;
-                    return;
-                }
-                
-                // Get image from texture
-                const image = texture.image;
-                if (!image) {
-                    errorMessage = "Failed to get texture image";
-                    isLoading = false;
-                    return;
-                }
-                
-                // Set canvas size to the size of cape part
-                canvas.width = CAPE_SRC_WIDTH;
-                canvas.height = CAPE_SRC_HEIGHT;
-                
-                // Determine source coordinates based on 'part' prop
-                const sx = part === 'back' ? BACK_X : FRONT_X;
-                const sy = part === 'back' ? BACK_Y : FRONT_Y;
-                
-                // Draw only the selected part of the cape texture
-                context.drawImage(
-                    image,
-                    sx, sy, CAPE_SRC_WIDTH, CAPE_SRC_HEIGHT,  // Source rectangle
-                    0, 0, CAPE_SRC_WIDTH, CAPE_SRC_HEIGHT     // Destination rectangle
-                );
-                
-                // Create a new texture from the canvas
-                const croppedTexture = new THREE.Texture(canvas);
-                croppedTexture.needsUpdate = true;
-                croppedTexture.magFilter = THREE.NearestFilter;
-                croppedTexture.minFilter = THREE.NearestFilter;
-                
-                createCapeModel(croppedTexture);
+                // No need to crop the texture anymore, use the full texture
+                createCapeModel(texture);
                 isLoading = false;
             },
-            (progress: { loaded: number, total: number }) => {
+            (progress) => { // ProgressEvent type might be more specific if needed
                 // Loading progress
                 console.log(`[Cape3DRenderer] Loading: ${Math.round((progress.loaded / progress.total) * 100)}%`);
             },
@@ -264,61 +216,57 @@
     function createCapeModel(texture: THREE.Texture) {
         if (!scene) return;
 
-        // Create a group to hold the cape
-        cape = new THREE.Group();
-        scene.add(cape);
+        // Create cape geometry (Box)
+        const geometry = new THREE.BoxGeometry(
+            CAPE_BOX_WIDTH, 
+            CAPE_BOX_HEIGHT, 
+            CAPE_BOX_DEPTH
+        );
+        
+        // --- Apply UV Mapping --- 
+        const uv = geometry.attributes.uv;
+        uv.needsUpdate = true;
+
+        // Helper function to map texture area to UV coordinates - Adjusted for vertical flip
+        const mapUV = (area: number[]) => [
+            new THREE.Vector2(u(area[0]),          v(area[1])),          // Top-Left (use top V coordinate)
+            new THREE.Vector2(u(area[0] + area[2]), v(area[1])),          // Top-Right (use top V coordinate)
+            new THREE.Vector2(u(area[0]),          v(area[1] + area[3])), // Bottom-Left (use bottom V coordinate)
+            new THREE.Vector2(u(area[0] + area[2]), v(area[1] + area[3])), // Bottom-Right (use bottom V coordinate)
+        ];
+
+        // BoxGeometry face order: Right (+X), Left (-X), Top (+Y), Bottom (-Y), Front (+Z), Back (-Z)
+        const uvOrder = [
+            ...mapUV(T_RIGHT),
+            ...mapUV(T_LEFT),
+            ...mapUV(T_TOP),
+            ...mapUV(T_BOTTOM),
+            ...mapUV(T_FRONT),
+            ...mapUV(T_BACK),
+        ];
+        
+        // Apply the UV map to the geometry
+        for (let i = 0; i < uvOrder.length; i++) {
+            uv.setXY(i, uvOrder[i].x, uvOrder[i].y);
+        }
 
         // Create cape material with the loaded texture
         const material = new THREE.MeshStandardMaterial({
             map: texture,
-            side: THREE.DoubleSide,
-            transparent: true,
-            alphaTest: 0.5
+            side: THREE.FrontSide, 
+            transparent: false,    
         });
 
-        // Create cape geometry (cloth-like with segments)
-        const geometry = new THREE.PlaneGeometry(
-            CAPE_WIDTH, 
-            CAPE_HEIGHT, 
-            CAPE_SEGMENTS_X, 
-            CAPE_SEGMENTS_Y
-        );
-
         // Create cape mesh
-        const capeMesh = new THREE.Mesh(geometry, material);
+        capeMesh = new THREE.Mesh(geometry, material);
         
-        // Position the cape
+        // Reset position to center the cape
         capeMesh.position.set(0, 0, 0);
-        
-        // Add to the cape group
-        cape.add(capeMesh);
-        
-        // Position the cape group
-        cape.position.set(0, 0, 0);
-        
-        // Apply a slight curve to the cape to make it look more natural
-        applyCurve(geometry);
-    }
+        // Remove rotation
+        // capeMesh.rotation.x = 0.1; 
 
-    // Apply a curve to the cape geometry to make it look more natural
-    function applyCurve(geometry: THREE.PlaneGeometry) {
-        const positions = geometry.attributes.position;
-        
-        for (let i = 0; i < positions.count; i++) {
-            const x = positions.getX(i);
-            const y = positions.getY(i);
-            const z = positions.getZ(i);
-            
-            // Apply a slight curve based on y position (height)
-            const curveAmount = 1.5;
-            const normalizedY = (y + CAPE_HEIGHT/2) / CAPE_HEIGHT; // 0 at top, 1 at bottom
-            const curve = Math.pow(normalizedY, 2) * curveAmount;
-            
-            positions.setZ(i, z - curve);
-        }
-        
-        geometry.attributes.position.needsUpdate = true;
-        geometry.computeVertexNormals();
+        // Add to the scene
+        scene.add(capeMesh);
     }
 
     // Animation loop
@@ -327,11 +275,6 @@
         
         if (!scene || !camera || !renderer || !controls) return;
         
-        // Update cape animation (wind effect)
-        if (cape) {
-            animateCape();
-        }
-        
         // Update controls
         controls.update();
         
@@ -339,70 +282,30 @@
         renderer.render(scene, camera);
     }
 
-    // Animate the cape to simulate wind
-    function animateCape() {
-        if (!cape) return;
-        
-        const time = Date.now() * 0.001; // Convert to seconds
-        const windStrength = 0.3;
-        const windFrequency = 0.5;
-        
-        // Get the cape mesh
-        const capeMesh = cape.children[0] as THREE.Mesh;
-        if (!capeMesh || !capeMesh.geometry) return;
-        
-        // Get position attribute
-        const positions = capeMesh.geometry.attributes.position;
-        
-        // Apply wind effect
-        for (let i = 0; i < positions.count; i++) {
-            const x = positions.getX(i);
-            const y = positions.getY(i);
-            const z = positions.getZ(i);
-            
-            // Original z position (from the curve)
-            const normalizedY = (y + CAPE_HEIGHT/2) / CAPE_HEIGHT;
-            const curveAmount = 1.5;
-            const baseZ = -Math.pow(normalizedY, 2) * curveAmount;
-            
-            // Wind effect (stronger at the bottom)
-            const windEffect = Math.sin(time * windFrequency + y * 0.2) * windStrength * normalizedY;
-            
-            // Apply the wind effect
-            positions.setZ(i, baseZ + windEffect);
-        }
-        
-        capeMesh.geometry.attributes.position.needsUpdate = true;
-    }
-
-    // Effect to update when props change
+    // Effect to update autoRotate when prop changes
     $effect(() => {
         if (controls) {
             controls.autoRotate = autoRotate;
         }
     });
 
-    // Effect to update when part or imageUrl changes
+    // Effect to update when imageUrl changes
     $effect(() => {
-        if (scene && cape && (part !== currentPart || imageUrl)) {
-            console.log(`[Cape3DRenderer] Part changed from ${currentPart} to ${part}, reloading texture`);
-            currentPart = part;
+        if (scene && capeMesh && imageUrl !== currentImageUrl) {
+            console.log(`[Cape3DRenderer] Image URL changed, reloading texture`);
+            currentImageUrl = imageUrl;
             
             // Clear existing cape
-            scene.remove(cape);
-            cape.traverse((object: THREE.Object3D) => {
-                if (object instanceof THREE.Mesh) {
-                    object.geometry.dispose();
-                    if (object.material instanceof THREE.Material) {
-                        object.material.dispose();
-                    } else if (Array.isArray(object.material)) {
-                        object.material.forEach((material: THREE.Material) => material.dispose());
-                    }
-                }
-            });
-            cape = null;
+            scene.remove(capeMesh);
+            capeMesh.geometry.dispose();
+            if (capeMesh.material instanceof THREE.Material) {
+                capeMesh.material.dispose();
+            } else if (Array.isArray(capeMesh.material)) {
+                capeMesh.material.forEach((material: THREE.Material) => material.dispose());
+            }
+            capeMesh = null;
             
-            // Reload cape texture with new part
+            // Reload cape texture with new image
             loadCapeTexture();
         }
     });
@@ -418,7 +321,7 @@
             height={height} 
             class="cape-canvas" 
             class:loading={isLoading}
-            title="Cape {part} 3D view"
+            title="Cape 3D view"
         ></canvas>
         
         {#if isLoading}
