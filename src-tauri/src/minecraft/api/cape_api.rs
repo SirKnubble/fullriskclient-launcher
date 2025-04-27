@@ -4,6 +4,7 @@ use crate::{
     error::{AppError, Result},
 };
 use log::{debug, error, info};
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -255,5 +256,64 @@ impl CapeApi {
             error!("[Cape API] Failed to parse response: {}", e);
             AppError::ParseError(format!("Failed to parse Cape API response: {}", e))
         })
+    }
+
+    /// Equip a specific cape for a player
+    ///
+    /// Parameters:
+    /// - norisk_token: Authentication token
+    /// - player_uuid: UUID of the player
+    /// - cape_hash: Hash of the cape to equip
+    /// - is_experimental: Whether to use the experimental API endpoint
+    pub async fn equip_cape(
+        &self,
+        norisk_token: &str,
+        player_uuid: &Uuid,
+        cape_hash: &str,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let endpoint = format!("cape/{}/equip", cape_hash);
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!("[Cape API] Making request to equip cape endpoint for player: {}", player_uuid);
+        debug!("[Cape API] Full URL: {}", url);
+
+        let mut query_params = HashMap::new();
+        query_params.insert("uuid", player_uuid.to_string());
+
+        debug!("[Cape API] Sending POST request with parameters: {:?}", query_params);
+
+        let response = HTTP_CLIENT
+            .post(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&query_params)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!("Failed to send equip cape request: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        match status {
+            StatusCode::OK => {
+                info!("[Cape API] Cape {} equipped successfully for player {}", cape_hash, player_uuid);
+                Ok(())
+            }
+            _ => {
+                let response_text = response.text().await.unwrap_or_else(|e| {
+                    format!("Error reading error response body: {}", e)
+                });
+                error!("[Cape API] Error equipping cape: Status {}, Response: {}", status, response_text);
+                Err(AppError::RequestError(format!(
+                    "Failed to equip cape. Status: {}, Details: {}",
+                    status,
+                    response_text
+                )))
+            }
+        }
     }
 }
