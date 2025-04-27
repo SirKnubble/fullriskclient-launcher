@@ -58,6 +58,11 @@
     // Selected cape
     let selectedCape: CosmeticCape | null = $state(null);
 
+    // Equip state
+    let equipping: boolean = $state(false);
+    let equipError: string | null = $state(null);
+    let equipSuccess: string | null = $state(null);
+
     onMount(async () => {
         // Initialize accounts if not already loaded
         if (!$activeAccount) {
@@ -235,6 +240,37 @@
             loading = false;
         }
     }
+
+    // Equip the selected cape
+    async function equipCape(capeHash: string | undefined) {
+        if (!capeHash) {
+            equipError = "Cape ID is missing."; // Use a general error state if needed elsewhere
+            console.error("Attempted to equip cape without a hash.");
+            return;
+        }
+
+        equipping = true;
+        equipError = null;
+        equipSuccess = null; // Keep success/error state if needed for global notifications
+
+        try {
+            console.log(`Attempting to equip cape with hash: ${capeHash}`);
+            await invoke("equip_cape", { capeHash: capeHash });
+            equipSuccess = `Cape ${capeHash.substring(0, 8)}... equipped successfully!`;
+            console.log("Cape equipped successfully.");
+            // Maybe emit a global notification here instead of using local state
+        } catch (err) {
+            console.error("Error equipping cape:", err);
+            if (typeof err === 'object' && err !== null && 'message' in err && typeof err.message === 'string') {
+                equipError = err.message; 
+            } else {
+                equipError = "An unknown error occurred while equipping the cape.";
+            }
+             // Maybe emit a global notification here
+        } finally {
+            equipping = false;
+        }
+    }
 </script>
 
 <div class="cape-browser">
@@ -338,6 +374,17 @@
                         >
                             By Creator
                         </button>
+                        <button 
+                            class="equip-button-grid"
+                            onclick={(e) => {
+                                e.stopPropagation(); // Prevent selecting the cape item
+                                equipCape(cape._id);
+                            }}
+                            disabled={equipping} 
+                            title="Equip this cape"
+                        >
+                            {equipping ? '...' : 'Equip'}
+                        </button>
                     </div>
                 {/each}
             </div>
@@ -419,9 +466,14 @@
                         {/if}
                     </div>
                 </div>
-                <button onclick={() => selectedCape = null} class="close-button">
-                    Close Details
-                </button>
+                <div class="cape-actions">
+                    
+                    <button onclick={() => selectedCape = null} class="close-button">
+                        Close Details
+                    </button>
+                    
+                    
+                </div>
             </div>
         {/if}
     {/if}
@@ -596,6 +648,36 @@
         background-color: rgba(53, 122, 189, 1);
     }
 
+    .equip-button-grid {
+        position: absolute;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 3px 10px;
+        background-color: rgba(46, 204, 113, 0.8); /* Greenish */
+        color: white;
+        border: none;
+        border-radius: 3px;
+        font-size: 0.8em;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .cape-item:hover .equip-button-grid {
+        opacity: 1;
+    }
+
+    .equip-button-grid:hover {
+        background-color: rgba(39, 174, 96, 1);
+    }
+
+    .equip-button-grid:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        opacity: 0.5; /* Make it visible but faded when disabled */
+    }
+
     .pagination {
         display: flex;
         justify-content: center;
@@ -696,5 +778,34 @@
     .note {
         color: #666;
         font-style: italic;
+    }
+
+    .cape-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .equip-button {
+        padding: 8px 16px;
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .equip-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+
+    .equip-error, .equip-success {
+        margin-top: 10px;
+        padding: 8px;
+        background-color: #fbeae8;
+        border: 1px solid #e74c3c;
+        border-radius: 4px;
     }
 </style>
