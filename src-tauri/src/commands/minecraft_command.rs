@@ -11,6 +11,7 @@ use crate::minecraft::api::forge_api::ForgeApi;
 use crate::minecraft::api::neo_forge_api::NeoForgeApi;
 use crate::state::state_manager::State;
 use crate::state::skin_state::MinecraftSkin;
+use semver::Op;
 use tauri_plugin_dialog::DialogExt;
 use uuid::Uuid;
 use log::{debug, info, warn, error};
@@ -90,7 +91,7 @@ pub async fn get_neoforge_versions(minecraft_version: String) -> Result<Vec<Stri
 
 /// Get the current user skin data
 #[tauri::command]
-pub async fn get_user_skin_data(uuid: String, access_token: String) -> Result<MinecraftProfile, CommandError> {
+pub async fn get_user_skin_data(uuid: String, access_token: Option<String>) -> Result<MinecraftProfile, CommandError> {
     debug!("Command called: get_user_skin_data for UUID: {}", uuid);
     let api_service = MinecraftApiService::new();
 

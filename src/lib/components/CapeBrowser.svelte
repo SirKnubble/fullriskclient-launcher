@@ -59,6 +59,10 @@
     // Selected cape
     let selectedCape: CosmeticCape | null = $state(null);
 
+    // State for creator names in the grid
+    let creatorNames = $state(new Map<string, string | null>());
+    let loadingCreatorNames = $state(new Map<string, boolean>());
+
     // Equip state
     let equipping: boolean = $state(false);
 
@@ -122,6 +126,12 @@
             capes = response.capes;
             pagination = response.pagination;
 
+            // Trigger fetching for unique creator UUIDs in the current page results
+            const uniqueCreatorUuids = new Set(capes.map(cape => cape.firstSeen).filter(uuid => !!uuid));
+            uniqueCreatorUuids.forEach(uuid => {
+                fetchAndStoreCreatorName(uuid);
+            });
+
             console.log("Capes array:", capes);
             if (capes.length > 0) {
                 console.log("First cape object:", capes[0]);
@@ -180,12 +190,58 @@
         return formatted;
     }
 
+    // Fetch creator username using their UUID and store it in the map
+    interface MinecraftProfile { // Re-define or import if needed
+        id: string;
+        name: string;
+    }
+    async function fetchAndStoreCreatorName(creatorUuid: string) {
+        // Check if already loading or fetched
+        if (loadingCreatorNames.get(creatorUuid) || creatorNames.has(creatorUuid)) {
+            return; // Already handling this UUID
+        }
+
+        if (!$activeAccount?.access_token) {
+            console.warn(`Cannot fetch creator name for ${creatorUuid}: No active account or access token.`);
+            return;
+        }
+
+        loadingCreatorNames.set(creatorUuid, true);
+        // Trigger reactivity explicitly by creating a new map
+        loadingCreatorNames = new Map(loadingCreatorNames); 
+
+        try {
+            // console.log(`Fetching profile for UUID: ${creatorUuid}`);
+            const profile = await invoke<MinecraftProfile>("get_user_skin_data", {
+                uuid: creatorUuid,
+                accessToken: $activeAccount.access_token
+            });
+            console.log(`[fetchAndStoreCreatorName] SUCCESS for ${creatorUuid}:`, profile);
+            creatorNames.set(creatorUuid, profile.name);
+            // Trigger reactivity explicitly by creating a new map
+            creatorNames = new Map(creatorNames);
+            console.log(`[fetchAndStoreCreatorName] Set name for ${creatorUuid} to ${profile.name}. Map size: ${creatorNames.size}`);
+        } catch (err) {
+            console.error(`[fetchAndStoreCreatorName] ERROR fetching profile for UUID ${creatorUuid}:`, err);
+            creatorNames.set(creatorUuid, `(${creatorUuid.substring(0,4)}..err)`); 
+            // Trigger reactivity explicitly by creating a new map
+            creatorNames = new Map(creatorNames);
+            console.log(`[fetchAndStoreCreatorName] Set error state for ${creatorUuid}. Map size: ${creatorNames.size}`);
+        } finally {
+            loadingCreatorNames.set(creatorUuid, false);
+            // Trigger reactivity explicitly by creating a new map
+            loadingCreatorNames = new Map(loadingCreatorNames);
+            console.log(`[fetchAndStoreCreatorName] Set loading=false for ${creatorUuid}`);
+        }
+    }
+
     // Select a cape
     function selectCape(cape: CosmeticCape) {
         console.log("Selected cape:", cape);
         console.log("Cape hash:", cape?._id);
         console.log("Cape hash type:", typeof cape?._id);
         selectedCape = cape;
+        // No need to fetch name here anymore, it's handled by loadCapes
     }
 
     // Load player capes
@@ -339,6 +395,9 @@
                 {#each capes as cape, index (cape._id || `cape-${index}`)}
                     {@const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${cape._id}.png`}
                     {@const capeId = cape._id ? cape._id.substring(0, 8) + '...' : 'Unknown ID'}
+                    {@const creatorUuid = cape.firstSeen}
+                    {@const isLoading = loadingCreatorNames.get(creatorUuid)}
+                    {@const creatorName = creatorNames.get(creatorUuid)}
                     <div 
                         class="cape-item" 
                         class:selected={selectedCape?._id === cape._id}
@@ -354,7 +413,13 @@
                             />
                         </div>
                         <div class="cape-info">
-                            <p class="cape-id">{capeId}</p>
+                            {#if isLoading}
+                                <p class="cape-creator loading-creator">Loading... {creatorName}</p>
+                            {:else if creatorName}
+                                <p class="cape-creator">{creatorName}</p>
+                            {:else}
+                                <p class="cape-creator">{creatorUuid ? creatorUuid.substring(0, 8) + '...' : 'Unknown'}</p>
+                            {/if}
                             <p class="cape-date">{formatDate(cape.creationDate || 0)}</p>
                             <p class="cape-uses">Uses: {cape.uses || 0}</p>
                             <p class="cape-elytra">{cape.elytra ? 'Has Elytra' : 'No Elytra'}</p>
@@ -452,7 +517,13 @@
                     <div class="cape-details-info">
                         <p><strong>ID:</strong> {selectedCape?._id || 'Unknown'} (Type: {typeof selectedCape?._id})</p>
                         <p><strong>Created:</strong> {formatDate(selectedCape?.creationDate || 0)}</p>
-                        <p><strong>Creator:</strong> {selectedCape?.firstSeen || 'Unknown'}</p>
+                        <p><strong>Creator:</strong> 
+                            {#if loadingCreatorNames.get(selectedCape?._id || '')}
+                                <span class="loading-creator">Loading name...</span>
+                            {:else}
+                                {creatorNames.get(selectedCape?._id || '') || selectedCape?.firstSeen || 'Unknown'}
+                            {/if}
+                        </p>
                         <p><strong>Uses:</strong> {selectedCape?.uses || 0}</p>
                         <p><strong>Has Elytra:</strong> {selectedCape?.elytra ? 'Yes' : 'No'}</p>
                         <p><strong>Status:</strong> {selectedCape?.accepted ? 'Accepted' : 'Pending'}</p>
@@ -603,9 +674,10 @@
 
     .cape-info {
         text-align: center;
+        margin-bottom: 25px; /* Add space below info for buttons */
     }
 
-    .cape-id {
+    .cape-creator {
         margin: 0 0 4px 0;
         font-weight: bold;
         font-size: 0.9em;
@@ -802,5 +874,10 @@
         background-color: #fbeae8;
         border: 1px solid #e74c3c;
         border-radius: 4px;
+    }
+
+    .loading-creator {
+        color: #666;
+        font-style: italic;
     }
 </style>
