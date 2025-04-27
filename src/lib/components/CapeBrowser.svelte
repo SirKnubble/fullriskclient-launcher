@@ -11,6 +11,7 @@
     import type { MinecraftProfile } from '$lib/types/minecraft';
     import PlayerHead from '$lib/components/PlayerHead.svelte';
     import CapeImage from '$lib/components/CapeImage.svelte';
+    import CapeShowcase from "./CapeShowcase.svelte";
 
     // Generate a simple random string instead of using uuid
     function generateRequestId(): string {
@@ -476,10 +477,10 @@
                         onclick={() => selectCape(cape)}
                     >
                         <div class="cape-preview">
-                            <CapeImage 
+                            <CapeShowcase 
                                 imageUrl={imageUrl} 
-                                part={'front'}
                                 width={100}
+                                height={100}
                             />
                         </div>
                         <div class="cape-info">
