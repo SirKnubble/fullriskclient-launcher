@@ -9,6 +9,7 @@ use byteorder::BigEndian;
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use log::info;
+use log::error;
 use machineid_rs::{Encryption, HWIDComponent, IdBuilder};
 use p256::ecdsa::signature::Signer;
 use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
@@ -66,6 +67,32 @@ impl NoRiskCredentials {
             .ok_or(AppError::NoCredentialsError)?
             .value
             .clone())
+    }
+
+    /// Gets the appropriate NoRisk token based on the experimental mode setting.
+    /// 
+    /// # Arguments
+    /// * `is_experimental` - Whether to retrieve the experimental token.
+    ///
+    /// # Returns
+    /// A `Result` containing the token string if found, or an `AppError::NoCredentialsError` 
+    /// if the required token is not present.
+    pub fn get_token_for_mode(&self, is_experimental: bool) -> Result<String> {
+        let token_option = if is_experimental {
+            self.experimental.as_ref()
+        } else {
+            self.production.as_ref()
+        };
+
+        token_option
+            .map(|token| token.value.clone())
+            .ok_or_else(|| {
+                error!(
+                    "No NoRisk token found for {} mode.",
+                    if is_experimental { "experimental" } else { "production" }
+                );
+                AppError::NoCredentialsError
+            })
     }
 }
 

@@ -64,7 +64,7 @@ use commands::path_commands::{
 
 // Import cape commands
 use commands::cape_command::{
-    browse_capes, get_player_capes
+    browse_capes, get_player_capes, equip_cape
 };
 
 use tauri::Manager;
@@ -271,7 +271,8 @@ async fn main() {
             set_discord_state,
             // Cape commands
             browse_capes,
-            get_player_capes
+            get_player_capes,
+            equip_cape
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
