@@ -71,6 +71,9 @@
     // Equip state
     let equipping: boolean = $state(false);
 
+    // Ref for the main container to scroll to
+    let capeBrowserContainer: HTMLDivElement | undefined = $state(); 
+
     onMount(async () => {
         // Initialize accounts if not already loaded
         if (!$activeAccount) {
@@ -157,6 +160,11 @@
     async function changePage(newPage: number) {
         if (newPage < 0 || newPage >= pagination.totalPages) return;
 
+        // Scroll smoothly to top before changing page and loading
+        if (capeBrowserContainer) {
+            capeBrowserContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         page = newPage;
         await loadCapes();
     }
@@ -164,25 +172,25 @@
     // Handle sort change
     async function changeSort(newSortBy: string) {
         sortBy = newSortBy;
-        page = 0; // Reset to first page when changing sort
-        await loadCapes();
+        // changePage handles scrolling and loading
+        await changePage(0);
     }
 
     // Handle filter changes
     async function applyFilters() {
-        page = 0; // Reset to first page when applying filters
-        await loadCapes();
+        // changePage handles scrolling and loading
+        await changePage(0);
     }
 
     // Reset all filters
     async function resetFilters() {
-        page = 0;
         pageSize = 20;
         sortBy = "newest";
         filterHasElytra = null;
         filterCreator = null;
         timeFrame = "allTime";
-        await loadCapes();
+        // changePage handles scrolling and loading
+        await changePage(0);
     }
 
     // Format date from timestamp
@@ -335,7 +343,57 @@
     }
 </script>
 
-<div class="cape-browser">
+<!-- Snippet Definition MUST be outside conditional blocks like #if -->
+{#snippet PaginationControls()}
+    <div class="pagination">
+        <button 
+            onclick={() => changePage(0)} 
+            disabled={pagination.currentPage === 0}
+        >
+            First
+        </button>
+        <button 
+            onclick={() => changePage(pagination.currentPage - 1)} 
+            disabled={pagination.currentPage === 0}
+        >
+            Previous
+        </button>
+
+        <span class="page-info">
+            Page {(pagination?.currentPage ?? 0) + 1} of {pagination?.totalPages ?? 1}
+        </span>
+
+        <button 
+            onclick={() => changePage((pagination?.currentPage ?? 0) + 1)} 
+            disabled={(pagination?.currentPage ?? 0) === (pagination?.totalPages ?? 1) - 1}
+        >
+            Next
+        </button>
+        <button 
+            onclick={() => changePage((pagination?.totalPages ?? 1) - 1)} 
+            disabled={(pagination?.currentPage ?? 0) === (pagination?.totalPages ?? 1) - 1}
+        >
+            Last
+        </button>
+    </div>
+
+    <div class="page-size-control">
+        <label>
+            Items per page:
+            <select 
+                bind:value={pageSize} 
+                onchange={applyFilters}
+            >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+            </select>
+        </label>
+    </div>
+{/snippet}
+
+<div class="cape-browser" bind:this={capeBrowserContainer}> <!-- Bind container ref -->
     <h3>NoRisk Cape Browser</h3>
 
     {#if $accountLoading}
@@ -402,12 +460,14 @@
         {:else if capes.length === 0}
             <p class="note">No capes found matching your criteria.</p>
         {:else}
+            <!-- Pagination above grid -->
+            {@render PaginationControls()}
+
             <div class="capes-grid">
                 {#each capes as cape, index (cape._id || `cape-${index}`)}
                     {@const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${cape._id}.png`}
-                    {@const capeId = cape._id ? cape._id.substring(0, 8) + '...' : 'Unknown ID'}
                     {@const creatorUuid = cape.firstSeen}
-                    {@const isLoading = loadingCreatorNames.get(creatorUuid)}
+                    {@const isLoadingName = loadingCreatorNames.get(creatorUuid)}
                     {@const creatorName = creatorNames.get(creatorUuid)}
                     {@const textureProp = creatorTextureProps.get(creatorUuid)}
                     <div 
@@ -418,7 +478,7 @@
                         <div class="cape-preview">
                             <CapeImage 
                                 imageUrl={imageUrl} 
-                                part="front" 
+                                part={'front'}
                                 width={100}
                             />
                         </div>
@@ -428,7 +488,7 @@
                                     profilePropertyValue={textureProp ?? undefined} 
                                     size={24} 
                                 />
-                                {#if isLoading}
+                                {#if isLoadingName} <!-- Use const -->
                                     <span class="cape-creator loading-creator">Loading...</span>
                                 {:else if creatorName}
                                     <span class="cape-creator">{creatorName}</span>
@@ -465,53 +525,8 @@
                 {/each}
             </div>
 
-            <!-- Pagination controls -->
-            <div class="pagination">
-                <button 
-                    onclick={() => changePage(0)} 
-                    disabled={pagination.currentPage === 0}
-                >
-                    First
-                </button>
-                <button 
-                    onclick={() => changePage(pagination.currentPage - 1)} 
-                    disabled={pagination.currentPage === 0}
-                >
-                    Previous
-                </button>
-
-                <span class="page-info">
-                    Page {(pagination?.currentPage ?? 0) + 1} of {pagination?.totalPages ?? 1}
-                </span>
-
-                <button 
-                    onclick={() => changePage((pagination?.currentPage ?? 0) + 1)} 
-                    disabled={(pagination?.currentPage ?? 0) === (pagination?.totalPages ?? 1) - 1}
-                >
-                    Next
-                </button>
-                <button 
-                    onclick={() => changePage((pagination?.totalPages ?? 1) - 1)} 
-                    disabled={(pagination?.currentPage ?? 0) === (pagination?.totalPages ?? 1) - 1}
-                >
-                    Last
-                </button>
-            </div>
-
-            <div class="page-size-control">
-                <label>
-                    Items per page:
-                    <select 
-                        bind:value={pageSize} 
-                        onchange={applyFilters}
-                    >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={30}>30</option>
-                        <option value={50}>50</option>
-                    </select>
-                </label>
-            </div>
+            <!-- Pagination below grid -->
+            {@render PaginationControls()}
         {/if}
 
         <!-- Cape details when selected -->
