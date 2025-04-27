@@ -140,6 +140,7 @@ The launcher integrates with mod platforms:
 - Component-based architecture
 - Props defined with $props()
 - TypeScript for type safety
+- **No JS Comments in Braces**: Do not use JavaScript comments (`/* ... */` or `// ...`) directly *inside* attribute or logic curly braces (`{...}`), as this breaks the Svelte parser. Use HTML comments (`<!-- ... -->`) outside the braces if needed.
 
 ### Notification System (Frontend Feedback)
 - **Purpose**: To provide consistent visual feedback (success, error, info, warning messages) to the user without cluttering individual components.
