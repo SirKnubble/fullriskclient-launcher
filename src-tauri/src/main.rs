@@ -64,7 +64,7 @@ use commands::path_commands::{
 
 // Import cape commands
 use commands::cape_command::{
-    browse_capes, get_player_capes, equip_cape
+    browse_capes, get_player_capes, equip_cape, delete_cape, upload_cape, unequip_cape
 };
 
 use tauri::Manager;
@@ -272,7 +272,10 @@ async fn main() {
             // Cape commands
             browse_capes,
             get_player_capes,
-            equip_cape
+            equip_cape,
+            delete_cape,
+            upload_cape,
+            unequip_cape
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
