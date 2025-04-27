@@ -4,6 +4,7 @@
   import { listen } from '@tauri-apps/api/event';
   import ProfileManager from "../lib/components/ProfileManager.svelte";
   import ErrorPopup from "$lib/components/popups/ErrorPopup.svelte";
+  import Notifications from "$lib/components/Notifications.svelte";
   import { profiles } from '$lib/stores/profileStore';
   import type { ParsedExitPayload } from '$lib/types';
 
@@ -98,6 +99,8 @@
 	};
 
 </script>
+
+<Notifications />
 
 <main>
   <ErrorPopup
