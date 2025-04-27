@@ -1,34 +1,46 @@
 <script lang="ts">
     import { invoke } from "@tauri-apps/api/core";
     import { convertFileSrc } from "@tauri-apps/api/core";
-    import { onMount } from "svelte";
+    import { onMount, onDestroy } from "svelte";
     import type { NoriskVersionsConfig } from '$lib/types/noriskVersions';
-    import type { Profile, ImageSource } from '$lib/types/profile';
+    import type { Profile } from '$lib/types/profile';
     import ProfileCopy from './ProfileCopy.svelte';
-    import Modal from './Modal.svelte'; // Assuming you have a Modal component
+    import Modal from './Modal.svelte';
     import { appLocalDataDir } from '@tauri-apps/api/path';
+    import { listen } from '@tauri-apps/api/event';
+
+    interface EventPayload {
+        event_id: string;
+        event_type: string;
+        target_id: string | null;
+        message: string;
+        progress: number | null;
+        error: string | null;
+    }
     
     let standardProfiles: Profile[] = $state([]);
     let isLoading = $state(true);
     let errorMessage: string | null = $state(null);
     let debugInfo = $state<string[]>([]);
-    let showDebugInfo = $state(true); // Always show debug info for troubleshooting
+    let showDebugInfo = $state(true);
     let launcherDir: string | null = $state(null);
     let resolvedImages = $state<Record<string, string>>({});
     
-    // State for the copy profile modal
+    let launchingProfiles = $state<Set<string>>(new Set());
+    let profileEvents = $state<Record<string, EventPayload[]>>({});
+    
     let showCopyModal = $state(false);
     let selectedProfileForCopy: Profile | null = $state(null);
+    
+    let launchCheckInterval: number | undefined = undefined;
     
     function addDebugLog(message: string) {
         console.log(`[NoRiskVersions] ${message}`);
         debugInfo = [...debugInfo, `${new Date().toLocaleTimeString()}: ${message}`];
     }
     
-    // Function to resolve image source using the backend command
     async function resolveImageSource(profile: Profile): Promise<string> {
         if (!profile.banner || !profile.banner.source) {
-            // Return a default gradient if no banner is specified
             return 'linear-gradient(135deg, #2c3e50, #3498db)';
         }
         
@@ -38,7 +50,6 @@
                 profileId: profile.id
             });
             
-            // Use convertFileSrc for local file paths to handle security restrictions
             let finalPath = resolved;
             if (resolved.startsWith('file://')) {
                 const localPath = resolved.replace('file://', '');
@@ -54,31 +65,81 @@
         }
     }
     
-    // Function to get the resolved image for a profile
     async function getProfileBackground(profile: Profile): Promise<string> {
-        // Return cached resolved path if available
         if (resolvedImages[profile.id]) {
             return `url("${resolvedImages[profile.id]}")`;
         }
         
         const resolvedImage = await resolveImageSource(profile);
         
-        // Check if it's a URL or a gradient (fallback)
         if (resolvedImage.startsWith('linear-gradient')) {
             return resolvedImage;
         }
         
-        // Store in cache for future use
         resolvedImages[profile.id] = resolvedImage;
         return `url("${resolvedImage}") center / cover no-repeat`;
     }
     
+    function isProfileLaunching(profileId: string): boolean {
+        return launchingProfiles.has(profileId);
+    }
+    
+    async function checkAllProfileLaunchStatuses() {
+        if (standardProfiles.length === 0) return;
+
+        const currentlyLaunching = new Set<string>();
+        const promises = standardProfiles.map(async (profile) => {
+            try {
+                const isLaunching = await invoke<boolean>("is_profile_launching", {
+                    profileId: profile.id
+                });
+                if (isLaunching) {
+                    currentlyLaunching.add(profile.id);
+                }
+            } catch (error) {
+                addDebugLog(`Error checking launch status for ${profile.id}: ${error}`);
+            }
+        });
+
+        await Promise.all(promises);
+
+        if (currentlyLaunching.size !== launchingProfiles.size || 
+            ![...currentlyLaunching].every(id => launchingProfiles.has(id))) {
+            addDebugLog(`Updating launching profiles. New set: ${JSON.stringify([...currentlyLaunching])}`);
+            launchingProfiles = currentlyLaunching;
+        }
+    }
+    
+    async function setupEventListeners() {
+        addDebugLog('Setting up state event listeners for messages...');
+        
+        await listen<EventPayload>('state_event', (event) => {
+            const payload = event.payload;
+            if (payload.target_id) {
+                const profileId = payload.target_id;
+                addDebugLog(`Received state_event for display: target=${profileId}, message=${payload.message}`);
+                
+                const currentEvents = profileEvents[profileId] || [];
+                profileEvents = {
+                    ...profileEvents,
+                    [profileId]: [...currentEvents, payload]
+                };
+            }
+        });
+    }
+
+    function getLastEvent(profileId: string): EventPayload | null {
+        const events = profileEvents[profileId] || [];
+        return events.length > 0 ? events[events.length - 1] : null;
+    }
+    
     onMount(async () => {
         try {
+            await setupEventListeners();
+            
             addDebugLog("Component mounted, fetching standard profiles config...");
             isLoading = true;
             
-            // Get launcher directory for resolving relative paths
             try {
                 launcherDir = await appLocalDataDir();
                 addDebugLog(`Launcher directory: ${launcherDir}`);
@@ -97,7 +158,6 @@
             } else {
                 addDebugLog(`Config object: ${JSON.stringify(config)}`);
                 
-                // Check if the config has the standard_profiles property
                 if (config.profiles && Array.isArray(config.profiles)) {
                     addDebugLog(`Config contains ${config.profiles.length} standard profiles`);
                     standardProfiles = config.profiles;
@@ -113,41 +173,64 @@
                 }
             }
             
-            // Pre-resolve all profile backgrounds
             if (standardProfiles.length > 0) {
                 addDebugLog("Pre-resolving profile backgrounds...");
                 for (const profile of standardProfiles) {
-                    // Just invoke the function that caches results
                     await getProfileBackground(profile);
                 }
                 addDebugLog("Background resolution complete");
             }
             
             addDebugLog(`State updated with ${standardProfiles.length} profiles (array: ${Array.isArray(standardProfiles)})`);
+
+            await checkAllProfileLaunchStatuses();
+
+            addDebugLog("Starting periodic launch status check timer...");
+            launchCheckInterval = setInterval(checkAllProfileLaunchStatuses, 1000);
+
         } catch (error) {
             console.error("[NoRiskVersions] Failed to load standard profiles:", error);
             const errorStr = error instanceof Error ? error.message : String(error);
             errorMessage = errorStr;
             addDebugLog(`Error loading profiles: ${errorStr}`);
             addDebugLog(`Error object: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
-            
-            // Initialize to empty array on error
             standardProfiles = [];
         } finally {
             isLoading = false;
             addDebugLog(`Loading completed. isLoading set to false. standardProfiles length: ${standardProfiles?.length ?? 'undefined'}`);
         }
     });
+
+    onDestroy(() => {
+        if (launchCheckInterval) {
+            addDebugLog("Clearing launch status check interval.");
+            clearInterval(launchCheckInterval);
+        }
+    });
     
-    async function launchStandardProfile(id: string) {
-        try {
-            addDebugLog(`Launching standard profile with ID: ${id}`);
-            await invoke("launch_profile", { id });
-            addDebugLog(`Launch command sent for profile ${id}`);
-        } catch (error) {
-            console.error("[NoRiskVersions] Failed to launch standard profile:", error);
-            errorMessage = error instanceof Error ? error.message : String(error);
-            addDebugLog(`Error launching profile: ${errorMessage}`);
+    async function handleProfileAction(id: string) {
+        const isLaunching = isProfileLaunching(id);
+        
+        if (isLaunching) {
+            try {
+                addDebugLog(`Aborting launch for profile ID: ${id}`);
+                await invoke("abort_profile_launch", { profileId: id });
+                addDebugLog(`Abort command sent for profile ${id}`);
+            } catch (error) {
+                console.error("[NoRiskVersions] Failed to abort profile launch:", error);
+                errorMessage = error instanceof Error ? error.message : String(error);
+                addDebugLog(`Error aborting launch: ${errorMessage}`);
+            }
+        } else {
+            try {
+                addDebugLog(`Launching standard profile with ID: ${id}`);
+                await invoke("launch_profile", { id });
+                addDebugLog(`Launch command sent for profile ${id}`);
+            } catch (error) {
+                console.error("[NoRiskVersions] Failed to launch standard profile:", error);
+                errorMessage = error instanceof Error ? error.message : String(error);
+                addDebugLog(`Error launching profile: ${errorMessage}`);
+            }
         }
     }
     
@@ -166,28 +249,10 @@
     function handleCopySuccess() {
         addDebugLog(`Profile copied successfully`);
         closeCopyProfileModal();
-        // If you have a global notification system, you could show a success message here
     }
     
-    // Function to manually test with mock data
     async function addTestProfiles() {
         addDebugLog("Adding test profiles for debugging");
-        /*standardProfiles = [
-            {
-                id: "test-1",
-                name: "Test NoRisk 1.8.9",
-                game_version: "1.8.9",
-                loader: "forge",
-                description: "Test profile for debugging"
-            },
-            {
-                id: "test-2",
-                name: "Test NoRisk 1.12.2",
-                game_version: "1.12.2",
-                loader: "forge",
-                description: "Another test profile for debugging"
-            }
-        ];*/
         addDebugLog(`Added ${standardProfiles.length} test profiles`);
     }
 </script>
@@ -214,15 +279,30 @@
                 {@const bgStyle = resolvedImages[profile.id] ? 
                     `background: url("${resolvedImages[profile.id]}") center / cover no-repeat` : 
                     'background: linear-gradient(135deg, #2c3e50, #3498db)'}
+                {@const isLaunching = isProfileLaunching(profile.id)}
+                {@const lastEvent = getLastEvent(profile.id)}
                 <div class="profile-card" style={bgStyle}>
                     <div class="profile-header">
                         <h4>{profile.name}</h4>
                         <span class="mc-version">{profile.game_version} • {profile.loader}</span>
                     </div>
                     <p class="description">{profile.description}</p>
+                    
+                    {#if lastEvent}
+                        <div class="profile-event">
+                            <p class="event-message">{lastEvent.message}</p>
+                        </div>
+                    {/if}
+                    
                     <div class="actions">
-                        <button class="launch-btn" on:click={() => launchStandardProfile(profile.id)}>
-                            Starten
+                        <button 
+                            class={isLaunching ? "cancel-button" : "launch-button"}
+                            on:click={() => handleProfileAction(profile.id)}
+                        >
+                            {isLaunching ? "Abbrechen" : "Starten"}
+                            {#if isLaunching}
+                                <span class="loading-spinner"></span>
+                            {/if}
                         </button>
                         <button class="copy-btn" on:click={() => openCopyProfileModal(profile)}>
                             Als Profil kopieren
@@ -246,7 +326,6 @@
         </div>
     {/if}
     
-    <!-- Copy Profile Modal -->
     {#if showCopyModal && selectedProfileForCopy}
         <Modal>
             <ProfileCopy 
@@ -320,9 +399,9 @@
         padding: 15px;
         position: relative;
         overflow: hidden;
-        color: white; /* Default text color, can be overridden by style */
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); /* Add text shadow for better readability on image backgrounds */
-        min-height: 180px; /* Ensure enough height even with minimal content */
+        color: white;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        min-height: 180px;
         display: flex;
         flex-direction: column;
         transition: box-shadow 0.2s, transform 0.2s;
@@ -333,7 +412,6 @@
         transform: translateY(-2px);
     }
     
-    /* Add a dark overlay for better text readability on image backgrounds */
     .profile-card::before {
         content: '';
         position: absolute;
@@ -341,12 +419,11 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.3); /* Semi-transparent overlay */
+        background: rgba(0, 0, 0, 0.3);
         z-index: 1;
-        pointer-events: none; /* Allow clicking through to the card */
+        pointer-events: none;
     }
     
-    /* Ensure all content is above the overlay */
     .profile-card > * {
         position: relative;
         z-index: 2;
@@ -358,13 +435,13 @@
     
     .profile-header h4 {
         margin: 0 0 5px 0;
-        color: inherit; /* Use the color from the parent */
+        color: inherit;
         font-size: 1.2rem;
     }
     
     .mc-version {
         font-size: 0.8em;
-        color: inherit; /* Use the color from the parent */
+        color: inherit;
         background-color: rgba(0, 0, 0, 0.3);
         padding: 2px 6px;
         border-radius: 4px;
@@ -373,15 +450,16 @@
     .description {
         margin: 10px 0;
         font-size: 0.9em;
-        color: inherit; /* Use the color from the parent */
+        color: inherit;
         line-height: 1.4;
-        flex-grow: 1; /* Allow description to expand to fill space */
+        flex-grow: 1;
     }
     
     .actions {
         display: flex;
         gap: 10px;
-        margin-top: 15px;
+        margin-top: auto;
+        padding-top: 15px;
     }
     
     button {
@@ -394,14 +472,47 @@
         transition: background-color 0.2s;
     }
     
-    .launch-btn {
-        background-color: #2ecc71;
+    .launch-button {
+        background-color: #2ecc71 !important;
         color: white;
         font-weight: bold;
     }
     
-    .launch-btn:hover {
-        background-color: #27ae60;
+    .launch-button:hover {
+        background-color: #27ae60 !important;
+    }
+    
+    .cancel-button {
+        background-color: #e74c3c !important;
+        color: white !important;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .cancel-button:hover {
+        background-color: #c0392b !important;
+        animation: none;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        margin-left: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        vertical-align: middle;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
     
     .copy-btn {
@@ -438,5 +549,18 @@
     
     .debug-info li {
         margin-bottom: 3px;
+    }
+    
+    .profile-event {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-radius: 4px;
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+    
+    .event-message {
+        margin: 0;
+        font-size: 0.9em;
+        color: inherit;
     }
 </style> 
