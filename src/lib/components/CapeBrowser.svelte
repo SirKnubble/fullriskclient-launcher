@@ -9,6 +9,7 @@
     } from '$lib/stores/accountStore';
     import { notificationStore } from '$lib/stores/notificationStore';
     import type { MinecraftProfile } from '$lib/types/minecraft';
+    import PlayerHead from '$lib/components/PlayerHead.svelte';
 
     // Generate a simple random string instead of using uuid
     function generateRequestId(): string {
@@ -61,9 +62,10 @@
     // Selected cape
     let selectedCape: CosmeticCape | null = $state(null);
 
-    // State for creator names in the grid
+    // State for creator names and profile data in the grid
     let creatorNames = $state(new Map<string, string | null>());
     let loadingCreatorNames = $state(new Map<string, boolean>());
+    let creatorTextureProps = $state(new Map<string, string | null>()); // Map to store base64 texture prop value
 
     // Equip state
     let equipping: boolean = $state(false);
@@ -216,14 +218,27 @@
             });
             console.log(`[fetchAndStoreCreatorName] SUCCESS for ${creatorUuid}:`, profile);
             creatorNames.set(creatorUuid, profile.name);
-            // Trigger reactivity explicitly by creating a new map
+            
+            // Extract and store texture property value
+            const texturesProp = profile.properties?.find(prop => prop.name === 'textures');
+            if (texturesProp?.value) {
+                creatorTextureProps.set(creatorUuid, texturesProp.value);
+            } else {
+                 console.warn(`[fetchAndStoreCreatorName] Textures property not found for ${creatorUuid}`);
+                 creatorTextureProps.set(creatorUuid, null); // Explicitly set null if not found
+            }
+
+            // Trigger reactivity explicitly by creating new maps
             creatorNames = new Map(creatorNames);
+            creatorTextureProps = new Map(creatorTextureProps); // Trigger update for texture map
             console.log(`[fetchAndStoreCreatorName] Set name for ${creatorUuid} to ${profile.name}. Map size: ${creatorNames.size}`);
         } catch (err) {
             console.error(`[fetchAndStoreCreatorName] ERROR fetching profile for UUID ${creatorUuid}:`, err);
             creatorNames.set(creatorUuid, `(${creatorUuid.substring(0,4)}..err)`); 
-            // Trigger reactivity explicitly by creating a new map
+            creatorTextureProps.set(creatorUuid, null); // Ensure texture prop is null on error
+            // Trigger reactivity explicitly by creating new maps
             creatorNames = new Map(creatorNames);
+            creatorTextureProps = new Map(creatorTextureProps);
             console.log(`[fetchAndStoreCreatorName] Set error state for ${creatorUuid}. Map size: ${creatorNames.size}`);
         } finally {
             loadingCreatorNames.set(creatorUuid, false);
@@ -254,14 +269,12 @@
 
         try {
             // Generate a request ID for tracking
-            const requestUuid = generateRequestId();
 
             console.log("Player capes request parameters:", {
                 playerUuid: playerUuid,
                 page: 0,
                 pageSize: 20,
                 filterAccepted: true,
-                requestUuid: requestUuid,
             });
 
             // Call the get_player_capes command
@@ -270,7 +283,6 @@
                 page: 0,
                 pageSize: 20,
                 filterAccepted: true,
-                requestUuid: requestUuid,
             });
 
             console.log("Player capes raw API response:", response);
@@ -396,6 +408,7 @@
                     {@const creatorUuid = cape.firstSeen}
                     {@const isLoading = loadingCreatorNames.get(creatorUuid)}
                     {@const creatorName = creatorNames.get(creatorUuid)}
+                    {@const textureProp = creatorTextureProps.get(creatorUuid)}
                     <div 
                         class="cape-item" 
                         class:selected={selectedCape?._id === cape._id}
@@ -411,13 +424,19 @@
                             />
                         </div>
                         <div class="cape-info">
-                            {#if isLoading}
-                                <p class="cape-creator loading-creator">Loading... {creatorName}</p>
-                            {:else if creatorName}
-                                <p class="cape-creator">{creatorName}</p>
-                            {:else}
-                                <p class="cape-creator">{creatorUuid ? creatorUuid.substring(0, 8) + '...' : 'Unknown'}</p>
-                            {/if}
+                            <div class="creator-info">
+                                <PlayerHead 
+                                    profilePropertyValue={textureProp ?? undefined} 
+                                    size={24} 
+                                />
+                                {#if isLoading}
+                                    <span class="cape-creator loading-creator">Loading...</span>
+                                {:else if creatorName}
+                                    <span class="cape-creator">{creatorName}</span>
+                                {:else}
+                                    <span class="cape-creator">{creatorUuid ? creatorUuid.substring(0, 8) + '...' : 'Unknown'}</span>
+                                {/if}
+                            </div>
                             <p class="cape-date">{formatDate(cape.creationDate || 0)}</p>
                             <p class="cape-uses">Uses: {cape.uses || 0}</p>
                             <p class="cape-elytra">{cape.elytra ? 'Has Elytra' : 'No Elytra'}</p>
@@ -673,6 +692,13 @@
     .cape-info {
         text-align: center;
         margin-bottom: 25px; /* Add space below info for buttons */
+    }
+
+    .creator-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 8px;
     }
 
     .cape-creator {
