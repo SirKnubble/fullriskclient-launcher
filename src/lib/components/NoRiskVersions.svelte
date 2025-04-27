@@ -8,6 +8,7 @@
     import Modal from './Modal.svelte';
     import { appLocalDataDir } from '@tauri-apps/api/path';
     import { listen } from '@tauri-apps/api/event';
+    import { notificationStore } from '$lib/stores/notificationStore';
 
     interface EventPayload {
         event_id: string;
@@ -20,7 +21,6 @@
     
     let standardProfiles: Profile[] = $state([]);
     let isLoading = $state(true);
-    let errorMessage: string | null = $state(null);
     let debugInfo = $state<string[]>([]);
     let showDebugInfo = $state(true);
     let launcherDir: string | null = $state(null);
@@ -191,9 +191,8 @@
         } catch (error) {
             console.error("[NoRiskVersions] Failed to load standard profiles:", error);
             const errorStr = error instanceof Error ? error.message : String(error);
-            errorMessage = errorStr;
             addDebugLog(`Error loading profiles: ${errorStr}`);
-            addDebugLog(`Error object: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}`);
+            notificationStore.error(`Fehler beim Laden der Standard Profile: ${errorStr}`);
             standardProfiles = [];
         } finally {
             isLoading = false;
@@ -210,26 +209,50 @@
     
     async function handleProfileAction(id: string) {
         const isLaunching = isProfileLaunching(id);
-        
         if (isLaunching) {
+            // Optimistically set state to NOT launching
+            addDebugLog(`Optimistically setting profile ${id} to NOT launching`);
+            const originalLaunchingProfiles = new Set(launchingProfiles); // Store original state for potential revert
+            const newLaunchingProfiles = new Set(launchingProfiles);
+            newLaunchingProfiles.delete(id);
+            launchingProfiles = newLaunchingProfiles;
+            
             try {
                 addDebugLog(`Aborting launch for profile ID: ${id}`);
                 await invoke("abort_profile_launch", { profileId: id });
                 addDebugLog(`Abort command sent for profile ${id}`);
+                // Timer will eventually confirm or correct the state if needed
             } catch (error) {
+                // Revert optimistic update on immediate failure
+                addDebugLog(`Reverting optimistic cancel state for profile ${id} due to error`);
+                launchingProfiles = originalLaunchingProfiles; // Restore original set
+                
+                const errorMsg = error instanceof Error ? error.message : String(error);
                 console.error("[NoRiskVersions] Failed to abort profile launch:", error);
-                errorMessage = error instanceof Error ? error.message : String(error);
-                addDebugLog(`Error aborting launch: ${errorMessage}`);
+                addDebugLog(`Error aborting launch: ${errorMsg}`);
+                notificationStore.error(`Fehler beim Abbrechen des Profilstarts: ${errorMsg}`);
             }
         } else {
+            // Optimistically set launching state
+            addDebugLog(`Optimistically setting profile ${id} to launching`);
+            launchingProfiles = new Set(launchingProfiles).add(id);
+            
             try {
                 addDebugLog(`Launching standard profile with ID: ${id}`);
                 await invoke("launch_profile", { id });
                 addDebugLog(`Launch command sent for profile ${id}`);
+                // Timer will eventually confirm or correct the state
             } catch (error) {
+                // Revert optimistic update on immediate failure
+                addDebugLog(`Reverting optimistic launch state for profile ${id} due to error`);
+                const newLaunchingProfiles = new Set(launchingProfiles);
+                newLaunchingProfiles.delete(id);
+                launchingProfiles = newLaunchingProfiles;
+                
+                const errorMsg = error instanceof Error ? error.message : String(error);
                 console.error("[NoRiskVersions] Failed to launch standard profile:", error);
-                errorMessage = error instanceof Error ? error.message : String(error);
-                addDebugLog(`Error launching profile: ${errorMessage}`);
+                addDebugLog(`Error launching profile: ${errorMsg}`);
+                notificationStore.error(`Fehler beim Starten des Profils: ${errorMsg}`);
             }
         }
     }
@@ -248,6 +271,7 @@
     
     function handleCopySuccess() {
         addDebugLog(`Profile copied successfully`);
+        notificationStore.success('Profil erfolgreich kopiert!');
         closeCopyProfileModal();
     }
     
@@ -262,10 +286,6 @@
     
     {#if isLoading}
         <div class="loading">Lade NoRisk Versionen...</div>
-    {:else if errorMessage}
-        <div class="error-message">
-            <strong>Fehler beim Laden:</strong> {errorMessage}
-        </div>
     {:else if !standardProfiles || standardProfiles.length === 0}
         <div class="no-versions">
             <p>Keine NoRisk Standard Versionen verfügbar.</p>
@@ -357,15 +377,6 @@
         color: #666;
         font-style: italic;
         text-align: center;
-    }
-    
-    .error-message {
-        padding: 10px;
-        background-color: #fbeae8;
-        color: #e74c3c;
-        border: 1px solid #e74c3c;
-        border-radius: 4px;
-        margin-bottom: 15px;
     }
     
     .no-versions {
