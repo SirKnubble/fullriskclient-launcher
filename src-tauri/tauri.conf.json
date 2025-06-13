@@ -1,0 +1,123 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NoRisk Launcher",
+  "version": "0.0.4-beta.59",
+  "identifier": "gg.norisk.NoRiskClientLauncherV3",
+  "build": {
+    "beforeDevCommand": "yarn dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "yarn build",
+    "frontendDist": "../dist"
+  },
+  "plugins": {
+    "minecraft_auth": {},
+    "updater": {
+      "active": true,
+      "endpoints": [],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk5QkZBNTBGNjhDQTBGOEYKUldTUEQ4cG9ENlcvbVpVTVdnVkNNSGlXWXVXRklqcGFxNnBuRW1LM3VDTXpKcXU2MmdCNVc5S2IK"
+    },
+    "singleInstance": {
+      "active": true
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "NoRiskClient",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1080,
+        "minHeight": 690,
+        "decorations": false,
+        "transparent": true,
+        "center": true,
+        "visible": false,
+        "shadow": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "connect-src": [
+          "'self'",
+          "https://api.iconify.design",
+          "https://*.modrinth.com",
+          "https://sessionserver.mojang.com",
+          "https://*.norisk.gg"
+        ],
+        "img-src": [
+          "'self'",
+          "asset:",
+          "http://asset.localhost",
+          "https://*.modrinth.com",
+          "https://cdn.modrinth.com",
+          "https://*.norisk.gg",
+          "https://textures.minecraft.net",
+          "https://crafatar.com",
+          "data:"
+        ]
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": {
+          "requireLiteralLeadingDot": false,
+          "allow": [
+            "**/*"
+          ]
+        }
+      }
+    }
+  },
+  "bundle": {
+    "macOS": {
+      "entitlements": "App.entitlements",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": "-",
+      "dmg": {
+        "background": "dmg/background.png",
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "height": 400,
+          "width": 660
+        }
+      }
+    },
+    "active": true,
+    "targets": [
+      "app",
+      "dmg",
+      "deb",
+      "appimage",
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "fileAssociations": [
+      {
+        "ext": [
+          "noriskpack"
+        ],
+        "name": "NoriskPack File",
+        "description": "NoRiskClient Modpack File"
+      }
+    ]
+  }
+}
