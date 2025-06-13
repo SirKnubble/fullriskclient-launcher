@@ -115,7 +115,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
 
         <div className="text-center text-sm text-gray-400">
           <p>
-            This action cannot be undone. You must accept the terms to use NoRisk Client.
+            You can withdraw your consent at any time. However, you must accept the terms to use NoRisk Client.
           </p>
         </div>
       </div>
