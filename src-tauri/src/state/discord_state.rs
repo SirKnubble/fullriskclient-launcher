@@ -10,7 +10,7 @@ use tokio::sync::{Mutex, RwLock};
 use uuid::Uuid;
 
 // Discord application ID for NoRiskClient
-const DISCORD_APP_ID: &str = "775352010345021450"; // Replace with actual Discord application ID
+const DISCORD_APP_ID: &str = "1237087999104122981"; // Replace with actual Discord application ID
 
 // Different states for Discord Rich Presence
 #[derive(Debug, Clone, PartialEq)]
