@@ -34,7 +34,7 @@ impl QuiltInstaller {
                 event_id: quilt_event_id,
                 event_type: EventType::InstallingQuilt,
                 target_id: Some(profile.id),
-                message: "Quilt wird installiert...".to_string(),
+                message: "Installing Quilt...".to_string(),
                 progress: Some(0.0),
                 error: None,
             })
@@ -100,7 +100,7 @@ impl QuiltInstaller {
                 event_id: quilt_event_id,
                 event_type: EventType::InstallingQuilt,
                 target_id: Some(profile.id),
-                message: "Quilt Installation abgeschlossen!".to_string(),
+                message: "Quilt installation completed!".to_string(),
                 progress: Some(1.0),
                 error: None,
             })

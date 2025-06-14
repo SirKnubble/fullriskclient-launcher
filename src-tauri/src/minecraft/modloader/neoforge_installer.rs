@@ -41,7 +41,7 @@ impl NeoForgeInstaller {
                 event_id: neoforge_event_id,
                 event_type: EventType::InstallingNeoForge,
                 target_id: Some(profile.id),
-                message: "NeoForge wird installiert...".to_string(),
+                message: "Installing NeoForge...".to_string(),
                 progress: Some(0.0),
                 error: None,
             })
@@ -124,7 +124,7 @@ impl NeoForgeInstaller {
                 event_id: neoforge_event_id,
                 event_type: EventType::InstallingNeoForge,
                 target_id: Some(profile.id),
-                message: "NeoForge Installer wird heruntergeladen...".to_string(),
+                message: "Downloading NeoForge installer...".to_string(),
                 progress: Some(0.2),
                 error: None,
             })
@@ -319,7 +319,7 @@ impl NeoForgeInstaller {
                 event_id: neoforge_event_id,
                 event_type: EventType::InstallingNeoForge,
                 target_id: Some(profile.id),
-                message: "NeoForge Installation abgeschlossen!".to_string(),
+                message: "NeoForge installation completed!".to_string(),
                 progress: Some(1.0),
                 error: None,
             })

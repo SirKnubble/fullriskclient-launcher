@@ -135,7 +135,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::InstallingJava,
         profile.id,
-        &format!("Java {} wird installiert...", java_version),
+        &format!("Installing Java {}...", java_version),
         0.0,
         None,
     )
@@ -211,7 +211,7 @@ pub async fn install_minecraft_version(
             &state,
             EventType::InstallingJava,
             profile.id,
-            "Verwende benutzerdefinierte Java-Installation!",
+            "Using custom Java installation!",
             1.0,
             None,
         )
@@ -237,7 +237,7 @@ pub async fn install_minecraft_version(
             &state,
             EventType::InstallingJava,
             profile.id,
-            &format!("Java {} Installation abgeschlossen!", java_version),
+            &format!("Java {} installation completed!", java_version),
             1.0,
             None,
         )
@@ -269,7 +269,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::DownloadingLibraries,
         profile.id,
-        "Libraries werden heruntergeladen...",
+        "Downloading libraries...",
         0.0,
         None,
     )
@@ -288,7 +288,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::DownloadingLibraries,
         profile.id,
-        "Libraries Download abgeschlossen!",
+        "Libraries download completed!",
         1.0,
         None,
     )
@@ -299,7 +299,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::ExtractingNatives,
         profile.id,
-        "Natives werden extrahiert...",
+        "Extracting natives...",
         0.0,
         None,
     )
@@ -316,7 +316,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::ExtractingNatives,
         profile.id,
-        "Natives Extraktion abgeschlossen!",
+        "Natives extraction completed!",
         1.0,
         None,
     )
@@ -348,7 +348,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::DownloadingClient,
         profile.id,
-        "Minecraft Client wird heruntergeladen...",
+        "Downloading Minecraft client...",
         0.0,
         None,
     )
@@ -365,7 +365,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::DownloadingClient,
         profile.id,
-        "Minecraft Client Download abgeschlossen!",
+        "Minecraft client download completed!",
         1.0,
         None,
     )
@@ -780,7 +780,7 @@ pub async fn install_minecraft_version(
         &state,
         EventType::LaunchingMinecraft,
         profile.id,
-        "Minecraft wurde gestartet!",
+        "Minecraft launched successfully!",
         1.0,
         None,
     )

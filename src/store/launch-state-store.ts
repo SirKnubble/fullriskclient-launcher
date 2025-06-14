@@ -216,7 +216,7 @@ export const useLaunchStateStore = create<LaunchStateStore>((set, get) => ({
           [profileId]: {
             ...currentProfile,
             isButtonLaunching: true,
-            buttonStatusMessage: "Starte Profil...",
+            buttonStatusMessage: "Starting profile...",
             error: null,
             launchState: LaunchState.LAUNCHING,
           },

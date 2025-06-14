@@ -161,8 +161,8 @@ export function MainLaunchButton({
                 `[LaunchButton] Error event via state_event for ${selectedVersion}, resetting UI.`,
               );
               const eventErrorMsg =
-                eventMessage || "Fehler während des Startvorgangs.";
-              toast.error(`Fehler: ${eventErrorMsg}`);
+                eventMessage || "Error during launch process.";
+              toast.error(`Error: ${eventErrorMsg}`);
               setLaunchError(selectedVersion, eventErrorMsg);
             } else {
               if (eventMessage) {
@@ -228,7 +228,7 @@ export function MainLaunchButton({
                 "[LaunchButton] Polling: Launch task finished, but an error was detected in store.",
               );
               if (currentProfileStateAfterPoll.isButtonLaunching) {
-                 finalizeButtonLaunch(selectedVersion, currentProfileStateAfterPoll.error || "Unbekannter Fehler nach Abschluss.");
+                 finalizeButtonLaunch(selectedVersion, currentProfileStateAfterPoll.error || "Unknown error after completion.");
               }
             } else {
               console.log(
@@ -247,8 +247,8 @@ export function MainLaunchButton({
           const pollErrorMsg =
             err.message ||
             err.toString() ||
-            "Fehler beim Prüfen des Profilstatus.";
-          toast.error(`Polling-Fehler: ${pollErrorMsg}`);
+            "Error while checking profile status.";
+          toast.error(`Polling error: ${pollErrorMsg}`);
           finalizeButtonLaunch(selectedVersion, pollErrorMsg);
           clearPolling();
         }
@@ -287,8 +287,8 @@ export function MainLaunchButton({
         const abortErrorMsg =
           typeof err === "string"
             ? err
-            : err.message || err.toString() || "Fehler beim Abbrechen.";
-        toast.error(`Abbruch fehlgeschlagen: ${abortErrorMsg}`);
+            : err.message || err.toString() || "Error during abort.";
+        toast.error(`Abort failed: ${abortErrorMsg}`);
         finalizeButtonLaunch(selectedVersion, abortErrorMsg);
       }
       return;
@@ -303,8 +303,8 @@ export function MainLaunchButton({
       const launchErrorMsg =
         typeof err === "string"
           ? err
-          : err.message || err.toString() || "Unbekannter Fehler beim Start.";
-      toast.error(`Start fehlgeschlagen: ${launchErrorMsg}`);
+          : err.message || err.toString() || "Unknown error during launch.";
+      toast.error(`Launch failed: ${launchErrorMsg}`);
       setLaunchError(selectedVersion, launchErrorMsg);
     }
   };

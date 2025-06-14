@@ -34,7 +34,7 @@ impl FabricInstaller {
                 event_id: fabric_event_id,
                 event_type: EventType::InstallingFabric,
                 target_id: Some(profile.id),
-                message: "Fabric wird installiert...".to_string(),
+                message: "Installing Fabric...".to_string(),
                 progress: Some(0.0),
                 error: None,
             })
@@ -100,7 +100,7 @@ impl FabricInstaller {
                 event_id: fabric_event_id,
                 event_type: EventType::InstallingFabric,
                 target_id: Some(profile.id),
-                message: "Fabric Installation abgeschlossen!".to_string(),
+                message: "Fabric installation completed!".to_string(),
                 progress: Some(1.0),
                 error: None,
             })

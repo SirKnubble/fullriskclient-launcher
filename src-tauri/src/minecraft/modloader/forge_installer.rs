@@ -38,7 +38,7 @@ impl ForgeInstaller {
                 event_id: forge_event_id,
                 event_type: EventType::InstallingForge,
                 target_id: Some(profile.id),
-                message: "Forge wird installiert...".to_string(),
+                message: "Installing Forge...".to_string(),
                 progress: Some(0.0),
                 error: None,
             })
@@ -119,7 +119,7 @@ impl ForgeInstaller {
                 event_id: forge_event_id,
                 event_type: EventType::InstallingForge,
                 target_id: Some(profile.id),
-                message: "Forge Installer wird heruntergeladen...".to_string(),
+                message: "Downloading Forge installer...".to_string(),
                 progress: Some(0.2),
                 error: None,
             })
@@ -313,7 +313,7 @@ impl ForgeInstaller {
                 event_id: forge_event_id,
                 event_type: EventType::InstallingForge,
                 target_id: Some(profile.id),
-                message: "Forge Installation abgeschlossen!".to_string(),
+                message: "Forge installation completed!".to_string(),
                 progress: Some(1.0),
                 error: None,
             })
