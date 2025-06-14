@@ -233,10 +233,13 @@ pub async fn launch_profile(
         .get_active_account()
         .await
     {
-        Ok(creds) => creds,
+        Ok(Some(creds)) => Some(creds),
+        Ok(None) => {
+            return Err(CommandError::from(AppError::NoCredentialsError));
+        }
         Err(e) => {
             info!("Error getting active account: {}", e);
-            None
+            return Err(CommandError::from(AppError::NoCredentialsError));
         }
     };
 
