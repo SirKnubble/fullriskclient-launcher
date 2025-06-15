@@ -23,6 +23,9 @@ import { TabLayout } from ".././ui/TabLayout";
 import EffectPreviewCard from ".././EffectPreviewCard";
 import { RangeSlider } from ".././ui/RangeSlider";
 import { FullscreenEffectRenderer } from "../FullscreenEffectRenderer";
+import { useFlags } from 'flagsmith/react';
+
+const EXPERIMENTAL_MODE_FEATURE_FLAG_NAME = "show_experimental_mode";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
@@ -37,6 +40,9 @@ export function SettingsTab() {
   const contentRef = useRef<HTMLDivElement>(null);
   const tabRef = useRef<HTMLDivElement>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const flags = useFlags([EXPERIMENTAL_MODE_FEATURE_FLAG_NAME]);
+  const showExperimentalMode = flags[EXPERIMENTAL_MODE_FEATURE_FLAG_NAME]?.enabled === true;
   const isResettingRef = useRef<boolean>(false);
 
   const {
@@ -119,21 +125,17 @@ export function SettingsTab() {
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    try {
+    setError(null);    try {
       const loadedConfig = await ConfigService.getLauncherConfig();
-      // Ensure hooks object exists with default values
       const configWithHooks = {
         ...loadedConfig,
         hooks: loadedConfig.hooks || {
           pre_launch: null,
           wrapper: null,
           post_exit: null,
-        },
-      };
+        },      };
       setConfig(configWithHooks);
       setTempConfig({ ...configWithHooks });
-      console.log("Loaded launcher config:", configWithHooks);
     } catch (err) {
       console.error("Failed to load launcher config:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -155,11 +157,9 @@ export function SettingsTab() {
 
     autoSaveTimeoutRef.current = setTimeout(async () => {
       setSaving(true);
-      try {
-        const updatedConfig =
+      try {        const updatedConfig =
           await ConfigService.setLauncherConfig(configToSave);
         setConfig(updatedConfig);
-        console.log("Configuration auto-saved successfully:", updatedConfig);
         toast.success("Settings auto-saved!", {
           duration: 2000,
           position: "bottom-right",
@@ -167,11 +167,10 @@ export function SettingsTab() {
       } catch (err) {
         console.error("Failed to auto-save configuration:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
-        toast.error(`Auto-save failed: ${errorMessage}`);
-      } finally {
+        toast.error(`Auto-save failed: ${errorMessage}`);      } finally {
         setSaving(false);
       }
-    }, 500); // Added a delay to prevent rapid saving
+    }, 500);
   }, []);
 
   useEffect(() => {
@@ -185,10 +184,8 @@ export function SettingsTab() {
       JSON.stringify(config) !== JSON.stringify(tempConfig)
     ) {
       autoSaveConfig(tempConfig);
-    }
-  }, [tempConfig, config, autoSaveConfig]);
+    }  }, [tempConfig, config, autoSaveConfig]);
 
-  // Update local state without saving
   const handleConcurrentDownloadsChange = (value: number) => {
     if (tempConfig) {
       setTempConfig({ ...tempConfig, concurrent_downloads: value });
@@ -232,33 +229,33 @@ export function SettingsTab() {
           <p className="text-base text-white/70 font-minecraft-ten mt-2">
             Configure basic launcher settings
           </p>
-        </div>
-
-        <div className="space-y-4 mt-6">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Experimental Mode
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Enable experimental features and unstable functionality. May
-                cause crashes or unexpected behavior.
-              </p>
+        </div>        <div className="space-y-4 mt-6">
+          {showExperimentalMode && (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
+              <div className="flex-1">
+                <h5 className="font-minecraft text-2xl lowercase text-white">
+                  Experimental Mode
+                </h5>
+                <p className="text-sm text-white/60 font-minecraft-ten mt-1">
+                  Enable experimental features and unstable functionality. May
+                  cause crashes or unexpected behavior.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={tempConfig?.is_experimental || false}
+                onChange={(newCheckedState) => {
+                  if (tempConfig) {
+                    setTempConfig({
+                      ...tempConfig,
+                      is_experimental: newCheckedState,
+                    });
+                  }
+                }}
+                disabled={saving}
+                size="lg"
+              />
             </div>
-            <ToggleSwitch
-              checked={tempConfig?.is_experimental || false}
-              onChange={(newCheckedState) => {
-                if (tempConfig) {
-                  setTempConfig({
-                    ...tempConfig,
-                    is_experimental: newCheckedState,
-                  });
-                }
-              }}
-              disabled={saving}
-              size="lg"
-            />
-          </div>
+          )}
 
           <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
             <div className="flex-1">
