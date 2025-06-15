@@ -5,7 +5,6 @@ import { Modal } from "../ui/Modal";
 import { useThemeStore } from "../../store/useThemeStore";
 import { IconButton } from "../ui/buttons/IconButton";
 import { openExternalUrl } from "../../services/tauri-service";
-import { toast } from "react-hot-toast";
 
 interface CreditsModalProps {
   isOpen: boolean;
