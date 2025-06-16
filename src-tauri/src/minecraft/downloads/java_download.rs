@@ -163,6 +163,16 @@ impl JavaDownloadService {
         let archive_path = version_dir.join(format!("java.{}", OS.get_archive_type()?));
         let mut file = fs::File::create(&archive_path).await?;
         file.write_all(&bytes).await?;
+        
+        //bug fix für https://github.com/NoRiskClient/issues/issues/1203
+        // Ensure the file is fully written to disk before attempting to read it.
+        // This is to prevent "end of central directory record not found" errors with zip files
+        // that can occur if we try to read the file before the OS has flushed all write buffers.
+        file.sync_all()
+            .await
+            .map_err(|e| AppError::JavaDownload(format!("Failed to sync java archive: {}", e)))?;
+        // Explicitly close the file by dropping the handle before extraction.
+        drop(file);
 
         // Extract the archive
         self.extract_java_archive(&archive_path, &version_dir)
