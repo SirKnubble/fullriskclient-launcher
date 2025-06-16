@@ -109,9 +109,9 @@ impl GameArguments {
                 .map(|c| c.access_token.clone())
                 .unwrap_or_else(|| "0".to_string()),
         )
-        .replace("${clientid}", "0")
+        .replace("${clientid}", "c4502edb-87c6-40cb-b595-64a280cf8906")
         .replace("${auth_xuid}", "0")
-        .replace("${user_type}", "legacy")
+        .replace("${user_type}", "msa")
         .replace("${version_type}", &self.version_type)
         .replace("${user_properties}", "{}")
     }
