@@ -82,6 +82,16 @@ export interface MinecraftVersion {
     releaseTime: string;
 }
 
+export interface LatestVersions {
+    release: string;
+    snapshot: string;
+}
+
+export interface VersionManifest {
+    latest: LatestVersions;
+    versions: MinecraftVersion[];
+}
+
 export interface WorldInfo {
   folder_name: string;
   display_name: string | null;
