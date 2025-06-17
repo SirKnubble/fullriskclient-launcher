@@ -4,14 +4,27 @@ use crate::minecraft::dto::piston_meta::PistonMeta;
 use crate::minecraft::dto::version_manifest::VersionManifest;
 use log::debug;
 use reqwest;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha1::{Digest, Sha1};
 use std::fs;
 use std::path::Path;
 use uuid::Uuid;
+use urlencoding;
+use rand;
+use tokio;
 
 const VERSION_MANIFEST_URL: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
 const MOJANG_API_URL: &str = "https://api.mojang.com";
 const MOJANG_SESSION_URL: &str = "https://sessionserver.mojang.com";
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct JoinServerRequest {
+    access_token: String,
+    selected_profile: String,
+    server_id: String,
+}
 
 pub struct MinecraftApiService;
 
@@ -368,5 +381,247 @@ impl MinecraftApiService {
 
         debug!("API call completed: change_skin_from_base64 - Skin uploaded successfully");
         Ok(())
+    }
+
+    // Join server session - client side authentication for Minecraft servers
+    pub async fn join_server_session(
+        &self,
+        access_token: &str,
+        selected_profile: &str,
+        server_id: &str,
+    ) -> Result<()> {
+        debug!(
+            "API call: join_server_session for profile: {} server_id: {}",
+            selected_profile, server_id
+        );
+
+        let url = format!("{}/session/minecraft/join", MOJANG_SESSION_URL);
+        debug!("Request URL: {}", url);
+
+        let join_request = JoinServerRequest {
+            access_token: access_token.to_string(),
+            selected_profile: selected_profile.to_string(),
+            server_id: server_id.to_string(),
+        };
+
+        debug!("Join request - selected_profile: {}, server_id: {}", selected_profile, server_id);
+
+        let client = reqwest::Client::new();
+        debug!("Sending join server request to Minecraft Session API");
+
+        let response_result = client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&join_request)
+            .send()
+            .await;
+
+        if let Err(ref e) = response_result {
+            debug!("API request failed: {:?}", e);
+        }
+
+        let response = response_result.map_err(AppError::MinecraftApi)?;
+        debug!("Received response with status: {}", response.status());
+
+        // Check if successful (should return 204 No Content on success)
+        if !response.status().is_success() {
+            let error_text_result = response.text().await;
+
+            if let Err(ref e) = error_text_result {
+                debug!("Failed to read error response: {:?}", e);
+            }
+
+            let error_text = error_text_result.map_err(AppError::MinecraftApi)?;
+            debug!("Join server session failed: {}", error_text);
+            return Err(AppError::Other(format!(
+                "Failed to join server session: {}",
+                error_text
+            )));
+        }
+
+        debug!("API call completed: join_server_session - Successfully joined server session");
+        Ok(())
+    }
+
+    // Verify login session on server - check if player has joined with the given server ID
+    pub async fn has_joined(
+        &self,
+        username: &str,
+        server_id: &str,
+        client_ip: Option<&str>,
+    ) -> Result<Option<MinecraftProfile>> {
+        debug!(
+            "API call: has_joined for username: {} server_id: {}{}",
+            username,
+            server_id,
+            if let Some(ip) = client_ip {
+                format!(" client_ip: {}", ip)
+            } else {
+                String::new()
+            }
+        );
+
+        // Build the URL with query parameters
+        let mut url = format!(
+            "{}/session/minecraft/hasJoined?username={}&serverId={}",
+            MOJANG_SESSION_URL,
+            urlencoding::encode(username),
+            urlencoding::encode(server_id)
+        );
+
+        // Add optional IP parameter
+        if let Some(ip) = client_ip {
+            url.push_str(&format!("&ip={}", urlencoding::encode(ip)));
+        }
+
+        debug!("Request URL: {}", url);
+
+        let response_result = reqwest::get(&url).await;
+
+        if let Err(ref e) = response_result {
+            debug!("API request failed: {:?}", e);
+        }
+
+        let response = response_result.map_err(AppError::MinecraftApi)?;
+        debug!("Received response with status: {}", response.status());
+
+        // Handle different response cases
+        match response.status().as_u16() {
+            200 => {
+                // Success - player has joined, return profile
+                let profile = response
+                    .json::<MinecraftProfile>()
+                    .await
+                    .map_err(AppError::MinecraftApi)?;
+                
+                debug!("Player verification successful for username: {}", username);
+                Ok(Some(profile))
+            }
+            204 => {
+                // No Content - player has not joined or verification failed
+                debug!("Player verification failed - player has not joined: {}", username);
+                Ok(None)
+            }
+            _ => {
+                // Other status codes indicate errors
+                let error_text_result = response.text().await;
+
+                if let Err(ref e) = error_text_result {
+                    debug!("Failed to read error response: {:?}", e);
+                }
+
+                let error_text = error_text_result.map_err(AppError::MinecraftApi)?;
+                debug!("Player verification request failed: {}", error_text);
+                
+                Err(AppError::Other(format!(
+                    "Failed to verify player session: {}",
+                    error_text
+                )))
+            }
+        }
+    }
+
+    // Test method with real server simulation (more realistic test)
+    pub async fn test_authentication_with_random_server_id(
+        &self,
+        access_token: &str,
+        selected_profile: &str,
+        username: &str,
+    ) -> Result<bool> {
+        debug!("=== Starting Realistic Minecraft Server Authentication Test ===");
+        
+        // Generate a random server ID (simulating what a real server would do)
+        let server_id = format!("{:x}", rand::random::<u64>());
+        debug!("Generated random server ID: {}", server_id);
+
+        // Step 1: Join server session
+        debug!("Step 1: Client joining server session with random server ID");
+        match self.join_server_session(access_token, selected_profile, &server_id).await {
+            Ok(_) => {
+                debug!("✅ Client successfully joined server session");
+            }
+            Err(e) => {
+                debug!("❌ Client failed to join server session: {:?}", e);
+                return Err(e);
+            }
+        }
+
+        // Step 2: Small delay for propagation
+        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+        // Step 3: Server verifies the session
+        debug!("Step 2: Server verifying client session");
+        match self.has_joined(username, &server_id, None).await {
+            Ok(Some(profile)) => {
+                debug!("✅ Server verification successful!");
+                debug!("Authenticated player: {} (UUID: {})", profile.name, profile.id);
+                debug!("=== Realistic Authentication Test PASSED ===");
+                Ok(true)
+            }
+            Ok(None) => {
+                debug!("❌ Server verification failed");
+                debug!("=== Realistic Authentication Test FAILED ===");
+                Ok(false)
+            }
+            Err(e) => {
+                debug!("❌ Server verification error: {:?}", e);
+                Err(e)
+            }
+        }
+    }
+
+    // Test Minecraft authentication API using credentials from MinecraftAuthStore
+    pub async fn test_minecraft_auth_api() -> Result<bool> {
+        debug!("=== Starting Minecraft Auth API Test with Real Credentials ===");
+
+        // Import State to access MinecraftAuthStore
+        use crate::state::state_manager::State;
+
+        // Get the current state
+        let state = State::get().await?;
+
+        // Get the active account from MinecraftAuthStore
+        let active_account = state
+            .minecraft_account_manager_v2
+            .get_active_account()
+            .await?;
+
+        let account = match active_account {
+            Some(acc) => {
+                debug!("✅ Found active account: {}", acc.username);
+                debug!("Account ID: {}", acc.id);
+                debug!("Token expires at: {}", acc.expires);
+                acc
+            }
+            None => {
+                debug!("❌ No active account found in MinecraftAuthStore");
+                return Err(AppError::Other(
+                    "No active Minecraft account found. Please login first.".to_string(),
+                ));
+            }
+        };
+
+        // Create MinecraftApiService instance
+        let api_service = MinecraftApiService::new();
+
+        // Test the authentication flow
+        debug!("🚀 Starting authentication test with real credentials");
+        let result = api_service
+            .test_authentication_with_random_server_id(
+                &account.access_token,
+                &account.id.to_string().replace("-", ""), // UUID without dashes
+                &account.username,
+            )
+            .await?;
+
+        if result {
+            debug!("🎉 Authentication test PASSED!");
+            debug!("✅ The Minecraft authentication API is working correctly");
+        } else {
+            debug!("❌ Authentication test FAILED!");
+            debug!("⚠️ There might be an issue with the authentication flow");
+        }
+
+        Ok(result)
     }
 }
