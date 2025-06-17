@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - '**' # Build on push to any branch
+    # branches:
+      # - '**' # Build on push to any branch
     tags:
       - "v*"  # Release on v* tags
   workflow_dispatch: {} # Allow manual dispatch
