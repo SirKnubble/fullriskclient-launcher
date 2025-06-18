@@ -190,43 +190,6 @@ impl NoRiskApi {
         })
     }
 
-    pub async fn refresh_norisk_token(
-        token: &str,
-        hwid: &str,
-        force: bool,
-        is_experimental: bool,
-    ) -> Result<NoRiskToken> {
-        info!("[NoRisk API] Refreshing NoRisk token with HWID: {}", hwid);
-        debug!("[NoRisk API] Force refresh: {}", force);
-        debug!("[NoRisk API] Experimental mode: {}", is_experimental);
-
-        let force_str = force.to_string();
-        let mut extra_params = HashMap::new();
-        extra_params.insert("force", force_str.as_str());
-        extra_params.insert("hwid", hwid);
-
-        debug!("[NoRisk API] Calling validation endpoint");
-        match Self::post_from_norisk_endpoint_with_parameters::<NoRiskToken>(
-            "launcher/auth/validate",
-            token,
-            "",
-            Some(extra_params),
-            is_experimental,
-        )
-        .await
-        {
-            Ok(token) => {
-                info!("[NoRisk API] Token refresh successful");
-                debug!("[NoRisk API] Token valid status: {}", token.value.len() > 0);
-                Ok(token)
-            }
-            Err(e) => {
-                error!("[NoRisk API] Token refresh failed: {:?}", e);
-                Err(e)
-            }
-        }
-    }
-
     pub async fn refresh_norisk_token_v2(
         hwid: &str,
         username: &str,
