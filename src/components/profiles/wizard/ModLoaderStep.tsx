@@ -264,7 +264,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
         variant="flat"
         className="p-6 space-y-6 bg-black/20 border border-white/10"
       >
-        <div className="grid grid-cols-2 md:grid-cols-3  gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 items-stretch">
           <ModLoaderCard
             name="vanilla"
             icon="/icons/minecraft.png"
@@ -430,7 +430,7 @@ function ModLoaderCard({
       ref={cardRef}
       variant={isSelected ? "default" : "ghost"}
       className={cn(
-        "p-6 flex flex-col items-center justify-start cursor-pointer w-full h-full min-h-[140px]",
+        "p-6 flex flex-col items-center justify-start cursor-pointer w-full h-[160px]",
         isSelected
           ? "bg-black/30 grayscale-0 text-white"
           : isCompatible
