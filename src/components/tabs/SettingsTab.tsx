@@ -25,6 +25,7 @@ import EffectPreviewCard from ".././EffectPreviewCard";
 import { RangeSlider } from ".././ui/RangeSlider";
 import { FullscreenEffectRenderer } from "../FullscreenEffectRenderer";
 import { useFlags } from 'flagsmith/react';
+import { openExternalUrl } from "../../services/tauri-service";
 
 const EXPERIMENTAL_MODE_FEATURE_FLAG_NAME = "show_experimental_mode";
 
@@ -832,7 +833,7 @@ export function SettingsTab() {
             variant="ghost"
             className="flex items-center gap-2 px-6 py-3 border border-[#ffffff20] hover:bg-white/5 transition-colors"
             onClick={() => {
-              window.open('https://blog.norisk.gg/open-source-licenses/', '_blank');
+              openExternalUrl("https://blog.norisk.gg/open-source-licenses/")
             }}
           >
             <Icon icon="solar:external-link-bold" className="w-5 h-5" />
