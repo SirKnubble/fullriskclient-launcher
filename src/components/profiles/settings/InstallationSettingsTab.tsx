@@ -169,13 +169,13 @@ export function InstallationSettingsTab({
 
         switch (editedProfile.loader) {
           case "fabric":
-            const fabricResult = await invoke<{ loader_version: string }[]>(
+            const fabricResult = await invoke<{ loader: { version: string } }[]>(
               "get_fabric_loader_versions",
               {
                 minecraftVersion: editedProfile.game_version,
               },
             );
-            versions = fabricResult.map((v) => v.loader_version);
+            versions = fabricResult.map((v) => v.loader.version);
             break;
           case "forge":
             versions = await invoke<string[]>("get_forge_versions", {
@@ -183,13 +183,13 @@ export function InstallationSettingsTab({
             });
             break;
           case "quilt":
-            const quiltResult = await invoke<{ loader_version: string }[]>(
+            const quiltResult = await invoke<{ loader: { version: string } }[]>(
               "get_quilt_loader_versions",
               {
                 minecraftVersion: editedProfile.game_version,
               },
             );
-            versions = quiltResult.map((v) => v.loader_version);
+            versions = quiltResult.map((v) => v.loader.version);
             break;
           case "neoforge":
             versions = await invoke<string[]>("get_neoforge_versions", {
