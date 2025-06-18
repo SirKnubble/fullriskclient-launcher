@@ -26,6 +26,7 @@ interface LoaderVersionInfo {
 export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
   const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [checkingCompatibility, setCheckingCompatibility] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [compatibility, setCompatibility] = useState<
     Record<ModLoader, boolean>
@@ -96,7 +97,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
   const checkCompatibility = async () => {
     if (!profile.game_version) return;
 
-    setLoading(true);
+    setCheckingCompatibility(true);
     setError(null);
 
     try {
@@ -165,7 +166,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
       console.error("Error checking compatibility:", err);
       setError("failed to check mod loader compatibility");
     } finally {
-      setLoading(false);
+      setCheckingCompatibility(false);
     }
   };
 
@@ -271,6 +272,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
             isCompatible={true}
             onClick={() => handleSelectModLoader("vanilla")}
             description="Pure Minecraft without mods"
+            loading={false}
           />
 
           <ModLoaderCard
@@ -280,6 +282,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
             isCompatible={compatibility.fabric}
             onClick={() => handleSelectModLoader("fabric")}
             description="Lightweight mod loader"
+            loading={checkingCompatibility}
           />
 
           <ModLoaderCard
@@ -289,6 +292,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
             isCompatible={compatibility.forge}
             onClick={() => handleSelectModLoader("forge")}
             description="Classic mod loader"
+            loading={checkingCompatibility}
           />
 
           <ModLoaderCard
@@ -298,6 +302,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
             isCompatible={compatibility.quilt}
             onClick={() => handleSelectModLoader("quilt")}
             description="Fork of Fabric with more features"
+            loading={checkingCompatibility}
           />
 
           <ModLoaderCard
@@ -307,6 +312,7 @@ export function ModLoaderStep({ profile, updateProfile }: ModLoaderStepProps) {
             isCompatible={compatibility.neoforge}
             onClick={() => handleSelectModLoader("neoforge")}
             description="Modern fork of Forge"
+            loading={checkingCompatibility}
           />
         </div>
       </Card>
@@ -387,6 +393,7 @@ interface ModLoaderCardProps {
   isCompatible: boolean;
   onClick: () => void;
   description: string;
+  loading?: boolean;
 }
 
 function ModLoaderCard({
@@ -396,6 +403,7 @@ function ModLoaderCard({
   isCompatible,
   onClick,
   description,
+  loading = false,
 }: ModLoaderCardProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
@@ -442,8 +450,18 @@ function ModLoaderCard({
         }}
       />
       <span className="font-minecraft text-xl lowercase">{name}</span>
-      {!isCompatible && (
-        <span className="text-lg text-white/50 mt-2">not compatible</span>
+      {loading ? (
+        <div className="flex items-center gap-1 mt-2">
+          <Icon
+            icon="solar:refresh-bold"
+            className="w-4 h-4 animate-spin text-white/50"
+          />
+          <span className="text-sm text-white/50">checking...</span>
+        </div>
+      ) : (
+        !isCompatible && (
+          <span className="text-lg text-white/50 mt-2">not compatible</span>
+        )
       )}
     </Button>
   );
