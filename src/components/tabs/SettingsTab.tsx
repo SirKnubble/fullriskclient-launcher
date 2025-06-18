@@ -7,6 +7,7 @@ import { Card } from ".././ui/Card";
 import { ToggleSwitch } from ".././ui/ToggleSwitch";
 import { Input } from ".././ui/Input";
 import { ColorPicker } from ".././ColorPicker";
+import { RadiusPicker } from ".././RadiusPicker";
 import type { LauncherConfig } from "../../types/launcherConfig";
 import * as ConfigService from "../../services/launcher-config-service";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -518,9 +519,24 @@ export function SettingsTab() {
                     />
                   ))}
                 </div>
-              </div>
-            )}          </div>
-        </Card>
+              </div>            )}          </div>
+        </Card>      <Card variant="flat" className="p-6">
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Icon icon="solar:widget-bold" className="w-6 h-6 text-white" />
+            <h3 className="text-3xl font-minecraft text-white lowercase">
+              Border Radius
+            </h3>
+          </div>
+          <p className="text-base text-white/70 font-minecraft-ten mt-2">
+            Adjust the corner roundness of all UI elements. Square (flat) is the default Minecraft-style appearance.
+          </p>
+        </div>
+
+        <div className="mt-6">
+          <RadiusPicker />
+        </div>
+      </Card>
 
       <Card variant="flat" className="p-6">
         <div className="mb-4">
