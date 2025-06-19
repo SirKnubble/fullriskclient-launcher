@@ -235,43 +235,30 @@ export function GlobalCrashReportModal() {
       </Button>
     </div>
   );
+
   const titleSubtitleNode = (
     <p className="text-xs font-minecraft-ten text-gray-400">
-      Profile: {crashData?.process_metadata?.profile_name || profileName || 'Loading...'}
+      Profile: {crashData.process_metadata?.profile_name || profileName || 'Loading...'}
     </p>
   );
-
-  if (!isCrashModalOpen || !crashData) {
-    return null;
-  }
 
   return (
     <Modal
       title="Minecraft Crash Report"
+      titleIcon={<Icon icon="solar:danger-bold" className="w-7 h-7 text-red-400" />}
+      titleSubtitle={titleSubtitleNode}
       onClose={() => !isProcessing && closeCrashModal()}
       width="md"
+      footer={modalFooter}
     >
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Icon icon="solar:danger-bold" className="w-7 h-7 text-red-400" />
-          <div>
-            {titleSubtitleNode}
-          </div>
-        </div>
-        
-        <div className="p-6 space-y-4 text-white text-base text-center">        <p className="pt-3 text-gray-300 text-lg font-minecraft-ten">
+      <div className="p-6 space-y-4 text-white text-base text-center">
+        <p className="pt-3 text-gray-300 text-lg font-minecraft-ten">
           An unexpected error occurred and the game crashed. We are sorry for the inconvenience.
         </p>
 
         <p className="pt-4 text-2xl font-minecraft text-red-400">
           exit code: {crashData.exit_code ?? 'N/A'}
         </p>
-        </div>
-        
-        {/* Footer */}
-        <div className="mt-6">
-          {modalFooter}
-        </div>
       </div>
     </Modal>
   );

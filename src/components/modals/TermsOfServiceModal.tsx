@@ -28,10 +28,6 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   const handleOpenTerms = async () => {
     try {
       await openExternalUrl('https://blog.norisk.gg/en/terms-of-use/');
@@ -56,19 +52,18 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
         Accept & Continue
       </Button>
     </div>
-  );  return (
+  );
+
+  return (
     <Modal
       title="Terms of Service"
+      titleIcon={<Icon icon="solar:document-bold" className="w-7 h-7 text-blue-400" />}
       onClose={() => {}} // Prevent closing without accepting
       width="lg"
+      footer={modalFooter}
       closeOnClickOutside={false}
     >
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Icon icon="solar:document-bold" className="w-7 h-7 text-blue-400" />
-        </div>
-        
-        <div className="p-6 space-y-6 text-white">
+      <div className="p-6 space-y-6 text-white">
         <div className="text-center space-y-4">
           <h3 className="text-3xl font-minecraft text-blue-400 lowercase">
             Welcome to NoRisk Launcher!
@@ -116,16 +111,12 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
           >
             View Full Terms
           </Button>
-        </div>        <div className="text-center text-sm text-gray-400">
+        </div>
+
+        <div className="text-center text-sm text-gray-400">
           <p>
             You can withdraw your consent at any time. However, you must accept the terms to use NoRisk Client.
           </p>
-        </div>
-        </div>
-        
-        {/* Footer */}
-        <div className="mt-6">
-          {modalFooter}
         </div>
       </div>
     </Modal>
