@@ -99,15 +99,14 @@ export const getVariantColors = (variant: ComponentVariant, accentColor: AccentC
   }
 };
 
-export const getSizeClasses = (size: ComponentSize, element: "button" | "input" | "badge" = "button"): string => {
-  if (element === "badge") {
+export const getSizeClasses = (size: ComponentSize, element: "button" | "input" | "badge" = "button"): string => {  if (element === "badge") {
     switch (size) {
-      case "xs": return "px-1.5 py-0.5 text-xs min-h-[20px]";
-      case "sm": return "px-2 py-1 text-sm min-h-[24px]";
-      case "md": return "px-2.5 py-1 text-sm min-h-[28px]";
-      case "lg": return "px-3 py-1.5 text-base min-h-[32px]";
-      case "xl": return "px-4 py-2 text-lg min-h-[36px]";
-      default: return "px-2.5 py-1 text-sm min-h-[28px]";
+      case "xs": return "px-1.5 py-0.5 text-xs min-h-[18px]";
+      case "sm": return "px-1.5 py-0.5 text-xs min-h-[20px]";
+      case "md": return "px-2 py-1 text-sm min-h-[24px]";
+      case "lg": return "px-2.5 py-1 text-base min-h-[28px]";
+      case "xl": return "px-3 py-1.5 text-lg min-h-[32px]";
+      default: return "px-2 py-1 text-sm min-h-[24px]";
     }
   }
   
@@ -191,4 +190,57 @@ export const createRadiusStyle = (borderRadius?: number, multiplier?: number): R
 
 export const getRadiusClasses = (borderRadius?: number, element?: string): string => {
   return getBorderRadiusClass(borderRadius);
+};
+
+export const getTextSizeClass = (size: ComponentSize, element: "button" | "input" | "badge" | "label" | "checkbox" = "label"): string => {  if (element === "badge") {
+    switch (size) {
+      case "xs": return "text-xs";
+      case "sm": return "text-xs";
+      case "md": return "text-sm";
+      case "lg": return "text-base";
+      case "xl": return "text-lg";
+      default: return "text-sm";
+    }
+  }
+  
+  if (element === "input") {
+    switch (size) {
+      case "xs": return "text-lg";
+      case "sm": return "text-xl";
+      case "md": return "text-xl";
+      case "lg": return "text-2xl";
+      case "xl": return "text-2xl";
+      default: return "text-xl";
+    }
+  }
+    if (element === "button") {
+    switch (size) {
+      case "xs": return "text-lg";
+      case "sm": return "text-xl";
+      case "md": return "text-xl";
+      case "lg": return "text-2xl";
+      case "xl": return "text-2xl";
+      default: return "text-xl";
+    }
+  }
+  
+  if (element === "checkbox") {
+    switch (size) {
+      case "xs": return "text-xl";
+      case "sm": return "text-2xl";
+      case "md": return "text-2xl";
+      case "lg": return "text-3xl";
+      case "xl": return "text-3xl";
+      default: return "text-2xl";
+    }
+  }
+  
+  switch (size) {
+    case "xs": return "text-lg";
+    case "sm": return "text-xl";
+    case "md": return "text-xl";
+    case "lg": return "text-2xl";
+    case "xl": return "text-2xl";
+    default: return "text-xl";
+  }
 };

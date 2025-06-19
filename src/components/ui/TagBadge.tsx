@@ -10,6 +10,7 @@ import {
   getSizeClasses,
   getBorderRadiusClass,
   getAccessibilityProps,
+  getTextSizeClass,
   type ComponentSize,
   type ComponentVariant 
 } from "./design-system";
@@ -96,22 +97,13 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     };
 
     const variantStyles = getVariantStyles();
-    const sizeClasses = getSizeClasses(size, "badge");
-    const radiusClass = getBorderRadiusClass();
+    const sizeClasses = getSizeClasses(size, "badge");    const radiusClass = getBorderRadiusClass();
     const accessibilityProps = getAccessibilityProps({
       label: label || (typeof children === "string" ? children : undefined),
       description,
       disabled
-    });    const getTextSizeClass = () => {
-      switch (size) {
-        case "xs": return "text-xs";
-        case "sm": return "text-xs";
-        case "md": return "text-xs";
-        case "lg": return "text-sm";
-        case "xl": return "text-base";
-        default: return "text-xs";
-      }
-    };
+    });
+    const textSizeClass = getTextSizeClass(size, "badge");
 
     const customStyling =
       variant === "flat"
@@ -158,11 +150,10 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
 
     const content = (
       <>
-        <span
-          className={cn(
+        <span          className={cn(
             "relative z-10 flex items-center",
             iconElement ? "gap-x-1.5" : "",
-            getTextSizeClass(),
+            textSizeClass,
           )}
           style={{
             letterSpacing: "0.01em",
