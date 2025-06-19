@@ -26,10 +26,10 @@ interface ModalProps {
   state?: StateVariant;
   className?: string;
   footer?: React.ReactNode;
+  variant?: string;
 }
 
-export const Modal = forwardRef<HTMLDivElement, ModalProps>(
-  ({ 
+export const Modal = forwardRef<HTMLDivElement, ModalProps>(  ({ 
     isOpen = true,
     onClose, 
     title,
@@ -44,7 +44,8 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
     state,
     className,
     footer,
-  }, ref) => {    const modalRef = useRef<HTMLDivElement>(null);
+    variant,
+  }, ref) => {const modalRef = useRef<HTMLDivElement>(null);
     const accentColor = useThemeStore((state) => state.accentColor);
     const isAnimationEnabled = useThemeStore((state) => state.isBackgroundAnimationEnabled);    const borderRadius = useThemeStore((state) => state.borderRadius);
     

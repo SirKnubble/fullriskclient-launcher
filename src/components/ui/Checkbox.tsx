@@ -29,6 +29,10 @@ interface CheckboxProps {
   className?: string;
   required?: boolean;
   id?: string;
+  customSize?: string;
+  variant?: string;
+  onClick?: (e: any) => any;
+  title?: string;
 }
 
 export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({ 
@@ -44,6 +48,10 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
     className,
     required = false,
     id,
+    customSize,
+    variant,
+    onClick,
+    title,
     ...props 
   }, ref) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -75,7 +83,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
         };
         onChange(event as any);
       }
-    };const currentState = error ? "error" : state;
+    };    const effectiveSize = customSize || size;
     const colors = getVariantColors("default", accentColor);
     const radiusClass = getBorderRadiusClass();
     const accessibilityProps = getAccessibilityProps({
@@ -111,9 +119,8 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
             aria-required={required}
             aria-invalid={!!error}
             aria-describedby={error ? `checkbox-error-${id || ""}` : undefined}
-            {...accessibilityProps}
-            disabled={disabled}
-            onClick={handleClick}
+            {...accessibilityProps}            disabled={disabled}
+            onClick={onClick || handleClick}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
@@ -123,7 +130,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
               "transition-all duration-200 border-2 bg-white/10",
               "focus:outline-none focus:ring-2 focus:ring-white/30",
               radiusClass,
-              checkboxSizes[size],
+              checkboxSizes[effectiveSize],
               disabled && "opacity-50 cursor-not-allowed",
               !disabled && "cursor-pointer hover:bg-white/20",
               checked || indeterminate ? "bg-opacity-80" : "bg-opacity-30",
@@ -139,7 +146,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
                 icon={indeterminate ? "mingcute:minus-line" : "mingcute:check-line"}
                 className={cn(
                   "text-white transition-all duration-200",
-                  iconSizes[size]
+                  iconSizes[effectiveSize]
                 )}
                 aria-hidden="true"
               />
@@ -150,7 +157,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
             <div className="flex flex-col gap-1">
               {label && (                <label                  className={cn(
                     "text-white font-minecraft cursor-pointer select-none lowercase",
-                    getTextSizeClass(size || "md", "checkbox"),
+                    getTextSizeClass((effectiveSize as ComponentSize) || "md", "checkbox"),
                     disabled && "opacity-50 cursor-not-allowed"
                   )}
                   onClick={!disabled ? handleLabelClick : undefined}
@@ -161,7 +168,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
               )}              {description && (
                 <span className={cn(
                   "text-white text-opacity-70",
-                  getTextSizeClass(size === "sm" ? "xs" : "sm", "checkbox")
+                  getTextSizeClass((effectiveSize === "sm" ? "xs" : "sm") as ComponentSize, "checkbox")
                 )}>
                   {description}
                 </span>
