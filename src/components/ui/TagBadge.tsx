@@ -94,16 +94,36 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
         };
       }
       return getVariantColors(variant as ComponentVariant, accentColor);
-    };
-
-    const variantStyles = getVariantStyles();
-    const sizeClasses = getSizeClasses(size, "badge");    const radiusClass = getBorderRadiusClass();
+    };    const getSizeClasses = () => {
+      switch (size) {
+        case "sm":
+          return "px-2 py-1 rounded-md min-h-[15px]";
+        case "lg":
+          return "px-4 py-1.5 rounded-md min-h-[36px]";
+        case "xl":
+          return "px-5 py-2 rounded-md min-h-[44px]";
+        default:
+          return "px-2 py-1 rounded-md min-h-[15px]";
+      }
+    };    const variantStyles = getVariantStyles();
+    const sizeClasses = getSizeClasses();
     const accessibilityProps = getAccessibilityProps({
       label: label || (typeof children === "string" ? children : undefined),
       description,
       disabled
     });
-    const textSizeClass = getTextSizeClass(size, "badge");
+    const getTextSizeClass = () => {
+      switch (size) {
+        case "sm":
+          return "text-[0.9em]";
+        case "lg":
+          return "text-base";
+        case "xl":
+          return "text-lg";
+        default:
+          return "text-[0.7em]";
+      }
+    };
 
     const customStyling =
       variant === "flat"
@@ -128,9 +148,7 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const baseProps = {
       ref: mergedRef,
       className: cn(
-        "inline-flex items-center justify-center relative overflow-hidden",
-        "w-fit font-minecraft transition-all duration-200",
-        radiusClass,
+        "inline-flex items-center justify-center relative overflow-hidden",        "w-fit font-minecraft transition-all duration-200",
         sizeClasses,
         isClickable ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-1 focus:ring-offset-black/20" : "",
         disabled ? "opacity-50 cursor-not-allowed" : "",
@@ -149,11 +167,10 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     };
 
     const content = (
-      <>
-        <span          className={cn(
-            "relative z-10 flex items-center",
+      <>        <span          className={cn(
+            "relative z-10 flex items-center font-minecraft-ten",
             iconElement ? "gap-x-1.5" : "",
-            textSizeClass,
+            getTextSizeClass(),
           )}
           style={{
             letterSpacing: "0.01em",
