@@ -28,6 +28,10 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
     }
   };
 
+  if (!isOpen) {
+    return null;
+  }
+
   const handleOpenTerms = async () => {
     try {
       await openExternalUrl('https://blog.norisk.gg/en/terms-of-use/');
@@ -52,15 +56,12 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
         Accept & Continue
       </Button>
     </div>
-  );
-  return (
+  );  return (
     <Modal
-      isOpen={isOpen}
       title="Terms of Service"
       onClose={() => {}} // Prevent closing without accepting
-      size="lg"
-      closeOnOverlayClick={false}
-      closeOnEscape={false}
+      width="lg"
+      closeOnClickOutside={false}
     >
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">

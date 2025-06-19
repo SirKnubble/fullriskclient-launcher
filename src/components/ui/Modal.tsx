@@ -1,184 +1,193 @@
 "use client";
 
 import type React from "react";
-import { forwardRef, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 import { useThemeStore } from "../../store/useThemeStore";
-import { 
-  createRadiusStyle,
-  getBorderRadiusClass,
-  type ComponentSize,
-  type StateVariant
-} from "./design-system";
+import { IconButton } from "./buttons/IconButton";
 
 interface ModalProps {
-  isOpen?: boolean;
+  title: string;
+  titleIcon?: React.ReactNode;
+  titleSubtitle?: React.ReactNode;
   onClose: () => void;
-  title?: string;  titleIcon?: React.ReactNode;
   children: React.ReactNode;
-  size?: ComponentSize | "xs" | "full";
-  width?: "sm" | "md" | "lg" | "xl" | "full";
-  showCloseButton?: boolean;
-  closeOnOverlayClick?: boolean;
-  closeOnClickOutside?: boolean;
-  closeOnEscape?: boolean;
-  state?: StateVariant;
-  className?: string;
   footer?: React.ReactNode;
+  width?: "sm" | "md" | "lg" | "xl" | "full";
+  closeOnClickOutside?: boolean;
+  headerActions?: React.ReactNode;
+  variant?: "default" | "flat" | "3d";
 }
 
-export const Modal = forwardRef<HTMLDivElement, ModalProps>(
-  ({ 
-    isOpen = true,
-    onClose, 
-    title,
-    titleIcon,
-    children, 
-    size = "md",
-    width,
-    showCloseButton = true,
-    closeOnOverlayClick = true,
-    closeOnClickOutside,
-    closeOnEscape = true,
-    state,
-    className,
-    footer,
-  }, ref) => {    const modalRef = useRef<HTMLDivElement>(null);
-    const accentColor = useThemeStore((state) => state.accentColor);
-    const isAnimationEnabled = useThemeStore((state) => state.isBackgroundAnimationEnabled);    const borderRadius = useThemeStore((state) => state.borderRadius);
+export function Modal({
+  title,
+  titleIcon,
+  titleSubtitle,
+  onClose,
+  children,
+  footer,
+  width = "md",
+  closeOnClickOutside = true,
+  headerActions,
+  variant = "default",
+}: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const mouseDownTargetRef = useRef<EventTarget | null>(null);
+  const accentColor = useThemeStore((state) => state.accentColor);
+  const isBackgroundAnimationEnabled = useThemeStore(
+    (state) => state.isBackgroundAnimationEnabled,
+  );
+  const [isClosing, setIsClosing] = useState(false);
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isClosing) {
+        handleClose();
+      }
+    };
     
-    const borderRadiusStyle = createRadiusStyle(borderRadius, 1.2);
-    const borderRadiusClass = getBorderRadiusClass(borderRadius);
+    if (closeOnClickOutside !== false) {
+      window.addEventListener("keydown", handleEscape);
+    }
 
-    const effectiveCloseOnOverlayClick = closeOnClickOutside !== undefined ? closeOnClickOutside : closeOnOverlayClick;
-    const effectiveSize = width || size;
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [closeOnClickOutside, isClosing]);
 
-    const sizeClasses = {
-      xs: "max-w-sm",
-      sm: "max-w-md",
-      md: "max-w-lg", 
-      lg: "max-w-2xl",
-      xl: "max-w-4xl",
-      full: "max-w-[95vw] max-h-[95vh]",
+  useEffect(() => {
+    const recordMouseDownTarget = (event: MouseEvent) => {
+      mouseDownTargetRef.current = event.target;
     };
 
-    useEffect(() => {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (closeOnEscape && e.key === "Escape") {
-          onClose();
-        }
-      };
+    document.addEventListener('mousedown', recordMouseDownTarget, true);
 
-      if (isOpen) {
-        document.addEventListener("keydown", handleEscape);
-        document.body.style.overflow = "hidden";
-      }
-
-      return () => {
-        document.removeEventListener("keydown", handleEscape);
-        document.body.style.overflow = "";
-      };
-    }, [isOpen, closeOnEscape, onClose]);
-
-    useEffect(() => {
-      if (isOpen && modalRef.current) {
-        modalRef.current.focus();
-      }
-    }, [isOpen]);    const handleOverlayClick = (e: React.MouseEvent) => {
-      if (effectiveCloseOnOverlayClick && e.target === e.currentTarget) {
-        onClose();
-      }
+    return () => {
+      document.removeEventListener('mousedown', recordMouseDownTarget, true);
+      mouseDownTargetRef.current = null;
     };
+  }, []);
 
-    if (!isOpen) return null;    return (
+  const handleClose = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    onClose();
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (
+      closeOnClickOutside &&
+      e.target === modalRef.current &&
+      mouseDownTargetRef.current === modalRef.current &&
+      !isClosing
+    ) {
+      e.stopPropagation();
+      handleClose();
+    }
+  };
+
+  const widthClasses = {
+    sm: "max-w-lg",
+    md: "max-w-2xl",
+    lg: "max-w-3xl",
+    xl: "max-w-5xl",
+    full: "max-w-[95vw] w-full",
+  };
+
+  const getBorderClasses = () => {
+    if (variant === "3d") {
+      return "border-2 border-b-4";
+    }
+    return "border border-b-2";
+  };
+
+  const getBoxShadow = () => {
+    if (variant === "3d") {
+      return `0 10px 0 rgba(0,0,0,0.3), 0 15px 25px rgba(0,0,0,0.5), inset 0 1px 0 ${accentColor.value}40, inset 0 0 0 1px ${accentColor.value}20`;
+    }
+    return "none";
+  };
+  return (
+    <div
+      ref={modalRef}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+      onClick={handleBackdropClick}
+    >
       <div
+        ref={contentRef}
         className={cn(
-          "fixed inset-0 z-50 flex items-center justify-center",
-          "bg-black/90 backdrop-blur-xl",
-          isAnimationEnabled && "animate-in fade-in duration-300"
+          "relative flex flex-col w-full rounded-lg overflow-hidden",
+          getBorderClasses(),
+          variant === "3d" ? "shadow-2xl" : "",
+          widthClasses[width],
+          "max-h-[85vh]",
         )}
-        onClick={handleOverlayClick}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? "modal-title" : undefined}
-      >        <div
-          ref={modalRef}
-          className={cn(
-            "relative w-full m-4 max-h-[90vh] overflow-hidden",
-            "backdrop-blur-2xl shadow-2xl border border-b-2",
-            borderRadiusClass,
-            sizeClasses[effectiveSize],
-            isAnimationEnabled && "animate-in zoom-in-95 duration-300 ease-out",
-            className,
-          )}
+        style={{
+          backgroundColor: `${accentColor.value}20`,
+          borderColor: `${accentColor.value}80`,
+          borderBottomColor: accentColor.value,
+          boxShadow: getBoxShadow(),
+        }}
+      >
+        {variant === "3d" && (
+          <span
+            className="absolute inset-x-0 top-0 h-[2px] rounded-t-sm"
+            style={{ backgroundColor: `${accentColor.value}80` }}
+          />
+        )}
+
+        <div
+          ref={headerRef}
+          className="flex items-center justify-between px-6 py-4 border-b-2"
           style={{
-            backgroundColor: `${accentColor.value}25`,
-            borderColor: `${accentColor.value}90`,
-            borderBottomColor: accentColor.value,
-            ...borderRadiusStyle,
+            borderColor: `${accentColor.value}60`,
+            backgroundColor: `${accentColor.value}30`,
           }}
-          tabIndex={-1}
-        >          {(title || showCloseButton) && (<div className={cn(
-              "flex items-center justify-between p-6 border-b backdrop-blur-2xl",
-              "border-opacity-40"
+        >
+          <div className="flex items-start space-x-3">
+            {titleIcon && (
+              <span className="text-white flex-shrink-0 pt-1.5">
+                {titleIcon}
+              </span>
             )}
-            style={{
-              borderBottomColor: `${accentColor.value}70`,
-              backgroundColor: `${accentColor.value}15`
-            }}>
-              {(title || titleIcon) && (
-                <div className="flex items-center gap-3">
-                  {titleIcon && (
-                    <span className="flex items-center justify-center text-[var(--accent)] text-lg" aria-hidden="true">
-                      {titleIcon}
-                    </span>
-                  )}                  {title && (
-                    <h2 
-                      id="modal-title"
-                      className="text-2xl font-minecraft text-white lowercase"
-                    >
-                      {title}
-                    </h2>
-                  )}
-                </div>
-              )}
-              {showCloseButton && (                <button
-                  type="button"
-                  onClick={onClose}
-                  className={cn(
-                    "p-2 text-white text-opacity-70 hover:text-opacity-100",
-                    "transition-all duration-200",
-                    getBorderRadiusClass(borderRadius),
-                    "focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-30"
-                  )}
-                  style={createRadiusStyle(borderRadius)}
-                  aria-label="Close modal"
-                >
-                  <Icon icon="mingcute:close-line" className="w-5 h-5" />
-                </button>
-              )}
-            </div>          )}
-
-          <div className={cn(
-            footer ? "p-6" : "p-6 overflow-y-auto",
-            effectiveSize === "full" ? "max-h-[calc(95vh-8rem)]" : "max-h-[calc(90vh-8rem)]"
-          )}>
-            {children}          </div>          {footer && (
-            <div className={cn(
-              "p-6 border-t border-opacity-40 backdrop-blur-2xl"
-            )}
-            style={{
-              borderTopColor: `${accentColor.value}70`,
-              backgroundColor: `${accentColor.value}15`
-            }}>
-              {footer}
+            <div className="flex flex-col">
+              <h2 className="text-3xl font-minecraft text-white lowercase">
+                {title}
+              </h2>
+              {titleSubtitle && <div className="mt-0.5">{titleSubtitle}</div>}
             </div>
-          )}
-        </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {headerActions}
+            <IconButton
+              ref={closeButtonRef}
+              icon={<Icon icon="solar:close-circle-bold" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              variant="ghost"
+              size="sm"
+              aria-label="Close modal"
+            />
+          </div>
+        </div>        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {children}
+        </div>{footer && (
+          <div
+            className="px-6 py-4 border-t-2 flex-shrink-0"
+            style={{
+              borderColor: `${accentColor.value}60`,
+              backgroundColor: `${accentColor.value}15`,
+            }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
-    );
-  }
-);
-
-Modal.displayName = "Modal";
+    </div>
+  );
+}

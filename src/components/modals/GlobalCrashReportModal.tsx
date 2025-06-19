@@ -235,18 +235,21 @@ export function GlobalCrashReportModal() {
       </Button>
     </div>
   );
-
   const titleSubtitleNode = (
     <p className="text-xs font-minecraft-ten text-gray-400">
-      Profile: {crashData.process_metadata?.profile_name || profileName || 'Loading...'}
+      Profile: {crashData?.process_metadata?.profile_name || profileName || 'Loading...'}
     </p>
   );
+
+  if (!isCrashModalOpen || !crashData) {
+    return null;
+  }
+
   return (
     <Modal
-      isOpen={isCrashModalOpen}
       title="Minecraft Crash Report"
       onClose={() => !isProcessing && closeCrashModal()}
-      size="md"
+      width="md"
     >
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">

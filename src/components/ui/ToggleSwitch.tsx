@@ -1,135 +1,216 @@
 "use client";
 
-import type React from "react";
-import { forwardRef, useState } from "react";
-import { cn } from "../../lib/utils";
+import { useEffect, useRef, useState } from "react";
 import { useThemeStore } from "../../store/useThemeStore";
-import { getBorderRadiusStyle } from "./design-system";
+import { cn } from "../../lib/utils";
+import { gsap } from "gsap";
 
 interface ToggleSwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
+  label?: string;
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
-  label?: string;
-  description?: string;
   className?: string;
 }
 
-export const ToggleSwitch = forwardRef<HTMLButtonElement, ToggleSwitchProps>(
-  ({ checked, onChange, disabled = false, size = "md", label, description, className }, ref) => {
-    const [isFocused, setIsFocused] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
-    
-    const accentColor = useThemeStore((state) => state.accentColor);
-    const borderRadius = useThemeStore((state) => state.borderRadius);
+export function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  size = "md",
+  className,
+}: ToggleSwitchProps) {
+  const accentColor = useThemeStore((state) => state.accentColor);
+  const [isHovered, setIsHovered] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const knobRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLLabelElement>(null);
 
-    const handleClick = () => {
-      if (!disabled) {
-        onChange(!checked);
-      }
-    };
+  const getSizeConfig = () => {
+    switch (size) {
+      case "sm":
+        return {
+          track: "w-8 h-4",
+          knob: "w-3 h-3",
+          knobTranslate: "translate-x-4",
+          label: "text-base",
+        };
+      case "lg":
+        return {
+          track: "w-14 h-7",
+          knob: "w-5 h-5",
+          knobTranslate: "translate-x-7",
+          label: "text-2xl",
+        };
+      default:
+        return {
+          track: "w-10 h-5",
+          knob: "w-4 h-4",
+          knobTranslate: "translate-x-5",
+          label: "text-lg",
+        };
+    }
+  };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if ((e.key === "Enter" || e.key === " ") && !disabled) {
-        e.preventDefault();
-        onChange(!checked);
-      }
-    };
+  const sizeConfig = getSizeConfig();
 
-    const sizeConfig = {
-      sm: {
-        container: "w-8 h-5",
-        thumb: "w-3 h-3",
-        translate: "translate-x-3",
-      },
-      md: {
-        container: "w-11 h-6",
-        thumb: "w-5 h-5",
-        translate: "translate-x-5",
-      },
-      lg: {
-        container: "w-14 h-7",
-        thumb: "w-6 h-6",
-        translate: "translate-x-7",
-      },
-    };
+  useEffect(() => {
+    if (containerRef.current) {
+      gsap.fromTo(
+        containerRef.current,
+        { opacity: 0, scale: 0.95 },
+        {
+          opacity: 1,
+          scale: 1,
+          duration: 0.4,
+          ease: "power2.out",
+        },
+      );
+    }
+  }, []);
 
-    const config = sizeConfig[size];
-    const containerRadiusStyle = getBorderRadiusStyle(borderRadius);
-    const thumbRadiusStyle = getBorderRadiusStyle(Math.max(0, borderRadius - 2));
+  useEffect(() => {
+    if (knobRef.current) {
+      gsap.to(knobRef.current, {
+        x: checked ? (size === "sm" ? 16 : size === "lg" ? 28 : 20) : 0,
+        backgroundColor: checked ? "#ffffff" : "#f0f0f0",
+        boxShadow: checked
+          ? `0 1px 3px rgba(0,0,0,0.3), 0 0 0 2px ${accentColor.value}40`
+          : "0 1px 3px rgba(0,0,0,0.3)",
+        duration: 0.3,
+        ease: "power2.inOut",
+      });
+    }
 
-    return (
-      <div className={cn("flex items-center gap-3", className)}>
-        <button
-          ref={ref}
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          aria-disabled={disabled}
-          disabled={disabled}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}          className={cn(
-            "relative inline-flex shrink-0 cursor-pointer backdrop-blur-md",
-            "transition-all duration-200 ease-in-out",
-            "focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-30",
-            config.container,
-            disabled && "opacity-50 cursor-not-allowed",
-          )}          style={{
-            backgroundColor: checked 
-              ? accentColor.value 
-              : "rgba(107, 114, 128, 0.3)",
-            borderColor: checked 
-              ? accentColor.light 
-              : "rgba(107, 114, 128, 0.5)",
-            boxShadow: isFocused 
-              ? `0 0 0 2px rgba(255, 255, 255, 0.3)` 
-              : "none",
-            filter: isHovered && !disabled ? "brightness(1.1)" : "brightness(1)",
-            transform: isHovered && !disabled ? "scale(1.05)" : "scale(1)",
-            ...containerRadiusStyle,
+    if (trackRef.current) {
+      gsap.to(trackRef.current, {
+        backgroundColor: checked
+          ? `${accentColor.value}80`
+          : `${accentColor.value}30`,
+        borderColor: checked
+          ? `${accentColor.value}CC`
+          : `${accentColor.value}50`,
+        duration: 0.3,
+        ease: "power2.inOut",
+      });
+    }
+  }, [checked, accentColor.value, size]);
+
+  const handleMouseEnter = () => {
+    if (disabled) return;
+    setIsHovered(true);
+
+    if (knobRef.current) {
+      gsap.to(knobRef.current, {
+        scale: 1.15,
+        duration: 0.2,
+        ease: "power2.out",
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (disabled) return;
+    setIsHovered(false);
+
+    if (knobRef.current) {
+      gsap.to(knobRef.current, {
+        scale: 1,
+        duration: 0.2,
+        ease: "power2.out",
+      });
+    }
+  };
+
+  const handleClick = () => {
+    if (disabled) return;
+
+    if (knobRef.current) {
+      gsap.to(knobRef.current, {
+        scale: 0.85,
+        duration: 0.1,
+        ease: "power2.out",
+        onComplete: () => {
+          gsap.to(knobRef.current, {
+            scale: isHovered ? 1.15 : 1,
+            duration: 0.2,
+            ease: "elastic.out(1.2, 0.4)",
+          });
+        },
+      });
+    }
+  };
+
+  return (
+    <label
+      ref={containerRef}
+      className={cn(
+        "flex items-center gap-3",
+        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+        className,
+      )}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className="relative" onClick={handleClick}>
+        <div
+          ref={trackRef}
+          className={cn(
+            "rounded-full transition-colors duration-200",
+            sizeConfig.track,
+          )}
+          style={{
+            backgroundColor: checked
+              ? `${accentColor.value}80`
+              : `${accentColor.value}30`,
+            borderWidth: "2px",
+            borderStyle: "solid",
+            borderColor: checked
+              ? `${accentColor.value}CC`
+              : `${accentColor.value}50`,
+            borderBottomWidth: "3px",
+            borderBottomColor: checked
+              ? accentColor.dark
+              : `${accentColor.value}70`,
+            boxShadow: `inset 0 1px 0 ${accentColor.value}20`,
           }}
-        >          <span
+        >
+          <div
+            ref={knobRef}
             className={cn(
-              "pointer-events-none inline-block transform transition-transform duration-200",
-              "bg-white shadow-lg",
-              config.thumb,
-              checked ? config.translate : "translate-x-0.5",
+              "absolute top-1/2 left-0.5 -translate-y-1/2 bg-white rounded-full shadow-md",
+              sizeConfig.knob,
             )}
             style={{
-              transform: `translateX(${checked ? 
-                (size === "sm" ? "12px" : size === "md" ? "20px" : "28px") 
-                : "2px"}) translateY(-50%)`,
-              top: "50%",
-              position: "absolute",
-              ...thumbRadiusStyle,
+              boxShadow: checked
+                ? `0 1px 3px rgba(0,0,0,0.3), 0 0 0 2px ${accentColor.value}40`
+                : "0 1px 3px rgba(0,0,0,0.3)",
+              transform: `translate(${checked ? (size === "sm" ? 16 : size === "lg" ? 28 : 20) : 0}px, -50%) scale(${isHovered ? 1.15 : 1})`,
             }}
           />
-        </button>
-
-        {(label || description) && (
-          <div className="flex flex-col">
-            {label && (              <span 
-                className="text-white font-minecraft text-xl lowercase"
-                onClick={!disabled ? handleClick : undefined}
-              >
-                {label}
-              </span>
-            )}
-            {description && (
-              <span className="text-white text-opacity-70 text-sm">
-                {description}
-              </span>
-            )}
-          </div>
-        )}
+        </div>
       </div>
-    );
-  }
-);
 
-ToggleSwitch.displayName = "ToggleSwitch";
+      {label && (
+        <span
+          className={cn(
+            "font-minecraft lowercase text-white",
+            sizeConfig.label,
+          )}
+        >
+          {label}
+        </span>
+      )}
+
+      <input
+        type="checkbox"
+        className="hidden"
+        checked={checked}
+        onChange={() => !disabled && onChange(!checked)}
+        disabled={disabled}
+      />
+    </label>
+  );
+}
