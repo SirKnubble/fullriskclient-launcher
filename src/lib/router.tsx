@@ -42,7 +42,7 @@ export const router = createHashRouter([
         element: <SkinsTab />,
       },
       {
-        path: "store",
+        path: "capes",
         element: <StoreTab />,
       },
       {
