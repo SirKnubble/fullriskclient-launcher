@@ -358,7 +358,7 @@ export function ProfileCard({
               {!isCloning &&
                 (isButtonLaunching || isCardHovered) && (
                   <div
-                    className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer"
+                    className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer rounded-lg"
                     onClick={
                       interactionMode === "settings"
                         ? handleSettingsClick

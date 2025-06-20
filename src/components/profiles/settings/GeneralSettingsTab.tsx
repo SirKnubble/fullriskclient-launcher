@@ -11,6 +11,7 @@ import { Select } from "../../ui/Select";
 import { Card } from "../../ui/Card";
 import { gsap } from "gsap";
 import { toast } from "react-hot-toast";
+import { ProfileIcon } from "../ProfileIcon";
 
 interface GeneralSettingsTabProps {
   profile: Profile;
@@ -18,6 +19,7 @@ interface GeneralSettingsTabProps {
   updateProfile: (updates: Partial<Profile>) => void;
   onDelete: () => void;
   isDeleting?: boolean;
+  onRefresh?: () => Promise<Profile>;
 }
 
 interface NoriskPack {
@@ -32,6 +34,7 @@ export function GeneralSettingsTab({
   updateProfile,
   onDelete,
   isDeleting,
+  onRefresh,
 }: GeneralSettingsTabProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [noriskPacks, setNoriskPacks] = useState<Record<string, NoriskPack>>(
@@ -167,13 +170,31 @@ export function GeneralSettingsTab({
           <label className="block text-3xl font-minecraft text-white mb-2 lowercase">
             profile name
           </label>
-          <Input
-            value={editedProfile.name}
-            onChange={(e) => updateProfile({ name: e.target.value })}
-            placeholder="Enter profile name"
-            className="text-2xl py-3"
-            variant="flat"
-          />
+          <div className="flex items-center gap-4">
+            <ProfileIcon
+              profileId={profile.id}
+              banner={profile.banner}
+              profileName={profile.name}
+              accentColor={accentColor.value}
+              onSuccessfulUpdate={async () => {
+                try {
+                  if (onRefresh) {
+                    await onRefresh();
+                  }
+                } catch (error) {
+                  console.error("Failed to refresh profile after icon update:", error);
+                }
+              }}
+              className="w-12 h-12 flex-shrink-0"
+            />
+            <Input
+              value={editedProfile.name}
+              onChange={(e) => updateProfile({ name: e.target.value })}
+              placeholder="Enter profile name"
+              className="text-2xl py-3 flex-1"
+              variant="flat"
+            />
+          </div>
         </div>
 
         <div>

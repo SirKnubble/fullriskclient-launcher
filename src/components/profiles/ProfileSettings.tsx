@@ -39,6 +39,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const { updateProfile, deleteProfile } = useProfileStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [editedProfile, setEditedProfile] = useState<Profile>({ ...profile });
+  const [currentProfile, setCurrentProfile] = useState<Profile>({ ...profile });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [systemRam, setSystemRam] = useState<number>(8192);
@@ -82,6 +83,22 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
 
   const updateProfileData = (updates: Partial<Profile>) => {
     setEditedProfile((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleRefresh = async () => {
+    try {
+      const updatedProfile = await ProfileService.getProfile(profile.id);
+      setCurrentProfile(updatedProfile);
+      setEditedProfile(updatedProfile);
+      
+      // Update the global store as well to sync with ProfilesTab
+      useProfileStore.getState().refreshSingleProfileInStore(updatedProfile);
+      
+      return updatedProfile;
+    } catch (error) {
+      console.error("Failed to refresh profile:", error);
+      throw error;
+    }
   };
 
   const handleSave = async () => {
@@ -164,11 +181,12 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
       case "general":
         return (
           <GeneralSettingsTab
-            profile={profile}
+            profile={currentProfile}
             editedProfile={editedProfile}
             updateProfile={updateProfileData}
             onDelete={handleDelete}
             isDeleting={isDeleting}
+            onRefresh={handleRefresh}
           />
         );
       case "installation":
