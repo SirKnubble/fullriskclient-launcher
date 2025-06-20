@@ -1,3 +1,4 @@
+use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::forge_maven_meta::ForgeMavenMetadata;
 use log::info;
@@ -21,7 +22,8 @@ impl ForgeApi {
     pub async fn get_all_versions(&self) -> Result<ForgeMavenMetadata> {
         info!("Fetching Forge versions from Maven repository...");
 
-        let response = reqwest::get(&self.base_url)
+        let response = HTTP_CLIENT.get(&self.base_url)
+            .send()
             .await
             .map_err(|e| AppError::ForgeError(format!("Failed to fetch Forge versions: {}", e)))?;
 

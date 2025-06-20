@@ -1,3 +1,4 @@
+use crate::config::HTTP_CLIENT;
 use crate::error::Result;
 use crate::minecraft::dto::fabric_meta::FabricVersionInfo;
 use reqwest;
@@ -18,7 +19,7 @@ impl FabricApi {
     ) -> Result<Vec<FabricVersionInfo>> {
         let url = format!("{}/versions/loader/{}", self.base_url, minecraft_version);
 
-        let response = reqwest::get(&url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
             crate::error::AppError::FabricError(format!("Failed to fetch Fabric versions: {}", e))
         })?;
 

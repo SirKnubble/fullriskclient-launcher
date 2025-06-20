@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::neo_forge_install_profile::NeoForgeInstallProfile;
 use crate::minecraft::dto::neo_forge_meta::NeoForgeVersion;
@@ -118,7 +118,8 @@ impl NeoForgeLibrariesDownload {
         // Download the file
         info!("⬇️ Downloading: {}", download_info.path);
 
-        let response = reqwest::get(&download_info.url)
+        let response = HTTP_CLIENT.get(&download_info.url)
+            .send()
             .await
             .map_err(|e| AppError::Download(format!("Failed to download library: {}", e)))?;
 
@@ -336,7 +337,7 @@ impl NeoForgeLibrariesDownload {
                 info!("\n⬇️ Downloading: {}", maven_path);
                 info!("  📎 URL: {}", url);
 
-                let response = reqwest::get(&url).await.map_err(|e| {
+                let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
                     AppError::Download(format!("Failed to download library: {}", e))
                 })?;
 

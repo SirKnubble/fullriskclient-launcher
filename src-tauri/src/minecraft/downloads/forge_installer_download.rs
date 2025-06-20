@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::forge_install_profile::ForgeInstallProfile;
 use crate::minecraft::dto::forge_meta::ForgeVersion;
@@ -50,7 +50,7 @@ impl ForgeInstallerDownloadService {
 
         // Lade die JAR herunter
         info!("Downloading from: {}", url);
-        let response = reqwest::get(&url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
             AppError::Download(format!("Failed to download Forge installer: {}", e))
         })?;
 

@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::{JavaDistribution, ZuluApiResponse};
 use crate::state::State;
@@ -143,7 +143,8 @@ impl JavaDownloadService {
         fs::create_dir_all(&version_dir).await?;
 
         // Download the Java distribution
-        let response = reqwest::get(&download_url)
+        let response = HTTP_CLIENT.get(&download_url)
+            .send()
             .await
             .map_err(|e| AppError::JavaDownload(e.to_string()))?;
 

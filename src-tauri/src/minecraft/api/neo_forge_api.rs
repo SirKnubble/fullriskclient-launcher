@@ -1,3 +1,4 @@
+use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::neo_forge_maven_meta::NeoForgeMavenMetadata;
 use log::info;
@@ -21,7 +22,8 @@ impl NeoForgeApi {
     pub async fn get_all_versions(&self) -> Result<NeoForgeMavenMetadata> {
         info!("Fetching Forge versions from Maven repository...");
 
-        let response = reqwest::get(&self.base_url)
+        let response = HTTP_CLIENT.get(&self.base_url)
+            .send()
             .await
             .map_err(|e| AppError::ForgeError(format!("Failed to fetch Forge versions: {}", e)))?;
 

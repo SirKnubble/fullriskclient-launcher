@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::{DownloadInfo, Library};
 use futures::stream::{iter, StreamExt};
@@ -87,7 +87,7 @@ impl MinecraftLibrariesDownloadService {
         }
 
         let url = &download_info.url;
-        let response = reqwest::get(url).await.map_err(AppError::MinecraftApi)?;
+        let response = HTTP_CLIENT.get(url).send().await.map_err(AppError::MinecraftApi)?;
 
         if !response.status().is_success() {
             let status = response.status();

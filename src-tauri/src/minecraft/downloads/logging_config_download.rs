@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::LoggingClient;
 use log::{error, info};
@@ -44,7 +44,7 @@ impl MinecraftLoggingDownloadService {
             "[Logging Config Download] Downloading logging config: {}",
             file_name
         );
-        let response = reqwest::get(&logging.file.url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(&logging.file.url).send().await.map_err(|e| {
             error!("[Logging Config Download] Request error: {}", e);
             AppError::Download(format!("Failed to download logging configuration: {}", e))
         })?;

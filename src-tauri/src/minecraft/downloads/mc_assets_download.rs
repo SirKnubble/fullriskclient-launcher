@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::{AssetIndex, AssetIndexContent, AssetObject};
 use crate::state::event_state::{EventPayload, EventType};
@@ -163,18 +163,18 @@ impl MinecraftAssetsDownloadService {
                     hash
                 );
 
-                let response_result = reqwest::get(&url).await;
+                let response_result = HTTP_CLIENT.get(&url).send().await;
 
                 let response = match response_result {
                     Ok(resp) => resp,
                     Err(e) => {
                         error!(
-                            "[Assets Download Task {}] Request error for {}: {}",
-                            task_id, name_clone, e
+                            "[Assets Download Task {}] Request error for asset {} at URL {}: {} (is_timeout: {}, is_connect: {}, is_request: {})",
+                            task_id, name_clone, url, e, e.is_timeout(), e.is_connect(), e.is_request()
                         );
                         return Err(AppError::Download(format!(
-                            "Failed to initiate download for asset {}: {}",
-                            name_clone, e
+                            "Failed to download asset {} from {}: {}",
+                            name_clone, url, e
                         )));
                     }
                 };
@@ -405,17 +405,17 @@ impl MinecraftAssetsDownloadService {
             "[Assets Download] Downloading asset index: {}",
             asset_index.id
         );
-        let response_result = reqwest::get(&asset_index.url).await;
+        let response_result = HTTP_CLIENT.get(&asset_index.url).send().await;
         let response = match response_result {
             Ok(resp) => resp,
             Err(e) => {
                 error!(
-                    "[Assets Download] Failed request for asset index {}: {}",
-                    asset_index.id, e
+                    "[Assets Download] Failed request for asset index {} at URL {}: {} (is_timeout: {}, is_connect: {}, is_request: {})",
+                    asset_index.id, asset_index.url, e, e.is_timeout(), e.is_connect(), e.is_request()
                 );
                 return Err(AppError::Download(format!(
-                    "Failed to download asset index {}: {}",
-                    asset_index.id, e
+                    "Failed to download asset index {} from {}: {}",
+                    asset_index.id, asset_index.url, e
                 )));
             }
         };

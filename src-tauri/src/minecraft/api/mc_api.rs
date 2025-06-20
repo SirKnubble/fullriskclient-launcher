@@ -1,3 +1,4 @@
+use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::minecraft_profile::MinecraftProfile;
 use crate::minecraft::dto::piston_meta::PistonMeta;
@@ -34,7 +35,8 @@ impl MinecraftApiService {
     }
 
     pub async fn get_version_manifest(&self) -> Result<VersionManifest> {
-        let response = reqwest::get(VERSION_MANIFEST_URL)
+        let response = HTTP_CLIENT.get(VERSION_MANIFEST_URL)
+            .send()
             .await
             .map_err(AppError::MinecraftApi)?;
 
@@ -47,7 +49,7 @@ impl MinecraftApiService {
     }
 
     pub async fn get_piston_meta(&self, url: &str) -> Result<PistonMeta> {
-        let response = reqwest::get(url).await.map_err(AppError::MinecraftApi)?;
+        let response = HTTP_CLIENT.get(url).send().await.map_err(AppError::MinecraftApi)?;
 
         let meta = response
             .json::<PistonMeta>()
@@ -63,7 +65,7 @@ impl MinecraftApiService {
         let url = format!("{}/session/minecraft/profile/{}", MOJANG_SESSION_URL, uuid);
         debug!("Request URL: {}", url);
 
-        let response = match reqwest::get(&url).await {
+        let response = match HTTP_CLIENT.get(&url).send().await {
             Ok(resp) => {
                 debug!("Received response with status: {}", resp.status());
                 resp
@@ -112,7 +114,7 @@ impl MinecraftApiService {
         );
         debug!("Username lookup URL: {}", username_lookup_url);
 
-        let response = reqwest::get(&username_lookup_url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(&username_lookup_url).send().await.map_err(|e| {
             debug!("Failed to call Mojang API for username lookup: {:?}", e);
             AppError::MinecraftApi(e)
         })?;
@@ -476,7 +478,7 @@ impl MinecraftApiService {
 
         debug!("Request URL: {}", url);
 
-        let response_result = reqwest::get(&url).await;
+        let response_result = HTTP_CLIENT.get(&url).send().await;
 
         if let Err(ref e) = response_result {
             debug!("API request failed: {:?}", e);

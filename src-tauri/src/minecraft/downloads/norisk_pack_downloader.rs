@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::integrations::norisk_packs::{self, NoriskModSourceDefinition, NoriskModpacksConfig};
 use futures::stream::{iter, StreamExt};
@@ -273,7 +273,8 @@ impl NoriskPackDownloadService {
         }
 
         info!("Downloading from {} to {:?}", url, target_path);
-        let response = reqwest::get(url)
+        let response = HTTP_CLIENT.get(url)
+            .send()
             .await
             .map_err(|e| AppError::Download(format!("Request failed for {}: {}", url, e)))?;
 

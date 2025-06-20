@@ -1,4 +1,4 @@
-use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::Result;
 use crate::minecraft::dto::quilt_meta::{QuiltLibrary, QuiltVersionInfo};
 use futures::stream::StreamExt;
@@ -116,7 +116,7 @@ impl QuiltLibrariesDownloadService {
 
         // Download the artifact
         info!("⬇️ Downloading Maven artifact: {}", maven);
-        let response = reqwest::get(&url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
             crate::error::AppError::QuiltError(format!("Failed to download Maven artifact: {}", e))
         })?;
 
@@ -307,7 +307,7 @@ impl QuiltLibrariesDownloadService {
 
         // Download the library
         info!("⬇️ Downloading: {} from {}", library.name, url);
-        let response = reqwest::get(url).await.map_err(|e| {
+        let response = HTTP_CLIENT.get(url).send().await.map_err(|e| {
             crate::error::AppError::QuiltError(format!("Failed to download library: {}", e))
         })?;
 
