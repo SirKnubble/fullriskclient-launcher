@@ -522,7 +522,12 @@ impl NoriskClientAssetsDownloadService {
         for (name, asset) in assets_list {
             let hash = asset.hash.clone();
             let size = asset.size;
-            let target_path = assets_path.join(&name);
+            
+            // Store assets by hash like Mojang: objects/ab/abcdef123...
+            let hash_prefix = &hash[0..2]; // First 2 chars
+            let objects_dir = assets_path.join("objects").join(hash_prefix);
+            let target_path = objects_dir.join(&hash);
+            
             let name_clone = name.clone();
             let task_counter_clone = Arc::clone(&task_counter);
             let completed_counter_clone = Arc::clone(&completed_counter);
@@ -530,20 +535,15 @@ impl NoriskClientAssetsDownloadService {
             let asset_id_clone = asset_id.to_string();
             let norisk_token_clone = norisk_token.to_string();
 
+            // Hash-based check - if hash file exists, content is guaranteed correct
             if fs::try_exists(&target_path).await? {
-                if let Ok(metadata) = fs::metadata(&target_path).await {
-                    if metadata.len() as i64 == size {
-                        trace!(
-                            "[NRC Assets Download '{}'] Skipping asset {} (already exists)",
-                            asset_id_clone,
-                            name_clone
-                        );
-                        continue;
-                    }
-                    warn!(
-                        "[NRC Assets Download '{}'] Asset {} size mismatch (expected {}, got {}), redownloading.",
-                          asset_id_clone, name_clone, size, metadata.len());
-                }
+                trace!(
+                    "[NRC Assets Download '{}'] Skipping asset {} (hash {} already exists)",
+                    asset_id_clone,
+                    name_clone,
+                    hash
+                );
+                continue;
             }
 
             job_count += 1;
@@ -830,8 +830,12 @@ impl NoriskClientAssetsDownloadService {
             let mut batch_copied = 0;
             let mut batch_skipped = 0;
 
-            for (name, _asset) in chunk {
-                let source_path = source_dir.join(&name);
+            for (name, asset) in chunk {
+                let hash = &asset.hash;
+                
+                // Source is now hash-based: objects/ab/abcdef123...
+                let hash_prefix = &hash[0..2];
+                let source_path = source_dir.join("objects").join(hash_prefix).join(hash);
 
                 // Special handling for override assets
                 let (target_path, is_override) = if name.starts_with("overrides/") {
@@ -845,9 +849,10 @@ impl NoriskClientAssetsDownloadService {
 
                 if !fs::try_exists(&source_path).await? {
                     warn!(
-                        "[NRC Assets Copy '{}'] Source file missing: {}",
+                        "[NRC Assets Copy '{}'] Hash file missing: {} (for asset {})",
                         asset_id,
-                        source_path.display()
+                        source_path.display(),
+                        name
                     );
                     continue;
                 }
@@ -867,33 +872,46 @@ impl NoriskClientAssetsDownloadService {
                         );
                         false
                     } else {
+                        // Hash-based system: check size first, then modification time
                         let source_metadata = fs::metadata(&source_path).await?;
                         let target_metadata = fs::metadata(&target_path).await?;
-                        if source_metadata.len() != target_metadata.len() {
+                        
+                        if target_metadata.len() as i64 != asset.size {
                             debug!(
-                                "[NRC Assets Copy '{}'] Size mismatch for {}, needs copy",
-                                asset_id, name
+                                "[NRC Assets Copy '{}'] Target size mismatch for {} (hash {}), needs copy",
+                                asset_id, name, hash
                             );
                             true
                         } else {
-                            trace!(
-                                "[NRC Assets Copy '{}'] Skipping {}, same size",
-                                asset_id,
-                                name
-                            );
-                            false
+                            // Same size - check if hash file (source) is newer than target
+                            let source_modified = source_metadata.modified().unwrap_or(std::time::UNIX_EPOCH);
+                            let target_modified = target_metadata.modified().unwrap_or(std::time::UNIX_EPOCH);
+                            
+                            if source_modified > target_modified {
+                                debug!(
+                                    "[NRC Assets Copy '{}'] Hash file {} is newer than target, needs copy",
+                                    asset_id, name
+                                );
+                                true
+                            } else {
+                                trace!(
+                                    "[NRC Assets Copy '{}'] Skipping {} (hash {}), target is up to date",
+                                    asset_id, name, hash
+                                );
+                                false
+                            }
                         }
                     }
                 } else {
                     if is_override {
                         debug!(
-                            "[NRC Assets Copy '{}'] Override file doesn't exist for {}, copying to Minecraft dir",
-                            asset_id, name
+                            "[NRC Assets Copy '{}'] Override file doesn't exist for {} (hash {}), copying to Minecraft dir",
+                            asset_id, name, hash
                         );
                     } else {
                         debug!(
-                            "[NRC Assets Copy '{}'] Target doesn't exist for {}, needs copy",
-                            asset_id, name
+                            "[NRC Assets Copy '{}'] Target doesn't exist for {} (hash {}), needs copy",
+                            asset_id, name, hash
                         );
                     }
                     true
