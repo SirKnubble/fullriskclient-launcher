@@ -1435,11 +1435,11 @@ pub async fn is_profile_launching(profile_id: Uuid) -> Result<bool, CommandError
 pub async fn refresh_norisk_packs() -> Result<(), CommandError> {
     info!("Refreshing Norisk packs via command...");
     let state = State::get().await?;
+    let config = state.config_manager.get_config().await;
 
-    //TODO hier später von der config holen
     match state
         .norisk_pack_manager
-        .fetch_and_update_config(&"", true)
+        .fetch_and_update_config(&"", config.is_experimental)
         .await
     {
         Ok(_) => {
@@ -1458,12 +1458,11 @@ pub async fn refresh_norisk_packs() -> Result<(), CommandError> {
 pub async fn refresh_standard_versions() -> Result<(), CommandError> {
     info!("Refreshing standard versions via command...");
     let state = State::get().await?;
+    let config = state.config_manager.get_config().await;
 
-    // Call the manager's fetch and update method
-    //TODO hier später von der config holen
     match state
         .norisk_version_manager
-        .fetch_and_update_config(&"", true) // Call the new method
+        .fetch_and_update_config(&"", config.is_experimental)
         .await
     {
         Ok(_) => {
