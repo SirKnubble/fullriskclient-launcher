@@ -55,196 +55,199 @@ pub async fn resolve_target_mods(
 
     // 1. Process Pack Mods (Only Modrinth)
     if let (Some(ref pack_id), Some(config)) = (&profile.selected_norisk_pack_id, norisk_config) {
-        if let Some(pack_definition) = config.packs.get(pack_id) {
-            info!("Resolving mods from selected Norisk Pack: '{}'", pack_id);
-            for mod_entry in &pack_definition.mods {
-                // --- START: Moved Disabled Check (Check *before* type/compatibility) ---
-                let mod_id_str = mod_entry.id.clone();
-                let game_version_str = minecraft_version.to_string();
+        info!("Resolving mods from selected Norisk Pack: '{}'", pack_id);
+        match config.get_resolved_pack_definition(pack_id) {
+            Ok(pack_definition) => {
+                for mod_entry in &pack_definition.mods {
+                    // --- START: Moved Disabled Check (Check *before* type/compatibility) ---
+                    let mod_id_str = mod_entry.id.clone();
+                    let game_version_str = minecraft_version.to_string();
 
-                match ModLoader::from_str(loader_str) {
-                    Ok(loader_enum) => {
-                        let identifier = NoriskModIdentifier {
-                            pack_id: pack_id.clone(),
-                            mod_id: mod_id_str.clone(),
-                            game_version: game_version_str,
-                            loader: loader_enum,
-                        };
+                    match ModLoader::from_str(loader_str) {
+                        Ok(loader_enum) => {
+                            let identifier = NoriskModIdentifier {
+                                pack_id: pack_id.clone(),
+                                mod_id: mod_id_str.clone(),
+                                game_version: game_version_str,
+                                loader: loader_enum,
+                            };
 
-                        if profile.disabled_norisk_mods_detailed.contains(&identifier) {
-                            info!(
-                                "Skipping pack mod '{}' (ID: {}) because it is disabled for profile '{}' context (MC: {}, Loader: {:?})",
-                                mod_entry.display_name.as_deref().unwrap_or("?"), mod_id_str, profile.name, minecraft_version, loader_enum
-                            );
-                            continue; // Skip this mod entirely if disabled
+                            if profile.disabled_norisk_mods_detailed.contains(&identifier) {
+                                info!(
+                                    "Skipping pack mod '{}' (ID: {}) because it is disabled for profile '{}' context (MC: {}, Loader: {:?})",
+                                    mod_entry.display_name.as_deref().unwrap_or("?"), mod_id_str, profile.name, minecraft_version, loader_enum
+                                );
+                                continue; // Skip this mod entirely if disabled
+                            }
+                            // Mod is not disabled for this context
                         }
-                        // Mod is not disabled for this context
+                        Err(_) => {
+                            warn!("Invalid loader string '{}' during disabled check for pack mod '{}'. Cannot check disabled status.", loader_str, mod_id_str);
+                            // Proceeding even if loader check failed for disabled status?
+                        }
                     }
-                    Err(_) => {
-                        warn!("Invalid loader string '{}' during disabled check for pack mod '{}'. Cannot check disabled status.", loader_str, mod_id_str);
-                        // Proceeding even if loader check failed for disabled status?
-                    }
-                }
-                // --- END: Moved Disabled Check ---
+                    // --- END: Moved Disabled Check ---
 
-                // --- Process the mod based on type (if not disabled) ---
+                    // --- Process the mod based on type (if not disabled) ---
 
-                // Current focus: Modrinth
-                if let NoriskModSourceDefinition::Modrinth { .. } = &mod_entry.source {
-                    if let Some(target) = mod_entry
-                        .compatibility
-                        .get(minecraft_version)
-                        .and_then(|l| l.get(loader_str))
-                    {
-                        // Disabled check is handled above
-                        if let Some(canonical_key) =
-                            get_canonical_key(&mod_entry.source, &mod_entry.id)
+                    // Current focus: Modrinth
+                    if let NoriskModSourceDefinition::Modrinth { .. } = &mod_entry.source {
+                        if let Some(target) = mod_entry
+                            .compatibility
+                            .get(minecraft_version)
+                            .and_then(|l| l.get(loader_str))
                         {
-                            match norisk_packs::get_norisk_pack_mod_filename(
-                                &mod_entry.source,
-                                target,
-                                &mod_entry.id,
-                            ) {
-                                Ok(filename) => {
-                                    let cache_path = mod_cache_dir.join(&filename);
-                                    if cache_path.exists() {
-                                        final_mods.insert(
-                                            canonical_key.clone(),
-                                            TargetMod {
-                                                mod_id: canonical_key,
-                                                filename,
-                                                cache_path,
-                                            },
-                                        );
-                                    } else {
-                                        warn!(
+                            // Disabled check is handled above
+                            if let Some(canonical_key) =
+                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                            {
+                                match norisk_packs::get_norisk_pack_mod_filename(
+                                    &mod_entry.source,
+                                    target,
+                                    &mod_entry.id,
+                                ) {
+                                    Ok(filename) => {
+                                        let cache_path = mod_cache_dir.join(&filename);
+                                        if cache_path.exists() {
+                                            final_mods.insert(
+                                                canonical_key.clone(),
+                                                TargetMod {
+                                                    mod_id: canonical_key,
+                                                    filename,
+                                                    cache_path,
+                                                },
+                                            );
+                                        } else {
+                                            warn!(
                                             "Modrinth mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.", 
                                             filename, pack_id, cache_path
                                         );
+                                        }
                                     }
-                                }
-                                Err(e) => {
-                                    warn!(
+                                    Err(e) => {
+                                        warn!(
                                          "Could not determine filename for pack Modrinth mod '{}' (ID: {}): {}. Skipping.",
                                          mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id), mod_entry.id, e
                                     );
-                                }
-                            } // End get_filename match
-                        } // End get_canonical_key match
-                    } // End compatibility check
+                                    }
+                                } // End get_filename match
+                            } // End get_canonical_key match
+                        } // End compatibility check
 
-                // Handle URL Mods
-                } else if let NoriskModSourceDefinition::Url { .. } = &mod_entry.source {
-                    if let Some(target) = mod_entry
-                        .compatibility
-                        .get(minecraft_version)
-                        .and_then(|l| l.get(loader_str))
-                    {
-                        // Disabled check is handled above
-                        if let Some(canonical_key) =
-                            get_canonical_key(&mod_entry.source, &mod_entry.id)
+                    // Handle URL Mods
+                    } else if let NoriskModSourceDefinition::Url { .. } = &mod_entry.source {
+                        if let Some(target) = mod_entry
+                            .compatibility
+                            .get(minecraft_version)
+                            .and_then(|l| l.get(loader_str))
                         {
-                            match norisk_packs::get_norisk_pack_mod_filename(
-                                &mod_entry.source,
-                                target,
-                                &mod_entry.id,
-                            ) {
-                                Ok(filename) => {
-                                    let cache_path = mod_cache_dir.join(&filename);
-                                    if cache_path.exists() {
-                                        // Use the filename from the compatibility block
-                                        final_mods.insert(
-                                            canonical_key.clone(),
-                                            TargetMod {
-                                                mod_id: canonical_key,
-                                                filename: filename.clone(), // Use the explicit filename
-                                                cache_path,
-                                            },
-                                        );
-                                        info!("Resolved URL mod '{}' from pack.", filename);
-                                    } else {
-                                        warn!(
+                            // Disabled check is handled above
+                            if let Some(canonical_key) =
+                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                            {
+                                match norisk_packs::get_norisk_pack_mod_filename(
+                                    &mod_entry.source,
+                                    target,
+                                    &mod_entry.id,
+                                ) {
+                                    Ok(filename) => {
+                                        let cache_path = mod_cache_dir.join(&filename);
+                                        if cache_path.exists() {
+                                            // Use the filename from the compatibility block
+                                            final_mods.insert(
+                                                canonical_key.clone(),
+                                                TargetMod {
+                                                    mod_id: canonical_key,
+                                                    filename: filename.clone(), // Use the explicit filename
+                                                    cache_path,
+                                                },
+                                            );
+                                            info!("Resolved URL mod '{}' from pack.", filename);
+                                        } else {
+                                            warn!(
                                             "URL mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.",
                                             filename, pack_id, cache_path
                                         );
+                                        }
                                     }
-                                }
-                                Err(e) => {
-                                    // Should only happen if filename is missing in pack def
-                                    warn!(
+                                    Err(e) => {
+                                        // Should only happen if filename is missing in pack def
+                                        warn!(
                                         "Could not get filename for pack URL mod '{}' (ID: {}): {}. Skipping.",
                                         mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id), mod_entry.id, e
                                     );
-                                }
-                            } // End get_filename match
-                        } // End get_canonical_key match
-                    } // End compatibility check
+                                    }
+                                } // End get_filename match
+                            } // End get_canonical_key match
+                        } // End compatibility check
 
-                // Handle Maven Mods
-                } else if let NoriskModSourceDefinition::Maven {
-                    repository_ref,
-                    group_id,
-                    artifact_id,
-                } = &mod_entry.source
-                {
-                    if let Some(target) = mod_entry
-                        .compatibility
-                        .get(minecraft_version)
-                        .and_then(|l| l.get(loader_str))
+                    // Handle Maven Mods
+                    } else if let NoriskModSourceDefinition::Maven {
+                        repository_ref,
+                        group_id,
+                        artifact_id,
+                    } = &mod_entry.source
                     {
-                        // Disabled check is handled above
-                        if let Some(canonical_key) =
-                            get_canonical_key(&mod_entry.source, &mod_entry.id)
+                        if let Some(target) = mod_entry
+                            .compatibility
+                            .get(minecraft_version)
+                            .and_then(|l| l.get(loader_str))
                         {
-                            // Filename can be derived for Maven, or explicitly provided
-                            match norisk_packs::get_norisk_pack_mod_filename(
-                                &mod_entry.source,
-                                target,
-                                &mod_entry.id,
-                            ) {
-                                Ok(filename) => {
-                                    let cache_path = mod_cache_dir.join(&filename);
-                                    if cache_path.exists() {
-                                        final_mods.insert(
-                                            canonical_key.clone(),
-                                            TargetMod {
-                                                mod_id: canonical_key,
-                                                filename: filename.clone(),
-                                                cache_path,
-                                            },
-                                        );
-                                        info!(
-                                            "Resolved Maven mod '{}' ('{}') from pack.",
-                                            mod_entry
-                                                .display_name
-                                                .as_deref()
-                                                .unwrap_or(&mod_entry.id),
-                                            filename
-                                        );
-                                    } else {
-                                        warn!(
+                            // Disabled check is handled above
+                            if let Some(canonical_key) =
+                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                            {
+                                // Filename can be derived for Maven, or explicitly provided
+                                match norisk_packs::get_norisk_pack_mod_filename(
+                                    &mod_entry.source,
+                                    target,
+                                    &mod_entry.id,
+                                ) {
+                                    Ok(filename) => {
+                                        let cache_path = mod_cache_dir.join(&filename);
+                                        if cache_path.exists() {
+                                            final_mods.insert(
+                                                canonical_key.clone(),
+                                                TargetMod {
+                                                    mod_id: canonical_key,
+                                                    filename: filename.clone(),
+                                                    cache_path,
+                                                },
+                                            );
+                                            info!(
+                                                "Resolved Maven mod '{}' ('{}') from pack.",
+                                                mod_entry
+                                                    .display_name
+                                                    .as_deref()
+                                                    .unwrap_or(&mod_entry.id),
+                                                filename
+                                            );
+                                        } else {
+                                            warn!(
                                             "Maven mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.",
                                             filename, pack_id, cache_path
                                         );
+                                        }
                                     }
-                                }
-                                Err(e) => {
-                                    // Error during filename derivation/retrieval
-                                    warn!(
+                                    Err(e) => {
+                                        // Error during filename derivation/retrieval
+                                        warn!(
                                         "Could not get/derive filename for pack Maven mod '{}' (ID: {}): {}. Skipping.",
                                         mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id), mod_entry.id, e
                                     );
-                                }
-                            } // End get_filename match
-                        } // End get_canonical_key match
-                    } // End compatibility check
-                } // End Modrinth/URL/Maven checks
-            } // End for mod_entry
-        } else {
-            warn!(
-                "Selected Norisk Pack ID '{}' not found in configuration.",
-                pack_id
-            );
+                                    }
+                                } // End get_filename match
+                            } // End get_canonical_key match
+                        } // End compatibility check
+                    } // End Modrinth/URL/Maven checks
+                } // End for mod_entry
+            }
+            Err(e) => {
+                warn!(
+                    "Could not resolve Norisk Pack definition for pack ID '{}': {}. Skipping pack mods.",
+                    pack_id, e
+                );
+            }
         }
     }
 
