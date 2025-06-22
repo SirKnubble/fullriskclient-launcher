@@ -81,7 +81,16 @@ impl NoRiskApi {
         debug!("[NoRisk API] Parsing server ID response as JSON");
         match response.json::<ServerIdResponse>().await {
             Ok(server_response) => {
-                info!("[NoRisk API] Server ID request successful: {}", server_response.server_id);
+                let server_id = &server_response.server_id;
+                if !server_id.starts_with("nrc-") {
+                    error!("[NoRisk API] Invalid server ID received: {}", server_id);
+                    return Err(AppError::RequestError(format!(
+                        "Invalid server ID received from NoRisk API: {}",
+                        server_id
+                    )));
+                }
+                
+                info!("[NoRisk API] Server ID request successful: {}", server_id);
                 Ok(server_response)
             }
             Err(e) => {
