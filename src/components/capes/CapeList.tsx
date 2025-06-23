@@ -17,8 +17,12 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/buttons/Button";
 import { Card } from "../ui/Card";
+import { Modal } from "../ui/Modal";
+import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
+import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
+import gsap from "gsap";
 
-// Define ListComponent outside of CapeList to ensure a stable reference
+
 const ListComponent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -32,7 +36,7 @@ const ListComponent = React.forwardRef<
         gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
         gap: "16px",
         padding: "16px",
-        ...style, // Style from Virtuoso (e.g., height, width, transform)
+        ...style, 
       }}
     >
       {children}
@@ -49,6 +53,7 @@ interface CapeItemDisplayProps {
   canDelete?: boolean;
   onDeleteCapeClick?: (cape: CosmeticCape, e: React.MouseEvent) => void;
   creatorNameCache: Map<string, string>;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 function CapeItemDisplay({
@@ -59,6 +64,7 @@ function CapeItemDisplay({
   canDelete,
   onDeleteCapeClick,
   creatorNameCache,
+  onContextMenu,
 }: CapeItemDisplayProps) {
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [creatorLoading, setCreatorLoading] = useState<boolean>(false);
@@ -108,6 +114,7 @@ function CapeItemDisplay({
     <Card
       className="flex flex-col items-center group cursor-pointer h-full justify-between transition-all duration-300 ease-out hover:scale-105 hover:z-10"
       onClick={() => !isCurrentlyEquipping && onEquipCape(cape._id)}
+      onContextMenu={onContextMenu}
       variant="flat"
     >
       {isCurrentlyEquipping && (
@@ -183,7 +190,7 @@ function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(true);
-    }, 50); // Short delay to trigger transition
+    }, 50); 
     return () => clearTimeout(timer);
   }, []);
 
@@ -218,7 +225,7 @@ function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
       {onDownloadTemplate && (
         <Button
           onClick={(e) => {
-            e.stopPropagation(); // Prevent card click
+            e.stopPropagation(); 
             onDownloadTemplate();
           }}
           className="download-template-button w-full mt-2 cursor-pointer rounded-md transition-colors duration-150 group/template-btn"
@@ -272,14 +279,29 @@ export function CapeList({
   onTriggerUpload,
   onDownloadTemplate,
 }: CapeListProps) {
-  const accentColor = useThemeStore((state) => state.accentColor.value);
+  const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    cape: CosmeticCape | null;
+  } | null>(null);
+  const [show3DPreview, setShow3DPreview] = useState<{
+    cape: CosmeticCape;
+  } | null>(null);
+  const authStore = useMinecraftAuthStore();
+  const activeAccount = authStore.activeAccount;
+  const userSkinUrl = activeAccount?.id
+    ? `https://crafatar.com/skins/${activeAccount.id}`
+    : undefined;
 
   const [isDebouncedLoading, setIsDebouncedLoading] = useState(false);
   const debouncedLoadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
-    // Determine if actual capes (excluding placeholder) are present
+
     const actualCapesCount = capes.filter(
       (c) => c._id !== ADD_CAPE_PLACEHOLDER_ID,
     ).length;
@@ -318,8 +340,7 @@ export function CapeList({
   );
 
   const itemsToRender = useMemo(() => {
-    // This can be simplified as CapeBrowser now always includes the placeholder if activeAccount exists.
-    // However, keeping it consistent with the passed `capes` prop is fine.
+
     return capes;
   }, [capes]);
 
@@ -332,15 +353,68 @@ export function CapeList({
             <Icon
               icon="eos-icons:loading"
               className="w-8 h-8"
-              style={{ color: accentColor }}
+              style={{ color: accentColor.value }}
             />
           </div>
         );
       },
-      List: ListComponent, // Use the stable ListComponent reference
+      List: ListComponent, 
     }),
     [isFetchingMore, accentColor],
-  ); // Dependencies for the Footer part
+  ); 
+
+  function calculateMenuPosition(x: number, y: number, menuWidth: number, menuHeight: number) {
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const padding = 16;
+    let adjustedX = x;
+    let adjustedY = y;
+    if (x + menuWidth + padding > viewport.width) {
+      adjustedX = x - menuWidth;
+      if (adjustedX < padding) adjustedX = viewport.width - menuWidth - padding;
+    }
+    if (y + menuHeight + padding > viewport.height) {
+      adjustedY = y - menuHeight;
+      if (adjustedY < padding) adjustedY = viewport.height - menuHeight - padding;
+    }
+    adjustedX = Math.max(padding, Math.min(adjustedX, viewport.width - menuWidth - padding));
+    adjustedY = Math.max(padding, Math.min(adjustedY, viewport.height - menuHeight - padding));
+    return { x: adjustedX, y: adjustedY };
+  }
+
+  useEffect(() => {
+    if (contextMenu) {
+      const menuWidth = 200;
+      const menuHeight = 56;
+      setMenuPosition(calculateMenuPosition(contextMenu.x, contextMenu.y, menuWidth, menuHeight));
+      window.addEventListener("click", () => setContextMenu(null));
+      return () => window.removeEventListener("click", () => setContextMenu(null));
+    }
+  }, [contextMenu]);
+
+  useEffect(() => {
+    if (contextMenu && menuRef.current) {
+      gsap.fromTo(
+        menuRef.current,
+        { opacity: 0, scale: 0.95, y: -10 },
+        { opacity: 1, scale: 1, y: 0, duration: 0.18, ease: "power2.out" }
+      );
+    }
+  }, [contextMenu]);
+
+  const handleCapeContextMenu = useCallback(
+    (cape: CosmeticCape, e: React.MouseEvent) => {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, cape });
+    },
+    []
+  );
+
+  const handlePreview3D = useCallback(() => {
+    if (contextMenu?.cape) {
+      setShow3DPreview({ cape: contextMenu.cape });
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
 
   if (isDebouncedLoading) {
     return (
@@ -353,14 +427,14 @@ export function CapeList({
         <Icon
           icon="solar:hourglass-bold-duotone"
           className="w-16 h-16 mb-4 animate-pulse"
-          style={{ color: accentColor }}
+          style={{ color: accentColor.value }}
         />
         <p className="font-minecraft text-2xl lowercase">Loading Capes...</p>
       </div>
     );
   }
 
-  // Adjusted empty state condition to also consider if ADD_CAPE_PLACEHOLDER_ID is the only item
+
   const noActualCapesToDisplay =
     itemsToRender.filter((item) => item._id !== ADD_CAPE_PLACEHOLDER_ID)
       .length === 0;
@@ -408,7 +482,7 @@ export function CapeList({
         data={itemsToRender}
         endReached={handleEndReached}
         overscan={200}
-        components={virtuosoComponents} // Pass the memoized components object
+        components={virtuosoComponents}
         itemContent={(index, item) => {
           if (item._id === ADD_CAPE_PLACEHOLDER_ID) {
             if (!onTriggerUpload) return null;
@@ -431,11 +505,63 @@ export function CapeList({
               canDelete={canDelete}
               onDeleteCapeClick={handleDeleteClickInternal}
               creatorNameCache={creatorNameCacheRef.current}
+              onContextMenu={(e) => handleCapeContextMenu(cape, e)}
             />
           );
         }}
         className="custom-scrollbar"
       />
+      {contextMenu && contextMenu.cape && (
+        <div
+          ref={menuRef}
+          className="fixed z-[9999] rounded-md shadow-xl border-2 border-b-4 overflow-hidden"
+          style={{
+            top: menuPosition.y,
+            left: menuPosition.x,
+            backgroundColor: accentColor.value + "20",
+            borderColor: accentColor.value + "90",
+            borderBottomColor: accentColor.value,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            boxShadow: "0 8px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05)",
+            minWidth: 200,
+            padding: 0,
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <span
+            className="absolute inset-x-0 top-0 h-[2px] rounded-t-sm"
+            style={{ backgroundColor: `${accentColor.value}80` }}
+          />
+          <ul className="py-1">
+            <li
+              className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150 text-white font-minecraft text-lg"
+              onClick={handlePreview3D}
+              style={{ minWidth: 180 }}
+            >
+              <Icon icon="ph:eye-bold" className="w-5 h-5 opacity-80" />
+              Preview
+            </li>
+          </ul>
+        </div>
+      )}
+      {show3DPreview && (
+        <Modal
+          title="3D Skin Preview"
+          onClose={() => setShow3DPreview(null)}
+          width="lg"
+          variant="flat"
+        >
+          <div style={{ width: 340, height: 420, margin: "0 auto" }}>
+            <SkinView3DWrapper
+              skinUrl={userSkinUrl}
+              capeUrl={`https://cdn.norisk.gg/capes-staging/prod/${show3DPreview.cape._id}.png`}
+              enableAutoRotate={true}
+              zoom={1.5}
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
