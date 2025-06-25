@@ -11,6 +11,7 @@ import { MinecraftAccountManager } from "../account/MinecraftAccountManager";
 import { IconButton } from "../ui/buttons/IconButton";
 import { useSocialsModalStore } from "../../store/socials-modal-store";
 import { Icon } from "@iconify/react";
+import { FriendsButton } from "../friends/FriendsButton";
 
 interface UserProfileBarProps {
   className?: string;
@@ -46,7 +47,6 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
   const toggleAccountDropdown = () => {
     setIsAccountDropdownOpen(!isAccountDropdownOpen);
   };
-
   const handleCloseDropdown = () => {
     setIsAccountDropdownOpen(false);
   };
@@ -62,8 +62,9 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
             className="h-10"
           />
         </div>
+        <FriendsButton />
 
-        <IconButton 
+        <IconButton
           icon={<Icon icon="solar:link-linear" className="w-5 h-5" />}
           onClick={openSocialsModal}
           variant="flat"
@@ -72,8 +73,6 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
           className="text-white/70 hover:text-white h-10 w-10"
         />
       </div>
-
-  
 
       <Dropdown
         ref={dropdownRef}

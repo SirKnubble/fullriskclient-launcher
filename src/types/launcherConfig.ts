@@ -1,5 +1,6 @@
 // This file is auto-generated from the Rust sources. Do not edit manually.
 // Corresponding Rust file: src-tauri/src/state/config_state.rs
+// Config version: 2
 
 export interface Hooks {
   pre_launch: string | null; // Option<String>
@@ -19,4 +20,5 @@ export interface LauncherConfig {
   concurrent_io_limit: number; // usize
   hooks: Hooks;
   hide_on_process_start: boolean;
-} 
+  open_friends_in_window: boolean;
+}

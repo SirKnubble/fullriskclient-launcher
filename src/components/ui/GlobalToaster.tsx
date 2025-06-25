@@ -6,6 +6,7 @@ import { toast as hotToast, Toaster as HotToaster } from "react-hot-toast";
 import { gsap } from "gsap";
 import { useThemeStore } from "../../store/useThemeStore";
 import { getBorderRadiusClass, createRadiusStyle } from "./design-system";
+import { Icon } from "@iconify/react";
 
 export const toast = {
   success: (message: string) => {
@@ -15,6 +16,20 @@ export const toast = {
   },
   error: (message: string) => {
     const id = hotToast.error(message);
+    animateToast(id);
+    return id;
+  },
+  info: (message: string) => {
+    const accentColor = useThemeStore.getState().accentColor;
+    const id = hotToast(message, {
+      icon: (
+        <Icon
+          icon="solar:info-circle-bold"
+          className="w-5 h-5"
+          style={{ color: accentColor.value }}
+        />
+      ),
+    });
     animateToast(id);
     return id;
   },
@@ -55,7 +70,7 @@ function animateToast(id: string) {
           scale: 1,
           duration: 0.4,
           ease: "power2.out",
-        },
+        }
       );
     }
   }, 10);
@@ -65,10 +80,10 @@ export function GlobalToaster() {
   const accentColor = useThemeStore((state) => state.accentColor);
   const borderRadius = useThemeStore((state) => state.borderRadius);
   const isBackgroundAnimationEnabled = useThemeStore(
-    (state) => state.isBackgroundAnimationEnabled,
+    (state) => state.isBackgroundAnimationEnabled
   );
   const toasterRef = useRef<HTMLDivElement>(null);
-  
+
   const borderRadiusStyle = createRadiusStyle(borderRadius);
   const borderRadiusClass = getBorderRadiusClass(borderRadius);
 
@@ -112,9 +127,9 @@ export function GlobalToaster() {
         };
     }
   };
-
   return (
-    <div ref={toasterRef}>      <HotToaster
+    <div ref={toasterRef}>
+      <HotToaster
         position="bottom-right"
         toastOptions={{
           className: `font-minecraft tracking-wider lowercase text-shadow-sm ${borderRadiusClass}`,
