@@ -7,6 +7,7 @@
 mod commands;
 mod config;
 mod error;
+
 pub mod integrations;
 mod logging;
 mod minecraft;
@@ -24,7 +25,7 @@ use utils::updater_utils;
 
 use crate::commands::process_command::{
     get_full_log, get_process, get_processes, get_processes_by_profile, open_log_window,
-    set_discord_state, stop_process,
+    open_friends_window, set_discord_state, stop_process,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
@@ -103,6 +104,16 @@ use commands::nrc_commands::get_news_and_changelogs_command;
 use commands::content_command::{
     install_content_to_profile, install_local_content_to_profile, switch_content_version,
     toggle_content_from_profile, uninstall_content_from_profile,
+};
+
+use commands::friends_command::{
+    get_friends_information_command, get_user_command, remove_friend_command,
+    accept_friend_request_command, decline_friend_request_command,
+    get_incoming_friend_requests_command, get_outgoing_friend_requests_command,
+    set_show_server_command, set_allow_friend_requests_command,
+    set_allow_server_invites_command, get_auth_token_command, start_friends_websocket_command,
+    start_friends_websocket_auto, toggle_afk_command, set_server_command, remove_server_command,
+    invite_to_server_command, request_invite_to_server_command,
 };
 
 // Import Java commands
@@ -286,9 +297,7 @@ async fn main() {
                             }
                         }
                     }
-                }
-
-                info!("Updater process finished. Attempting to show main window...");
+                }                info!("Updater process finished. Attempting to show main window...");
                 if let Some(main_window) = state_init_app_handle.get_webview_window("main") { 
                     if let Err(e) = main_window.show() {
                         error!("Failed to show main window: {}", e);
@@ -297,6 +306,8 @@ async fn main() {
                         if let Err(e) = main_window.set_focus() {
                             error!("Failed to focus main window: {}", e);
                         }
+                        info!("Starting Friends WebSocket service...");
+                        start_friends_websocket_auto(&main_window).await;
                     }
                 } else {
                     error!("Could not get main window handle to show it after update check!");
@@ -350,6 +361,7 @@ async fn main() {
             get_processes_by_profile,
             stop_process,
             open_log_window,
+            open_friends_window,
             begin_login,
             remove_account,
             get_active_account,
@@ -459,11 +471,22 @@ async fn main() {
             get_local_content,
             install_local_content_to_profile,
             switch_content_version,
-            commands::minecraft_command::get_starlight_skin_render,
-            commands::nrc_commands::discord_auth_link,
+            commands::minecraft_command::get_starlight_skin_render,            commands::nrc_commands::discord_auth_link,
             commands::nrc_commands::discord_auth_status,
-            commands::nrc_commands::discord_auth_unlink,
-            commands::nrc_commands::submit_crash_log_command
+            commands::nrc_commands::discord_auth_unlink,            commands::nrc_commands::submit_crash_log_command,            get_friends_information_command,
+            get_user_command,
+            remove_friend_command,            accept_friend_request_command,            decline_friend_request_command,
+            get_incoming_friend_requests_command,
+            get_outgoing_friend_requests_command,
+            set_show_server_command,
+            set_allow_friend_requests_command,
+            set_allow_server_invites_command,            toggle_afk_command,
+            set_server_command,
+            remove_server_command,
+            invite_to_server_command,
+            request_invite_to_server_command,
+            get_auth_token_command,
+            start_friends_websocket_command
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 

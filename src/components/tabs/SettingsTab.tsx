@@ -123,9 +123,12 @@ export function SettingsTab() {
     ];
 
   const loadConfig = useCallback(async () => {
+    console.log("loadConfig called");
     setLoading(true);
     setError(null);    try {
       const loadedConfig = await ConfigService.getLauncherConfig();
+
+      console.log("Loaded config version:", loadedConfig.version);
       const configWithHooks = {
         ...loadedConfig,
         hooks: loadedConfig.hooks || {
@@ -156,7 +159,8 @@ export function SettingsTab() {
 
     autoSaveTimeoutRef.current = setTimeout(async () => {
       setSaving(true);
-      try {        const updatedConfig =
+      try {
+        const updatedConfig =
           await ConfigService.setLauncherConfig(configToSave);
         setConfig(updatedConfig);
         toast.success("Settings auto-saved!", {
@@ -166,7 +170,8 @@ export function SettingsTab() {
       } catch (err) {
         console.error("Failed to auto-save configuration:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
-        toast.error(`Auto-save failed: ${errorMessage}`);      } finally {
+        toast.error(`Auto-save failed: ${errorMessage}`);
+      } finally {
         setSaving(false);
       }
     }, 500);
@@ -344,6 +349,30 @@ export function SettingsTab() {
                 setTempConfig({
                   ...tempConfig,
                   hide_on_process_start: checked,
+                })
+              }
+              disabled={saving}
+              size="lg"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
+            <div className="flex-1">
+              <h5 className="font-minecraft text-2xl lowercase text-white">
+                Open Friends in Window
+              </h5>
+              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
+                Open friends menu directly in a standalone window instead of the sidebar.
+                Provides more space for managing friends and requests.
+              </p>
+            </div>
+            <ToggleSwitch
+              checked={tempConfig?.open_friends_in_window || false}
+              onChange={(checked) =>
+                tempConfig &&
+                setTempConfig({
+                  ...tempConfig,
+                  open_friends_in_window: checked,
                 })
               }
               disabled={saving}
