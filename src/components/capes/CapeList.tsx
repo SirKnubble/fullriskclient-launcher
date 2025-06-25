@@ -21,6 +21,7 @@ import { Modal } from "../ui/Modal";
 import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import gsap from "gsap";
+import { IconButton } from "../ui/buttons/IconButton";
 
 
 const ListComponent = React.forwardRef<
@@ -552,16 +553,43 @@ export function CapeList({
           width="lg"
           variant="flat"
         >
-          <div style={{ width: 340, height: 420, margin: "0 auto" }}>
-            <SkinView3DWrapper
-              skinUrl={userSkinUrl}
-              capeUrl={`https://cdn.norisk.gg/capes-staging/prod/${show3DPreview.cape._id}.png`}
-              enableAutoRotate={true}
-              zoom={1.5}
-            />
-          </div>
+          <Cape3DPreviewWithToggle
+            skinUrl={userSkinUrl}
+            capeId={show3DPreview.cape._id}
+          />
         </Modal>
       )}
+    </div>
+  );
+}
+
+function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId: string }) {
+  const [showElytra, setShowElytra] = useState(false);
+  return (
+    <div style={{ width: 340, height: 420, margin: "0 auto", position: "relative" }}>
+      <IconButton
+        onClick={() => setShowElytra((v) => !v)}
+        variant="ghost"
+        size="sm"
+        className="absolute top-2 right-2 z-10"
+        icon={
+          <Icon
+            icon={showElytra ? "ph:airplane-tilt-fill" : "ph:airplane-tilt-duotone"}
+            className="w-5 h-5"
+          />
+        }
+        title={showElytra ? "Show as Cape" : "Show as Elytra"}
+        aria-label={showElytra ? "Show as Cape" : "Show as Elytra"}
+      />
+      <SkinView3DWrapper
+        skinUrl={skinUrl}
+        capeUrl={`https://cdn.norisk.gg/capes-staging/prod/${capeId}.png`}
+        enableAutoRotate={true}
+        zoom={1.5}
+        displayAsElytra={showElytra}
+        width={340}
+        height={420}
+      />
     </div>
   );
 }
