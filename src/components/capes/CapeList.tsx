@@ -525,8 +525,6 @@ export function CapeList({
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
             boxShadow: "0 8px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05)",
-            minWidth: 200,
-            padding: 0,
           }}
           onClick={e => e.stopPropagation()}
         >
@@ -536,12 +534,13 @@ export function CapeList({
           />
           <ul className="py-1">
             <li
-              className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150 text-white font-minecraft text-lg"
+              className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150"
               onClick={handlePreview3D}
-              style={{ minWidth: 180 }}
             >
-              <Icon icon="ph:eye-bold" className="w-5 h-5 opacity-80" />
-              Preview
+              <Icon icon="ph:eye-bold" className="w-5 h-5 text-white" />
+              <span className="font-minecraft-ten text-base text-white/80">
+                Preview
+              </span>
             </li>
           </ul>
         </div>
@@ -566,7 +565,7 @@ export function CapeList({
 function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId: string }) {
   const [showElytra, setShowElytra] = useState(false);
   return (
-    <div style={{ width: 340, height: 420, margin: "0 auto", position: "relative" }}>
+    <div style={{ width: 300, height: 380, margin: "0 auto", position: "relative" }}>
       <IconButton
         onClick={() => setShowElytra((v) => !v)}
         variant="ghost"
@@ -585,10 +584,12 @@ function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId
         skinUrl={skinUrl}
         capeUrl={`https://cdn.norisk.gg/capes-staging/prod/${capeId}.png`}
         enableAutoRotate={true}
-        zoom={1.5}
+        autoRotateSpeed={0.5}
+        startFromBack={true}
+        zoom={0.9}
         displayAsElytra={showElytra}
-        width={340}
-        height={420}
+        width={300}
+        height={380}
       />
     </div>
   );
