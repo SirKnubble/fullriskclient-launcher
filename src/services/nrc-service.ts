@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BlogPost } from '../types/wordPress';
 import { useProfileStore } from '../store/profile-store';
+import { getBlockedModsConfig } from './flagsmith-service';
 
 /**
  * Fetches the latest news and changelog posts from the backend.
@@ -49,6 +50,15 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
   try {
     let nrcPacksSuccess = false;
     let standardVersionsSuccess = false;
+
+    // Fire and forget: Load blocked mods config from Flagsmith
+    getBlockedModsConfig()
+      .then((config) => {
+        console.log("Blocked mods config loaded successfully:", config);
+      })
+      .catch((error) => {
+        console.error("Failed to load blocked mods config:", error);
+      });
 
     try {
       await refreshNoriskPacks();

@@ -6,6 +6,7 @@ use crate::state::profile_state::{
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tauri::command;
 
 // --- Struct for resolved mods ---
 #[derive(Debug, Clone)]
@@ -14,6 +15,22 @@ pub struct TargetMod {
     pub mod_id: String, // Canonical Key (e.g., "modrinth:AANobbMI")
     pub filename: String,
     pub cache_path: PathBuf,
+}
+
+// --- Helper function to check if a filename is blocked by Flagsmith config ---
+async fn is_filename_blocked_by_config(filename: &str) -> bool {
+    match crate::commands::flagsmith_commands::is_filename_blocked(filename.to_string()).await {
+        Ok(is_blocked) => {
+            if is_blocked {
+                info!("Filename '{}' is blocked by Flagsmith configuration", filename);
+            }
+            is_blocked
+        }
+        Err(e) => {
+            warn!("Failed to check if filename '{}' is blocked: {:?}. Allowing by default.", filename, e);
+            false // Default to allowing if check fails
+        }
+    }
 }
 
 // --- Helper function to resolve the final list of mods (Focus on Modrinth) ---
@@ -107,6 +124,15 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
+                                        // Check if filename is blocked by Flagsmith config
+                                        if is_filename_blocked_by_config(&filename).await {
+                                            info!(
+                                                "Skipping pack Modrinth mod '{}' because filename is blocked by configuration",
+                                                filename
+                                            );
+                                            continue;
+                                        }
+                                        
                                         let cache_path = mod_cache_dir.join(&filename);
                                         if cache_path.exists() {
                                             final_mods.insert(
@@ -151,6 +177,15 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
+                                        // Check if filename is blocked by Flagsmith config
+                                        if is_filename_blocked_by_config(&filename).await {
+                                            info!(
+                                                "Skipping pack URL mod '{}' because filename is blocked by configuration",
+                                                filename
+                                            );
+                                            continue;
+                                        }
+                                        
                                         let cache_path = mod_cache_dir.join(&filename);
                                         if cache_path.exists() {
                                             // Use the filename from the compatibility block
@@ -204,6 +239,15 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
+                                        // Check if filename is blocked by Flagsmith config
+                                        if is_filename_blocked_by_config(&filename).await {
+                                            info!(
+                                                "Skipping pack Maven mod '{}' because filename is blocked by configuration",
+                                                filename
+                                            );
+                                            continue;
+                                        }
+                                        
                                         let cache_path = mod_cache_dir.join(&filename);
                                         if cache_path.exists() {
                                             final_mods.insert(
@@ -320,6 +364,15 @@ pub async fn resolve_target_mods(
                 if let Some(canonical_key) = get_canonical_key_profile(&mod_info.source) {
                     match profile_state::get_profile_mod_filename(&mod_info.source) {
                         Ok(filename) => {
+                            // Check if filename is blocked by Flagsmith config
+                            if is_filename_blocked_by_config(&filename).await {
+                                info!(
+                                    "Skipping profile mod '{}' because filename is blocked by configuration",
+                                    filename
+                                );
+                                continue;
+                            }
+                            
                             let cache_path = mod_cache_dir.join(&filename);
                             if cache_path.exists() {
                                 let mod_type_str = match &mod_info.source {
@@ -396,6 +449,15 @@ pub async fn resolve_target_mods(
         let mut custom_mods_added = 0;
         for info in custom_mods {
             if info.is_enabled {
+                // Check if filename is blocked by Flagsmith config
+                if is_filename_blocked_by_config(&info.filename).await {
+                    info!(
+                        "Skipping custom mod '{}' because filename is blocked by configuration",
+                        info.filename
+                    );
+                    continue;
+                }
+                
                 // Create a unique key for the HashMap
                 let canonical_key = format!("local:{}", info.filename);
 
