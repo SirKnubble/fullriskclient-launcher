@@ -18,7 +18,11 @@ pub struct TargetMod {
 }
 
 // --- Helper function to check if a filename is blocked by Flagsmith config ---
-async fn is_filename_blocked_by_config(filename: &str) -> bool {
+async fn is_filename_blocked_by_config(filename: &str, enable_flagsmith_blocking: bool) -> bool {
+    if !enable_flagsmith_blocking {
+        return false; // Skip blocking if no NoRisk pack is selected
+    }
+    
     match crate::commands::flagsmith_commands::is_filename_blocked(filename.to_string()).await {
         Ok(is_blocked) => {
             if is_blocked {
@@ -34,7 +38,11 @@ async fn is_filename_blocked_by_config(filename: &str) -> bool {
 }
 
 // --- Helper function to check if a Modrinth project ID is blocked by Flagsmith config ---
-async fn is_modrinth_project_id_blocked_by_config(project_id: &str) -> bool {
+async fn is_modrinth_project_id_blocked_by_config(project_id: &str, enable_flagsmith_blocking: bool) -> bool {
+    if !enable_flagsmith_blocking {
+        return false; // Skip blocking if no NoRisk pack is selected
+    }
+    
     match crate::commands::flagsmith_commands::is_modrinth_project_id_blocked(project_id.to_string()).await {
         Ok(is_blocked) => {
             if is_blocked {
@@ -58,10 +66,11 @@ async fn try_add_mod_to_final_list(
     mod_type_str: &str,
     mod_name: &str,
     project_id: Option<&str>, // Only for Modrinth mods
+    enable_flagsmith_blocking: bool, // Flag to enable/disable Flagsmith blocking
 ) -> bool {
     // 1. Check Modrinth Project ID if applicable
     if let Some(pid) = project_id {
-        if is_modrinth_project_id_blocked_by_config(pid).await {
+        if is_modrinth_project_id_blocked_by_config(pid, enable_flagsmith_blocking).await {
             info!(
                 "Skipping {} mod '{}' (project ID: {}) because project ID is blocked by configuration",
                 mod_type_str, mod_name, pid
@@ -71,7 +80,7 @@ async fn try_add_mod_to_final_list(
     }
     
     // 2. Check filename
-    if is_filename_blocked_by_config(&filename).await {
+    if is_filename_blocked_by_config(&filename, enable_flagsmith_blocking).await {
         info!(
             "Skipping {} mod '{}' because filename '{}' is blocked by configuration",
             mod_type_str, mod_name, filename
@@ -125,6 +134,15 @@ pub async fn resolve_target_mods(
     mod_cache_dir: &PathBuf,
 ) -> Result<Vec<TargetMod>> {
     let mut final_mods: HashMap<String, TargetMod> = HashMap::new(); // Key: Canonical Mod Identifier
+    
+    // Enable Flagsmith blocking only if a NoRisk pack is selected
+    let enable_flagsmith_blocking = profile.selected_norisk_pack_id.is_some();
+    
+    if enable_flagsmith_blocking {
+        debug!("Flagsmith mod blocking is enabled (NoRisk pack selected)");
+    } else {
+        debug!("Flagsmith mod blocking is disabled (no NoRisk pack selected)");
+    }
 
     // --- Helper: Get Canonical Key ---
     fn get_canonical_key(source: &NoriskModSourceDefinition, mod_id: &str) -> Option<String> {
@@ -214,6 +232,7 @@ pub async fn resolve_target_mods(
                                             "pack Modrinth",
                                             mod_name,
                                             Some(project_id),
+                                            enable_flagsmith_blocking,
                                         ).await;
                                     }
                                     Err(e) => {
@@ -252,6 +271,7 @@ pub async fn resolve_target_mods(
                                             "pack URL",
                                             mod_name,
                                             None, // URL mods don't have project IDs
+                                            enable_flagsmith_blocking,
                                         ).await;
                                     }
                                     Err(e) => {
@@ -297,6 +317,7 @@ pub async fn resolve_target_mods(
                                             "pack Maven",
                                             mod_name,
                                             None, // Maven mods don't have project IDs
+                                            enable_flagsmith_blocking,
                                         ).await;
                                     }
                                     Err(e) => {
@@ -400,6 +421,7 @@ pub async fn resolve_target_mods(
                                 "profile Modrinth",
                                 mod_name,
                                 Some(project_id),
+                                enable_flagsmith_blocking,
                             ).await;
                         }
                         Err(e) => {
@@ -442,6 +464,7 @@ pub async fn resolve_target_mods(
                                 mod_type_str,
                                 mod_name,
                                 None, // URL/Maven mods don't have project IDs
+                                enable_flagsmith_blocking,
                             ).await;
                         }
                         Err(e) => {
@@ -485,7 +508,7 @@ pub async fn resolve_target_mods(
         for info in custom_mods {
             if info.is_enabled {
                 // Check if filename is blocked by Flagsmith config first (no project ID check for custom mods)
-                if is_filename_blocked_by_config(&info.filename).await {
+                if is_filename_blocked_by_config(&info.filename, enable_flagsmith_blocking).await {
                     info!(
                         "Skipping custom mod '{}' because filename is blocked by configuration",
                         info.filename
