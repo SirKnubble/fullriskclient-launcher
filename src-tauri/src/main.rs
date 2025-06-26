@@ -463,7 +463,12 @@ async fn main() {
             commands::nrc_commands::discord_auth_link,
             commands::nrc_commands::discord_auth_status,
             commands::nrc_commands::discord_auth_unlink,
-            commands::nrc_commands::submit_crash_log_command
+            commands::nrc_commands::submit_crash_log_command,
+            commands::flagsmith_commands::set_blocked_mods_config,
+            commands::flagsmith_commands::get_blocked_mods_config,
+            commands::flagsmith_commands::is_filename_blocked,
+            commands::flagsmith_commands::is_mod_id_blocked,
+            commands::flagsmith_commands::refresh_blocked_mods_config
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 
