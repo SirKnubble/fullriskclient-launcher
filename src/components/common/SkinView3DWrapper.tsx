@@ -13,10 +13,13 @@ interface SkinView3DWrapperProps {
   enableAutoRotate?: boolean;
   zoom?: number;
   displayAsElytra?: boolean;
+  onPaintPixel?: (x: any, y: any) => void;
+  autoRotateSpeed?: number;
+  startFromBack?: boolean;
 }
 
-// A known public URL for a "Steve" skin, can be used as a default
-const DEFAULT_STEVE_SKIN_URL = 'https://api.mineatar.com/skin/Steve'; // A common Steve skin URL
+
+const DEFAULT_STEVE_SKIN_URL = 'https://api.mineatar.com/skin/Steve'; 
 
 export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
   skinUrl,
@@ -25,8 +28,10 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
   width: propWidth,
   height: propHeight,
   enableAutoRotate = false,
-  zoom = 1.0, // Default zoom
+  zoom = 1.0,
   displayAsElytra = false,
+  autoRotateSpeed = 1.0,
+  startFromBack = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const skinViewerRef = useRef<skinview3d.SkinViewer | null>(null);
@@ -50,10 +55,15 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
       viewer.loadCape(capeUrl, displayAsElytra ? { backEquipment: "elytra" } : undefined);
     }
     viewer.autoRotate = enableAutoRotate;
+    if (enableAutoRotate && autoRotateSpeed !== 1.0) {
+      viewer.autoRotateSpeed = autoRotateSpeed;
+    }
     viewer.zoom = zoom;
-    // Rotate the player slightly for a better initial view if not auto-rotating
-    if (!enableAutoRotate && viewer.playerObject) {
-        viewer.playerObject.rotation.y = Math.PI; // CHANGED to show back
+   
+    if (startFromBack && viewer.playerObject) {
+        viewer.playerObject.rotation.y = Math.PI; 
+    } else if (!enableAutoRotate && viewer.playerObject) {
+        viewer.playerObject.rotation.y = Math.PI; 
     }
 
 
@@ -73,55 +83,41 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
     return () => {
       resizeObserver.disconnect();
       if (skinViewerRef.current) {
-        // skinview3d documentation doesn't explicitly show a general dispose method
-        // on the SkinViewer instance. It's assumed that when the canvas is removed
-        // and references are dropped, resources are garbage collected.
-        // If there were specific methods like skinViewer.destroy() or .dispose(),
-        // they would be called here.
+      
         skinViewerRef.current = null;
       }
     };
-  // skinUrl dependency is removed from here, handled by its own useEffect
-  // capeUrl dependency is removed from here, handled by its own useEffect
-  // displayAsElytra dependency is removed from here, handled by its own useEffect
-  }, [propWidth, propHeight, enableAutoRotate, zoom]); // REVERTED: displayAsElytra removed from this dependency array
 
-  // Effect for skinUrl changes
+  }, [propWidth, propHeight, enableAutoRotate, zoom]);
+
+ 
   useEffect(() => {
     if (skinViewerRef.current) {
       if (skinUrl === null) {
-        // Load a default or transparent skin if null is meant to hide the current one
-        // For now, we load the default Steve skin if skinUrl becomes null explicitly.
-        // Or, if `loadSkin(null)` is supported to clear, that would be used.
-        // The constructor handles undefined/default, this is for dynamic changes.
+        
         skinViewerRef.current.loadSkin(DEFAULT_STEVE_SKIN_URL);
       } else if (skinUrl) {
         skinViewerRef.current.loadSkin(skinUrl);
       }
-      // If skinUrl is undefined, it means use the initial/default, so no change here.
     }
   }, [skinUrl]);
 
-  // Effect for capeUrl changes
   useEffect(() => {
     if (skinViewerRef.current) {
       if (capeUrl === null) {
-        skinViewerRef.current.loadCape(null); // Unload cape
+        skinViewerRef.current.loadCape(null);
       } else if (capeUrl) {
         skinViewerRef.current.loadCape(capeUrl, displayAsElytra ? { backEquipment: "elytra" } : undefined);
       }
-      // If capeUrl is undefined, do nothing (keep existing cape or no cape)
     }
-  }, [capeUrl, displayAsElytra]); // ADDED displayAsElytra dependency
+  }, [capeUrl, displayAsElytra]);
 
-  // Effect for autoRotate changes
   useEffect(() => {
     if (skinViewerRef.current) {
       skinViewerRef.current.autoRotate = enableAutoRotate;
     }
   }, [enableAutoRotate]);
 
-  // Effect for zoom changes
   useEffect(() => {
     if (skinViewerRef.current) {
       skinViewerRef.current.zoom = zoom;
@@ -130,7 +126,7 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
 
   return (
     <div ref={containerRef} className={cn("w-full h-full", className)}>
-      <canvas ref={canvasRef} style={{ display: 'block' }} /> {/* Ensure canvas is block to fill div */}
+      <canvas ref={canvasRef} style={{ display: 'block' }} />
     </div>
   );
 }; 
