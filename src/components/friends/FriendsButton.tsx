@@ -23,6 +23,7 @@ export function FriendsButton({ className }: FriendsButtonProps) {
 
   const onlineCount = getOnlineFriendsCount();
 
+  // Load config on mount and when component becomes visible
   const loadConfig = async () => {
     try {
       const launcherConfig = await ConfigService.getLauncherConfig();
@@ -35,6 +36,7 @@ export function FriendsButton({ className }: FriendsButtonProps) {
   useEffect(() => {
     loadConfig();
 
+    // Listen for config changes
     const setupConfigListener = async () => {
       const unlisten = await listen("config-changed", (event) => {
         const payload = event.payload as any;
@@ -88,7 +90,10 @@ export function FriendsButton({ className }: FriendsButtonProps) {
   return (
     <IconButton
       icon={
-        <Icon icon="solar:users-group-two-rounded-bold" className="w-5 h-5" />
+        <Icon 
+          icon="solar:users-group-two-rounded-bold" 
+          className="w-5 h-5" 
+        />
       }
       onClick={handleClick}
       variant="flat"
