@@ -110,8 +110,8 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         loader: editedProfile.loader,
         loader_version: editedProfile.loader_version || null || undefined,
         settings: editedProfile.settings,
-        selected_norisk_pack_id:
-          editedProfile.selected_norisk_pack_id || null || undefined,
+        selected_norisk_pack_id: editedProfile.selected_norisk_pack_id,
+        clear_selected_norisk_pack: !editedProfile.selected_norisk_pack_id,
         group: editedProfile.group,
         description: editedProfile.description,
         norisk_information: editedProfile.norisk_information,
