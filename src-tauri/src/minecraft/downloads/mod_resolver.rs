@@ -6,6 +6,7 @@ use crate::state::profile_state::{
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use tauri::command;
 
 // --- Struct for resolved mods ---
 #[derive(Debug, Clone)]
@@ -14,6 +15,112 @@ pub struct TargetMod {
     pub mod_id: String, // Canonical Key (e.g., "modrinth:AANobbMI")
     pub filename: String,
     pub cache_path: PathBuf,
+}
+
+// --- Helper function to check if a filename is blocked by Flagsmith config ---
+async fn is_filename_blocked_by_config(filename: &str, enable_flagsmith_blocking: bool) -> bool {
+    if !enable_flagsmith_blocking {
+        return false; // Skip blocking if no NoRisk pack is selected
+    }
+    
+    match crate::commands::flagsmith_commands::is_filename_blocked(filename.to_string()).await {
+        Ok(is_blocked) => {
+            if is_blocked {
+                info!("Filename '{}' is blocked by Flagsmith configuration", filename);
+            }
+            is_blocked
+        }
+        Err(e) => {
+            warn!("Failed to check if filename '{}' is blocked: {:?}. Allowing by default.", filename, e);
+            false // Default to allowing if check fails
+        }
+    }
+}
+
+// --- Helper function to check if a Modrinth project ID is blocked by Flagsmith config ---
+async fn is_modrinth_project_id_blocked_by_config(project_id: &str, enable_flagsmith_blocking: bool) -> bool {
+    if !enable_flagsmith_blocking {
+        return false; // Skip blocking if no NoRisk pack is selected
+    }
+    
+    match crate::commands::flagsmith_commands::is_modrinth_project_id_blocked(project_id.to_string()).await {
+        Ok(is_blocked) => {
+            if is_blocked {
+                info!("Modrinth project ID '{}' is blocked by Flagsmith configuration", project_id);
+            }
+            is_blocked
+        }
+        Err(e) => {
+            warn!("Failed to check if Modrinth project ID '{}' is blocked: {:?}. Allowing by default.", project_id, e);
+            false // Default to allowing if check fails
+        }
+    }
+}
+
+// --- Unified helper function to add a mod to final_mods with all necessary checks ---
+async fn try_add_mod_to_final_list(
+    canonical_key: String,
+    filename: String,
+    mod_cache_dir: &PathBuf,
+    final_mods: &mut HashMap<String, TargetMod>,
+    mod_type_str: &str,
+    mod_name: &str,
+    project_id: Option<&str>, // Only for Modrinth mods
+    enable_flagsmith_blocking: bool, // Flag to enable/disable Flagsmith blocking
+) -> bool {
+    // 1. Check Modrinth Project ID if applicable
+    if let Some(pid) = project_id {
+        if is_modrinth_project_id_blocked_by_config(pid, enable_flagsmith_blocking).await {
+            info!(
+                "Skipping {} mod '{}' (project ID: {}) because project ID is blocked by configuration",
+                mod_type_str, mod_name, pid
+            );
+            return false;
+        }
+    }
+    
+    // 2. Check filename
+    if is_filename_blocked_by_config(&filename, enable_flagsmith_blocking).await {
+        info!(
+            "Skipping {} mod '{}' because filename '{}' is blocked by configuration",
+            mod_type_str, mod_name, filename
+        );
+        return false;
+    }
+    
+    // 3. Check if file exists in cache
+    let cache_path = mod_cache_dir.join(&filename);
+    if !cache_path.exists() {
+        warn!(
+            "{} mod '{}' not found in cache at: {:?}. Skipping.",
+            mod_type_str, filename, cache_path
+        );
+        return false;
+    }
+    
+    // 4. Add to final mods
+    if final_mods.contains_key(&canonical_key) {
+        info!(
+            "Overriding pack {} mod with key '{}' with version: {}",
+            mod_type_str, canonical_key, filename
+        );
+    } else {
+        info!(
+            "Adding {} mod to list: {}",
+            mod_type_str, filename
+        );
+    }
+    
+    final_mods.insert(
+        canonical_key.clone(),
+        TargetMod {
+            mod_id: canonical_key,
+            filename,
+            cache_path,
+        },
+    );
+    
+    true
 }
 
 // --- Helper function to resolve the final list of mods (Focus on Modrinth) ---
@@ -27,6 +134,15 @@ pub async fn resolve_target_mods(
     mod_cache_dir: &PathBuf,
 ) -> Result<Vec<TargetMod>> {
     let mut final_mods: HashMap<String, TargetMod> = HashMap::new(); // Key: Canonical Mod Identifier
+    
+    // Enable Flagsmith blocking only if a NoRisk pack is selected
+    let enable_flagsmith_blocking = profile.selected_norisk_pack_id.is_some();
+    
+    if enable_flagsmith_blocking {
+        debug!("Flagsmith mod blocking is enabled (NoRisk pack selected)");
+    } else {
+        debug!("Flagsmith mod blocking is disabled (no NoRisk pack selected)");
+    }
 
     // --- Helper: Get Canonical Key ---
     fn get_canonical_key(source: &NoriskModSourceDefinition, mod_id: &str) -> Option<String> {
@@ -91,7 +207,7 @@ pub async fn resolve_target_mods(
                     // --- Process the mod based on type (if not disabled) ---
 
                     // Current focus: Modrinth
-                    if let NoriskModSourceDefinition::Modrinth { .. } = &mod_entry.source {
+                    if let NoriskModSourceDefinition::Modrinth { project_id, .. } = &mod_entry.source {
                         if let Some(target) = mod_entry
                             .compatibility
                             .get(minecraft_version)
@@ -107,22 +223,17 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
-                                        let cache_path = mod_cache_dir.join(&filename);
-                                        if cache_path.exists() {
-                                            final_mods.insert(
-                                                canonical_key.clone(),
-                                                TargetMod {
-                                                    mod_id: canonical_key,
-                                                    filename,
-                                                    cache_path,
-                                                },
-                                            );
-                                        } else {
-                                            warn!(
-                                            "Modrinth mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.", 
-                                            filename, pack_id, cache_path
-                                        );
-                                        }
+                                        let mod_name = mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id);
+                                        try_add_mod_to_final_list(
+                                            canonical_key,
+                                            filename,
+                                            mod_cache_dir,
+                                            &mut final_mods,
+                                            "pack Modrinth",
+                                            mod_name,
+                                            Some(project_id),
+                                            enable_flagsmith_blocking,
+                                        ).await;
                                     }
                                     Err(e) => {
                                         warn!(
@@ -151,24 +262,17 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
-                                        let cache_path = mod_cache_dir.join(&filename);
-                                        if cache_path.exists() {
-                                            // Use the filename from the compatibility block
-                                            final_mods.insert(
-                                                canonical_key.clone(),
-                                                TargetMod {
-                                                    mod_id: canonical_key,
-                                                    filename: filename.clone(), // Use the explicit filename
-                                                    cache_path,
-                                                },
-                                            );
-                                            info!("Resolved URL mod '{}' from pack.", filename);
-                                        } else {
-                                            warn!(
-                                            "URL mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.",
-                                            filename, pack_id, cache_path
-                                        );
-                                        }
+                                        let mod_name = mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id);
+                                        try_add_mod_to_final_list(
+                                            canonical_key,
+                                            filename,
+                                            mod_cache_dir,
+                                            &mut final_mods,
+                                            "pack URL",
+                                            mod_name,
+                                            None, // URL mods don't have project IDs
+                                            enable_flagsmith_blocking,
+                                        ).await;
                                     }
                                     Err(e) => {
                                         // Should only happen if filename is missing in pack def
@@ -204,30 +308,17 @@ pub async fn resolve_target_mods(
                                     &mod_entry.id,
                                 ) {
                                     Ok(filename) => {
-                                        let cache_path = mod_cache_dir.join(&filename);
-                                        if cache_path.exists() {
-                                            final_mods.insert(
-                                                canonical_key.clone(),
-                                                TargetMod {
-                                                    mod_id: canonical_key,
-                                                    filename: filename.clone(),
-                                                    cache_path,
-                                                },
-                                            );
-                                            info!(
-                                                "Resolved Maven mod '{}' ('{}') from pack.",
-                                                mod_entry
-                                                    .display_name
-                                                    .as_deref()
-                                                    .unwrap_or(&mod_entry.id),
-                                                filename
-                                            );
-                                        } else {
-                                            warn!(
-                                            "Maven mod '{}' defined in pack '{}' not found in cache at: {:?}. Skipping.",
-                                            filename, pack_id, cache_path
-                                        );
-                                        }
+                                        let mod_name = mod_entry.display_name.as_deref().unwrap_or(&mod_entry.id);
+                                        try_add_mod_to_final_list(
+                                            canonical_key,
+                                            filename,
+                                            mod_cache_dir,
+                                            &mut final_mods,
+                                            "pack Maven",
+                                            mod_name,
+                                            None, // Maven mods don't have project IDs
+                                            enable_flagsmith_blocking,
+                                        ).await;
                                     }
                                     Err(e) => {
                                         // Error during filename derivation/retrieval
@@ -315,46 +406,66 @@ pub async fn resolve_target_mods(
 
         // Compatibility checks passed, now process based on source type
         match &mod_info.source {
-            ModSource::Modrinth { .. } | ModSource::Url { .. } | ModSource::Maven { .. } => {
+            ModSource::Modrinth { project_id, .. } => {
                 // Common logic for sources that can override pack mods
                 if let Some(canonical_key) = get_canonical_key_profile(&mod_info.source) {
                     match profile_state::get_profile_mod_filename(&mod_info.source) {
                         Ok(filename) => {
-                            let cache_path = mod_cache_dir.join(&filename);
-                            if cache_path.exists() {
-                                let mod_type_str = match &mod_info.source {
-                                    ModSource::Modrinth { .. } => "Modrinth",
-                                    ModSource::Url { .. } => "URL",
-                                    ModSource::Maven { .. } => "Maven",
-                                    _ => "Unknown", // Should not happen here
-                                };
-
-                                if final_mods.contains_key(&canonical_key) {
-                                    info!(
-                                        "Overriding pack {} mod with key '{}' with profile version: {}",
-                                        mod_type_str, canonical_key, filename
-                                    );
-                                } else {
-                                    info!(
-                                        "Adding profile {} mod to list: {}",
-                                        mod_type_str, filename
-                                    );
-                                }
-                                // Insert/Override using the canonical key
-                                final_mods.insert(
-                                    canonical_key.clone(),
-                                    TargetMod {
-                                        mod_id: canonical_key,
-                                        filename,
-                                        cache_path,
-                                    },
-                                );
-                            } else {
-                                warn!(
-                                    "Profile defined mod '{}' not found in cache at: {:?}. Skipping.",
-                                    filename, cache_path
-                                );
-                            }
+                            let mod_id_string = mod_info.id.to_string();
+                            let mod_name = mod_info.display_name.as_deref().unwrap_or(&mod_id_string);
+                            try_add_mod_to_final_list(
+                                canonical_key,
+                                filename,
+                                mod_cache_dir,
+                                &mut final_mods,
+                                "profile Modrinth",
+                                mod_name,
+                                Some(project_id),
+                                enable_flagsmith_blocking,
+                            ).await;
+                        }
+                        Err(e) => {
+                            // Error getting filename from profile mod source
+                            warn!(
+                                "Could not determine filename for profile mod '{}': {}. Skipping.",
+                                mod_info
+                                    .display_name
+                                    .as_deref()
+                                    .unwrap_or(&mod_info.id.to_string()),
+                                e
+                            );
+                        }
+                    }
+                } else {
+                    // Log if canonical key fails for expected types
+                    warn!(
+                        "Could not get canonical key for profile mod: {:?}",
+                        mod_info.source
+                    );
+                }
+            }
+            ModSource::Url { .. } | ModSource::Maven { .. } => {
+                // Common logic for sources that can override pack mods
+                if let Some(canonical_key) = get_canonical_key_profile(&mod_info.source) {
+                    match profile_state::get_profile_mod_filename(&mod_info.source) {
+                        Ok(filename) => {
+                            let mod_type_str = match &mod_info.source {
+                                ModSource::Url { .. } => "profile URL",
+                                ModSource::Maven { .. } => "profile Maven",
+                                _ => "profile Unknown", // Should not happen here
+                            };
+                            let mod_id_string = mod_info.id.to_string();
+                            let mod_name = mod_info.display_name.as_deref().unwrap_or(&mod_id_string);
+                            try_add_mod_to_final_list(
+                                canonical_key,
+                                filename,
+                                mod_cache_dir,
+                                &mut final_mods,
+                                mod_type_str,
+                                mod_name,
+                                None, // URL/Maven mods don't have project IDs
+                                enable_flagsmith_blocking,
+                            ).await;
                         }
                         Err(e) => {
                             // Error getting filename from profile mod source
@@ -396,14 +507,19 @@ pub async fn resolve_target_mods(
         let mut custom_mods_added = 0;
         for info in custom_mods {
             if info.is_enabled {
+                // Check if filename is blocked by Flagsmith config first (no project ID check for custom mods)
+                if is_filename_blocked_by_config(&info.filename, enable_flagsmith_blocking).await {
+                    info!(
+                        "Skipping custom mod '{}' because filename is blocked by configuration",
+                        info.filename
+                    );
+                    continue;
+                }
+                
                 // Create a unique key for the HashMap
                 let canonical_key = format!("local:{}", info.filename);
 
-                // Check if a mod with the same *filename* might already exist from pack/profile?
-                // For now, let's allow custom mods to always be included alongside others,
-                // even if filenames clash. The sync logic handles the final file state.
-                // If override is desired, check final_mods.values().any(|tm| tm.filename == info.filename)
-
+                // Custom mods use direct path, not cache path - no exists() check needed
                 let target = TargetMod {
                     mod_id: canonical_key.clone(),
                     filename: info.filename.clone(),
