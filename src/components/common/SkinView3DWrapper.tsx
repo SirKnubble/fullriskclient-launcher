@@ -14,6 +14,8 @@ interface SkinView3DWrapperProps {
   zoom?: number;
   displayAsElytra?: boolean;
   onPaintPixel?: (x: any, y: any) => void;
+  autoRotateSpeed?: number;
+  startFromBack?: boolean;
 }
 
 
@@ -28,6 +30,8 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
   enableAutoRotate = false,
   zoom = 1.0,
   displayAsElytra = false,
+  autoRotateSpeed = 1.0,
+  startFromBack = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const skinViewerRef = useRef<skinview3d.SkinViewer | null>(null);
@@ -51,9 +55,14 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
       viewer.loadCape(capeUrl, displayAsElytra ? { backEquipment: "elytra" } : undefined);
     }
     viewer.autoRotate = enableAutoRotate;
+    if (enableAutoRotate && autoRotateSpeed !== 1.0) {
+      viewer.autoRotateSpeed = autoRotateSpeed;
+    }
     viewer.zoom = zoom;
    
-    if (!enableAutoRotate && viewer.playerObject) {
+    if (startFromBack && viewer.playerObject) {
+        viewer.playerObject.rotation.y = Math.PI; 
+    } else if (!enableAutoRotate && viewer.playerObject) {
         viewer.playerObject.rotation.y = Math.PI; 
     }
 
