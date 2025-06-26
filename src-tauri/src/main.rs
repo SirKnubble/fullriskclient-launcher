@@ -468,6 +468,7 @@ async fn main() {
             commands::flagsmith_commands::get_blocked_mods_config,
             commands::flagsmith_commands::is_filename_blocked,
             commands::flagsmith_commands::is_mod_id_blocked,
+            commands::flagsmith_commands::is_modrinth_project_id_blocked,
             commands::flagsmith_commands::refresh_blocked_mods_config
         ])
         .build(tauri::generate_context!()) 

@@ -12,6 +12,7 @@ pub struct BlockedModsConfig {
     pub exact_filenames: Vec<String>,
     pub filename_patterns: Vec<String>,
     pub mod_ids: Vec<String>,
+    pub modrinth_project_ids: Vec<String>,
     pub description: String,
 }
 
@@ -21,6 +22,7 @@ impl Default for BlockedModsConfig {
             exact_filenames: Vec::new(),
             filename_patterns: Vec::new(),
             mod_ids: Vec::new(),
+            modrinth_project_ids: Vec::new(),
             description: "Default empty configuration".to_string(),
         }
     }
@@ -64,10 +66,11 @@ async fn get_combined_regex() -> &'static Arc<RwLock<Option<Regex>>> {
 pub async fn set_blocked_mods_config(config: BlockedModsConfig) -> Result<(), CommandError> {
     debug!("Command called: set_blocked_mods_config");
     debug!(
-        "Setting blocked mods config: {} exact filenames, {} patterns, {} mod IDs",
+        "Setting blocked mods config: {} exact filenames, {} patterns, {} mod IDs, {} modrinth project IDs",
         config.exact_filenames.len(),
         config.filename_patterns.len(),
-        config.mod_ids.len()
+        config.mod_ids.len(),
+        config.modrinth_project_ids.len()
     );
 
     // Pre-compile all regex patterns and cache them
@@ -135,10 +138,11 @@ pub async fn get_blocked_mods_config() -> Result<BlockedModsConfig, CommandError
     drop(config_guard);
     
     debug!(
-        "Retrieved blocked mods config: {} exact filenames, {} patterns, {} mod IDs",
+        "Retrieved blocked mods config: {} exact filenames, {} patterns, {} mod IDs, {} modrinth project IDs",
         config.exact_filenames.len(),
         config.filename_patterns.len(),
-        config.mod_ids.len()
+        config.mod_ids.len(),
+        config.modrinth_project_ids.len()
     );
 
     debug!("Command completed: get_blocked_mods_config");
@@ -225,6 +229,26 @@ pub async fn is_mod_id_blocked(mod_id: String) -> Result<bool, CommandError> {
     }
 
     debug!("Command completed: is_mod_id_blocked");
+    Ok(is_blocked)
+}
+
+/// Check if a specific Modrinth project ID should be blocked
+#[tauri::command]
+pub async fn is_modrinth_project_id_blocked(project_id: String) -> Result<bool, CommandError> {
+    debug!("Command called: is_modrinth_project_id_blocked for: {}", project_id);
+
+    let storage = get_blocked_mods_config_storage().await;
+    let config_guard = storage.read().await;
+    
+    let is_blocked = config_guard.modrinth_project_ids.contains(&project_id);
+    
+    if is_blocked {
+        debug!("Modrinth project ID '{}' is blocked", project_id);
+    } else {
+        debug!("Modrinth project ID '{}' is not blocked", project_id);
+    }
+
+    debug!("Command completed: is_modrinth_project_id_blocked");
     Ok(is_blocked)
 }
 
