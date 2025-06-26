@@ -8,6 +8,7 @@ export interface BlockedModsConfig {
   exact_filenames: string[];
   filename_patterns: string[];
   mod_ids: string[];
+  modrinth_project_ids: string[];
   description: string;
 }
 
