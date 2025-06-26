@@ -125,11 +125,8 @@ impl EventState {
         self.emit(payload).await // Use the existing emit method
     }
 
-    pub async fn emit_custom<T: serde::Serialize + Clone>(
-        &self,
-        event_name: &str,
-        payload: T,
-    ) -> Result<()> {
+    /// Emit a custom event with arbitrary name and payload
+    pub async fn emit_custom<T: serde::Serialize + Clone>(&self, event_name: &str, payload: T) -> Result<()> {
         if let Some(app) = &self.app {
             app.emit(event_name, payload)
                 .map_err(|e| crate::error::AppError::TauriError(e))?;

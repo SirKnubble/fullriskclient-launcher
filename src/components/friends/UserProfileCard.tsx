@@ -12,6 +12,7 @@ import { Card } from "../ui/Card";
 import { IconButton } from "../ui/buttons/IconButton";
 import { ToggleSwitch } from "../ui/ToggleSwitch";
 import type { FriendsUser } from "../../types/friends";
+import { FriendsUserStateHelpers } from "../../types/friends";
 import * as FriendsService from "../../services/friends-service";
 import { toast } from "react-hot-toast";
 import { gsap } from "gsap";
@@ -267,7 +268,7 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
   }
 
   const statusText = getStatusText(user.state);
-  const isUserOnline = user.state?.toUpperCase() === "ONLINE";
+  const isUserOnline = FriendsUserStateHelpers.isOnline(user.state);
   const statusColor = getStatusColor(user.state);
   const displayName =
     activeAccount?.minecraft_username ||
@@ -320,7 +321,7 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
                 user.server ? (
                   <span className="truncate">{user.server}</span>
                 ) : (
-                  "Online"
+                  statusText
                 )
               ) : (
                 <span className="truncate">{statusText}</span>

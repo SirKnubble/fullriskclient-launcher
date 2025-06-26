@@ -27,6 +27,7 @@ pub struct LauncherConfig {
     pub version: u32,
     #[serde(default)]
     pub is_experimental: bool,
+    // Add more configuration options as needed:
     #[serde(default)]
     pub auto_check_updates: bool,
     #[serde(default = "default_concurrent_downloads")]
@@ -112,6 +113,10 @@ pub struct ConfigManager {
 impl ConfigManager {
     pub fn new() -> Result<Self> {
         let config_path = LAUNCHER_DIRECTORY.root_dir().join(CONFIG_FILENAME);
+        info!(
+            "ConfigManager: Initializing with path: {:?} (config loading deferred)",
+            config_path
+        );
 
         Ok(Self {
             config: Arc::new(RwLock::new(LauncherConfig::default())),
@@ -135,15 +140,21 @@ impl ConfigManager {
         let config_data = fs::read_to_string(&self.config_path).await?;
 
         match serde_json::from_str::<LauncherConfig>(&config_data) {
-            Ok(loaded_config) => {
+            Ok(mut loaded_config) => {
                 info!("Successfully loaded launcher configuration");
-                
+                debug!("Loaded config: {:?}", loaded_config);
+
+               
+
+                // Update the stored config
                 let mut config = self.config.write().await;
                 *config = loaded_config;
+
             }
             Err(e) => {
                 error!("Failed to parse config file: {}", e);
                 warn!("Using default configuration and saving it");
+                // Save the default config to repair the file
                 self.save_config().await?;
             }
         }
@@ -153,6 +164,7 @@ impl ConfigManager {
 
     pub async fn save_config(&self) -> Result<()> {
         let _guard = self.save_lock.lock().await;
+        debug!("Acquired save lock, proceeding to save config...");
 
         // Ensure directory exists
         if let Some(parent_dir) = self.config_path.parent() {
@@ -172,6 +184,8 @@ impl ConfigManager {
 
         Ok(())
     }
+
+    // Public methods for accessing and modifying configuration
 
     pub async fn get_config(&self) -> LauncherConfig {
         self.config.read().await.clone()
@@ -200,8 +214,10 @@ impl ConfigManager {
                 && current.hide_on_process_start == new_config.hide_on_process_start
                 && current.open_friends_in_window == new_config.open_friends_in_window
             {
+                debug!("No config changes detected, skipping save");
                 false
             } else {
+                // Preserve version during replacement
                 let version = config.version;
 
                 // Log changes
@@ -271,6 +287,12 @@ impl ConfigManager {
                         current.hide_on_process_start, new_config.hide_on_process_start
                     );
                 }
+                if current.open_friends_in_window != new_config.open_friends_in_window {
+                    info!(
+                        "Changing open friends in window: {} -> {}",
+                        current.open_friends_in_window, new_config.open_friends_in_window
+                    );
+                }
                 
                 // Update config while preserving version
                 *config = LauncherConfig {
@@ -297,6 +319,7 @@ impl ConfigManager {
         if should_save {
             self.save_config().await?;
 
+            // Emit config change event
             if let Ok(state) = crate::state::State::get().await {
                 let config_change_payload = serde_json::json!({
                     "open_friends_in_window": new_config.open_friends_in_window

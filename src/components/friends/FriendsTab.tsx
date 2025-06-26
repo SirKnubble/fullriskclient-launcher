@@ -144,6 +144,25 @@ const FriendCard = memo(({ friend, onRemove }: FriendCardProps) => {
     }
   };
 
+  const getStatusText = (state: string): string => {
+    switch (state?.toUpperCase()) {
+      case "ONLINE":
+        return "Online";
+      case "AWAY":
+        return "Away";
+      case "BUSY":
+        return "Busy";
+      case "AFK":
+        return "AFK";
+      case "INVISIBLE":
+        return "Invisible";
+      case "OFFLINE":
+        return "Offline";
+      default:
+        return state || "Unknown";
+    }
+  };
+
   const statusColor = getStatusColor(friend.onlineState);
   return (
     <Card variant="flat" className="p-4 mb-3">
@@ -187,7 +206,7 @@ const FriendCard = memo(({ friend, onRemove }: FriendCardProps) => {
               friend.server ? (
                 <span className="truncate">{friend.server}</span>
               ) : (
-                "Online"
+                getStatusText(friend.onlineState)
               )
             ) : (
               <span className="truncate">{`Offline • ${formatLastSeen(friend.noriskUser.lastSeen)}`}</span>
