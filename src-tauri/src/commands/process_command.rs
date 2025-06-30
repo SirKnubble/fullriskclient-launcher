@@ -88,6 +88,36 @@ pub async fn open_log_window<R: tauri::Runtime>(
 }
 
 #[tauri::command]
+pub async fn open_friends_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), CommandError> {
+    let window_label = "friends_window";
+
+    if let Some(window) = app.get_webview_window(window_label) {
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus existing friends window: {}",
+                e
+            )))
+        })?;
+        return Ok(());
+    }
+
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        window_label,
+        tauri::WebviewUrl::App("friends-window.html".into()),
+    )
+    .title("Friends")
+    .inner_size(900.0, 700.0)
+    .center()
+    .build()
+    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn set_discord_state(
     state_type: String,
     profile_name: Option<String>,

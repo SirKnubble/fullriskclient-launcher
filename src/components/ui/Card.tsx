@@ -4,12 +4,12 @@ import type React from "react";
 import { forwardRef, type ReactNode, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { useThemeStore } from "../../store/useThemeStore";
-import { 
+import {
   getVariantColors,
   getBorderRadiusClass,
   createRadiusStyle,
   getAccessibilityProps,
-  type ComponentVariant
+  type ComponentVariant,
 } from "./design-system";
 
 interface CardProps {
@@ -17,6 +17,7 @@ interface CardProps {
   className?: string;
   variant?: ComponentVariant;
   withAnimation?: boolean;
+  disableHover?: boolean;
   onClick?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   role?: string;
@@ -29,18 +30,19 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     className,
     variant = "default",
     withAnimation = true,
+    disableHover = false,
     onClick,
     onContextMenu,
     role,
     ariaLabel,
   },
-  ref,
+  ref
 ) {
   const cardRef = useRef<HTMLDivElement>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
   const borderRadius = useThemeStore((state) => state.borderRadius);
   const isBackgroundAnimationEnabled = useThemeStore(
-    (state) => state.isBackgroundAnimationEnabled,
+    (state) => state.isBackgroundAnimationEnabled
   );
   const [isHovered, setIsHovered] = useState(false);
 
@@ -56,17 +58,21 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   };
 
   const handleMouseEnter = () => {
-    setIsHovered(true);
+    if (!disableHover) {
+      setIsHovered(true);
+    }
   };
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
+    if (!disableHover) {
+      setIsHovered(false);
+    }
   };
 
   const colors = getVariantColors(variant, accentColor);
   const accessibilityProps = getAccessibilityProps({
     label: ariaLabel,
-    disabled: false
+    disabled: false,
   });
 
   const getBoxShadow = () => {
@@ -130,7 +136,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     }
 
     return isHovered ? colors.light : colors.main;
-  };  return (
+  };
+  return (
     <div
       ref={mergedRef}
       role={role || (onClick ? "button" : undefined)}
@@ -139,8 +146,9 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
         "relative backdrop-blur-md overflow-hidden",
         getBorderRadiusClass(borderRadius),
         getBorderStyle(),
-        onClick && "cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2",
-        className,
+        onClick &&
+          "cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2",
+        className
       )}
       style={{
         backgroundColor: getBackgroundColor(),
@@ -166,8 +174,10 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
                 : variant === "flat-secondary"
                   ? "rgba(156, 163, 175, 0.8)"
                   : `${colors.main}80`,
-            borderTopLeftRadius: borderRadius === 0 ? "0" : `${Math.round(borderRadius * 1.2)}px`,
-            borderTopRightRadius: borderRadius === 0 ? "0" : `${Math.round(borderRadius * 1.2)}px`,
+            borderTopLeftRadius:
+              borderRadius === 0 ? "0" : `${Math.round(borderRadius * 1.2)}px`,
+            borderTopRightRadius:
+              borderRadius === 0 ? "0" : `${Math.round(borderRadius * 1.2)}px`,
           }}
         />
       )}

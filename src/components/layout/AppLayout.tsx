@@ -25,6 +25,7 @@ import { RetroGridEffect } from "../effects/RetroGridEffect";
 import PlainBackground from "../effects/PlainBackground";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
+import { FriendsSidebar } from "../friends/FriendsSidebar";
 import { exit, relaunch } from '@tauri-apps/plugin-process';
 
 const navItems = [
@@ -290,10 +291,10 @@ export function AppLayout({
           <div className="relative z-10 h-full overflow-hidden custom-scrollbar">
             {children}
           </div>
-        </div>
-      </div>
+        </div>      </div>
       {/* Global Modals Portal */}
       <SocialsModal />
+      <FriendsSidebar />
     </div>
   );
 }
