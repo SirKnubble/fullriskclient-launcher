@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { gsap } from "gsap";
@@ -15,12 +13,13 @@ import { Button } from "../ui/buttons/Button";
 import { Card } from "../ui/Card";
 import { FriendsTab } from "./FriendsTab";
 import { RequestsTab } from "./RequestsTab";
+import { MessagesTab } from "./MessagesTab";
 import * as FriendsService from "../../services/friends-service";
 import { toast } from "react-hot-toast";
-import { useFriendsAutoRefresh } from "../../hooks/useFriendsAutoRefresh";
 import { SearchInput } from "../ui/SearchInput";
 import { ThemeInitializer } from "../ThemeInitializer";
 import { RetroGridEffect } from "../effects/RetroGridEffect";
+import { useMessagingStore } from "../../store/useMessagingStore";
 
 export function FriendsWindow() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,22 +44,25 @@ export function FriendsWindow() {
     resetLoadingState,
     resetInitialLoadState,
     hasInitiallyLoaded,
-    isAutoRefreshing,
     friends,
     getIncomingFriendRequests,
     getOutgoingFriendRequests,
   } = useFriendsStore();
 
+  const { refreshMessagingData } = useMessagingStore();
+
   const [isInitialized, setIsInitialized] = useState(false);
   const [stableCounts, setStableCounts] = useState({ friends: 0, requests: 0 });
   const [searchQuery, setSearchQuery] = useState("");
-
-  useFriendsAutoRefresh();
+  const [openChatWithFriend, setOpenChatWithFriend] = useState<string | undefined>();
 
   const handleManualRefresh = async () => {
     try {
-      await refreshFriendsData();
-      toast("Friends list refreshed", {
+      await Promise.all([
+        refreshFriendsData(),
+        refreshMessagingData()
+      ]);
+      toast("Friends and messages refreshed", {
         icon: (
           <Icon
             icon="solar:check-circle-bold"
@@ -69,7 +71,7 @@ export function FriendsWindow() {
         ),
       });
     } catch (error) {
-      toast("Failed to refresh friends list", {
+      toast("Failed to refresh data", {
         icon: (
           <Icon
             icon="solar:info-circle-bold"
@@ -80,9 +82,48 @@ export function FriendsWindow() {
     }
   };
 
+  const handleOpenChatWithFriend = (friendUuid: string) => {
+    setOpenChatWithFriend(friendUuid);
+    setSelectedTab("messages");
+  };
+
+  const handleClearOpenChat = () => {
+    setOpenChatWithFriend(undefined);
+  };
+
+  useEffect(() => {
+    if (selectedTab !== "messages") {
+      setOpenChatWithFriend(undefined);
+    }
+  }, [selectedTab]);
+
   useEffect(() => {
     setSelectedTab("friends");
-  }, [setSelectedTab]);
+    
+    const openChatWithFriendId = localStorage.getItem('openChatWithFriend');
+    if (openChatWithFriendId) {
+      localStorage.removeItem('openChatWithFriend');
+      
+      const initializeAndOpenChat = async () => {
+        try {
+          await refreshFriendsData();
+          
+          setOpenChatWithFriend(openChatWithFriendId);
+          setSelectedTab("messages");
+        } catch (error) {
+          setOpenChatWithFriend(openChatWithFriendId);
+          setSelectedTab("messages");
+        }
+      };
+      
+      initializeAndOpenChat();
+    } else {
+      if (!hasInitiallyLoaded) {
+        refreshFriendsData().catch(() => {
+        });
+      }
+    }
+  }, [setSelectedTab, refreshFriendsData, hasInitiallyLoaded]);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -188,6 +229,12 @@ export function FriendsWindow() {
       count: 0,
     },
     {
+      id: "messages",
+      label: "Messages",
+      icon: "solar:chat-round-dots-bold",
+      count: 0,
+    },
+    {
       id: "requests",
       label: "Requests",
       icon: "solar:bell-bold",
@@ -213,12 +260,19 @@ export function FriendsWindow() {
     }
   }, [isLoading, isInitialized, resetLoadingState]);
 
+  useEffect(() => {
+    if (selectedTab === "messages") {
+      refreshMessagingData(true);
+    }
+  }, [selectedTab, refreshMessagingData]);
+
   return (
     <>
       <ThemeInitializer />
       <div
         ref={containerRef}
         className="h-full w-full flex relative overflow-hidden"
+        data-friends-window="true"
       >
         {currentEffect === BACKGROUND_EFFECTS.RETRO_GRID && (
           <div className="absolute inset-0 z-0">
@@ -261,7 +315,7 @@ export function FriendsWindow() {
                         icon="solar:refresh-bold"
                         className={cn(
                           "w-5 h-5",
-                          isAutoRefreshing && "animate-spin"
+                          isLoading && "animate-spin"
                         )}
                       />
                     }
@@ -338,7 +392,9 @@ export function FriendsWindow() {
             variant="flat"
             disableHover={true}
           >
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6" style={{
+              display: selectedTab === "messages" ? "none" : "block"
+            }}>
               <div
                 style={{
                   display: selectedTab === "friends" ? "block" : "none",
@@ -347,6 +403,7 @@ export function FriendsWindow() {
                 <FriendsTab
                   isInitialized={isInitialized}
                   searchQuery={searchQuery}
+                  onOpenChat={handleOpenChatWithFriend}
                 />
               </div>
               <div
@@ -359,6 +416,19 @@ export function FriendsWindow() {
                   sidebarOpen={true}
                 />
               </div>
+            </div>
+            <div 
+              className="flex-1 flex flex-col h-full"
+              style={{
+                display: selectedTab === "messages" ? "flex" : "none",
+              }}
+            >
+              <MessagesTab
+                isVisible={selectedTab === "messages"}
+                searchQuery={searchQuery}
+                openChatWithFriend={openChatWithFriend}
+                onClearOpenChat={handleClearOpenChat}
+              />
             </div>
           </Card>
         </div>

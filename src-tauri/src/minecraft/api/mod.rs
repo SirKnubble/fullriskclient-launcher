@@ -4,6 +4,7 @@ pub mod forge_api;
 pub mod friends_api;
 pub mod mc_api;
 pub mod mclogs_api;
+pub mod messaging_api;
 pub mod neo_forge_api;
 pub mod norisk_api;
 pub mod quilt_api;

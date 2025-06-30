@@ -4,6 +4,7 @@ pub mod content_command;
 pub mod file_command;
 pub mod friends_command;
 pub mod java_command;
+pub mod messaging_command;
 pub mod minecraft_auth_command;
 pub mod minecraft_command;
 pub mod modrinth_commands;
