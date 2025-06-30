@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
@@ -11,6 +9,9 @@ import { Skeleton } from "../ui/Skeleton";
 import { Card } from "../ui/Card";
 import { IconButton } from "../ui/buttons/IconButton";
 import { ToggleSwitch } from "../ui/ToggleSwitch";
+import { Avatar } from "../common/Avatar";
+import { getUserStatusColor, getUserStatusText } from "../common/UserStatus";
+import { showErrorToast } from "../../utils/toast-helpers";
 import type { FriendsUser } from "../../types/friends";
 import { FriendsUserStateHelpers } from "../../types/friends";
 import * as FriendsService from "../../services/friends-service";
@@ -45,14 +46,7 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
       setUser(userData);
     } catch (err) {
       setError("Failed to load profile");
-      toast("Failed to load user profile", {
-        icon: (
-          <Icon
-            icon="solar:info-circle-bold"
-            style={{ color: accentColor.value }}
-          />
-        ),
-      });
+      showErrorToast("Failed to load user profile", { accentColor: accentColor.value });
     } finally {
       setLoading(false);
     }
@@ -60,10 +54,6 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
 
   const toggleSettings = () => {
     setShowSettings(!showSettings);
-  };
-
-  const handleUserUpdate = (updatedUser: FriendsUser) => {
-    setUser(updatedUser);
   };
 
   useEffect(() => {
@@ -175,41 +165,6 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
     }
   };
 
-  const getStatusText = (state: string): string => {
-    switch (state?.toUpperCase()) {
-      case "ONLINE":
-        return "Online";
-      case "AWAY":
-        return "Away";
-      case "BUSY":
-        return "Busy";
-      case "AFK":
-        return "AFK";
-      case "INVISIBLE":
-        return "Invisible";
-      case "OFFLINE":
-        return "Offline";
-      default:
-        return state || "Unknown";
-    }
-  };
-
-  const getStatusColor = (state: string): string => {
-    switch (state?.toUpperCase()) {
-      case "ONLINE":
-        return "border-green-500";
-      case "AFK":
-        return "border-orange-500";
-      case "BUSY":
-        return "border-red-500";
-      case "AWAY":
-      case "INVISIBLE":
-      case "OFFLINE":
-      default:
-        return "border-gray-500";
-    }
-  };
-
   if (loading) {
     return (
       <Card className={cn("p-4 mb-3", className)} variant="flat">
@@ -267,9 +222,9 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
     );
   }
 
-  const statusText = getStatusText(user.state);
+  const statusText = getUserStatusText(user.state);
   const isUserOnline = FriendsUserStateHelpers.isOnline(user.state);
-  const statusColor = getStatusColor(user.state);
+  const statusColor = getUserStatusColor(user.state);
   const displayName =
     activeAccount?.minecraft_username ||
     activeAccount?.username ||
@@ -284,33 +239,12 @@ export function UserProfileCard({ className }: UserProfileCardProps) {
       >
         <div className="flex items-center gap-4">
           <div className="relative">
-            <div
-              className={cn("w-12 h-12 rounded-full border-2", statusColor)}
-              style={{ borderRadius: `${borderRadius}px` }}
-            >
-              <img
-                src={`https://crafatar.com/avatars/${avatarUuid}?overlay&size=48`}
-                alt={displayName}
-                className="w-full h-full object-cover p-0.5"
-                style={{ borderRadius: `${borderRadius * 0.8}px` }}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                  const fallback = e.currentTarget
-                    .nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = "flex";
-                }}
-              />
-              <div
-                className="w-full h-full flex items-center justify-center text-white font-minecraft text-lg font-bold absolute top-0.5 left-0.5 p-0.5"
-                style={{
-                  backgroundColor: accentColor.value,
-                  borderRadius: `${borderRadius * 0.8}px`,
-                  display: "none",
-                }}
-              >
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            </div>
+            <Avatar
+              userId={avatarUuid}
+              displayName={displayName}
+              size={48}
+              className={statusColor}
+            />
           </div>
           <div className="flex-1 min-w-0 mb-3">
             <div className="font-minecraft text-white text-4xl font-medium truncate">

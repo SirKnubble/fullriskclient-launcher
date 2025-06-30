@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { gsap } from "gsap";
@@ -11,6 +9,7 @@ import { Button } from "../ui/buttons/Button";
 import { Card } from "../ui/Card";
 import { FriendsTab } from "./FriendsTab";
 import { RequestsTab } from "./RequestsTab";
+import { showSuccessToast, showErrorToast } from "../../utils/toast-helpers";
 import * as FriendsService from "../../services/friends-service";
 import * as ProcessService from "../../services/process-service";
 import { toast } from "react-hot-toast";
@@ -34,7 +33,6 @@ export function FriendsSidebar() {
     resetLoadingState,
     resetInitialLoadState,
     hasInitiallyLoaded,
-    isAutoRefreshing,
     friends,
     getIncomingFriendRequests,
     getOutgoingFriendRequests,
@@ -48,23 +46,9 @@ export function FriendsSidebar() {
   const handleManualRefresh = async () => {
     try {
       await refreshFriendsData();
-      toast("Friends list refreshed", {
-        icon: (
-          <Icon
-            icon="solar:check-circle-bold"
-            style={{ color: accentColor.value }}
-          />
-        ),
-      });
+      showSuccessToast("Friends list refreshed", { accentColor: accentColor.value });
     } catch (error) {
-      toast("Failed to refresh friends list", {
-        icon: (
-          <Icon
-            icon="solar:info-circle-bold"
-            style={{ color: accentColor.value }}
-          />
-        ),
-      });
+      showErrorToast("Failed to refresh friends list", { accentColor: accentColor.value });
     }
   };
 
@@ -73,14 +57,7 @@ export function FriendsSidebar() {
       await ProcessService.openFriendsWindow();
       handleClose();
     } catch (error) {
-      toast("Failed to open friends window", {
-        icon: (
-          <Icon
-            icon="solar:info-circle-bold"
-            style={{ color: accentColor.value }}
-          />
-        ),
-      });
+      showErrorToast("Failed to open friends window", { accentColor: accentColor.value });
     }
   };
 
@@ -91,6 +68,31 @@ export function FriendsSidebar() {
     resetLoadingState();
     resetInitialLoadState();
   };
+
+  const handleOpenChat = async (friendUuid: string) => {
+    try {
+      const friend = friends.find(f => f.noriskUser.uuid === friendUuid);
+      const friendName = friend?.noriskUser.displayName || friend?.noriskUser.ign || "Unknown";
+      
+      localStorage.setItem('openChatWithFriend', friendUuid);
+      
+      setSidebarOpen(false);
+      await ProcessService.openFriendsWindow();
+      
+      toast(`Opening chat with ${friendName}`, {
+        icon: (
+          <Icon
+            icon="solar:chat-round-dots-bold"
+            style={{ color: accentColor.value }}
+          />
+        ),
+      });
+    } catch (error) {
+      showErrorToast("Failed to open chat", { accentColor: accentColor.value });
+    }
+  };
+
+
 
   useEffect(() => {
     if (isSidebarOpen) {
@@ -254,10 +256,7 @@ export function FriendsSidebar() {
                   icon={
                     <Icon
                       icon="solar:refresh-bold"
-                      className={cn(
-                        "w-5 h-5",
-                        isAutoRefreshing && "animate-spin"
-                      )}
+                      className="w-5 h-5"
                     />
                   }
                   onClick={handleManualRefresh}
@@ -340,6 +339,7 @@ export function FriendsSidebar() {
               <FriendsTab
                 isInitialized={isInitialized}
                 searchQuery={searchQuery}
+                onOpenChat={handleOpenChat}
               />
             </div>
             <div

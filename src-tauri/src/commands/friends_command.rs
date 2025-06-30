@@ -7,7 +7,7 @@ use crate::state::state_manager::State;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tauri::{Emitter, WebviewWindow};
+use tauri::{Emitter, Manager, WebviewWindow};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
@@ -39,9 +39,28 @@ async fn start_friends_websocket_internal(window: &WebviewWindow) -> Result<(), 
     let state = State::get()
         .await
         .map_err(|e| AppError::Other(format!("Failed to get state: {}", e)))?;
+    
+    let active_account = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get active account for token refresh: {:?}", e)))?;
+    
+    if active_account.is_none() {
+        return Err(AppError::NoCredentialsError);
+    }
+    
     let (token, user_uuid) = get_token_and_uuid_from_state(&state)
         .await
         .map_err(|e| AppError::Other(format!("Failed to get auth token: {:?}", e)))?;
+    
+    if token.trim().is_empty() {
+        return Err(AppError::Other("Authentication token is empty".to_string()));
+    }
+    
+    if token.len() < 10 {
+        return Err(AppError::Other("Authentication token appears invalid".to_string()));
+    }
     let username = get_username_from_state(&state)
         .await
         .map_err(|e| AppError::Other(format!("Failed to get username: {:?}", e)))?;
@@ -115,9 +134,11 @@ async fn connect_to_websocket_single_attempt(
         HeaderValue::from_str(&format!("Bearer {}", token))
             .map_err(|e| AppError::Other(format!("Failed to parse Authorization header: {}", e)))?,
     );
-    let (ws_stream, _) = connect_async(request)
+    
+    let (ws_stream, _response) = connect_async(request)
         .await
         .map_err(|e| AppError::Other(format!("Failed to connect to WebSocket: {}", e)))?;
+    
     let _ = window.emit("friends-ws-connected", ());
     let (mut _ws_sender, mut ws_receiver) = ws_stream.split();
 
@@ -126,9 +147,16 @@ async fn connect_to_websocket_single_attempt(
             Ok(Message::Text(text)) => {
                 let _ = handle_websocket_message(&text, window).await;
             }
-            Ok(Message::Close(_)) => break,
-            Ok(_) => {}
-            Err(_) => break,
+            Ok(Message::Close(_)) => {
+                break;
+            }
+            Ok(Message::Ping(_)) => {}
+            Ok(Message::Pong(_)) => {}
+            Ok(Message::Binary(_)) => {}
+            Ok(Message::Frame(_)) => {}
+            Err(_) => {
+                break;
+            }
         }
     }
 
@@ -143,13 +171,15 @@ async fn handle_websocket_message(text: &str, window: &WebviewWindow) -> Result<
     }
 
     let channel = parts[0];
+    let _timestamp = parts[1];
     let json_data = parts[2];
+    
     let data: serde_json::Value = serde_json::from_str(json_data)
         .map_err(|e| AppError::Other(format!("Failed to parse JSON: {}", e)))?;
 
     let envelope = Envelope {
         channel: channel.to_string(),
-        data,
+        data: data.clone(),
     };
 
     if let Ok(state) = State::get().await {
@@ -162,11 +192,31 @@ async fn handle_websocket_message(text: &str, window: &WebviewWindow) -> Result<
             | "nrc_friends:server_change" => {
                 let _ = refresh_friends_cache(&state).await;
             }
+            "messaging:message_received"
+            | "messaging:message_updated"
+            | "messaging:message_deleted"
+            | "messaging:chat_created"
+            | "messaging:user_typing"
+            | "messaging:user_start_typing"
+            | "messaging:user_stop_typing" => {
+                let _ = refresh_messaging_cache(&state).await;
+            }
             _ => {}
         }
     }
 
     let _ = window.emit("friends-ws-message", &envelope);
+
+    let app_handle = window.app_handle();
+    
+    if let Some(friends_window) = app_handle.get_webview_window("friends") {
+        let _ = friends_window.emit("global-messaging-event", &envelope);
+    }
+    
+    if let Some(main_window) = app_handle.get_webview_window("main") {
+        let _ = main_window.emit("global-messaging-event", &envelope);
+    }
+    
     Ok(())
 }
 
@@ -176,21 +226,40 @@ pub async fn get_token_and_uuid_from_state(state: &State) -> Result<(String, Uui
         .get_active_account()
         .await?
         .ok_or_else(|| CommandError::from(AppError::NoCredentialsError))?;
+    
     let is_experimental = state.config_manager.is_experimental_mode().await;
-    let token = credentials
+    
+    let token_result = credentials
         .norisk_credentials
-        .get_token_for_mode(is_experimental)
-        .map_err(|e| {
-            CommandError::from(AppError::Other(format!(
-                "Failed to get NoRisk token for {} mode: {}",
-                if is_experimental {
-                    "experimental"
-                } else {
-                    "production"
-                },
-                e
-            )))
-        })?;
+        .get_token_for_mode(is_experimental);
+    
+    let token = match token_result {
+        Ok(token) => token,
+        Err(_e) => {
+            let refreshed_credentials = state
+                .minecraft_account_manager_v2
+                .update_norisk_and_microsoft_token(&credentials, is_experimental)
+                .await
+                .map_err(|refresh_err| CommandError::from(AppError::Other(format!(
+                    "Failed to refresh NoRisk token for {} mode: {}",
+                    if is_experimental { "experimental" } else { "production" },
+                    refresh_err
+                ))))?
+                .ok_or_else(|| CommandError::from(AppError::Other(
+                    "Token refresh succeeded but returned no credentials".to_string()
+                )))?;
+            
+            refreshed_credentials
+                .norisk_credentials
+                .get_token_for_mode(is_experimental)
+                .map_err(|e| CommandError::from(AppError::Other(format!(
+                    "Failed to get NoRisk token for {} mode even after refresh: {}",
+                    if is_experimental { "experimental" } else { "production" },
+                    e
+                ))))?
+        }
+    };
+    
     let user_uuid = credentials.id;
     Ok((token, user_uuid))
 }
@@ -417,6 +486,31 @@ pub async fn refresh_friends_cache(state: &State) -> Result<(), CommandError> {
         .map_err(|e| {
             CommandError::from(AppError::Other(format!(
                 "Failed to update friends cache: {}",
+                e
+            )))
+        })?;
+
+    Ok(())
+}
+
+pub async fn refresh_messaging_cache(state: &State) -> Result<(), CommandError> {
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+    let (token, user_uuid) = get_token_and_uuid_from_state(&state).await?;
+    
+    // Refresh private chats
+    let chats = crate::minecraft::api::messaging_api::MessagingApi::get_private_chats(
+        is_experimental, 
+        &token, 
+        user_uuid
+    ).await?;
+
+    state
+        .messaging_manager
+        .update_chats(chats)
+        .await
+        .map_err(|e| {
+            CommandError::from(AppError::Other(format!(
+                "Failed to update messaging cache: {}",
                 e
             )))
         })?;

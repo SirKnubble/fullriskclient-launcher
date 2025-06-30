@@ -116,6 +116,15 @@ use commands::friends_command::{
     invite_to_server_command, request_invite_to_server_command,
 };
 
+use commands::messaging_command::{
+    get_private_chats_command, get_private_chat_for_friend_command, create_private_chat_command,
+    send_message_command, edit_message_command, delete_message_command, get_messages_command,
+    react_to_message_command, remove_reaction_command, mark_message_as_read_command,
+    get_cached_chats_command, get_cached_messages_command, get_unread_count_command,
+};
+
+
+
 // Import Java commands
 use commands::java_command::{
     detect_java_installations_command, find_best_java_for_minecraft_command, get_java_info_command,
@@ -486,7 +495,21 @@ async fn main() {
             invite_to_server_command,
             request_invite_to_server_command,
             get_auth_token_command,
-            start_friends_websocket_command
+            start_friends_websocket_command,
+            // Messaging commands with extensive logging
+            get_private_chats_command,
+            get_private_chat_for_friend_command,
+            create_private_chat_command,
+            send_message_command,
+            edit_message_command,
+            delete_message_command,
+            get_messages_command,
+            react_to_message_command,
+            remove_reaction_command,
+            mark_message_as_read_command,
+            get_cached_chats_command,
+            get_cached_messages_command,
+            get_unread_count_command
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 

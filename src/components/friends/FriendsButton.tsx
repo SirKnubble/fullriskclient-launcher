@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { IconButton } from "../ui/buttons/IconButton";
@@ -23,20 +21,17 @@ export function FriendsButton({ className }: FriendsButtonProps) {
 
   const onlineCount = getOnlineFriendsCount();
 
-  // Load config on mount and when component becomes visible
   const loadConfig = async () => {
     try {
       const launcherConfig = await ConfigService.getLauncherConfig();
       setConfig(launcherConfig);
     } catch (error) {
-      console.error("Failed to load launcher config:", error);
     }
   };
 
   useEffect(() => {
     loadConfig();
 
-    // Listen for config changes
     const setupConfigListener = async () => {
       const unlisten = await listen("config-changed", (event) => {
         const payload = event.payload as any;

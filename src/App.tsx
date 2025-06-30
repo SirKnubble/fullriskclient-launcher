@@ -28,7 +28,7 @@ import {
   setProfileGroupingPreference,
 } from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from "./hooks/useGlobalDragAndDrop";
-import { useFriendsEvents } from "./hooks/useFriendsEvents";
+import { useGlobalWebSocketEvents } from "./hooks/useGlobalWebSocketEvents";
 
 import flagsmith from "flagsmith";
 import { FlagsmithProvider } from "flagsmith/react";
@@ -49,7 +49,7 @@ export function App() {
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
     useState<string>("none");
 
-  useFriendsEvents();
+  useGlobalWebSocketEvents("main");
 
   const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
   useEffect(() => {
@@ -187,6 +187,7 @@ export function App() {
   };
 
   useGlobalDragAndDrop();
+  useGlobalWebSocketEvents("main");
 
   return (
     <FlagsmithProvider
