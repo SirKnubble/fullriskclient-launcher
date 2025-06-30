@@ -510,7 +510,7 @@ async fn main() {
             mark_message_as_read_command,
             get_cached_chats_command,
             get_cached_messages_command,
-            get_unread_count_command
+            get_unread_count_command,
             commands::nrc_commands::discord_auth_unlink,
             commands::nrc_commands::submit_crash_log_command,
             commands::flagsmith_commands::set_blocked_mods_config,
