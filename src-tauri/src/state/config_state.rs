@@ -48,6 +48,8 @@ pub struct LauncherConfig {
     pub hooks: Hooks,
     #[serde(default = "default_hide_on_process_start")]
     pub hide_on_process_start: bool,
+    #[serde(default = "default_open_friends_in_window")]
+    pub open_friends_in_window: bool,
 }
 
 fn default_config_version() -> u32 {
@@ -78,6 +80,10 @@ fn default_hide_on_process_start() -> bool {
     false
 }
 
+fn default_open_friends_in_window() -> bool {
+    false
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -93,6 +99,7 @@ impl Default for LauncherConfig {
             last_played_profile: None,
             hooks: Hooks::default(),
             hide_on_process_start: default_hide_on_process_start(),
+            open_friends_in_window: default_open_friends_in_window(),
         }
     }
 }
@@ -133,13 +140,16 @@ impl ConfigManager {
         let config_data = fs::read_to_string(&self.config_path).await?;
 
         match serde_json::from_str::<LauncherConfig>(&config_data) {
-            Ok(loaded_config) => {
+            Ok(mut loaded_config) => {
                 info!("Successfully loaded launcher configuration");
                 debug!("Loaded config: {:?}", loaded_config);
+
+               
 
                 // Update the stored config
                 let mut config = self.config.write().await;
                 *config = loaded_config;
+
             }
             Err(e) => {
                 error!("Failed to parse config file: {}", e);
@@ -202,6 +212,7 @@ impl ConfigManager {
                 && current.last_played_profile == new_config.last_played_profile
                 && current.hooks == new_config.hooks
                 && current.hide_on_process_start == new_config.hide_on_process_start
+                && current.open_friends_in_window == new_config.open_friends_in_window
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -276,7 +287,13 @@ impl ConfigManager {
                         current.hide_on_process_start, new_config.hide_on_process_start
                     );
                 }
-
+                if current.open_friends_in_window != new_config.open_friends_in_window {
+                    info!(
+                        "Changing open friends in window: {} -> {}",
+                        current.open_friends_in_window, new_config.open_friends_in_window
+                    );
+                }
+                
                 // Update config while preserving version
                 *config = LauncherConfig {
                     version,
@@ -291,6 +308,7 @@ impl ConfigManager {
                     last_played_profile: new_config.last_played_profile,
                     hooks: new_config.hooks,
                     hide_on_process_start: new_config.hide_on_process_start,
+                    open_friends_in_window: new_config.open_friends_in_window,
                 };
 
                 true
@@ -300,6 +318,16 @@ impl ConfigManager {
         // Save the updated config if needed
         if should_save {
             self.save_config().await?;
+
+            // Emit config change event
+            if let Ok(state) = crate::state::State::get().await {
+                let config_change_payload = serde_json::json!({
+                    "open_friends_in_window": new_config.open_friends_in_window
+                });
+                if let Err(e) = state.event_state.emit_custom("config-changed", config_change_payload).await {
+                    warn!("Failed to emit config-changed event: {}", e);
+                }
+            }
 
             // Update Discord status if it changed
             if let Ok(state) = crate::state::State::get().await {

@@ -7,10 +7,15 @@ export async function isMinecraftRunning(profileId: string): Promise<boolean> {
     const runningProcesses = await getRunningProcesses();
     // Assuming ProcessMetadata has a field like 'profile_id' or 'profileId'
     // Adjust 'proc.profile_id' if the actual field name is different
-    const processesForProfile = runningProcesses.filter(proc => proc.profile_id === profileId);
+    const processesForProfile = runningProcesses.filter(
+      (proc) => proc.profile_id === profileId
+    );
     return processesForProfile.length > 0;
   } catch (error) {
-    console.error(`[ProcessService] Error in isMinecraftRunning for profile ${profileId}:`, error);
+    console.error(
+      `[ProcessService] Error in isMinecraftRunning for profile ${profileId}:`,
+      error
+    );
     return false; // Assume not running on error
   }
 }
@@ -21,13 +26,13 @@ export async function killMinecraft(profileId: string): Promise<void> {
 
 export async function launch(
   id: string,
-  quickPlaySingleplayer?: string, 
+  quickPlaySingleplayer?: string,
   quickPlayMultiplayer?: string
 ): Promise<void> {
-  return invoke<void>("launch_profile", { 
-    id, 
-    quickPlaySingleplayer, 
-    quickPlayMultiplayer 
+  return invoke<void>("launch_profile", {
+    id,
+    quickPlaySingleplayer,
+    quickPlayMultiplayer,
   });
 }
 
@@ -58,9 +63,12 @@ export async function stopProcess(processId: string): Promise<void> {
   try {
     await invoke<void>("stop_process", { processId });
   } catch (error) {
-    console.error(`[ProcessService] Failed to stop process ${processId}:`, error);
+    console.error(
+      `[ProcessService] Failed to stop process ${processId}:`,
+      error
+    );
     // Re-throw or handle as needed
-    throw error; 
+    throw error;
   }
 }
 
@@ -68,30 +76,42 @@ export async function stopProcess(processId: string): Promise<void> {
  * Opens a dedicated log viewer window for the specified process ID.
  */
 export async function openLogWindow(processId: string): Promise<void> {
-  console.debug(`[ProcessService] Requesting log window for process ID: ${processId}`);
+  console.debug(
+    `[ProcessService] Requesting log window for process ID: ${processId}`
+  );
   try {
     // Pass processId (Uuid as string) to the Rust command
     await invoke<void>("open_log_window", { processId });
   } catch (error) {
-    console.error(`[ProcessService] Failed to open log window for process ID ${processId}:`, error);
+    console.error(
+      `[ProcessService] Failed to open log window for process ID ${processId}:`,
+      error
+    );
     // Handle or re-throw as appropriate
-    throw error; 
+    throw error;
   }
 }
 
 /**
  * Fetches the full log content for a specific process ID (Uuid).
  */
-export async function getLogContentForProcess(processId: string): Promise<string> {
-  console.debug(`[ProcessService] Fetching full log for process ID: ${processId}`);
+export async function getLogContentForProcess(
+  processId: string
+): Promise<string> {
+  console.debug(
+    `[ProcessService] Fetching full log for process ID: ${processId}`
+  );
   try {
     const logContent = await invoke<string>("get_full_log", { processId });
     return logContent || ""; // Return empty string if null/undefined
   } catch (error) {
-    console.error(`[ProcessService] Failed to get full log for process ID ${processId}:`, error);
+    console.error(
+      `[ProcessService] Failed to get full log for process ID ${processId}:`,
+      error
+    );
     // Return an empty string or re-throw based on how errors should be handled downstream
-    return ""; 
-    // throw error; 
+    return "";
+    // throw error;
   }
 }
 
@@ -106,5 +126,14 @@ export async function submitCrashLog(payload: CrashlogDto): Promise<void> {
   } catch (error) {
     console.error("[ProcessService] Failed to submit crash log:", error);
     throw error; // Re-throw or handle as needed
+  }
+}
+
+export async function openFriendsWindow(): Promise<void> {
+  try {
+    await invoke<void>("open_friends_window");
+  } catch (error) {
+    console.error("Failed to open friends window:", error);
+    throw error;
   }
 }

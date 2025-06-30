@@ -27,10 +27,11 @@ import {
   getLauncherConfig,
   setProfileGroupingPreference,
 } from "./services/launcher-config-service";
-import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
+import { useGlobalDragAndDrop } from "./hooks/useGlobalDragAndDrop";
+import { useGlobalWebSocketEvents } from "./hooks/useGlobalWebSocketEvents";
 
-import flagsmith from 'flagsmith';
-import { FlagsmithProvider } from 'flagsmith/react';
+import flagsmith from "flagsmith";
+import { FlagsmithProvider } from "flagsmith/react";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -48,6 +49,8 @@ export function App() {
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
     useState<string>("none");
 
+  useGlobalWebSocketEvents("main");
+
   const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
   useEffect(() => {
     const root = document.documentElement;
@@ -59,12 +62,12 @@ export function App() {
           root.style.setProperty("--accent", themeData.state.accentColor.value);
           root.style.setProperty(
             "--accent-hover",
-            themeData.state.accentColor.hoverValue,
+            themeData.state.accentColor.hoverValue
           );
 
           const hexToRgb = (hex: string) => {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
-              hex,
+              hex
             );
             return result
               ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
@@ -76,11 +79,11 @@ export function App() {
             root.style.setProperty("--accent-rgb", rgbValue);
           }
         }
-        
+
         if (themeData.state?.radiusTheme) {
           const radiusTheme = themeData.state.radiusTheme;
           root.setAttribute("data-radius-theme", radiusTheme);
-          
+
           if (radiusTheme === "flat") {
             root.classList.add("radius-flat");
             root.style.setProperty("--radius", "0px");
@@ -93,7 +96,10 @@ export function App() {
               xl: "var(--radius-xl)",
               "2xl": "var(--radius-2xl)",
             };
-            root.style.setProperty("--radius", radiusMap[radiusTheme] || "var(--radius-md)");
+            root.style.setProperty(
+              "--radius",
+              radiusMap[radiusTheme] || "var(--radius-md)"
+            );
           }
         }
       } catch (e) {
@@ -111,11 +117,11 @@ export function App() {
         ) {
           try {
             const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
-              event.payload.message,
+              event.payload.message
             );
             console.log(
               "[App.tsx] Global MinecraftProcessExited event:",
-              exitPayload,
+              exitPayload
             );
             if (!exitPayload.success) {
               const crashMsg = `Minecraft crashed (Exit Code: ${exitPayload.exit_code ?? "N/A"}). See crash report for details.`;
@@ -125,12 +131,12 @@ export function App() {
           } catch (e) {
             console.error(
               "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
-              e,
+              e
             );
             toast.error("Could not globally process Minecraft process status.");
           }
         }
-      },
+      }
     );
 
     return () => {
@@ -154,7 +160,7 @@ export function App() {
       .catch((err) => {
         console.error(
           "Failed to get initial profile grouping from config:",
-          err,
+          err
         );
         setCurrentGroupingCriterion("none");
       });
@@ -181,12 +187,13 @@ export function App() {
   };
 
   useGlobalDragAndDrop();
+  useGlobalWebSocketEvents("main");
 
   return (
     <FlagsmithProvider
       options={{
         environmentID: FLAGSMITH_ENVIRONMENT_ID,
-        api: 'https://flagsmith-staging.norisk.gg/api/v1/',
+        api: "https://flagsmith-staging.norisk.gg/api/v1/",
       }}
       flagsmith={flagsmith}
     >

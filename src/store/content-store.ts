@@ -94,13 +94,9 @@ export const useContentStore = create<ContentState>((set) => ({
         loading: { ...state.loading, customMods: false },
       }));
     } catch (error) {
-      console.error(
-        `Failed to fetch custom mods for profile ${profileId}:`,
-        error,
-      );
       set((state) => ({
         loading: { ...state.loading, customMods: false },
-        error: { ...state.error, customMods: "Failed to load custom mods" },
+        error: { ...state.error, customMods: error instanceof Error ? error.message : "Failed to load custom mods" },
       }));
     }
   },
@@ -120,15 +116,11 @@ export const useContentStore = create<ContentState>((set) => ({
         loading: { ...state.loading, resourcePacks: false },
       }));
     } catch (error) {
-      console.error(
-        `Failed to fetch resource packs for profile ${profileId}:`,
-        error,
-      );
       set((state) => ({
         loading: { ...state.loading, resourcePacks: false },
         error: {
           ...state.error,
-          resourcePacks: "Failed to load resource packs",
+          resourcePacks: error instanceof Error ? error.message : "Failed to load resource packs",
         },
       }));
     }
@@ -148,13 +140,9 @@ export const useContentStore = create<ContentState>((set) => ({
         loading: { ...state.loading, shaderPacks: false },
       }));
     } catch (error) {
-      console.error(
-        `Failed to fetch shader packs for profile ${profileId}:`,
-        error,
-      );
       set((state) => ({
         loading: { ...state.loading, shaderPacks: false },
-        error: { ...state.error, shaderPacks: "Failed to load shader packs" },
+        error: { ...state.error, shaderPacks: error instanceof Error ? error.message : "Failed to load shader packs" },
       }));
     }
   },
@@ -185,10 +173,6 @@ export const useContentStore = create<ContentState>((set) => ({
         gameVersions,
       );
     } catch (error) {
-      console.error(
-        `Failed to add Modrinth mod to profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },
@@ -223,10 +207,6 @@ export const useContentStore = create<ContentState>((set) => ({
         await ProfileService.getLocalShaderpacks(profileId);
       }
     } catch (error) {
-      console.error(
-        `Failed to add Modrinth content to profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },
@@ -241,10 +221,6 @@ export const useContentStore = create<ContentState>((set) => ({
         ),
       }));
     } catch (error) {
-      console.error(
-        `Failed to set mod ${modId} enabled status in profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },
@@ -259,10 +235,6 @@ export const useContentStore = create<ContentState>((set) => ({
         ),
       }));
     } catch (error) {
-      console.error(
-        `Failed to set custom mod ${filename} enabled status in profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },
@@ -275,10 +247,6 @@ export const useContentStore = create<ContentState>((set) => ({
         customMods: state.customMods.filter((mod) => mod.filename !== filename),
       }));
     } catch (error) {
-      console.error(
-        `Failed to delete custom mod ${filename} from profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },
@@ -290,10 +258,6 @@ export const useContentStore = create<ContentState>((set) => ({
       const customMods = await ProfileService.getCustomMods(profileId);
       set({ customMods });
     } catch (error) {
-      console.error(
-        `Failed to import local mods for profile ${profileId}:`,
-        error,
-      );
       throw error;
     }
   },

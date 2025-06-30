@@ -112,6 +112,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
               key={i}
               className={cn(
                 "relative overflow-hidden backdrop-blur-sm transition-all duration-200",
+                "custom-skeleton", // Add specific class here too
                 radiusClass,
                 "border-2",
                 shadowDepth !== "none" && "border-b-4",
@@ -145,6 +146,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
         ref={mergedRef}
         className={cn(
           "relative overflow-hidden backdrop-blur-sm transition-all duration-200",
+          "custom-skeleton", // Add a specific class to override react-loading-skeleton
           radiusClass,
           "border-2",
           shadowDepth !== "none" && "border-b-4",

@@ -4,6 +4,8 @@ use crate::minecraft::minecraft_auth::MinecraftAuthStore;
 use crate::state::config_state::ConfigManager;
 use crate::state::discord_state::DiscordManager;
 use crate::state::event_state::{EventPayload, EventState};
+use crate::state::friends_state::FriendsManager;
+use crate::state::messaging_state::MessagingManager;
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::norisk_versions_state::{default_norisk_versions_path, NoriskVersionManager};
 use crate::state::post_init::PostInitializationHandler;
@@ -28,6 +30,8 @@ pub struct State {
     pub config_manager: ConfigManager,
     pub skin_manager: SkinManager,
     pub discord_manager: DiscordManager,
+    pub friends_manager: FriendsManager,
+    pub messaging_manager: MessagingManager,
     pub io_semaphore: Arc<Semaphore>,
 }
 
@@ -35,8 +39,7 @@ impl State {
     // Initialize the global state
     pub async fn init(app: Arc<tauri::AppHandle>) -> Result<()> {
         let initial_state_arc = LAUNCHER_STATE
-            .get_or_try_init(|| async {
-                log::info!("State::init - Starting primary initialization of managers (Phase 1 - Lightweight Instantiation)...");
+            .get_or_try_init(|| async {                log::info!("State::init - Starting primary initialization of managers (Phase 1 - Lightweight Instantiation)...");
                 let config_manager = ConfigManager::new()?;
                 let discord_manager = DiscordManager::new(false).await?;
                 let io_semaphore = Arc::new(Semaphore::new(10));
@@ -45,11 +48,12 @@ impl State {
                 let norisk_pack_manager = NoriskPackManager::new(default_norisk_packs_path())?;
                 let norisk_version_manager = NoriskVersionManager::new(default_norisk_versions_path())?;
                 let skin_manager = SkinManager::new(default_skins_path())?;
+                let friends_manager = FriendsManager::new(LAUNCHER_DIRECTORY.root_dir().join("friends_cache.json"))?;
+                let messaging_manager = MessagingManager::new(LAUNCHER_DIRECTORY.root_dir().join("messaging_cache.json"))?;
                 let profile_manager = ProfileManager::new(LAUNCHER_DIRECTORY.root_dir().join("profiles.json"))?;
                 let process_manager = ProcessManager::new(default_processes_path(), app.clone()).await?;
 
-                log::info!("State::init - Primary initialization of managers complete (Phase 1). Constructing State struct with initialized: false.");
-                Ok::<Arc<State>, AppError>(Arc::new(Self {
+                log::info!("State::init - Primary initialization of managers complete (Phase 1). Constructing State struct with initialized: false.");                Ok::<Arc<State>, AppError>(Arc::new(Self {
                     initialized: true,
                     profile_manager,
                     event_state,
@@ -60,6 +64,8 @@ impl State {
                     config_manager,
                     skin_manager,
                     discord_manager,
+                    friends_manager,
+                    messaging_manager,
                     io_semaphore,
                 }))
             })
@@ -115,12 +121,17 @@ impl State {
             .on_state_ready(app.clone())
             .await?;
         log::info!("State::init - NoriskVersionManager post-initialization complete.");
-
         initial_state_arc
             .skin_manager
             .on_state_ready(app.clone())
             .await?;
         log::info!("State::init - SkinManager post-initialization complete.");
+
+        initial_state_arc
+            .friends_manager
+            .on_state_ready(app.clone())
+            .await?;
+        log::info!("State::init - FriendsManager post-initialization complete.");
 
         initial_state_arc
             .norisk_pack_manager
