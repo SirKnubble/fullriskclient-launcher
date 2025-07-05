@@ -109,7 +109,8 @@ pub async fn open_friends_window<R: tauri::Runtime>(
         tauri::WebviewUrl::App("friends-window.html".into()),
     )
     .title("Friends")
-    .inner_size(900.0, 700.0)
+    .inner_size(1280.0, 800.0)
+    .min_inner_size(1280.0, 800.0)
     .center()
     .build()
     .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;

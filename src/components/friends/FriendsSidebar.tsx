@@ -46,9 +46,13 @@ export function FriendsSidebar() {
   const handleManualRefresh = async () => {
     try {
       await refreshFriendsData();
-      showSuccessToast("Friends list refreshed", { accentColor: accentColor.value });
+      showSuccessToast("Friends list refreshed", {
+        accentColor: accentColor.value,
+      });
     } catch (error) {
-      showErrorToast("Failed to refresh friends list", { accentColor: accentColor.value });
+      showErrorToast("Failed to refresh friends list", {
+        accentColor: accentColor.value,
+      });
     }
   };
 
@@ -57,7 +61,9 @@ export function FriendsSidebar() {
       await ProcessService.openFriendsWindow();
       handleClose();
     } catch (error) {
-      showErrorToast("Failed to open friends window", { accentColor: accentColor.value });
+      showErrorToast("Failed to open friends window", {
+        accentColor: accentColor.value,
+      });
     }
   };
 
@@ -71,14 +77,15 @@ export function FriendsSidebar() {
 
   const handleOpenChat = async (friendUuid: string) => {
     try {
-      const friend = friends.find(f => f.noriskUser.uuid === friendUuid);
-      const friendName = friend?.noriskUser.displayName || friend?.noriskUser.ign || "Unknown";
-      
-      localStorage.setItem('openChatWithFriend', friendUuid);
-      
+      const friend = friends.find((f) => f.noriskUser.uuid === friendUuid);
+      const friendName =
+        friend?.noriskUser.displayName || friend?.noriskUser.ign || "Unknown";
+
+      localStorage.setItem("openChatWithFriend", friendUuid);
+
       setSidebarOpen(false);
       await ProcessService.openFriendsWindow();
-      
+
       toast(`Opening chat with ${friendName}`, {
         icon: (
           <Icon
@@ -91,8 +98,6 @@ export function FriendsSidebar() {
       showErrorToast("Failed to open chat", { accentColor: accentColor.value });
     }
   };
-
-
 
   useEffect(() => {
     if (isSidebarOpen) {
@@ -253,12 +258,7 @@ export function FriendsSidebar() {
               </div>
               <div className="flex items-center gap-2">
                 <IconButton
-                  icon={
-                    <Icon
-                      icon="solar:refresh-bold"
-                      className="w-5 h-5"
-                    />
-                  }
+                  icon={<Icon icon="solar:refresh-bold" className="w-5 h-5" />}
                   onClick={handleManualRefresh}
                   variant="ghost"
                   size="sm"
@@ -340,6 +340,7 @@ export function FriendsSidebar() {
                 isInitialized={isInitialized}
                 searchQuery={searchQuery}
                 onOpenChat={handleOpenChat}
+                inSidebar={true}
               />
             </div>
             <div

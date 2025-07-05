@@ -360,13 +360,11 @@ export const useMessagingStore = create<MessagingState>()(
                 if (pageMessages.length === 0) break;
                 apiMessages = [...apiMessages, ...pageMessages];
               }
-            } catch (error) {
-            }
+            } catch (error) {}
 
             try {
               cachedMessages = await getCachedMessages(chatId);
-            } catch (error) {
-            }
+            } catch (error) {}
 
             const messageMap = new Map<string, ChatMessage>();
 
@@ -568,8 +566,7 @@ export const useMessagingStore = create<MessagingState>()(
                   Date.now() + READ_STATUS_PRESERVATION_TIME
                 );
               }
-            } catch (error) {
-            }
+            } catch (error) {}
 
             const successRate =
               messagesToMarkAsRead.length > 0
@@ -598,8 +595,7 @@ export const useMessagingStore = create<MessagingState>()(
           return state.chats.filter((chat) => chat.unreadMessages > 0).length;
         },
 
-        markMessagesAsSeen: (messages: ChatMessage[]) => {
-        },
+        markMessagesAsSeen: (messages: ChatMessage[]) => {},
       };
     },
     {
