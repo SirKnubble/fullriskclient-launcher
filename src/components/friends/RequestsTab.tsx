@@ -1,11 +1,13 @@
 import React, { useEffect, useState, memo } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
+import { useSequentialLoading } from "../../hooks/useSequentialLoading";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useFriendsStore } from "../../store/useFriendsStore";
 import { Card } from "../ui/Card";
 import { IconButton } from "../ui/buttons/IconButton";
 import { Skeleton } from "../ui/Skeleton";
+import { ScrollSentinel } from "../ui/ScrollSentinel";
 import { Avatar } from "../common/Avatar";
 import { showSuccessToast, showErrorToast } from "../../utils/toast-helpers";
 import type { FriendsFriendRequestResponse } from "../../types/friends";
@@ -32,9 +34,13 @@ const IncomingRequestCard = memo(
       try {
         await FriendsService.acceptFriendRequest(request.friendRequest.sender);
         onAccept(request.friendRequest.sender);
-        showSuccessToast(`Accepted friend request from ${displayName}`, { accentColor: accentColor.value });
+        showSuccessToast(`Accepted friend request from ${displayName}`, {
+          accentColor: accentColor.value,
+        });
       } catch (error) {
-        showErrorToast("Failed to accept friend request", { accentColor: accentColor.value });
+        showErrorToast("Failed to accept friend request", {
+          accentColor: accentColor.value,
+        });
       }
     };
 
@@ -42,9 +48,13 @@ const IncomingRequestCard = memo(
       try {
         await FriendsService.declineFriendRequest(request.friendRequest.sender);
         onDecline(request.friendRequest.sender);
-        showSuccessToast(`Declined friend request from ${displayName}`, { accentColor: accentColor.value });
+        showSuccessToast(`Declined friend request from ${displayName}`, {
+          accentColor: accentColor.value,
+        });
       } catch (error) {
-        showErrorToast("Failed to decline friend request", { accentColor: accentColor.value });
+        showErrorToast("Failed to decline friend request", {
+          accentColor: accentColor.value,
+        });
       }
     };
 
@@ -58,10 +68,10 @@ const IncomingRequestCard = memo(
           />
 
           <div className="flex-1 min-w-0 mb-3">
-            <div className="font-minecraft text-white text-4xl font-medium truncate">
+            <div className="font-minecraft text-white text-4xl font-medium break-words overflow-wrap-anywhere">
               {displayName}
             </div>
-            <div className="text-xs text-white/60 font-minecraft-ten truncate">
+            <div className="text-xs text-white/60 font-minecraft-ten break-words overflow-wrap-anywhere">
               Wants to be friends
             </div>
           </div>
@@ -103,7 +113,9 @@ const OutgoingRequestCard = memo(
 
     const handleCancel = async () => {
       try {
-        await FriendsService.cancelFriendRequest(request.friendRequest.receiver);
+        await FriendsService.cancelFriendRequest(
+          request.friendRequest.receiver
+        );
         onCancel(request.friendRequest.receiver);
         toast(`Cancelled friend request to ${displayName}`, {
           icon: (
@@ -135,10 +147,10 @@ const OutgoingRequestCard = memo(
           />
 
           <div className="flex-1 min-w-0 mb-3">
-            <div className="font-minecraft text-white text-4xl font-medium truncate">
+            <div className="font-minecraft text-white text-4xl font-medium break-words overflow-wrap-anywhere">
               {displayName}
             </div>
-            <div className="text-xs text-white/60 font-minecraft-ten truncate">
+            <div className="text-xs text-white/60 font-minecraft-ten break-words overflow-wrap-anywhere">
               Pending friend request
             </div>
           </div>
@@ -202,33 +214,50 @@ export function RequestsTab({
   const accentColor = useThemeStore((state) => state.accentColor);
   const borderRadius = useThemeStore((state) => state.borderRadius);
 
-  const { 
+  const {
     friendRequests,
     isLoading,
     refreshFriendsData,
     hasInitiallyLoaded,
-    currentUser
+    currentUser,
   } = useFriendsStore();
 
   useEffect(() => {
     if (isVisible && !hasBeenVisible) {
       setHasBeenVisible(true);
       if (!hasInitiallyLoaded) {
-        refreshFriendsData().catch(() => {
-        });
+        refreshFriendsData().catch(() => {});
       }
     }
   }, [isVisible, hasBeenVisible, hasInitiallyLoaded, refreshFriendsData]);
 
   const incomingRequests = React.useMemo(() => {
     if (!currentUser) return [];
-    return friendRequests.filter(req => req.friendRequest.receiver === currentUser.userId);
+    return friendRequests.filter(
+      (req) => req.friendRequest.receiver === currentUser.userId
+    );
   }, [friendRequests, currentUser]);
 
   const outgoingRequests = React.useMemo(() => {
     if (!currentUser) return [];
-    return friendRequests.filter(req => req.friendRequest.sender === currentUser.userId);
+    return friendRequests.filter(
+      (req) => req.friendRequest.sender === currentUser.userId
+    );
   }, [friendRequests, currentUser]);
+
+  const incomingLoader = useSequentialLoading(incomingRequests, {
+    itemsPerPage: 10,
+    initialLoadCount: 20,
+    loadThreshold: 5,
+    enabled: true,
+  });
+
+  const outgoingLoader = useSequentialLoading(outgoingRequests, {
+    itemsPerPage: 10,
+    initialLoadCount: 20,
+    loadThreshold: 5,
+    enabled: true,
+  });
 
   const handleAcceptRequest = async (senderUuid: string) => {
     await refreshFriendsData();
@@ -242,7 +271,8 @@ export function RequestsTab({
     await refreshFriendsData();
   };
 
-  const hasRequests = incomingRequests.length > 0 || outgoingRequests.length > 0;
+  const hasRequests =
+    incomingRequests.length > 0 || outgoingRequests.length > 0;
 
   const shouldShowSkeletons = isLoading && !hasInitiallyLoaded;
 
@@ -322,7 +352,7 @@ export function RequestsTab({
               Incoming ({incomingRequests.length})
             </h3>
           </div>
-          {incomingRequests.map((request) => (
+          {incomingLoader.displayedItems.map((request) => (
             <IncomingRequestCard
               key={request.friendRequest.id}
               request={request}
@@ -330,6 +360,12 @@ export function RequestsTab({
               onDecline={handleDeclineRequest}
             />
           ))}
+
+          <ScrollSentinel
+            sentinelRef={incomingLoader.scrollSentinelRef}
+            hasMore={incomingLoader.hasMore}
+            isLoading={incomingLoader.isLoading}
+          />
         </div>
       )}
 
@@ -344,13 +380,19 @@ export function RequestsTab({
               Outgoing ({outgoingRequests.length})
             </h3>
           </div>
-          {outgoingRequests.map((request) => (
+          {outgoingLoader.displayedItems.map((request) => (
             <OutgoingRequestCard
               key={request.friendRequest.id}
               request={request}
               onCancel={handleCancelRequest}
             />
           ))}
+
+          <ScrollSentinel
+            sentinelRef={outgoingLoader.scrollSentinelRef}
+            hasMore={outgoingLoader.hasMore}
+            isLoading={outgoingLoader.isLoading}
+          />
         </div>
       )}
     </div>

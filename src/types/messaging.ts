@@ -20,9 +20,11 @@ export interface Chat {
 }
 
 export interface MessageReaction {
-  userId: string;
-  emoji: string;
+  userId?: string;
+  emoji?: string;
   createdAt?: number;
+  reactor?: string;
+  emojiUnicode?: string;
 }
 
 export interface ChatMessage {
@@ -51,7 +53,7 @@ export interface ChatWithMetadata {
   groupAvatarUrl?: string;
   createdAt?: number;
   updatedAt?: number;
-  
+
   otherParticipant?: string;
   latestMessage?: ChatMessage;
   unreadMessages: number;

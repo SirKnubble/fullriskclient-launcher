@@ -4,17 +4,17 @@ import { cn } from "../../lib/utils";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useFriendsStore } from "../../store/useFriendsStore";
 import { useProfileStore } from "../../store/profile-store";
+import { useSequentialLoading } from "../../hooks/useSequentialLoading";
 import { Card } from "../ui/Card";
 import { IconButton } from "../ui/buttons/IconButton";
+import { ScrollSentinel } from "../ui/ScrollSentinel";
 import { Avatar } from "../common/Avatar";
 import { UserProfileCard } from "./UserProfileCard";
 import { getUserStatusColor } from "../common/UserStatus";
 import { showSuccessToast, showErrorToast } from "../../utils/toast-helpers";
 import { formatLastSeen } from "../../utils/date-helpers";
 import type { FriendsFriendUser } from "../../types/friends";
-import {
-  FriendsUserStateHelpers,
-} from "../../types/friends";
+import { FriendsUserStateHelpers } from "../../types/friends";
 import * as FriendsService from "../../services/friends-service";
 import * as ProcessService from "../../services/process-service";
 import { toast } from "react-hot-toast";
@@ -40,7 +40,9 @@ const FriendCard = memo(({ friend, onRemove, onOpenChat }: FriendCardProps) => {
         { accentColor: accentColor.value }
       );
     } catch (error) {
-      showErrorToast("Failed to remove friend", { accentColor: accentColor.value });
+      showErrorToast("Failed to remove friend", {
+        accentColor: accentColor.value,
+      });
     }
   };
 
@@ -56,14 +58,20 @@ const FriendCard = memo(({ friend, onRemove, onOpenChat }: FriendCardProps) => {
     try {
       const profileId = selectedProfile?.id || lastPlayedProfileId;
       if (!profileId) {
-      showErrorToast("No profile selected", { accentColor: accentColor.value });
+        showErrorToast("No profile selected", {
+          accentColor: accentColor.value,
+        });
         return;
       }
 
       await ProcessService.launch(profileId, undefined, friend.server);
-      showSuccessToast(`Joining ${friend.server}...`, { accentColor: accentColor.value });
+      showSuccessToast(`Joining ${friend.server}...`, {
+        accentColor: accentColor.value,
+      });
     } catch (error) {
-      showErrorToast("Failed to join server", { accentColor: accentColor.value });
+      showErrorToast("Failed to join server", {
+        accentColor: accentColor.value,
+      });
     }
   };
   const parsedState = FriendsUserStateHelpers.parseState(friend.onlineState);
@@ -72,8 +80,8 @@ const FriendCard = memo(({ friend, onRemove, onOpenChat }: FriendCardProps) => {
 
   const statusColor = getUserStatusColor(friend.onlineState);
   return (
-    <Card variant="flat" className="p-4 mb-3">
-      <div className="flex items-center gap-4">
+    <Card variant="flat" className="p-2 sm:p-3 md:p-4 mb-2 sm:mb-3">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
         <div className="relative">
           <Avatar
             userId={friend.noriskUser.uuid}
@@ -82,23 +90,23 @@ const FriendCard = memo(({ friend, onRemove, onOpenChat }: FriendCardProps) => {
             className={statusColor}
           />
         </div>
-        <div className="flex-1 min-w-0 mb-3">
-          <div className="font-minecraft text-white text-4xl font-medium truncate">
+        <div className="flex-1 min-w-0 mb-2 sm:mb-3">
+          <div className="font-minecraft text-white text-2xl sm:text-3xl md:text-4xl font-medium break-words overflow-wrap-anywhere">
             {displayName}
           </div>
-          <div className="text-xs text-white/60 font-minecraft-ten truncate">
+          <div className="text-xs text-white/60 font-minecraft-ten break-words overflow-wrap-anywhere">
             {isOnline ? (
               friend.server ? (
-                <span className="truncate">{friend.server}</span>
+                <span className="break-words">{friend.server}</span>
               ) : (
                 "Online"
               )
             ) : (
-              <span className="truncate">{`Offline • ${formatLastSeen(friend.noriskUser.lastSeen)}`}</span>
+              <span className="break-words">{`Offline • ${formatLastSeen(friend.noriskUser.lastSeen)}`}</span>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <IconButton
             icon={<Icon icon="solar:chat-round-dots-bold" />}
             onClick={handleMessage}
@@ -134,8 +142,8 @@ const FriendCardSkeleton = memo(() => {
   const borderRadius = useThemeStore((state) => state.borderRadius);
 
   return (
-    <Card variant="flat" className="p-4 mb-3">
-      <div className="flex items-center gap-4">
+    <Card variant="flat" className="p-2 sm:p-3 md:p-4 mb-2 sm:mb-3">
+      <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
         <Skeleton
           variant="image"
           width="48px"
@@ -197,10 +205,12 @@ export function FriendsTab({
   isInitialized,
   searchQuery = "",
   onOpenChat,
+  inSidebar = false,
 }: {
   isInitialized?: boolean;
   searchQuery?: string;
   onOpenChat?: (friendUuid: string) => void;
+  inSidebar?: boolean;
 }) {
   const { friends, removeFriend, hasInitiallyLoaded, isLoading } =
     useFriendsStore();
@@ -252,13 +262,32 @@ export function FriendsTab({
     (f) => !FriendsUserStateHelpers.isOnline(f.onlineState)
   );
 
+  const onlineFriendsLoader = useSequentialLoading(onlineFriends, {
+    itemsPerPage: 10,
+    initialLoadCount: 10,
+    loadThreshold: 1,
+    enabled: onlineFriends.length > 1,
+  });
+
+  const offlineFriendsLoader = useSequentialLoading(offlineFriends, {
+    itemsPerPage: 10,
+    initialLoadCount: 10,
+    loadThreshold: 1,
+    enabled: offlineFriends.length > 1,
+  });
+
   const handleRemoveFriend = (uuid: string) => {
     removeFriend(uuid);
   };
 
   if (!isInitialized || (isLoading && !hasInitiallyLoaded)) {
     return (
-      <div className="p-4 overflow-y-auto max-h-full custom-scrollbar">
+      <div
+        className={cn(
+          "p-4",
+          inSidebar ? "" : "overflow-y-auto max-h-full custom-scrollbar"
+        )}
+      >
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4 px-2">
             <div
@@ -279,7 +308,12 @@ export function FriendsTab({
 
   if (friends.length === 0) {
     return (
-      <div className="relative p-4 overflow-y-auto max-h-full custom-scrollbar">
+      <div
+        className={cn(
+          "relative p-4",
+          inSidebar ? "" : "overflow-y-auto max-h-full custom-scrollbar"
+        )}
+      >
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4 px-2">
             <div
@@ -310,7 +344,12 @@ export function FriendsTab({
 
   if (filteredAndSortedFriends.length === 0 && searchQuery) {
     return (
-      <div className="relative p-4 overflow-y-auto max-h-full custom-scrollbar">
+      <div
+        className={cn(
+          "relative p-4",
+          inSidebar ? "" : "overflow-y-auto max-h-full custom-scrollbar"
+        )}
+      >
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4 px-2">
             <div
@@ -337,7 +376,12 @@ export function FriendsTab({
     );
   }
   return (
-    <div className="relative p-4 overflow-y-auto max-h-full custom-scrollbar">
+    <div
+      className={cn(
+        "relative p-4",
+        inSidebar ? "" : "overflow-y-auto max-h-full custom-scrollbar"
+      )}
+    >
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4 px-2">
           <div
@@ -351,7 +395,7 @@ export function FriendsTab({
         <UserProfileCard />
       </div>
 
-      {onlineFriends.length > 0 && (
+      {onlineFriendsLoader.displayedItems.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-4 px-2">
             <div
@@ -362,7 +406,7 @@ export function FriendsTab({
               Online — {onlineFriends.length}
             </h3>
           </div>
-          {onlineFriends.map((friend, index) => (
+          {onlineFriendsLoader.displayedItems.map((friend, index) => (
             <FriendCard
               key={friend.noriskUser.uuid}
               friend={friend}
@@ -370,10 +414,15 @@ export function FriendsTab({
               onOpenChat={onOpenChat}
             />
           ))}
+          <ScrollSentinel
+            sentinelRef={onlineFriendsLoader.scrollSentinelRef}
+            isLoading={onlineFriendsLoader.isLoading}
+            hasMore={onlineFriendsLoader.hasMore}
+          />
         </div>
       )}
 
-      {offlineFriends.length > 0 && (
+      {offlineFriendsLoader.displayedItems.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4 px-2">
             <div
@@ -384,7 +433,7 @@ export function FriendsTab({
               Offline — {offlineFriends.length}
             </h3>
           </div>
-          {offlineFriends.map((friend, index) => (
+          {offlineFriendsLoader.displayedItems.map((friend, index) => (
             <FriendCard
               key={friend.noriskUser.uuid}
               friend={friend}
@@ -392,6 +441,11 @@ export function FriendsTab({
               onOpenChat={onOpenChat}
             />
           ))}
+          <ScrollSentinel
+            sentinelRef={offlineFriendsLoader.scrollSentinelRef}
+            isLoading={offlineFriendsLoader.isLoading}
+            hasMore={offlineFriendsLoader.hasMore}
+          />
         </div>
       )}
     </div>

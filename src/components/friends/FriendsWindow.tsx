@@ -54,14 +54,13 @@ export function FriendsWindow() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [stableCounts, setStableCounts] = useState({ friends: 0, requests: 0 });
   const [searchQuery, setSearchQuery] = useState("");
-  const [openChatWithFriend, setOpenChatWithFriend] = useState<string | undefined>();
+  const [openChatWithFriend, setOpenChatWithFriend] = useState<
+    string | undefined
+  >();
 
   const handleManualRefresh = async () => {
     try {
-      await Promise.all([
-        refreshFriendsData(),
-        refreshMessagingData()
-      ]);
+      await Promise.all([refreshFriendsData(), refreshMessagingData()]);
       toast("Friends and messages refreshed", {
         icon: (
           <Icon
@@ -91,6 +90,15 @@ export function FriendsWindow() {
     setOpenChatWithFriend(undefined);
   };
 
+  const handleChatOpened = () => {
+    // muss da noch was machen...
+  };
+
+  const handleChatClosed = () => {
+    // muss da noch was machen...
+    setOpenChatWithFriend(undefined);
+  };
+
   useEffect(() => {
     if (selectedTab !== "messages") {
       setOpenChatWithFriend(undefined);
@@ -99,15 +107,15 @@ export function FriendsWindow() {
 
   useEffect(() => {
     setSelectedTab("friends");
-    
-    const openChatWithFriendId = localStorage.getItem('openChatWithFriend');
+
+    const openChatWithFriendId = localStorage.getItem("openChatWithFriend");
     if (openChatWithFriendId) {
-      localStorage.removeItem('openChatWithFriend');
-      
+      localStorage.removeItem("openChatWithFriend");
+
       const initializeAndOpenChat = async () => {
         try {
           await refreshFriendsData();
-          
+
           setOpenChatWithFriend(openChatWithFriendId);
           setSelectedTab("messages");
         } catch (error) {
@@ -115,12 +123,11 @@ export function FriendsWindow() {
           setSelectedTab("messages");
         }
       };
-      
+
       initializeAndOpenChat();
     } else {
       if (!hasInitiallyLoaded) {
-        refreshFriendsData().catch(() => {
-        });
+        refreshFriendsData().catch(() => {});
       }
     }
   }, [setSelectedTab, refreshFriendsData, hasInitiallyLoaded]);
@@ -290,21 +297,21 @@ export function FriendsWindow() {
             }}
           />
         )}
-        <div className="relative z-10 w-72 flex-shrink-0">
+        <div className="relative z-10 w-40 xs:w-48 sm:w-56 md:w-64 lg:w-72 flex-shrink-0 min-w-0">
           <Card
             ref={sidebarRef}
             className="h-full w-full bg-black/20 border border-white/10 rounded-none border-r border-l-0 border-t-0 border-b-0"
             variant="flat"
             disableHover={true}
           >
-            <div className="p-4 border-b border-white/10 bg-black/10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
+            <div className="p-2 sm:p-3 md:p-4 border-b border-white/10 bg-black/10">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Icon
                     icon="solar:users-group-two-rounded-bold"
-                    className="w-6 h-6 text-white"
+                    className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                   />
-                  <h2 className="text-2xl font-minecraft text-white lowercase">
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-minecraft text-white lowercase">
                     Friends
                   </h2>
                 </div>
@@ -313,10 +320,7 @@ export function FriendsWindow() {
                     icon={
                       <Icon
                         icon="solar:refresh-bold"
-                        className={cn(
-                          "w-5 h-5",
-                          isLoading && "animate-spin"
-                        )}
+                        className={cn("w-5 h-5", isLoading && "animate-spin")}
                       />
                     }
                     onClick={handleManualRefresh}
@@ -327,8 +331,8 @@ export function FriendsWindow() {
               </div>
             </div>
 
-            <div className="p-4 space-y-4">
-              <div className="space-y-2">
+            <div className="p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
+              <div className="space-y-1 sm:space-y-2">
                 {getTabs().map((tab) => {
                   const isActive = selectedTab === tab.id;
                   return (
@@ -338,7 +342,7 @@ export function FriendsWindow() {
                       variant={isActive ? "default" : "ghost"}
                       size="lg"
                       className={cn(
-                        "w-full text-left justify-start p-4 transition-all duration-200",
+                        "w-full text-left justify-start p-2 sm:p-3 md:p-4 transition-all duration-200",
                         isActive
                           ? "bg-black/30 border-accent border-l-[3px] hover:bg-black/30"
                           : "bg-transparent hover:bg-black/20 border-transparent border-l-[3px]"
@@ -347,15 +351,15 @@ export function FriendsWindow() {
                         <Icon
                           icon={tab.icon}
                           className={cn(
-                            "w-6 h-6",
+                            "w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6",
                             isActive ? "text-accent" : "text-white/70"
                           )}
                         />
                       }
                     >
                       <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-3">
-                          <span className="font-minecraft text-2xl lowercase">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <span className="font-minecraft text-lg sm:text-xl md:text-2xl lowercase">
                             {tab.label}
                           </span>
                         </div>
@@ -379,7 +383,7 @@ export function FriendsWindow() {
                   onChange={setSearchQuery}
                   placeholder="Search friends..."
                   className="w-full"
-                  size="md"
+                  size="sm"
                 />
               )}
             </div>
@@ -392,9 +396,12 @@ export function FriendsWindow() {
             variant="flat"
             disableHover={true}
           >
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6" style={{
-              display: selectedTab === "messages" ? "none" : "block"
-            }}>
+            <div
+              className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 md:p-6"
+              style={{
+                display: selectedTab === "messages" ? "none" : "block",
+              }}
+            >
               <div
                 style={{
                   display: selectedTab === "friends" ? "block" : "none",
@@ -417,7 +424,7 @@ export function FriendsWindow() {
                 />
               </div>
             </div>
-            <div 
+            <div
               className="flex-1 flex flex-col h-full"
               style={{
                 display: selectedTab === "messages" ? "flex" : "none",
@@ -428,6 +435,8 @@ export function FriendsWindow() {
                 searchQuery={searchQuery}
                 openChatWithFriend={openChatWithFriend}
                 onClearOpenChat={handleClearOpenChat}
+                onChatOpened={handleChatOpened}
+                onChatClosed={handleChatClosed}
               />
             </div>
           </Card>
