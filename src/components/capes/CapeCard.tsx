@@ -34,12 +34,12 @@ export function CapeCard({
   onDelete,
 }: CapeCardProps) {
   const { _id: capeHash, elytra, uses, firstSeen: creatorUuid } = cape;
-  const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${capeHash}.png`;
+  const imageUrl = `https://cdn.norisk.gg/capes/prod/${capeHash}.png`;
   const [creatorName, setCreatorName] = useState<string | null>(null);
 
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
-    (state) => state.isBackgroundAnimationEnabled,
+    (state) => state.isBackgroundAnimationEnabled
   );
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export function CapeCard({
           if (isMounted) {
             console.warn(
               `Failed to fetch profile for UUID ${creatorUuid}:`,
-              err,
+              err
             );
           }
         });
@@ -79,7 +79,7 @@ export function CapeCard({
           "relative p-4 pt-1.5 pb-2 h-[380px] flex flex-col text-center group",
           "transition-all duration-300 ease-out hover:scale-105 hover:z-10",
           isLoading ? "opacity-60 pointer-events-none" : "",
-          `min-w-[${CARD_MIN_WIDTH}px]`,
+          `min-w-[${CARD_MIN_WIDTH}px]`
         )}
         variant={isSelected ? "flat" : "flat"}
         onClick={() => !isLoading && onEquip(capeHash)}

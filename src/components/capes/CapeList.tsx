@@ -23,7 +23,6 @@ import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import gsap from "gsap";
 import { IconButton } from "../ui/buttons/IconButton";
 
-
 const ListComponent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -37,7 +36,7 @@ const ListComponent = React.forwardRef<
         gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
         gap: "16px",
         padding: "16px",
-        ...style, 
+        ...style,
       }}
     >
       {children}
@@ -191,7 +190,7 @@ function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(true);
-    }, 50); 
+    }, 50);
     return () => clearTimeout(timer);
   }, []);
 
@@ -211,7 +210,7 @@ function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
       <div
         className={cn(
           "flex flex-col items-center justify-center flex-grow transition-opacity duration-300 ease-in-out p-3",
-          isVisible ? "opacity-100" : "opacity-0",
+          isVisible ? "opacity-100" : "opacity-0"
         )}
       >
         <Icon
@@ -226,7 +225,7 @@ function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
       {onDownloadTemplate && (
         <Button
           onClick={(e) => {
-            e.stopPropagation(); 
+            e.stopPropagation();
             onDownloadTemplate();
           }}
           className="download-template-button w-full mt-2 cursor-pointer rounded-md transition-colors duration-150 group/template-btn"
@@ -299,12 +298,14 @@ export function CapeList({
   const [isDebouncedLoading, setIsDebouncedLoading] = useState(false);
   const debouncedLoadingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
 
   useEffect(() => {
-
     const actualCapesCount = capes.filter(
-      (c) => c._id !== ADD_CAPE_PLACEHOLDER_ID,
+      (c) => c._id !== ADD_CAPE_PLACEHOLDER_ID
     ).length;
     const showLoadingSkeleton =
       isLoading && actualCapesCount === 0 && !searchQuery;
@@ -337,11 +338,10 @@ export function CapeList({
         onDeleteCape(cape);
       }
     },
-    [onDeleteCape],
+    [onDeleteCape]
   );
 
   const itemsToRender = useMemo(() => {
-
     return capes;
   }, [capes]);
 
@@ -359,12 +359,17 @@ export function CapeList({
           </div>
         );
       },
-      List: ListComponent, 
+      List: ListComponent,
     }),
-    [isFetchingMore, accentColor],
-  ); 
+    [isFetchingMore, accentColor]
+  );
 
-  function calculateMenuPosition(x: number, y: number, menuWidth: number, menuHeight: number) {
+  function calculateMenuPosition(
+    x: number,
+    y: number,
+    menuWidth: number,
+    menuHeight: number
+  ) {
     const viewport = { width: window.innerWidth, height: window.innerHeight };
     const padding = 16;
     let adjustedX = x;
@@ -375,10 +380,17 @@ export function CapeList({
     }
     if (y + menuHeight + padding > viewport.height) {
       adjustedY = y - menuHeight;
-      if (adjustedY < padding) adjustedY = viewport.height - menuHeight - padding;
+      if (adjustedY < padding)
+        adjustedY = viewport.height - menuHeight - padding;
     }
-    adjustedX = Math.max(padding, Math.min(adjustedX, viewport.width - menuWidth - padding));
-    adjustedY = Math.max(padding, Math.min(adjustedY, viewport.height - menuHeight - padding));
+    adjustedX = Math.max(
+      padding,
+      Math.min(adjustedX, viewport.width - menuWidth - padding)
+    );
+    adjustedY = Math.max(
+      padding,
+      Math.min(adjustedY, viewport.height - menuHeight - padding)
+    );
     return { x: adjustedX, y: adjustedY };
   }
 
@@ -386,9 +398,17 @@ export function CapeList({
     if (contextMenu) {
       const menuWidth = 200;
       const menuHeight = 56;
-      setMenuPosition(calculateMenuPosition(contextMenu.x, contextMenu.y, menuWidth, menuHeight));
+      setMenuPosition(
+        calculateMenuPosition(
+          contextMenu.x,
+          contextMenu.y,
+          menuWidth,
+          menuHeight
+        )
+      );
       window.addEventListener("click", () => setContextMenu(null));
-      return () => window.removeEventListener("click", () => setContextMenu(null));
+      return () =>
+        window.removeEventListener("click", () => setContextMenu(null));
     }
   }, [contextMenu]);
 
@@ -422,7 +442,7 @@ export function CapeList({
       <div
         className={cn(
           "flex flex-col items-center justify-center h-[calc(100vh-200px)] text-white/70 transition-opacity duration-500",
-          isDebouncedLoading ? "opacity-100" : "opacity-0",
+          isDebouncedLoading ? "opacity-100" : "opacity-0"
         )}
       >
         <Icon
@@ -435,12 +455,11 @@ export function CapeList({
     );
   }
 
-
   const noActualCapesToDisplay =
     itemsToRender.filter((item) => item._id !== ADD_CAPE_PLACEHOLDER_ID)
       .length === 0;
   const addCapeCardIsPresent = itemsToRender.some(
-    (item) => item._id === ADD_CAPE_PLACEHOLDER_ID,
+    (item) => item._id === ADD_CAPE_PLACEHOLDER_ID
   );
 
   if (
@@ -475,7 +494,7 @@ export function CapeList({
     <div
       className={cn(
         "flex-grow overflow-auto custom-scrollbar h-full",
-        onTriggerUpload ? "" : "p-4",
+        onTriggerUpload ? "" : "p-4"
       )}
     >
       <VirtuosoGrid
@@ -495,7 +514,7 @@ export function CapeList({
             );
           }
           const cape = item as CosmeticCape;
-          const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${cape._id}.png`;
+          const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
           return (
             <CapeItemDisplay
               key={cape._id}
@@ -524,9 +543,10 @@ export function CapeList({
             borderBottomColor: accentColor.value,
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
-            boxShadow: "0 8px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05)",
+            boxShadow:
+              "0 8px 16px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05)",
           }}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           <span
             className="absolute inset-x-0 top-0 h-[2px] rounded-t-sm"
@@ -562,10 +582,23 @@ export function CapeList({
   );
 }
 
-function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId: string }) {
+function Cape3DPreviewWithToggle({
+  skinUrl,
+  capeId,
+}: {
+  skinUrl?: string;
+  capeId: string;
+}) {
   const [showElytra, setShowElytra] = useState(false);
   return (
-    <div style={{ width: 300, height: 380, margin: "0 auto", position: "relative" }}>
+    <div
+      style={{
+        width: 300,
+        height: 380,
+        margin: "0 auto",
+        position: "relative",
+      }}
+    >
       <IconButton
         onClick={() => setShowElytra((v) => !v)}
         variant="ghost"
@@ -573,7 +606,9 @@ function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId
         className="absolute top-2 right-2 z-10"
         icon={
           <Icon
-            icon={showElytra ? "ph:airplane-tilt-fill" : "ph:airplane-tilt-duotone"}
+            icon={
+              showElytra ? "ph:airplane-tilt-fill" : "ph:airplane-tilt-duotone"
+            }
             className="w-5 h-5"
           />
         }
