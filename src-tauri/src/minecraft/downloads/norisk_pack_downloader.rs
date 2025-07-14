@@ -1,14 +1,11 @@
-use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::integrations::norisk_packs::{self, NoriskModSourceDefinition, NoriskModpacksConfig};
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use futures::stream::{iter, StreamExt};
-use hex;
-use log::{debug, error, info, warn};
-use reqwest;
-use sha1::{Digest, Sha1};
+use log::{error, info, warn};
 use std::path::PathBuf;
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const DEFAULT_CONCURRENT_MOD_DOWNLOADS: usize = 4;
 const MOD_CACHE_DIR_NAME: &str = "mod_cache"; // Reuse the same cache directory
@@ -248,125 +245,20 @@ impl NoriskPackDownloadService {
         target_path: &PathBuf,
         expected_sha1: Option<&str>,
     ) -> Result<()> {
-        debug!("Checking file: {:?}", target_path);
+        // Use the new centralized download utility with optional SHA1 verification
+        let mut config = DownloadConfig::new()
+            .with_streaming(true)  // Use streaming for potentially large mod files
+            .with_retries(3);
 
-        if target_path.exists() {
-            if let Some(expected_hash) = expected_sha1 {
-                debug!("File exists, verifying SHA1 hash...");
-                let current_hash = Self::calculate_sha1(target_path).await?;
-                if current_hash.eq_ignore_ascii_case(expected_hash) {
-                    info!("File already exists and hash matches: {:?}", target_path);
-                    return Ok(());
-                } else {
-                    warn!(
-                        "Hash mismatch (Expected: {}, Found: {}). Redownloading: {:?}",
-                        expected_hash, current_hash, target_path
-                    );
-                    fs::remove_file(target_path).await.map_err(|e| {
-                        AppError::Download(format!("Failed to remove {:?}: {}", target_path, e))
-                    })?;
-                }
-            } else {
-                info!("File exists, skipping (no hash check): {:?}", target_path);
-                return Ok(());
-            }
+        // Only add SHA1 verification if hash is provided
+        if let Some(hash) = expected_sha1 {
+            config = config.with_sha1(hash.to_string());
         }
 
-        info!("Downloading from {} to {:?}", url, target_path);
-        let response = HTTP_CLIENT.get(url)
-            .send()
-            .await
-            .map_err(|e| AppError::Download(format!("Request failed for {}: {}", url, e)))?;
-
-        if !response.status().is_success() {
-            if response.status() == reqwest::StatusCode::NOT_FOUND {
-                error!("Maven artifact not found (404): {}", url);
-                return Err(AppError::Download(format!(
-                    "Maven artifact not found: {}",
-                    url
-                )));
-            } else {
-                return Err(AppError::Download(format!(
-                    "Download failed: Status {} for {}",
-                    response.status(),
-                    url
-                )));
-            }
-        }
-
-        if let Some(parent) = target_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent).await?;
-            }
-        }
-        let mut file = fs::File::create(target_path).await.map_err(|e| {
-            AppError::Download(format!("Failed to create file {:?}: {}", target_path, e))
-        })?;
-        let mut stream = response.bytes_stream();
-
-        while let Some(chunk_result) = stream.next().await {
-            let chunk =
-                chunk_result.map_err(|e| AppError::Download(format!("Stream error: {}", e)))?;
-            file.write_all(&chunk)
-                .await
-                .map_err(|e| AppError::Download(format!("Write error: {}", e)))?;
-        }
-
-        // Ensure the file is fully written to disk before attempting to read it.
-        // This prevents potential "end of central directory record not found" errors with zip/jar files
-        // that can occur if we try to read the file before the OS has flushed all write buffers.
-        file.sync_all()
-            .await
-            .map_err(|e| AppError::Download(format!("Failed to sync norisk pack file: {}", e)))?;
-        // Explicitly close the file by dropping the handle
-        drop(file);
-
-        debug!("Finished writing file: {:?}", target_path);
-
-        if let Some(expected_hash) = expected_sha1 {
-            debug!("Verifying SHA1 after download...");
-            let downloaded_hash = Self::calculate_sha1(target_path).await?;
-            if !downloaded_hash.eq_ignore_ascii_case(expected_hash) {
-                error!(
-                    "Hash mismatch after download! Expected: {}, Found: {}. Deleting: {:?}",
-                    expected_hash, downloaded_hash, target_path
-                );
-                fs::remove_file(target_path).await.map_err(|e| {
-                    AppError::Download(format!(
-                        "Failed to remove invalid file {:?}: {}",
-                        target_path, e
-                    ))
-                })?;
-                return Err(AppError::Download(
-                    "Hash mismatch after download".to_string(),
-                ));
-            } else {
-                info!("Hash verified: {:?}", target_path);
-            }
-        }
-
-        Ok(())
+        DownloadUtils::download_file(url, target_path, config).await
     }
 
-    /// Calculates the SHA1 hash of a file asynchronously.
-    async fn calculate_sha1(file_path: &PathBuf) -> Result<String> {
-        let mut file = fs::File::open(file_path)
-            .await
-            .map_err(|e| AppError::Io(e))?;
-        let mut hasher = Sha1::new();
-        let mut buffer = [0; 1024];
 
-        loop {
-            let n = file.read(&mut buffer).await.map_err(|e| AppError::Io(e))?;
-            if n == 0 {
-                break;
-            }
-            hasher.update(&buffer[..n]);
-        }
-
-        let hash_bytes = hasher.finalize();
-        Ok(hex::encode(hash_bytes))
-    }
 }
 
 // Note: Syncing logic (like `sync_mods_to_profile` from ModDownloadService)

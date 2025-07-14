@@ -1,5 +1,6 @@
 pub mod datapack_utils; // DataPack-Utils für das Scannen und Verwalten von DataPacks
 pub mod debug_utils;
+pub mod download_utils; // Central download utility for robust file downloads
 pub mod file_utils; // Utilities for file operations like reading archives
 pub mod hash_utils;
 pub mod java_detector; // Java detector to find Java installations

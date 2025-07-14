@@ -2,6 +2,7 @@ use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::{JavaDistribution, ZuluApiResponse};
 use crate::state::State;
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use crate::utils::system_info::{Architecture, OperatingSystem, ARCHITECTURE, OS};
 use async_zip::tokio::read::seek::ZipFileReader;
 use flate2::read::GzDecoder;
@@ -15,7 +16,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tar::Archive;
 use tokio::fs;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::io::BufReader;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 const JAVA_DIR: &str = "java";
@@ -142,38 +143,18 @@ impl JavaDownloadService {
         let version_dir = self.base_path.join(dir_name);
         fs::create_dir_all(&version_dir).await?;
 
-        // Download the Java distribution
-        let response = HTTP_CLIENT.get(&download_url)
-            .send()
-            .await
-            .map_err(|e| AppError::JavaDownload(e.to_string()))?;
-
-        if !response.status().is_success() {
-            return Err(AppError::JavaDownload(format!(
-                "Failed to download Java: Status {}",
-                response.status()
-            )));
-        }
-
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|e| AppError::JavaDownload(e.to_string()))?;
-
         // Save the downloaded file
         let archive_path = version_dir.join(format!("java.{}", OS.get_archive_type()?));
-        let mut file = fs::File::create(&archive_path).await?;
-        file.write_all(&bytes).await?;
-        
-        //bug fix für https://github.com/NoRiskClient/issues/issues/1203
-        // Ensure the file is fully written to disk before attempting to read it.
-        // This is to prevent "end of central directory record not found" errors with zip files
-        // that can occur if we try to read the file before the OS has flushed all write buffers.
-        file.sync_all()
+
+        // Download Java archive using the centralized utility (fixes issue #1203)
+        let config = DownloadConfig::new()
+            .with_streaming(true)  // Java archives are large files
+            .with_retries(3)  // Built-in retry logic for network issues
+            .with_force_overwrite(true);  // Always download fresh Java
+
+        DownloadUtils::download_file(&download_url, &archive_path, config)
             .await
-            .map_err(|e| AppError::JavaDownload(format!("Failed to sync java archive: {}", e)))?;
-        // Explicitly close the file by dropping the handle before extraction.
-        drop(file);
+            .map_err(|e| AppError::JavaDownload(format!("Failed to download Java archive: {}", e)))?;
 
         // Extract the archive
         self.extract_java_archive(&archive_path, &version_dir)

@@ -3,6 +3,7 @@ use crate::error::{AppError, Result};
 use crate::minecraft::dto::piston_meta::{AssetIndex, AssetIndexContent, AssetObject};
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::State;
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use crate::utils::mc_utils;
 use futures::stream::{iter, StreamExt};
 use log::{debug, error, info, trace, warn};
@@ -11,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 const ASSETS_DIR: &str = "assets";
@@ -152,103 +152,39 @@ impl MinecraftAssetsDownloadService {
 
             downloads.push(async move {
                 let task_id = task_counter_clone.fetch_add(1, Ordering::SeqCst);
-                trace!(
-                    "[Assets Download Task {}] Starting download for: {}",
-                    task_id,
-                    name_clone
-                );
+                trace!("[Assets Download Task {}] Starting download for: {}", task_id, name_clone);
+                
                 let url = format!(
                     "https://resources.download.minecraft.net/{}/{}",
                     &hash[..2],
                     hash
                 );
 
-                let response_result = HTTP_CLIENT.get(&url).send().await;
+                // Use the new centralized download utility with size verification
+                let config = DownloadConfig::new()
+                    .with_size(size as u64)  // Size verification prevents corruption
+                    .with_streaming(false)  // Assets are typically small files
+                    .with_retries(2);  // Limited retries for faster concurrent processing
 
-                let response = match response_result {
-                    Ok(resp) => resp,
-                    Err(e) => {
-                        error!(
-                            "[Assets Download Task {}] Request error for asset {} at URL {}: {} (is_timeout: {}, is_connect: {}, is_request: {})",
-                            task_id, name_clone, url, e, e.is_timeout(), e.is_connect(), e.is_request()
+                let download_result = DownloadUtils::download_file(&url, &target_path, config).await;
+                
+                match download_result {
+                    Ok(()) => {
+                        // Increment completed counter
+                        let completed = completed_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
+                        let total = total_to_download_clone.load(Ordering::SeqCst);
+
+                        info!(
+                            "[Assets Download Task {}] Finished download for: {} ({}/{})",
+                            task_id, name_clone, completed, total
                         );
-                        return Err(AppError::Download(format!(
-                            "Failed to download asset {} from {}: {}",
-                            name_clone, url, e
-                        )));
+                        Ok(())
                     }
-                };
-
-                if !response.status().is_success() {
-                    let status = response.status();
-                    let error_text = response
-                        .text()
-                        .await
-                        .unwrap_or_else(|_| "No error details available".to_string());
-                    error!(
-                        "[Assets Download Task {}] Failed download for {}: Status {}, Error: {}",
-                        task_id, name_clone, status, error_text
-                    );
-                    return Err(AppError::Download(format!(
-                        "Failed to download asset {} - Status {}: {}",
-                        name_clone, status, error_text
-                    )));
-                }
-
-                let bytes_result = response.bytes().await;
-                let bytes = match bytes_result {
-                    Ok(b) => b,
                     Err(e) => {
-                        error!(
-                            "[Assets Download Task {}] Error reading bytes for {}: {}",
-                            task_id, name_clone, e
-                        );
-                        return Err(AppError::Download(format!(
-                            "Failed to read bytes for asset {}: {}",
-                            name_clone, e
-                        )));
-                    }
-                };
-
-                if let Some(parent) = target_path.parent() {
-                    if let Err(e) = fs::create_dir_all(parent).await {
-                        error!(
-                            "[Assets Download Task {}] Error creating directory for {}: {}",
-                            task_id, name_clone, e
-                        );
-                        return Err(AppError::Io(e));
+                        error!("[Assets Download Task {}] Failed to download asset {}: {}", task_id, name_clone, e);
+                        Err(AppError::Download(format!("Failed to download asset {}: {}", name_clone, e)))
                     }
                 }
-
-                let file_result = fs::File::create(&target_path).await;
-                let mut file = match file_result {
-                    Ok(f) => f,
-                    Err(e) => {
-                        error!(
-                            "[Assets Download Task {}] Error creating file for {}: {}",
-                            task_id, name_clone, e
-                        );
-                        return Err(AppError::Io(e));
-                    }
-                };
-
-                if let Err(e) = file.write_all(&bytes).await {
-                    error!(
-                        "[Assets Download Task {}] Error writing file for {}: {}",
-                        task_id, name_clone, e
-                    );
-                    return Err(AppError::Io(e));
-                }
-
-                // Increment completed counter
-                let completed = completed_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
-                let total = total_to_download_clone.load(Ordering::SeqCst);
-
-                info!(
-                    "[Assets Download Task {}] Finished download for: {} ({}/{})",
-                    task_id, name_clone, completed, total
-                );
-                Ok(())
             });
         }
 
@@ -386,109 +322,23 @@ impl MinecraftAssetsDownloadService {
             .join("indexes")
             .join(format!("{}.json", asset_index.id));
 
-        // Check if index file exists and size matches
-        if fs::try_exists(&index_path).await? {
-            if let Ok(metadata) = fs::metadata(&index_path).await {
-                if metadata.len() as i64 == asset_index.size {
-                    info!(
-                        "[Assets Download] Asset index {} already exists with correct size.",
-                        asset_index.id
-                    );
-                    let content = fs::read(&index_path).await?;
-                    return Ok(serde_json::from_slice(&content)?);
-                }
-                warn!("[Assets Download] Asset index {} exists but size mismatch (expected {}, got {}), redownloading.", asset_index.id, asset_index.size, metadata.len());
-            }
-        }
+        info!("[Assets Download] Downloading asset index: {}", asset_index.id);
 
-        info!(
-            "[Assets Download] Downloading asset index: {}",
-            asset_index.id
-        );
-        let response_result = HTTP_CLIENT.get(&asset_index.url).send().await;
-        let response = match response_result {
-            Ok(resp) => resp,
-            Err(e) => {
-                error!(
-                    "[Assets Download] Failed request for asset index {} at URL {}: {} (is_timeout: {}, is_connect: {}, is_request: {})",
-                    asset_index.id, asset_index.url, e, e.is_timeout(), e.is_connect(), e.is_request()
-                );
-                return Err(AppError::Download(format!(
-                    "Failed to download asset index {} from {}: {}",
-                    asset_index.id, asset_index.url, e
-                )));
-            }
-        };
+        // Use the new centralized download utility with size verification
+        let config = DownloadConfig::new()
+            .with_size(asset_index.size as u64)  // Size verification prevents corruption
+            .with_streaming(false)  // Index files are small JSON files
+            .with_retries(3);  // Built-in retry logic
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error details available".to_string());
-            error!(
-                "[Assets Download] Failed response for asset index {}: Status {}, Error: {}",
-                asset_index.id, status, error_text
-            );
-            return Err(AppError::Download(format!(
-                "Failed to download asset index {} - Status {}: {}",
-                asset_index.id, status, error_text
-            )));
-        }
+        DownloadUtils::download_file(&asset_index.url, &index_path, config)
+            .await
+            .map_err(|e| AppError::Download(format!("Failed to download asset index {}: {}", asset_index.id, e)))?;
 
-        let bytes_result = response.bytes().await;
-        let bytes = match bytes_result {
-            Ok(b) => b,
-            Err(e) => {
-                error!(
-                    "[Assets Download] Failed reading bytes for asset index {}: {}",
-                    asset_index.id, e
-                );
-                return Err(AppError::Download(format!(
-                    "Failed to read bytes for asset index {}: {}",
-                    asset_index.id, e
-                )));
-            }
-        };
+        info!("[Assets Download] Successfully downloaded asset index: {}", asset_index.id);
 
-        // Ensure parent directory exists
-        if let Some(parent) = index_path.parent() {
-            if let Err(e) = fs::create_dir_all(parent).await {
-                error!(
-                    "[Assets Download] Failed creating directory for asset index {}: {}",
-                    asset_index.id, e
-                );
-                return Err(AppError::Io(e));
-            }
-        }
-
-        // Write the index file
-        let file_result = fs::File::create(&index_path).await;
-        let mut file = match file_result {
-            Ok(f) => f,
-            Err(e) => {
-                error!(
-                    "[Assets Download] Failed creating file for asset index {}: {}",
-                    asset_index.id, e
-                );
-                return Err(AppError::Io(e));
-            }
-        };
-
-        if let Err(e) = file.write_all(&bytes).await {
-            error!(
-                "[Assets Download] Failed writing file for asset index {}: {}",
-                asset_index.id, e
-            );
-            return Err(AppError::Io(e));
-        }
-
-        info!(
-            "[Assets Download] Successfully downloaded asset index: {}",
-            asset_index.id
-        );
-
-        Ok(serde_json::from_slice(&bytes)?)
+        // Read and parse the downloaded index
+        let content = fs::read(&index_path).await?;
+        Ok(serde_json::from_slice(&content)?)
     }
 
     /// Helper method for emitting progress events

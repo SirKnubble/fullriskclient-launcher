@@ -1,13 +1,11 @@
-use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::Result;
 use crate::minecraft::dto::fabric_meta::{FabricLibrary, FabricVersionInfo};
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use futures::stream::StreamExt;
 use log::info;
-use reqwest;
-use sha1::{Digest, Sha1};
 use std::path::PathBuf;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 
 pub struct FabricLibrariesDownloadService {
     base_path: PathBuf,
@@ -102,52 +100,21 @@ impl FabricLibrariesDownloadService {
             .join(version)
             .join(format!("{}-{}.jar", artifact, version));
 
-        // Check if file already exists
-        if fs::try_exists(&target_path).await? {
-            info!("📦 Maven artifact already exists: {}", maven);
-            return Ok(());
-        }
-
         // Construct Maven URL
         let url = format!(
             "https://maven.fabricmc.net/{}/{}/{}/{}-{}.jar",
             group_path, artifact, version, artifact, version
         );
 
-        // Download the artifact
+        // Use the centralized download utility
         info!("⬇️ Downloading Maven artifact: {}", maven);
-        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
+        let config = DownloadConfig::new()
+            .with_streaming(false) // Maven artifacts are usually small
+            .with_retries(3);
+
+        DownloadUtils::download_file(&url, &target_path, config).await.map_err(|e| {
             crate::error::AppError::FabricError(format!("Failed to download Maven artifact: {}", e))
         })?;
-
-        if !response.status().is_success() {
-            return Err(crate::error::AppError::FabricError(format!(
-                "Failed to download Maven artifact: Status {}",
-                response.status()
-            )));
-        }
-
-        let bytes = response.bytes().await.map_err(|e| {
-            crate::error::AppError::FabricError(format!("Failed to download Maven artifact: {}", e))
-        })?;
-
-        // Create parent directories if they don't exist
-        if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
-        // Save the file
-        let mut file = fs::File::create(&target_path).await?;
-        file.write_all(&bytes).await?;
-        
-        // Ensure the file is fully written to disk before attempting to read it.
-        // This prevents potential "end of central directory record not found" errors with jar files
-        // that can occur if we try to read the file before the OS has flushed all write buffers.
-        file.sync_all().await.map_err(|e| {
-            crate::error::AppError::FabricError(format!("Failed to sync fabric maven artifact: {}", e))
-        })?;
-        // Explicitly close the file by dropping the handle
-        drop(file);
 
         info!("💾 Saved Maven artifact: {}", maven);
         Ok(())
@@ -279,80 +246,21 @@ impl FabricLibrariesDownloadService {
             .join(version)
             .join(format!("{}-{}.jar", artifact, version));
 
-        // Check if file exists and verify hash if available
-        if fs::try_exists(&target_path).await? {
-            if let Some(expected_sha1) = &library.sha1 {
-                let file_content = fs::read(&target_path).await?;
-                let mut hasher = Sha1::new();
-                hasher.update(&file_content);
-                let actual_sha1 = format!("{:x}", hasher.finalize());
-
-                if actual_sha1 == *expected_sha1 {
-                    info!(
-                        "📦 Library already exists and hash matches: {}",
-                        library.name
-                    );
-                    return Ok(());
-                } else {
-                    info!(
-                        "⚠️ Library exists but hash mismatch, redownloading: {}",
-                        library.name
-                    );
-                }
-            } else {
-                info!("📦 Library already exists: {}", library.name);
-                return Ok(());
-            }
-        }
-
-        // Download the library
+        // Use the centralized download utility with optional SHA1 verification
         info!("⬇️ Downloading: {} from {}", library.name, url);
-        let response = HTTP_CLIENT.get(url).send().await.map_err(|e| {
-            crate::error::AppError::FabricError(format!("Failed to download library: {}", e))
-        })?;
-
-        if !response.status().is_success() {
-            return Err(crate::error::AppError::FabricError(format!(
-                "Failed to download library: Status {}",
-                response.status()
-            )));
-        }
-
-        let bytes = response.bytes().await.map_err(|e| {
-            crate::error::AppError::FabricError(format!("Failed to download library: {}", e))
-        })?;
-
-        // Verify hash if available
-        if let Some(expected_sha1) = &library.sha1 {
-            let mut hasher = Sha1::new();
-            hasher.update(&bytes);
-            let actual_sha1 = format!("{:x}", hasher.finalize());
-
-            if actual_sha1 != *expected_sha1 {
-                return Err(crate::error::AppError::FabricError(format!(
-                    "Hash mismatch for {}: expected {}, got {}",
-                    library.name, expected_sha1, actual_sha1
-                )));
-            }
-        }
-
-        // Create parent directories if they don't exist
-        if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
-        // Save the file
-        let mut file = fs::File::create(&target_path).await?;
-        file.write_all(&bytes).await?;
         
-        // Ensure the file is fully written to disk before attempting to read it.
-        // This prevents potential "end of central directory record not found" errors with jar files
-        // that can occur if we try to read the file before the OS has flushed all write buffers.
-        file.sync_all().await.map_err(|e| {
-            crate::error::AppError::FabricError(format!("Failed to sync fabric library: {}", e))
+        let mut config = DownloadConfig::new()
+            .with_streaming(false) // Fabric libraries are usually small
+            .with_retries(3);
+
+        // Add SHA1 verification if available
+        if let Some(sha1) = &library.sha1 {
+            config = config.with_sha1(sha1.clone());
+        }
+
+        DownloadUtils::download_file(&url, &target_path, config).await.map_err(|e| {
+            crate::error::AppError::FabricError(format!("Failed to download library: {}", e))
         })?;
-        // Explicitly close the file by dropping the handle
-        drop(file);
 
         info!("💾 Saved: {}", library.name);
         Ok(())

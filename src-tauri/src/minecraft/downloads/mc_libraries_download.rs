@@ -1,12 +1,9 @@
-use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
-use crate::error::{AppError, Result};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::error::Result;
 use crate::minecraft::dto::piston_meta::{DownloadInfo, Library};
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use futures::stream::{iter, StreamExt};
-use log::info;
-use reqwest;
 use std::path::PathBuf;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
 
 const LIBRARIES_DIR: &str = "libraries";
 const DEFAULT_CONCURRENT_DOWNLOADS: usize = 12;
@@ -75,51 +72,13 @@ impl MinecraftLibrariesDownloadService {
     async fn download_file(&self, download_info: &DownloadInfo) -> Result<()> {
         let target_path = self.get_library_path(download_info);
 
-        if fs::try_exists(&target_path).await? {
-            let metadata = fs::metadata(&target_path).await?;
-            if metadata.len() as i64 == download_info.size {
-                info!(
-                    "File already exists with correct size: {}",
-                    target_path.display()
-                );
-                return Ok(());
-            }
-        }
+        // Use the new centralized download utility with size verification
+        let config = DownloadConfig::new()
+            .with_size(download_info.size as u64)  // Size verification prevents corruption
+            .with_streaming(false)  // Libraries are usually small files
+            .with_retries(3);  // Built-in retry logic for network issues
 
-        let url = &download_info.url;
-        let response = HTTP_CLIENT.get(url).send().await.map_err(AppError::MinecraftApi)?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error details available".to_string());
-            return Err(AppError::Download(format!(
-                "Failed to download file from {} - Status {}: {}",
-                url, status, error_text
-            )));
-        }
-
-        let bytes = response.bytes().await.map_err(AppError::MinecraftApi)?;
-
-        if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
-        let mut file = fs::File::create(&target_path).await?;
-        file.write_all(&bytes).await?;
-        
-        // Ensure the file is fully written to disk before attempting to read it.
-        // This prevents potential "end of central directory record not found" errors with jar files
-        // that can occur if we try to read the file before the OS has flushed all write buffers.
-        file.sync_all().await.map_err(|e| {
-            AppError::Download(format!("Failed to sync minecraft library: {}", e))
-        })?;
-        // Explicitly close the file by dropping the handle
-        drop(file);
-
-        Ok(())
+        DownloadUtils::download_file(&download_info.url, &target_path, config).await
     }
 
     fn get_library_path(&self, download_info: &DownloadInfo) -> PathBuf {

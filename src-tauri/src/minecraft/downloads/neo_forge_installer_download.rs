@@ -1,14 +1,13 @@
-use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::neo_forge_install_profile::NeoForgeInstallProfile;
 use crate::minecraft::dto::neo_forge_meta::NeoForgeVersion;
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
 use async_zip::tokio::read::seek::ZipFileReader;
 use log::info;
-use reqwest;
 use std::path::PathBuf;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
-use tokio::io::BufReader;
+use tokio::io::{AsyncWriteExt, BufReader};
 
 const LIBRARIES_DIR: &str = "libraries";
 
@@ -34,48 +33,20 @@ impl NeoForgeInstallerDownloadService {
         // Zielpfad für die JAR-Datei
         let jar_path = self.base_path.join(&maven_path);
 
-        // Prüfe ob die Datei bereits existiert
-        if fs::try_exists(&jar_path).await? {
-            info!(
-                "NeoForge installer already exists at: {}",
-                jar_path.display()
-            );
-            return Ok(jar_path);
-        }
-
-        // Erstelle das Verzeichnis falls es nicht existiert
-        if let Some(parent) = jar_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
         // Konstruiere die Download-URL
         let url = format!("https://maven.neoforged.net/{}", maven_path);
 
-        // Lade die JAR herunter
         info!("Downloading from: {}", url);
-        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
-            AppError::Download(format!("Failed to download NeoForge installer: {}", e))
-        })?;
 
-        if !response.status().is_success() {
-            return Err(AppError::Download(format!(
-                "Failed to download NeoForge installer: Status {}",
-                response.status()
-            )));
-        }
+        // Use the new centralized download utility
+        let config = DownloadConfig::new()
+            .with_streaming(true)  // Installer JARs can be large
+            .with_retries(3)  // Built-in retry logic for network issues
+            .with_force_overwrite(false);  // Check if file exists
 
-        let bytes = response.bytes().await.map_err(|e| {
-            AppError::Download(format!("Failed to download NeoForge installer: {}", e))
-        })?;
+        DownloadUtils::download_file(&url, &jar_path, config).await?;
 
-        // Speichere die JAR-Datei
-        let mut file = fs::File::create(&jar_path).await?;
-        file.write_all(&bytes).await?;
-
-        info!(
-            "Successfully downloaded NeoForge installer to: {}",
-            jar_path.display()
-        );
+        info!("Successfully downloaded NeoForge installer to: {}", jar_path.display());
         Ok(jar_path)
     }
 

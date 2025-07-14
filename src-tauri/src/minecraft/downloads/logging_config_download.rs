@@ -1,11 +1,10 @@
-use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
-use crate::error::{AppError, Result};
+use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
+use crate::error::Result;
 use crate::minecraft::dto::piston_meta::LoggingClient;
-use log::{error, info};
-use reqwest;
+use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
+use log::info;
 use std::path::PathBuf;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 
 const LOGGING_DIR: &str = "assets/log_configs";
 
@@ -29,59 +28,17 @@ impl MinecraftLoggingDownloadService {
         let file_name = logging.file.id.clone();
         let target_path = self.logging_configs_path.join(&file_name);
 
-        // Check if file exists with correct size
-        if fs::try_exists(&target_path).await? {
-            if let Ok(metadata) = fs::metadata(&target_path).await {
-                if metadata.len() as i64 == logging.file.size {
-                    info!("[Logging Config Download] Config file {} already exists with correct size.", file_name);
-                    return Ok(target_path);
-                }
-                info!("[Logging Config Download] Config file {} exists but size mismatch, redownloading.", file_name);
-            }
-        }
+        info!("[Logging Config Download] Downloading logging config: {}", file_name);
 
-        info!(
-            "[Logging Config Download] Downloading logging config: {}",
-            file_name
-        );
-        let response = HTTP_CLIENT.get(&logging.file.url).send().await.map_err(|e| {
-            error!("[Logging Config Download] Request error: {}", e);
-            AppError::Download(format!("Failed to download logging configuration: {}", e))
-        })?;
+        // Use the new centralized download utility with size verification
+        let config = DownloadConfig::new()
+            .with_size(logging.file.size as u64)  // Size verification prevents corruption
+            .with_streaming(false)  // Config files are small
+            .with_retries(3);  // Built-in retry logic
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "No error details available".to_string());
+        DownloadUtils::download_file(&logging.file.url, &target_path, config).await?;
 
-            error!(
-                "[Logging Config Download] Failed with status {}: {}",
-                status, error_text
-            );
-            return Err(AppError::Download(format!(
-                "Failed to download logging config - Status {}: {}",
-                status, error_text
-            )));
-        }
-
-        let bytes = response.bytes().await.map_err(|e| {
-            error!("[Logging Config Download] Failed to read bytes: {}", e);
-            AppError::Download(format!("Failed to read logging config data: {}", e))
-        })?;
-
-        if let Some(parent) = target_path.parent() {
-            fs::create_dir_all(parent).await?;
-        }
-
-        let mut file = fs::File::create(&target_path).await?;
-        file.write_all(&bytes).await?;
-
-        info!(
-            "[Logging Config Download] Successfully downloaded logging config to: {}",
-            target_path.display()
-        );
+        info!("[Logging Config Download] Successfully downloaded logging config to: {}", target_path.display());
         Ok(target_path)
     }
 
