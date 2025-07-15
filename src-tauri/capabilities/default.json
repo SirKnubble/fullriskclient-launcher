@@ -65,6 +65,14 @@
         { "path": "$TEMP" },
         { "path": "$TEMP/**" }
       ]
+    },
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
     }
   ]
 }

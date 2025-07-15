@@ -1,4 +1,4 @@
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl, openPath } from '@tauri-apps/plugin-opener';
 import { invoke } from '@tauri-apps/api/core';
 import type { ImagePreviewPayload, ImagePreviewResponse } from '../types/fileSystem';
 
@@ -24,4 +24,25 @@ export const openExternalUrl = (url: string): Promise<void> => {
  */
 export const getImagePreview = (payload: ImagePreviewPayload): Promise<ImagePreviewResponse> => {
   return invoke<ImagePreviewResponse>('get_image_preview', { payload });
+};
+
+/**
+ * Gets the launcher directory path from the backend.
+ *
+ * @returns A promise that resolves with the launcher directory path.
+ * @throws If the backend command fails.
+ */
+export const getLauncherDirectory = (): Promise<string> => {
+  return invoke<string>('get_launcher_directory');
+};
+
+/**
+ * Opens the launcher directory in the system's file explorer.
+ * Uses openPath to directly open the directory.
+ *
+ * @throws If the opener plugin fails to open the directory.
+ */
+export const openLauncherDirectory = async (): Promise<void> => {
+  const launcherPath = await getLauncherDirectory();
+  await openPath(launcherPath);
 }; 

@@ -26,6 +26,8 @@ import EffectPreviewCard from ".././EffectPreviewCard";
 import { RangeSlider } from ".././ui/RangeSlider";
 import { FullscreenEffectRenderer } from "../FullscreenEffectRenderer";
 import { openExternalUrl } from "../../services/tauri-service";
+import { openLauncherDirectory } from "../../services/tauri-service";
+import { IconButton } from ".././ui/buttons/IconButton";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
@@ -952,7 +954,24 @@ export function SettingsTab() {
     }
   };
 
-  const settingsActions = <div className="flex items-center gap-3"></div>;
+  const settingsActions = (
+    <div className="flex items-center gap-3">
+      <IconButton
+        variant="ghost"
+        size="sm"
+        icon={<Icon icon="solar:folder-bold" className="w-5 h-5" />}
+        label="Open Launcher Directory"
+        onClick={async () => {
+          try {
+            await openLauncherDirectory();
+          } catch (err) {
+            console.error("Failed to open launcher directory:", err);
+            toast.error("Failed to open launcher directory: " + err);
+          }
+        }}
+      />
+    </div>
+  );
 
   return (
     <div ref={tabRef} className="flex flex-col h-full overflow-hidden">
