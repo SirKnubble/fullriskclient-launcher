@@ -127,12 +127,30 @@ impl QuiltLibrariesDownloadService {
         }
     }
 
+    fn create_library_from_fabric_maven(&self, maven: &str) -> QuiltLibrary {
+        QuiltLibrary {
+            name: maven.to_string(),
+            url: Some("https://maven.fabricmc.net/".to_string()),
+            md5: None,
+            sha1: None,
+            sha256: None,
+            sha512: None,
+            size: None,
+        }
+    }
+
     pub async fn download_quilt_libraries(&self, version: &QuiltVersionInfo) -> Result<()> {
         info!("\nDownloading Quilt components...");
 
         let mut all_libraries = Vec::new();
         all_libraries.push(self.create_library_from_maven(&version.loader.maven));
-        all_libraries.push(self.create_library_from_maven(&version.intermediary.maven));
+        
+        // Use Fabric Maven for net.fabricmc:intermediary, otherwise use Quilt Maven
+        if version.intermediary.maven.starts_with("net.fabricmc:") {
+            all_libraries.push(self.create_library_from_fabric_maven(&version.intermediary.maven));
+        } else {
+            all_libraries.push(self.create_library_from_maven(&version.intermediary.maven));
+        }
         all_libraries.extend_from_slice(&version.launcher_meta.libraries.common);
         all_libraries.extend_from_slice(&version.launcher_meta.libraries.client);
         all_libraries.extend_from_slice(&version.launcher_meta.libraries.server);
