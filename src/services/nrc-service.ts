@@ -131,4 +131,7 @@ export const discordAuthStatus = (): Promise<boolean> => {
  */
 export const discordAuthUnlink = (): Promise<void> => {
   return invoke('discord_auth_unlink');
-}; 
+};
+
+// Re-export logging utilities for backward compatibility
+export { log as logMessage, logDebug as logMessageDebug, logInfo as logMessageInfo, logWarn as logMessageWarn, logError as logMessageError } from '../utils/logging-utils';

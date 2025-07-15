@@ -224,3 +224,15 @@ pub async fn submit_crash_log_command(payload: CrashlogDto) -> Result<(), Comman
     .await?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn log_message_command(level: String, message: String) -> Result<(), CommandError> {
+    match level.to_lowercase().as_str() {
+        "debug" => debug!("[Frontend] {}", message),
+        "info" => info!("[Frontend] {}", message),
+        "warn" => log::warn!("[Frontend] {}", message),
+        "error" => error!("[Frontend] {}", message),
+        _ => info!("[Frontend] {}", message),
+    }
+    Ok(())
+}

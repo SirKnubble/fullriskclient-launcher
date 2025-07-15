@@ -464,6 +464,7 @@ async fn main() {
             commands::nrc_commands::discord_auth_status,
             commands::nrc_commands::discord_auth_unlink,
             commands::nrc_commands::submit_crash_log_command,
+            commands::nrc_commands::log_message_command,
             commands::flagsmith_commands::set_blocked_mods_config,
             commands::flagsmith_commands::get_blocked_mods_config,
             commands::flagsmith_commands::is_filename_blocked,
