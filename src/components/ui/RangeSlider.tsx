@@ -219,7 +219,7 @@ export function RangeSlider({
           {icon && <span className="text-white">{icon}</span>}
           <span
             className={cn(
-              "text-white tracking-wide",
+              "text-white tracking-wide font-minecraft-ten",
               sizeConfig[size].text,
             )}
           >
@@ -233,7 +233,7 @@ export function RangeSlider({
           <div className="flex justify-between mb-1">            {minLabel && (
               <span
                 className={cn(
-                  "text-white/70",
+                  "text-white/70 font-minecraft-ten",
                   sizeConfig[size].text,
                 )}
               >
@@ -242,7 +242,7 @@ export function RangeSlider({
             )}<div className="flex items-center gap-1">
               <span                ref={valueDisplayRef}
                 className={cn(
-                  "text-white",
+                  "text-white font-minecraft-ten",
                   sizeConfig[size].text,
                 )}
               >
@@ -257,7 +257,7 @@ export function RangeSlider({
             </div>            {maxLabel && (
               <span
                 className={cn(
-                  "text-white/70",
+                  "text-white/70 font-minecraft-ten",
                   sizeConfig[size].text,
                 )}
               >
@@ -346,7 +346,7 @@ export function RangeSlider({
       {description && (
         <p 
           id={accessibilityProps["aria-describedby"]}
-          className="text-sm text-gray-400 mt-1"
+          className="text-sm text-gray-400 mt-1 font-minecraft-ten"
         >
           {description}
         </p>

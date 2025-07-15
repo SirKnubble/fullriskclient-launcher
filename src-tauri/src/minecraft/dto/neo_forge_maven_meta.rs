@@ -36,7 +36,7 @@ impl NeoForgeMavenMetadata {
     }
 
     pub fn get_versions_for_minecraft(&self, minecraft_version: &str) -> Vec<String> {
-        self.versioning
+        let mut versions: Vec<String> = self.versioning
             .versions
             .versions
             .iter()
@@ -48,10 +48,15 @@ impl NeoForgeMavenMetadata {
                 }
             })
             .cloned()
-            .collect()
+            .collect();
+        
+        // Reverse to get newest first (Maven metadata is chronological, oldest to newest)
+        versions.reverse();
+        versions
     }
 
     pub fn get_latest_version_for_minecraft(&self, minecraft_version: &str) -> Option<String> {
+        // After reverse, first element is the newest
         self.get_versions_for_minecraft(minecraft_version)
             .into_iter()
             .next()

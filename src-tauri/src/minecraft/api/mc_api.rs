@@ -1,19 +1,20 @@
-use crate::config::HTTP_CLIENT;
+use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::dto::minecraft_profile::MinecraftProfile;
 use crate::minecraft::dto::piston_meta::PistonMeta;
 use crate::minecraft::dto::version_manifest::VersionManifest;
-use log::debug;
+use log::{debug, error};
 use reqwest;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{self, Value};
 use sha1::{Digest, Sha1};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 use urlencoding;
 use rand;
 use tokio;
+use tokio::fs as tokio_fs;
 
 const VERSION_MANIFEST_URL: &str = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
 const MOJANG_API_URL: &str = "https://api.mojang.com";
@@ -27,14 +28,24 @@ struct JoinServerRequest {
     server_id: String,
 }
 
-pub struct MinecraftApiService;
+pub struct MinecraftApiService {
+    cache_dir: PathBuf,
+}
 
 impl MinecraftApiService {
     pub fn new() -> Self {
-        Self
+        let cache_dir = LAUNCHER_DIRECTORY.meta_dir().join("minecraft_cache");
+        if !cache_dir.exists() {
+            std::fs::create_dir_all(&cache_dir).unwrap_or_else(|e| {
+                error!("Failed to create Minecraft cache directory: {}", e);
+            });
+        }
+        Self { cache_dir }
     }
 
-    pub async fn get_version_manifest(&self) -> Result<VersionManifest> {
+    async fn fetch_and_cache_manifest(cache_path: &PathBuf) -> Result<VersionManifest> {
+        debug!("Fetching Minecraft version manifest from: {}", VERSION_MANIFEST_URL);
+        
         let response = HTTP_CLIENT.get(VERSION_MANIFEST_URL)
             .send()
             .await
@@ -45,7 +56,61 @@ impl MinecraftApiService {
             .await
             .map_err(AppError::MinecraftApi)?;
 
+        // Cache the result
+        let json_data = serde_json::to_string_pretty(&manifest).map_err(|e| {
+            AppError::Other(format!("Failed to serialize manifest: {}", e))
+        })?;
+
+        if let Err(e) = tokio_fs::write(cache_path, json_data).await {
+            error!("Failed to write Minecraft manifest cache: {}", e);
+        } else {
+            debug!("Cached Minecraft version manifest: {:?}", cache_path);
+        }
+
         Ok(manifest)
+    }
+
+    async fn background_update(cache_path: PathBuf) {
+        debug!("[BG] Updating Minecraft version manifest");
+        if let Err(e) = Self::fetch_and_cache_manifest(&cache_path).await {
+            error!("[BG] Failed to update Minecraft manifest cache: {}", e);
+        }
+    }
+
+    pub async fn get_version_manifest(&self) -> Result<VersionManifest> {
+        let cache_path = self.cache_dir.join("version_manifest.json");
+
+        if cache_path.exists() {
+            debug!("Cache hit for Minecraft version manifest: {:?}", cache_path);
+            
+            // Return cached data immediately
+            match tokio_fs::read_to_string(&cache_path).await {
+                Ok(cached_data) => {
+                    match serde_json::from_str::<VersionManifest>(&cached_data) {
+                        Ok(cached_manifest) => {
+                            // Spawn background update
+                            let cache_path_clone = cache_path.clone();
+                            
+                            tokio::spawn(async move {
+                                Self::background_update(cache_path_clone).await;
+                            });
+                            
+                            return Ok(cached_manifest);
+                        }
+                        Err(e) => {
+                            error!("Failed to parse cached Minecraft manifest: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to read Minecraft manifest cache: {}", e);
+                }
+            }
+        }
+
+        // Cache miss or invalid cache - fetch in foreground
+        debug!("Cache miss for Minecraft version manifest, fetching...");
+        Self::fetch_and_cache_manifest(&cache_path).await
     }
 
     pub async fn get_piston_meta(&self, url: &str) -> Result<PistonMeta> {

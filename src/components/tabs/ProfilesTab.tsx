@@ -11,7 +11,7 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { gsap } from "gsap";
 import { ProfileImport } from "../profiles/ProfileImport";
 import { ProfileSettings } from "../profiles/ProfileSettings";
-import { ProfileWizard } from "../profiles/ProfileWizard";
+import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
 import { toast } from "react-hot-toast";
@@ -542,12 +542,14 @@ export function ProfilesTab() {
       {renderMainContent()}
 
       {showWizard && (
-        <ProfileWizard
+        <ProfileWizardV2
           onClose={() => {
             setShowWizard(false);
             navigate("/profiles");
           }}
-          onSave={handleCreateProfile}
+          onSave={(profile) => {
+            handleCreateProfile();
+          }}
         />
       )}
       {showSettings &&
