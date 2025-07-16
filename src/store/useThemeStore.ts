@@ -198,11 +198,18 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
   };
 };
 
+export const DEFAULT_BORDER_RADIUS = 0; 
+export const MIN_BORDER_RADIUS = 0;
+export const MAX_BORDER_RADIUS = 32;
+
 interface ThemeState {
   accentColor: AccentColor;
   setAccentColor: (color: AccentColor) => void;
   setCustomAccentColor: (hexColor: string) => void;
   applyAccentColorToDOM: () => void;
+  customColorHistory: string[];
+  addToCustomColorHistory: (hexColor: string) => void;
+  clearCustomColorHistory: () => void;
   isBackgroundAnimationEnabled: boolean;
   isDetailViewSidebarOnLeft: boolean;
   toggleDetailViewSidebarPosition: () => void;
@@ -213,6 +220,9 @@ interface ThemeState {
   toggleBackgroundAnimation: () => void;
   hasAcceptedTermsOfService: boolean;
   acceptTermsOfService: () => void;
+  borderRadius: number;
+  setBorderRadius: (radius: number) => void;
+  applyBorderRadiusToDOM: () => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -224,10 +234,18 @@ export const useThemeStore = create<ThemeState>()(
       profileGroupingCriterion: "none",
       staticBackground: true,
       hasAcceptedTermsOfService: false,
+      customColorHistory: [],
+      borderRadius: DEFAULT_BORDER_RADIUS,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
         get().applyAccentColorToDOM();
+      },
+
+      setBorderRadius: (radius: number) => {
+        const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
+        set({ borderRadius: clampedRadius });
+        get().applyBorderRadiusToDOM();
       },
 
       setCustomAccentColor: (hexColor: string) => {
@@ -239,6 +257,30 @@ export const useThemeStore = create<ThemeState>()(
 
         set({ accentColor: customColor });
         get().applyAccentColorToDOM();
+        get().addToCustomColorHistory(hexColor);
+      },
+
+      addToCustomColorHistory: (hexColor: string) => {
+        set((state) => {
+          const newHistory = [...state.customColorHistory];
+          
+          const existingIndex = newHistory.indexOf(hexColor);
+          if (existingIndex > -1) {
+            newHistory.splice(existingIndex, 1);
+          }
+          
+          newHistory.unshift(hexColor);
+          
+          if (newHistory.length > 10) {
+            newHistory.pop();
+          }
+          
+          return { customColorHistory: newHistory };
+        });
+      },
+
+      clearCustomColorHistory: () => {
+        set({ customColorHistory: [] });
       },
 
       toggleBackgroundAnimation: () => {
@@ -266,13 +308,8 @@ export const useThemeStore = create<ThemeState>()(
 
       toggleStaticBackground: () => {
         set((state) => ({ staticBackground: !state.staticBackground }));
-      },
-
-      acceptTermsOfService: () => {
-        set({ hasAcceptedTermsOfService: true });
-      },
-
-      applyAccentColorToDOM: () => {
+      },      acceptTermsOfService: () => {
+        set({ hasAcceptedTermsOfService: true });      },      applyAccentColorToDOM: () => {
         const { accentColor } = get();
 
         const hexToRgb = (hex: string) => {
@@ -307,13 +344,24 @@ export const useThemeStore = create<ThemeState>()(
         if (rgbValue) {
           document.documentElement.style.setProperty("--accent-rgb", rgbValue);
         }
+      },      applyBorderRadiusToDOM: () => {
+        const { borderRadius } = get();
+        
+        document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
+        
+        document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
+        if (borderRadius === 0) {
+          document.documentElement.classList.add("radius-flat");
+        } else {
+          document.documentElement.classList.remove("radius-flat");
+        }
       },
-    }),
-    {
+    }),    {
       name: "norisk-theme-storage",
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.applyAccentColorToDOM();
+          state.applyBorderRadiusToDOM();
         }
       },
     },

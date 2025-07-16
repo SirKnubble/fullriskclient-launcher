@@ -124,7 +124,11 @@ export function WizardSidebar({
                       : "bg-transparent hover:bg-black/20 border-transparent",
                     !isClickable && "opacity-50 cursor-not-allowed",
                   )}
-                  onClick={() => isClickable && onStepClick(stepNumber)}
+                  onClick={() => {
+                    if (isClickable && stepNumber !== currentStep) {
+                      onStepClick(stepNumber);
+                    }
+                  }}
                   disabled={!isClickable}
                 >
                   <div className="flex items-center gap-3">

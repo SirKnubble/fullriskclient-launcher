@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     branches:
-      - '**' # Build on push to any branch
+      - '**' # Build on push to v3 branch
     tags:
       - "v*"  # Release on v* tags
   workflow_dispatch: {} # Allow manual dispatch

@@ -5,10 +5,8 @@ import { Icon } from "@iconify/react";
 import { gsap } from "gsap";
 import type {
   CreateProfileParams,
-  ModLoader,
-  Profile,
+  ModLoader,  Profile,
 } from "../../types/profile";
-// @ts-ignore
 import type { MinecraftVersion, VersionManifest } from "../../types/minecraft";
 import { useProfileStore } from "../../store/profile-store";
 import { invoke } from "@tauri-apps/api/core";
@@ -84,9 +82,7 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
         );
         if (latestRelease && !profile.game_version) {
           setProfile((prev) => ({ ...prev, game_version: latestRelease.id }));
-        }
-
-        try {
+        }        try {
           const ramMb = await invoke<number>("get_system_ram_mb");
           setSystemRamMb(ramMb);
 
@@ -109,10 +105,8 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
             },
           }));
         } catch (err) {
-          console.error("Failed to get system RAM:", err);
-        }
-      } catch (err) {
-        console.error("Failed to load Minecraft versions:", err);
+          // System RAM detection failed, using defaults
+        }      } catch (err) {
         setError("Failed to load Minecraft versions. Please try again.");
       } finally {
         setLoading(false);
@@ -169,8 +163,11 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
       }
     }
   };
-
   const handleStepClick = (stepNumber: number) => {
+    if (stepNumber === step) {
+      return;
+    }
+    
     if (stepNumber <= step || isStepValid(step)) {
       if (isBackgroundAnimationEnabled && contentRef.current) {
         gsap.to(contentRef.current, {
@@ -251,12 +248,10 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
           `Profile '${createdProf.name}' created successfully!`,
         error: (err) =>
           `Failed to create profile: ${err instanceof Error ? err.message : String(err)}`,
-      })
-      .catch((err) => {
+      })      .catch((err) => {
         setError(
           `Failed to create profile: ${err instanceof Error ? err.message : String(err)}`,
         );
-        console.error("Failed to create profile (toast.promise catch):", err);
       })
       .finally(() => {
         setCreating(false);
@@ -386,15 +381,13 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
       </div>
     </div>
   );
-
-  return (
-    <Modal
+  return (    <Modal
       title="create new profile"
       onClose={onClose}
       width="xl"
       footer={renderFooter()}
     >
-      <div className="flex flex-1 h-[500px] overflow-hidden">
+      <div className="flex h-[500px] overflow-hidden">
         <WizardSidebar
           currentStep={step}
           totalSteps={totalSteps}
