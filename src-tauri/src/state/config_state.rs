@@ -143,9 +143,107 @@ impl ConfigManager {
             }
             Err(e) => {
                 error!("Failed to parse config file: {}", e);
-                warn!("Using default configuration and saving it");
-                // Save the default config to repair the file
-                self.save_config().await?;
+                warn!("Attempting to migrate or preserve existing settings...");
+                
+                // Try to parse as generic JSON first to preserve user settings
+                match serde_json::from_str::<serde_json::Value>(&config_data) {
+                    Ok(json_value) => {
+                        info!("Config file is valid JSON, attempting migration...");
+                        
+                        // Create backup of original config
+                        let backup_path = self.config_path.with_extension("json.backup");
+                        if let Err(backup_err) = fs::copy(&self.config_path, &backup_path).await {
+                            warn!("Failed to create config backup: {}", backup_err);
+                        } else {
+                            info!("Created config backup at: {:?}", backup_path);
+                        }
+                        
+                        // Start with default config and try to migrate settings
+                        let mut migrated_config = LauncherConfig::default();
+                        
+                        // Migrate known fields that might exist
+                        if let Some(obj) = json_value.as_object() {
+                            // Migrate simple boolean fields
+                            if let Some(exp) = obj.get("is_experimental").and_then(|v| v.as_bool()) {
+                                migrated_config.is_experimental = exp;
+                            }
+                            if let Some(auto_check) = obj.get("auto_check_updates").and_then(|v| v.as_bool()) {
+                                migrated_config.auto_check_updates = auto_check;
+                            }
+                            if let Some(discord) = obj.get("enable_discord_presence").and_then(|v| v.as_bool()) {
+                                migrated_config.enable_discord_presence = discord;
+                            }
+                            if let Some(beta) = obj.get("check_beta_channel").and_then(|v| v.as_bool()) {
+                                migrated_config.check_beta_channel = beta;
+                            }
+                            if let Some(logs) = obj.get("open_logs_after_starting").and_then(|v| v.as_bool()) {
+                                migrated_config.open_logs_after_starting = logs;
+                            }
+                            if let Some(hide) = obj.get("hide_on_process_start").and_then(|v| v.as_bool()) {
+                                migrated_config.hide_on_process_start = hide;
+                            }
+                            
+                            // Migrate numeric fields
+                            if let Some(downloads) = obj.get("concurrent_downloads").and_then(|v| v.as_u64()) {
+                                if downloads > 0 && downloads <= 20 { // Reasonable bounds
+                                    migrated_config.concurrent_downloads = downloads as usize;
+                                }
+                            }
+                            if let Some(io_limit) = obj.get("concurrent_io_limit").and_then(|v| v.as_u64()) {
+                                if io_limit > 0 && io_limit <= 50 { // Reasonable bounds
+                                    migrated_config.concurrent_io_limit = io_limit as usize;
+                                }
+                            }
+                            
+                            // Migrate string fields
+                            if let Some(grouping) = obj.get("profile_grouping_criterion").and_then(|v| v.as_str()) {
+                                // Validate known values and migrate "none" to "group"
+                                match grouping {
+                                    "loader" | "game_version" | "group" => {
+                                        migrated_config.profile_grouping_criterion = Some(grouping.to_string());
+                                    }
+                                    "none" => {
+                                        warn!("Migrating legacy 'none' grouping to 'group'");
+                                        migrated_config.profile_grouping_criterion = Some("group".to_string());
+                                    }
+                                    _ => {
+                                        warn!("Unknown grouping criterion '{}', using default", grouping);
+                                    }
+                                }
+                            }
+                            
+                            // Migrate UUID fields (with validation)
+                            if let Some(profile_str) = obj.get("last_played_profile").and_then(|v| v.as_str()) {
+                                if let Ok(uuid) = Uuid::parse_str(profile_str) {
+                                    migrated_config.last_played_profile = Some(uuid);
+                                }
+                            }
+                        }
+                        
+                        info!("Migration completed, saving migrated configuration");
+                        let mut config = self.config.write().await;
+                        *config = migrated_config;
+                        drop(config); // Release lock before save
+                        
+                        // Save the migrated config
+                        self.save_config().await?;
+                    }
+                    Err(json_err) => {
+                        error!("Config file is not valid JSON: {}", json_err);
+                        warn!("Config file is corrupted, creating backup and using defaults");
+                        
+                        // Create backup of corrupted file
+                        let backup_path = self.config_path.with_extension("json.corrupted");
+                        if let Err(backup_err) = fs::copy(&self.config_path, &backup_path).await {
+                            error!("Failed to backup corrupted config: {}", backup_err);
+                        } else {
+                            info!("Backed up corrupted config to: {:?}", backup_path);
+                        }
+                        
+                        // Use default config and save it
+                        self.save_config().await?;
+                    }
+                }
             }
         }
 
