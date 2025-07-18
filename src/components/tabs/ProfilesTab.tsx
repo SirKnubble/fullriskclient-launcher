@@ -188,24 +188,44 @@ export function ProfilesTab() {
   initiallyFilteredProfiles.sort((a, b) => a.name.localeCompare(b.name));
 
   const groupedProfiles = (() => {
-    if (profileGroupingCriterion === "none")
-      return { "All Profiles": initiallyFilteredProfiles };
-    return initiallyFilteredProfiles.reduce(
-      (acc, profile) => {
-        let key = "Unknown";
-        if (profileGroupingCriterion === "loader")
-          key = profile.loader?.toString() || "Vanilla";
-        else if (profileGroupingCriterion === "game_version")
-          key = profile.game_version || "Unknown Version";
-        else if (profileGroupingCriterion === "group")
-          key = profile.group || "No Group";
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(profile);
-        acc[key].sort((a, b) => a.name.localeCompare(b.name));
-        return acc;
-      },
-      {} as Record<string, Profile[]>,
+    // Separate NoRisk Client profiles and all other profiles
+    const noriskClientProfiles = initiallyFilteredProfiles.filter(profile => 
+      profile.group === "NORISK CLIENT"
     );
+    const otherProfiles = initiallyFilteredProfiles.filter(profile => 
+      profile.group !== "NORISK CLIENT"
+    );
+    
+    // Sort both groups
+    noriskClientProfiles.sort((a, b) => a.name.localeCompare(b.name));
+    otherProfiles.sort((a, b) => a.name.localeCompare(b.name));
+    
+    const result: Record<string, Profile[]> = {};
+    
+    // Always add NoRisk Client group first if there are profiles with that group
+    if (noriskClientProfiles.length > 0) {
+      result["NoRisk Client"] = noriskClientProfiles;
+    }
+    
+    // Group other profiles based on criterion
+    otherProfiles.forEach(profile => {
+      let key = "Unknown";
+      if (profileGroupingCriterion === "loader")
+        key = profile.loader?.toString() || "Vanilla";
+      else if (profileGroupingCriterion === "game_version")
+        key = profile.game_version || "Unknown Version";
+      else if (profileGroupingCriterion === "group")
+        key = profile.group || "No Group";
+      else {
+        // Fallback for invalid/legacy grouping criteria (e.g., old "none" values)
+        key = profile.group || "No Group";
+      }
+      if (!result[key]) result[key] = [];
+      result[key].push(profile);
+      result[key].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    
+    return result;
   })();
 
   const compareMinecraftVersions = (v1: string, v2: string): number => {
@@ -222,6 +242,10 @@ export function ProfilesTab() {
   };
 
   const sortedGroupKeys = Object.keys(groupedProfiles).sort((a, b) => {
+    // NoRisk Client should always be first
+    if (a === "NoRisk Client") return -1;
+    if (b === "NoRisk Client") return 1;
+    
     const specialKeys = [
       "All Profiles",
       "Unknown",
@@ -347,11 +371,6 @@ export function ProfilesTab() {
   };
 
   const groupingOptions = [
-    {
-      value: "none",
-      label: "No Grouping",
-      icon: <Icon icon="solar:menu-dots-linear" className="w-4 h-4" />,
-    },
     {
       value: "loader",
       label: "Loader",
@@ -495,14 +514,12 @@ export function ProfilesTab() {
               <div className="space-y-6">
                 {sortedGroupKeys.map((groupKey) => (
                   <div key={groupKey}>
-                    {profileGroupingCriterion !== "none" && (
-                      <h2
-                        className="text-2xl font-minecraft text-white mb-3 pb-1 border-b-2"
-                        style={{ borderColor: `${accentColor.value}40` }}
-                      >
-                        {groupKey}
-                      </h2>
-                    )}
+                    <h2
+                      className="text-2xl font-minecraft text-white mb-3 pb-1 border-b-2"
+                      style={{ borderColor: `${accentColor.value}40` }}
+                    >
+                      {groupKey}
+                    </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
                       {groupedProfiles[groupKey].map((profile) => (
                         <ProfileCard
@@ -516,12 +533,11 @@ export function ProfilesTab() {
                         />
                       ))}
                     </div>
-                    {groupedProfiles[groupKey].length === 0 &&
-                      profileGroupingCriterion !== "none" && (
-                        <p className="text-neutral-500 italic text-center py-4">
-                          No profiles in this group.
-                        </p>
-                      )}
+                    {groupedProfiles[groupKey].length === 0 && (
+                      <p className="text-neutral-500 italic text-center py-4">
+                        No profiles in this group.
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

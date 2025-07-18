@@ -231,7 +231,7 @@ export const useThemeStore = create<ThemeState>()(
       accentColor: ACCENT_COLORS.blue,
       isBackgroundAnimationEnabled: false,
       isDetailViewSidebarOnLeft: true,
-      profileGroupingCriterion: "none",
+      profileGroupingCriterion: "group",
       staticBackground: true,
       hasAcceptedTermsOfService: false,
       customColorHistory: [],
@@ -360,6 +360,11 @@ export const useThemeStore = create<ThemeState>()(
       name: "norisk-theme-storage",
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // Migration: Replace old "none" grouping criterion with "group"
+          if (state.profileGroupingCriterion === "none") {
+            state.profileGroupingCriterion = "group";
+          }
+          
           state.applyAccentColorToDOM();
           state.applyBorderRadiusToDOM();
         }
