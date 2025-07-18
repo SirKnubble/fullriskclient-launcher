@@ -15,6 +15,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "react-hot-toast";
 import { cn } from "../../../lib/utils";
+import { getGlobalMemorySettings, setGlobalMemorySettings } from "../../../services/launcher-config-service";
+import type { MemorySettings } from "../../../types/launcherConfig";
 
 interface JavaSettingsTabProps {
   editedProfile: Profile;
@@ -69,6 +71,11 @@ export function JavaSettingsTab({
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
+  
+  // Global memory settings for standard profiles
+  const [globalMemorySettings, setGlobalMemorySettingsState] = useState<MemorySettings | null>(null);
+  const [isLoadingGlobalMemory, setIsLoadingGlobalMemory] = useState(false);
+  const [isSystemRamLoaded, setIsSystemRamLoaded] = useState(false);
 
   useEffect(() => {
     if (isBackgroundAnimationEnabled) {
@@ -143,6 +150,34 @@ export function JavaSettingsTab({
     detectJavaInstallations();
   }, []);
 
+  // Track when systemRam changes from initial value
+  useEffect(() => {
+    if (systemRam !== 8192) {
+      setIsSystemRamLoaded(true);
+    }
+  }, [systemRam]);
+
+  // Load global memory settings for standard profiles
+  useEffect(() => {
+    if (editedProfile.is_standard_version) {
+      setIsLoadingGlobalMemory(true);
+      getGlobalMemorySettings()
+        .then((settings) => {
+          setGlobalMemorySettingsState(settings);
+        })
+        .catch((error) => {
+          console.error("Failed to load global memory settings:", error);
+          toast.error("Failed to load global memory settings");
+        })
+        .finally(() => {
+          setIsLoadingGlobalMemory(false);
+        });
+    } else {
+      // For custom profiles, we're not loading anything
+      setIsLoadingGlobalMemory(false);
+    }
+  }, [editedProfile.is_standard_version]);
+
   const browseForJavaPath = async () => {
     try {
       const selected = await open({
@@ -211,22 +246,40 @@ export function JavaSettingsTab({
   } else {
     recommendedMaxRam = Math.min(4096, systemRam);
   }
-  const memory = editedProfile.settings?.memory || {
-    min: 1024,
-    max: recommendedMaxRam,
-  };
+  
+  // Use global memory settings for standard profiles, profile settings for custom profiles
+  const memory = editedProfile.is_standard_version 
+    ? (globalMemorySettings || { min: 1024, max: recommendedMaxRam })
+    : (editedProfile.settings?.memory || { min: 1024, max: recommendedMaxRam });
 
-  const handleMemoryChange = (value: number) => {
-    const newSettings = { ...editedProfile.settings };
-    if (!newSettings.memory) {
-      newSettings.memory = {
-        min: 1024,
+  const handleMemoryChange = async (value: number) => {
+    if (editedProfile.is_standard_version) {
+      // For standard profiles, save to global settings
+      const newGlobalSettings: MemorySettings = {
+        min: memory.min,
         max: value,
       };
+      
+      try {
+        await setGlobalMemorySettings(newGlobalSettings);
+        setGlobalMemorySettingsState(newGlobalSettings);
+      } catch (error) {
+        console.error("Failed to save global memory settings:", error);
+        toast.error("Failed to save global RAM settings");
+      }
     } else {
-      newSettings.memory.max = value;
+      // For custom profiles, save to profile settings
+      const newSettings = { ...editedProfile.settings };
+      if (!newSettings.memory) {
+        newSettings.memory = {
+          min: 1024,
+          max: value,
+        };
+      } else {
+        newSettings.memory.max = value;
+      }
+      updateProfile({ settings: newSettings });
     }
-    updateProfile({ settings: newSettings });
   };
 
   const handleJavaPathInputChange = (newPath: string) => {
@@ -302,7 +355,23 @@ export function JavaSettingsTab({
 
   return (
     <div ref={tabRef} className="space-y-6 select-none">
-      <div ref={javaInstallRef} className="space-y-4">
+      {editedProfile.is_standard_version && (
+        <Card variant="flat" className="p-4 border border-yellow-500/30 bg-yellow-500/10">
+          <div className="flex items-start gap-3">
+            <Icon icon="solar:info-circle-bold" className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-yellow-100 font-minecraft-ten leading-relaxed">
+              <p className="mb-2 font-semibold">You are editing a standard profile template.</p>
+              <p>
+                Standard profiles are designed to provide a stable, working baseline. 
+                To fully customize settings, add mods, or make other changes, please <strong>clone this profile</strong> first. 
+                This ensures you always have a functional standard version to fall back to.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+      {!editedProfile.is_standard_version && (
+        <div ref={javaInstallRef} className="space-y-4">
         <div>
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             java installation
@@ -445,40 +514,58 @@ export function JavaSettingsTab({
           )}
         </div>
       </div>
+      )}
 
       <div ref={memoryRef} className="space-y-4">
         <div>
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            memory allocated
+            {editedProfile.is_standard_version ? "global memory allocated" : "memory allocated"}
           </h3>
           <Card
             variant="flat"
             className="p-4 border border-white/10 bg-black/20"
           >
-            <RangeSlider
-              value={memory.max}
-              onChange={handleMemoryChange}
-              min={512}
-              max={systemRam}
-              step={512}
-              valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
-              minLabel="512 MB"
-              maxLabel={`${systemRam} MB`}
-              variant="flat"
-            />
-            <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
-              Recommended: {recommendedMaxRam} MB (
-              {(recommendedMaxRam / 1024).toFixed(1)} GB)
-            </div>
+            {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
+              <div className="flex items-center justify-center py-8">
+                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
+                <span className="text-white font-minecraft">
+                  Loading settings...
+                </span>
+              </div>
+            ) : (
+              <>
+                <RangeSlider
+                  value={memory.max}
+                  onChange={handleMemoryChange}
+                  min={512}
+                  max={systemRam}
+                  step={512}
+                  valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
+                  minLabel="512 MB"
+                  maxLabel={`${systemRam} MB`}
+                  variant="flat"
+                />
+                <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
+                  Recommended: {recommendedMaxRam} MB (
+                  {(recommendedMaxRam / 1024).toFixed(1)} GB)
+                  {editedProfile.is_standard_version && (
+                    <div className="mt-1 text-accent font-minecraft-ten">
+                      ⚠ This setting applies to all standard profiles
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </Card>
         </div>
       </div>
 
-      <div ref={argsRef} className="space-y-4">
-        <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            java arguments
-          </h3>
+      {!editedProfile.is_standard_version && (
+        <div ref={argsRef} className="space-y-4">
+          <div>
+            <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
+              java arguments
+            </h3>
           <div className="mb-3">
             <Checkbox
               checked={useCustomArgs}
@@ -509,6 +596,7 @@ export function JavaSettingsTab({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -380,7 +380,16 @@ pub async fn install_minecraft_version(
 
     info!("\nPreparing launch parameters...");
 
-    let mut launch_params = MinecraftLaunchParameters::new(profile.id, profile.settings.memory.max)
+    // Get memory settings (global for standard profiles, profile-specific for custom)
+    let memory_max = if profile.is_standard_version {
+        let state = State::get().await?;
+        let config = state.config_manager.get_config().await;
+        config.global_memory_settings.max
+    } else {
+        profile.settings.memory.max
+    };
+
+    let mut launch_params = MinecraftLaunchParameters::new(profile.id, memory_max)
         .with_old_minecraft_arguments(piston_meta.minecraft_arguments.clone())
         .with_resolution(profile.settings.resolution.clone())
         .with_experimental_mode(is_experimental_mode);

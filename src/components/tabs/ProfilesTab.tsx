@@ -291,12 +291,6 @@ export function ProfilesTab() {
 
   const handleEditProfile = (profile: Profile) => {
     console.log("[ProfilesTab] handleEditProfile called for:", profile);
-    if (profile.is_standard_version) {
-      console.log(
-        "[ProfilesTab] Attempted to edit standard profile, returning.",
-      );
-      return;
-    }
     setSelectedProfile(profile);
     setShowSettings(true);
 
@@ -477,7 +471,7 @@ export function ProfilesTab() {
                 "[ProfilesTab] ProfileDetailView onEdit called for:",
                 selectedProfile,
               );
-              if (selectedProfile && !selectedProfile.is_standard_version) {
+              if (selectedProfile) {
                 handleEditProfile(selectedProfile);
               }
             }}
@@ -569,8 +563,7 @@ export function ProfilesTab() {
         />
       )}
       {showSettings &&
-        selectedProfile &&
-        !selectedProfile.is_standard_version && (
+        selectedProfile && (
           <ProfileSettings
             profile={selectedProfile}
             onClose={() => {

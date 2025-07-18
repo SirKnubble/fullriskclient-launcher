@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LauncherConfig } from "../types/launcherConfig";
+import type { LauncherConfig, MemorySettings } from "../types/launcherConfig";
 
 /**
  * Fetches the current launcher configuration from the backend.
@@ -75,5 +75,44 @@ export async function setProfileGroupingPreference(criterion: string): Promise<v
   } catch (error) {
     console.error("[LauncherConfigService] Failed to set profile grouping preference:", error);
     throw error; // Re-throw the error to be handled by the caller
+  }
+}
+
+/**
+ * Gets the global memory settings from the launcher configuration.
+ * @returns A promise that resolves with the global MemorySettings.
+ */
+export async function getGlobalMemorySettings(): Promise<MemorySettings> {
+  console.log("[LauncherConfigService] Getting global memory settings");
+  try {
+    const config = await getLauncherConfig();
+    console.log("[LauncherConfigService] Retrieved global memory settings:", config.global_memory_settings);
+    return config.global_memory_settings;
+  } catch (error) {
+    console.error("[LauncherConfigService] Failed to get global memory settings:", error);
+    throw error;
+  }
+}
+
+/**
+ * Sets the global memory settings in the launcher configuration.
+ * Fetches the current config, updates the memory settings, and saves it back.
+ * @param memorySettings The new MemorySettings to save.
+ * @returns A promise that resolves when the settings are successfully set.
+ * @throws If fetching or setting the config fails.
+ */
+export async function setGlobalMemorySettings(memorySettings: MemorySettings): Promise<void> {
+  console.log(`[LauncherConfigService] Setting global memory settings:`, memorySettings);
+  try {
+    const currentConfig = await getLauncherConfig();
+    const newConfig: LauncherConfig = {
+      ...currentConfig,
+      global_memory_settings: memorySettings,
+    };
+    await setLauncherConfig(newConfig);
+    console.log("[LauncherConfigService] Successfully set global memory settings.");
+  } catch (error) {
+    console.error("[LauncherConfigService] Failed to set global memory settings:", error);
+    throw error;
   }
 } 

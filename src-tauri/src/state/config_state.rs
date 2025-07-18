@@ -1,6 +1,7 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::Result;
 use crate::state::post_init::PostInitializationHandler;
+use crate::state::profile_state::MemorySettings;
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -48,6 +49,8 @@ pub struct LauncherConfig {
     pub hooks: Hooks,
     #[serde(default = "default_hide_on_process_start")]
     pub hide_on_process_start: bool,
+    #[serde(default = "default_global_memory_settings")]
+    pub global_memory_settings: MemorySettings,
 }
 
 fn default_config_version() -> u32 {
@@ -78,6 +81,13 @@ fn default_hide_on_process_start() -> bool {
     false
 }
 
+fn default_global_memory_settings() -> MemorySettings {
+    MemorySettings {
+        min: 3072, // 2GB
+        max: 3072, // 4GB
+    }
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -93,6 +103,7 @@ impl Default for LauncherConfig {
             last_played_profile: None,
             hooks: Hooks::default(),
             hide_on_process_start: default_hide_on_process_start(),
+            global_memory_settings: default_global_memory_settings(),
         }
     }
 }
@@ -241,7 +252,7 @@ impl ConfigManager {
                         }
                         
                         // Use default config and save it
-                        self.save_config().await?;
+                self.save_config().await?;
                     }
                 }
             }
@@ -300,6 +311,8 @@ impl ConfigManager {
                 && current.last_played_profile == new_config.last_played_profile
                 && current.hooks == new_config.hooks
                 && current.hide_on_process_start == new_config.hide_on_process_start
+                && current.global_memory_settings.min == new_config.global_memory_settings.min
+                && current.global_memory_settings.max == new_config.global_memory_settings.max
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -374,6 +387,14 @@ impl ConfigManager {
                         current.hide_on_process_start, new_config.hide_on_process_start
                     );
                 }
+                if current.global_memory_settings.min != new_config.global_memory_settings.min
+                    || current.global_memory_settings.max != new_config.global_memory_settings.max {
+                    info!(
+                        "Changing global memory settings: {}MB-{}MB -> {}MB-{}MB",
+                        current.global_memory_settings.min, current.global_memory_settings.max,
+                        new_config.global_memory_settings.min, new_config.global_memory_settings.max
+                    );
+                }
 
                 // Update config while preserving version
                 *config = LauncherConfig {
@@ -389,6 +410,7 @@ impl ConfigManager {
                     last_played_profile: new_config.last_played_profile,
                     hooks: new_config.hooks,
                     hide_on_process_start: new_config.hide_on_process_start,
+                    global_memory_settings: new_config.global_memory_settings,
                 };
 
                 true

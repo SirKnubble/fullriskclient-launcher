@@ -37,7 +37,9 @@ const DESIGNER_FEATURE_FLAG_NAME = "show_keep_local_assets";
 
 export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const { updateProfile, deleteProfile } = useProfileStore();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    profile.is_standard_version ? "java" : "general"
+  );
   const [editedProfile, setEditedProfile] = useState<Profile>({ ...profile });
   const [currentProfile, setCurrentProfile] = useState<Profile>({ ...profile });
   const [isSaving, setIsSaving] = useState(false);
@@ -155,15 +157,19 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   };
 
-  const baseTabConfig = [
-    { id: "general", label: "General", icon: "solar:settings-bold" },
-    { id: "installation", label: "Installation", icon: "solar:download-bold" },
-    { id: "java", label: "Java", icon: "solar:code-bold" },
-    { id: "window", label: "Window", icon: "solar:widget-bold" },
-    { id: "export_options", label: "Export", icon: "solar:export-bold" },
-  ];
+  const baseTabConfig = profile.is_standard_version
+    ? [
+        { id: "java", label: "Java", icon: "solar:code-bold" },
+      ]
+    : [
+        { id: "general", label: "General", icon: "solar:settings-bold" },
+        { id: "installation", label: "Installation", icon: "solar:download-bold" },
+        { id: "java", label: "Java", icon: "solar:code-bold" },
+        { id: "window", label: "Window", icon: "solar:widget-bold" },
+        { id: "export_options", label: "Export", icon: "solar:export-bold" },
+      ];
 
-  const tabConfig = showDesignerTab
+  const tabConfig = (showDesignerTab && !profile.is_standard_version)
     ? [
         ...baseTabConfig,
         { id: "designer", label: "Designer", icon: "solar:palette-bold" },
@@ -174,7 +180,11 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     if (activeTab === "designer" && !showDesignerTab) {
       setActiveTab("general");
     }
-  }, [activeTab, showDesignerTab]);
+    // For standard profiles, ensure only java tab is active
+    if (profile.is_standard_version && activeTab !== "java") {
+      setActiveTab("java");
+    }
+  }, [activeTab, showDesignerTab, profile.is_standard_version]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -237,27 +247,29 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         size="md"
         className="text-2xl"
       >
-        cancel
+        {profile.is_standard_version ? "close" : "cancel"}
       </Button>
-      <Button
-        variant="default"
-        onClick={handleSave}
-        disabled={isSaving}
-        size="md"
-        className="text-2xl"
-      >
-        {isSaving ? (
-          <div className="flex items-center gap-3">
-            <Icon
-              icon="solar:refresh-bold"
-              className="w-6 h-6 animate-spin text-white"
-            />
-            <span>saving...</span>
-          </div>
-        ) : (
-          "save changes"
-        )}
-      </Button>
+      {!profile.is_standard_version && (
+        <Button
+          variant="default"
+          onClick={handleSave}
+          disabled={isSaving}
+          size="md"
+          className="text-2xl"
+        >
+          {isSaving ? (
+            <div className="flex items-center gap-3">
+              <Icon
+                icon="solar:refresh-bold"
+                className="w-6 h-6 animate-spin text-white"
+              />
+              <span>saving...</span>
+            </div>
+          ) : (
+            "save changes"
+          )}
+        </Button>
+      )}
     </div>
   );
 
@@ -278,7 +290,11 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   };
 
   return (    <Modal
-      title={`profile settings: ${profile.name}`}
+      title={
+        profile.is_standard_version 
+          ? `java settings: ${profile.name}` 
+          : `profile settings: ${profile.name}`
+      }
       onClose={onClose}
       width="xl"
       footer={renderFooter()}

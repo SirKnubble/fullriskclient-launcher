@@ -98,12 +98,12 @@ export const ProfileContextMenu = forwardRef<
       // Use a rough estimate for menu dimensions or measure actual dimensions
       const menuWidth = 220; // Approximate width based on content
       // Calculate height based on profile type and available options
-      let menuHeight = 140; // Base height for duplicate, open folder, export
+      let menuHeight = 180; // Base height including settings, duplicate, open folder, export
       
       if (!profile.is_standard_version) {
-        menuHeight = 240; // Non-standard: settings + delete + separators
+        menuHeight = 240; // Non-standard: all settings + delete + separators
       } else if (onRepair) {
-        menuHeight = 180; // Standard with repair: repair button + separator
+        menuHeight = 220; // Standard with repair: java settings + repair button + separators
       }
       
       const newPosition = calculateMenuPosition(x, y, menuWidth, menuHeight);
@@ -194,29 +194,25 @@ export const ProfileContextMenu = forwardRef<
       />
 
       <ul className="py-1">
-        {!profile.is_standard_version && (
-          <>
-            <li
-              className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log("[ContextMenu] Settings item clicked");
-                handleAction(onOpenSettings);
-              }}
-            >
-              <Icon icon="solar:settings-bold" className="w-5 h-5 text-white" />
-              <span className="font-minecraft-ten text-base text-white/80">
-                Settings
-              </span>
-            </li>
-            <li className="px-4 py-1">
-              <div
-                className="h-px"
-                style={{ backgroundColor: accentColor.value + "40" }}
-              />
-            </li>
-          </>
-        )}
+        <li
+          className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150"
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log("[ContextMenu] Settings item clicked");
+            handleAction(onOpenSettings);
+          }}
+        >
+          <Icon icon="solar:settings-bold" className="w-5 h-5 text-white" />
+          <span className="font-minecraft-ten text-base text-white/80">
+            {profile.is_standard_version ? "Settings" : "Settings"}
+          </span>
+        </li>
+        <li className="px-4 py-1">
+          <div
+            className="h-px"
+            style={{ backgroundColor: accentColor.value + "40" }}
+          />
+        </li>
         <li
           className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/10 cursor-pointer transition-colors duration-150"
           onClick={(e) => {

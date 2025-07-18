@@ -270,14 +270,12 @@ export function ProfileDetailView({
               Back
             </Button>
 
-            {!profile.is_standard_version && (
-              <IconButton
-                icon={<Icon icon="solar:settings-bold" />}
-                onClick={onEdit}
-                title="Edit profile"
-                size="sm"
-              />
-            )}
+            <IconButton
+              icon={<Icon icon="solar:settings-bold" />}
+              onClick={onEdit}
+              title={profile.is_standard_version ? "Java Settings" : "Edit profile"}
+              size="sm"
+            />
 
             <IconButton
               icon={

@@ -7,6 +7,11 @@ export interface Hooks {
   post_exit: string | null; // Option<String>
 }
 
+export interface MemorySettings {
+  min: number; // u32
+  max: number; // u32
+}
+
 export interface LauncherConfig {
   version: number; // u32
   is_experimental: boolean;
@@ -19,4 +24,5 @@ export interface LauncherConfig {
   concurrent_io_limit: number; // usize
   hooks: Hooks;
   hide_on_process_start: boolean;
+  global_memory_settings: MemorySettings;
 } 
