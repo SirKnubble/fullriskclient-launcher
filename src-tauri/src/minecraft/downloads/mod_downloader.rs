@@ -8,6 +8,7 @@ use log::{debug, error, info, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tokio::fs::{self, read_dir};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const DEFAULT_CONCURRENT_MOD_DOWNLOADS: usize = 4;
 const MOD_CACHE_DIR_NAME: &str = "mod_cache";
@@ -184,29 +185,39 @@ impl ModDownloadService {
 
         debug!("Required mods for sync: {:?}", required_filenames);
 
-        let mut existing_filenames = HashSet::new();
+        let mut valid_existing_filenames = HashSet::new();
         if profile_mods_dir.exists() {
             let mut dir_entries = read_dir(&profile_mods_dir).await?;
             while let Some(entry) = dir_entries.next_entry().await? {
                 let path = entry.path();
                 if path.is_file() {
                     if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                        existing_filenames.insert(filename.to_string());
+                        // Check if file is valid by comparing with cache version
+                        if let Some(cache_path) = required_mods.get(filename) {
+                            if Self::is_file_valid(&path, cache_path).await {
+                                valid_existing_filenames.insert(filename.to_string());
+                            } else {
+                                info!("Found corrupt/invalid mod file, will replace: {}", filename);
+                            }
+                        } else {
+                            // File not in required_mods, will be removed anyway
+                            valid_existing_filenames.insert(filename.to_string());
+                        }
                     }
                 }
             }
         }
         debug!(
-            "Existing mods in profile directory: {:?}",
-            existing_filenames
+            "Valid existing mods in profile directory: {:?}",
+            valid_existing_filenames
         );
 
-        let mods_to_remove: HashSet<String> = existing_filenames
+        let mods_to_remove: HashSet<String> = valid_existing_filenames
             .difference(&required_filenames)
             .cloned()
             .collect();
         let mods_to_add: HashSet<String> = required_filenames
-            .difference(&existing_filenames)
+            .difference(&valid_existing_filenames)
             .cloned()
             .collect();
 
@@ -223,12 +234,12 @@ impl ModDownloadService {
             if let Some(cache_path) = required_mods.get(filename) {
                 let target_path = profile_mods_dir.join(filename);
                 info!("Copying mod to '{}': {}", profile_name, filename);
-                fs::copy(cache_path, &target_path).await.map_err(|e| {
+                Self::robust_copy_file(cache_path, &target_path).await.map_err(|e| {
                     error!(
                         "Failed to copy {:?} to {:?}: {}",
                         cache_path, target_path, e
                     );
-                    AppError::Io(e)
+                    e
                 })?;
             } else {
                 error!(
@@ -268,5 +279,98 @@ impl ModDownloadService {
         DownloadUtils::download_file(url, target_path, config).await
     }
 
+    /// Robust file copy operation with explicit disk sync to prevent corruption
+    /// Fixes issue where JAR files appear complete but are actually corrupt due to unflushed buffers
+    async fn robust_copy_file(source_path: &PathBuf, target_path: &PathBuf) -> Result<()> {
+        
+        debug!("Starting robust copy: {:?} -> {:?}", source_path, target_path);
+        
+        // Read the entire source file into memory
+        let source_data = fs::read(source_path).await.map_err(|e| {
+            AppError::Io(e)
+        })?;
+        
+        // Create parent directories if they don't exist
+        if let Some(parent) = target_path.parent() {
+            fs::create_dir_all(parent).await.map_err(|e| {
+                AppError::Io(e)
+            })?;
+        }
+        
+        // Create target file and write data
+        let mut target_file = fs::File::create(target_path).await.map_err(|e| {
+            AppError::Io(e)
+        })?;
+        
+        target_file.write_all(&source_data).await.map_err(|e| {
+            AppError::Io(e)
+        })?;
+        
+        // CRITICAL: Ensure file is fully written to disk - prevents corruption
+        target_file.sync_all().await.map_err(|e| {
+            AppError::Io(e)
+        })?;
+        
+        // Explicitly close the file handle
+        drop(target_file);
+        
+        debug!("Robust copy completed: {} bytes", source_data.len());
+        Ok(())
+    }
+
+    /// Validates if a file in the profile directory is valid by comparing with cache version
+    /// Checks file size and basic ZIP header for JAR files to detect corruption
+    async fn is_file_valid(profile_file: &PathBuf, cache_file: &PathBuf) -> bool {
+        // Check if both files exist
+        if !profile_file.exists() || !cache_file.exists() {
+            debug!("File validation failed: one or both files don't exist");
+            return false;
+        }
+
+        // Compare file sizes - quick corruption detection
+        match (fs::metadata(profile_file).await, fs::metadata(cache_file).await) {
+            (Ok(profile_meta), Ok(cache_meta)) => {
+                if profile_meta.len() != cache_meta.len() {
+                    debug!(
+                        "File size mismatch: profile={} vs cache={} for {:?}",
+                        profile_meta.len(), cache_meta.len(), profile_file
+                    );
+                    return false;
+                }
+            }
+            _ => {
+                debug!("Failed to read file metadata for validation: {:?}", profile_file);
+                return false;
+            }
+        }
+
+        // For JAR files, check basic ZIP header to detect corruption
+        if let Some(extension) = profile_file.extension() {
+            if extension == "jar" {
+                match fs::File::open(profile_file).await {
+                    Ok(mut file) => {
+                        let mut header = [0u8; 4];
+                        if let Err(_) = file.read_exact(&mut header).await {
+                            debug!("Failed to read ZIP header from JAR file: {:?}", profile_file);
+                            return false;
+                        }
+                        
+                        // Check for ZIP file signature (PK\x03\x04 or PK\x05\x06)
+                        if header[0] != 0x50 || header[1] != 0x4B {
+                            debug!("Invalid ZIP header detected in JAR file: {:?}", profile_file);
+                            return false;
+                        }
+                    }
+                    Err(_) => {
+                        debug!("Failed to open JAR file for validation: {:?}", profile_file);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        debug!("File validation passed: {:?}", profile_file);
+        true
+    }
 
 }
