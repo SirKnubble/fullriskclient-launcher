@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>gg.norisk.NoRiskClientLauncherV3</id>
 
-  <name>NoRiskClient Launcher</name>
+  <name>NoRisk Client Launcher</name>
   <summary>A Launcher for the NoRisk Client</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -14,7 +14,7 @@
 
   <description>
     <p>
-      NoRiskClient Launcher to install and launch Minecraft with several new features.
+      NoRisk Client Launcher to install and launch Minecraft with several new features.
     </p>
   </description>
 
@@ -28,7 +28,7 @@
       <image>
         https://cdn.norisk.gg/website-assets/launcher_flatpack_image.png
       </image>
-      <caption>NoriskClient home screen</caption>
+      <caption>NoRisk Client home screen</caption>
     </screenshot>
   </screenshots>
 
