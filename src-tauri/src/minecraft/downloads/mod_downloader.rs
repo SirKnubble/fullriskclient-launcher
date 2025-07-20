@@ -279,6 +279,7 @@ impl ModDownloadService {
         DownloadUtils::download_file(url, target_path, config).await
     }
 
+    /// fix for https://github.com/NoRiskClient/issues/issues/1487
     /// Robust file copy operation with explicit disk sync to prevent corruption
     /// Fixes issue where JAR files appear complete but are actually corrupt due to unflushed buffers
     async fn robust_copy_file(source_path: &PathBuf, target_path: &PathBuf) -> Result<()> {
@@ -318,6 +319,7 @@ impl ModDownloadService {
         Ok(())
     }
 
+    /// fix for https://github.com/NoRiskClient/issues/issues/1487
     /// Validates if a file in the profile directory is valid by comparing with cache version
     /// Checks file size and basic ZIP header for JAR files to detect corruption
     async fn is_file_valid(profile_file: &PathBuf, cache_file: &PathBuf) -> bool {

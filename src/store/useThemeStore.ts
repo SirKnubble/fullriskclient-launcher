@@ -198,7 +198,7 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
   };
 };
 
-export const DEFAULT_BORDER_RADIUS = 8; 
+export const DEFAULT_BORDER_RADIUS = 0; 
 export const MIN_BORDER_RADIUS = 0;
 export const MAX_BORDER_RADIUS = 32;
 
