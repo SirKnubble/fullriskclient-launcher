@@ -495,7 +495,7 @@ export function CapeList({
             );
           }
           const cape = item as CosmeticCape;
-          const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${cape._id}.png`;
+          const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
           return (
             <CapeItemDisplay
               key={cape._id}
@@ -582,7 +582,7 @@ function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId
       />
       <SkinView3DWrapper
         skinUrl={skinUrl}
-        capeUrl={`https://cdn.norisk.gg/capes-staging/prod/${capeId}.png`}
+        capeUrl={`https://cdn.norisk.gg/capes/prod/${capeId}.png`}
         enableAutoRotate={true}
         autoRotateSpeed={0.5}
         startFromBack={true}

@@ -34,7 +34,7 @@ export function CapeCard({
   onDelete,
 }: CapeCardProps) {
   const { _id: capeHash, elytra, uses, firstSeen: creatorUuid } = cape;
-  const imageUrl = `https://cdn.norisk.gg/capes-staging/prod/${capeHash}.png`;
+  const imageUrl = `https://cdn.norisk.gg/capes/prod/${capeHash}.png`;
   const [creatorName, setCreatorName] = useState<string | null>(null);
 
   const accentColor = useThemeStore((state) => state.accentColor);
