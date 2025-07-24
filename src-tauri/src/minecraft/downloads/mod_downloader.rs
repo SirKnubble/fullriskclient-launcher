@@ -8,7 +8,7 @@ use log::{debug, error, info, warn};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tokio::fs::{self, read_dir};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
 const DEFAULT_CONCURRENT_MOD_DOWNLOADS: usize = 4;
 const MOD_CACHE_DIR_NAME: &str = "mod_cache";
@@ -346,27 +346,12 @@ impl ModDownloadService {
             }
         }
 
-        // For JAR files, check basic ZIP header to detect corruption
+        // For JAR files, check ZIP integrity (header + end record) to detect corruption
         if let Some(extension) = profile_file.extension() {
             if extension == "jar" {
-                match fs::File::open(profile_file).await {
-                    Ok(mut file) => {
-                        let mut header = [0u8; 4];
-                        if let Err(_) = file.read_exact(&mut header).await {
-                            debug!("Failed to read ZIP header from JAR file: {:?}", profile_file);
-                            return false;
-                        }
-                        
-                        // Check for ZIP file signature (PK\x03\x04 or PK\x05\x06)
-                        if header[0] != 0x50 || header[1] != 0x4B {
-                            debug!("Invalid ZIP header detected in JAR file: {:?}", profile_file);
-                            return false;
-                        }
-                    }
-                    Err(_) => {
-                        debug!("Failed to open JAR file for validation: {:?}", profile_file);
-                        return false;
-                    }
+                if !DownloadUtils::is_zip_file_complete(profile_file).await {
+                    debug!("JAR file failed ZIP integrity check: {:?}", profile_file);
+                    return false;
                 }
             }
         }

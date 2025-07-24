@@ -425,7 +425,18 @@ impl DownloadUtils {
 
         debug!("Verifying existing file: {:?}", target_path);
 
-        // Check size first (fastest check)
+        // ZIP integrity check FIRST for JAR files - fastest way to detect corruption
+        if let Some(extension) = target_path.extension() {
+            if extension == "jar" && !Self::is_zip_file_complete(target_path).await {
+                debug!(
+                    "Existing JAR file failed ZIP integrity check (corrupt): {:?}",
+                    target_path
+                );
+                return Ok(false);
+            }
+        }
+
+        // Check size (fast metadata check)
         if let Some(expected_size) = config.expected_size {
             let metadata = fs::metadata(target_path).await?;
             if metadata.len() != expected_size {
@@ -437,7 +448,7 @@ impl DownloadUtils {
             }
         }
 
-        // Check SHA1 hash
+        // Check SHA1 hash (slower - reads entire file)
         if let Some(expected_sha1) = &config.expected_sha1 {
             let calculated_hash = hash_utils::calculate_sha1_from_file(target_path).await?;
             if !calculated_hash.eq_ignore_ascii_case(expected_sha1) {
@@ -449,7 +460,7 @@ impl DownloadUtils {
             }
         }
 
-        // Check SHA256 hash
+        // Check SHA256 hash (slowest - reads entire file)
         if let Some(expected_sha256) = &config.expected_sha256 {
             let calculated_hash = hash_utils::calculate_sha256_from_file(target_path).await?;
             if !calculated_hash.eq_ignore_ascii_case(expected_sha256) {
@@ -513,7 +524,89 @@ impl DownloadUtils {
             debug!("SHA256 hash verification passed for downloaded file");
         }
 
+        // Additional ZIP integrity check for JAR files to detect incomplete downloads
+        if let Some(extension) = target_path.extension() {
+            if extension == "jar" && !Self::is_zip_file_complete(target_path).await {
+                let error_msg = format!(
+                    "Downloaded JAR file failed ZIP integrity check (incomplete/corrupt): {:?}",
+                    target_path
+                );
+                error!("{}", error_msg);
+                return Err(AppError::Download(error_msg));
+            }
+        }
+
         debug!("Downloaded file passed all verifications: {:?}", target_path);
         Ok(())
+    }
+
+    /// fix for https://github.com/NoRiskClient/issues/issues/1487
+    /// Comprehensive ZIP file integrity check - detects incomplete/corrupt JAR files
+    /// Checks both ZIP header and End of Central Directory record
+    pub async fn is_zip_file_complete(file_path: &Path) -> bool {
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        use std::io::SeekFrom;
+
+        let mut file = match fs::File::open(file_path).await {
+            Ok(f) => f,
+            Err(_) => {
+                debug!("Failed to open file for ZIP check: {:?}", file_path);
+                return false;
+            }
+        };
+
+        // 1. Check ZIP header (PK signature)
+        let mut header = [0u8; 4];
+        if let Err(_) = file.read_exact(&mut header).await {
+            debug!("Failed to read ZIP header: {:?}", file_path);
+            return false;
+        }
+        
+        if header[0] != 0x50 || header[1] != 0x4B {
+            debug!("Invalid ZIP header detected: {:?}", file_path);
+            return false;
+        }
+
+        // 2. Check End of Central Directory Record (EOCD)
+        // EOCD signature is "PK\x05\x06" and should be near the end of the file
+        let file_size = match file.metadata().await {
+            Ok(meta) => meta.len(),
+            Err(_) => {
+                debug!("Failed to get file size for ZIP check: {:?}", file_path);
+                return false;
+            }
+        };
+
+        if file_size < 22 {
+            debug!("File too small to be valid ZIP: {:?}", file_path);
+            return false;
+        }
+
+        // Search for EOCD signature in last 65557 bytes (max comment size + EOCD size)
+        let search_size = std::cmp::min(65557, file_size as usize);
+        let start_pos = file_size - search_size as u64;
+
+        if let Err(_) = file.seek(SeekFrom::Start(start_pos)).await {
+            debug!("Failed to seek in file for EOCD check: {:?}", file_path);
+            return false;
+        }
+
+        let mut buffer = vec![0u8; search_size];
+        if let Err(_) = file.read_exact(&mut buffer).await {
+            debug!("Failed to read end of file for EOCD check: {:?}", file_path);
+            return false;
+        }
+
+        // Search for EOCD signature (PK\x05\x06) from the end
+        for i in (0..buffer.len().saturating_sub(3)).rev() {
+            if buffer[i] == 0x50 && buffer[i+1] == 0x4B && 
+               buffer[i+2] == 0x05 && buffer[i+3] == 0x06 {
+                debug!("ZIP integrity check passed: {:?}", file_path);
+                return true;
+            }
+        }
+
+        debug!("EOCD signature not found - ZIP file incomplete: {:?}", file_path);
+        false
     }
 }
