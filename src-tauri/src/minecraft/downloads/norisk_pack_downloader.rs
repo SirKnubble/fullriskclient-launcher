@@ -49,11 +49,7 @@ impl NoriskPackDownloadService {
             fs::create_dir_all(&mod_cache_dir).await?;
         }
 
-        let pack_definition = config.packs.get(pack_id).ok_or_else(|| {
-            let msg = format!("Norisk pack definition not found for ID: '{}'", pack_id);
-            error!("{}", msg);
-            AppError::Other(msg)
-        })?;
+        let pack_definition = config.get_resolved_pack_definition(pack_id)?;
 
         let mut download_futures = Vec::new();
 
