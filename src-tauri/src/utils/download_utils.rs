@@ -1,6 +1,7 @@
 use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
 use crate::utils::hash_utils;
+use crate::utils::disk_space_utils::DiskSpaceUtils;
 use futures::stream::StreamExt;
 use log::{debug, error, info, warn};
 use reqwest::Response;
@@ -26,6 +27,10 @@ pub struct DownloadConfig {
     pub user_agent: Option<String>,
     /// Progress callback function
     pub progress_callback: Option<Box<dyn Fn(u64, Option<u64>) + Send + Sync>>,
+    /// Check disk space before download (default: true)
+    pub check_disk_space: bool,
+    /// Buffer percentage for disk space check (default: 0.25 = 25%)
+    pub disk_space_buffer: f64,
 }
 
 impl std::fmt::Debug for DownloadConfig {
@@ -39,6 +44,8 @@ impl std::fmt::Debug for DownloadConfig {
             .field("max_retries", &self.max_retries)
             .field("user_agent", &self.user_agent)
             .field("progress_callback", &"<callback function>")
+            .field("check_disk_space", &self.check_disk_space)
+            .field("disk_space_buffer", &self.disk_space_buffer)
             .finish()
     }
 }
@@ -56,6 +63,8 @@ impl Clone for DownloadConfig {
             // Note: progress_callback cannot be cloned, so we set it to None
             // This is acceptable since cloning is mainly used for configuration templates
             progress_callback: None,
+            check_disk_space: self.check_disk_space,
+            disk_space_buffer: self.disk_space_buffer,
         }
     }
 }
@@ -74,6 +83,8 @@ impl Default for DownloadConfig {
                 env!("CARGO_PKG_VERSION")
             )),
             progress_callback: None,
+            check_disk_space: true,
+            disk_space_buffer: 0.25, // 25% buffer by default
         }
     }
 }
@@ -125,6 +136,16 @@ impl DownloadConfig {
         self.progress_callback = Some(Box::new(callback));
         self
     }
+
+    pub fn with_disk_space_check(mut self, check: bool) -> Self {
+        self.check_disk_space = check;
+        self
+    }
+
+    pub fn with_disk_space_buffer(mut self, buffer_percentage: f64) -> Self {
+        self.disk_space_buffer = buffer_percentage;
+        self
+    }
 }
 
 /// Central download utility for robust file downloads
@@ -144,6 +165,21 @@ impl DownloadUtils {
         if !config.force_overwrite && Self::verify_existing_file(target_path, &config).await? {
             info!("File already exists and passes verification: {:?}", target_path);
             return Ok(());
+        }
+
+        // Check disk space before attempting download
+        if config.check_disk_space {
+            // Estimate download size based on expected_size or a reasonable default
+            let estimated_size = config.expected_size.unwrap_or(100 * 1024 * 1024); // Default to 100MB if unknown
+            
+            if let Err(e) = DiskSpaceUtils::ensure_space_for_download(
+                target_path,
+                estimated_size,
+                config.disk_space_buffer,
+            ).await {
+                error!("Disk space check failed for {}: {}", url, e);
+                return Err(e);
+            }
         }
 
         let mut attempt = 0;

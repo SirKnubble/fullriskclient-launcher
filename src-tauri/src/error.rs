@@ -184,6 +184,14 @@ pub enum AppError {
 
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
+
+    #[error("Insufficient disk space on {path:?}. Required: {required_mb} MB, Available: {available_mb} MB, Shortfall: {shortfall_mb} MB")]
+    InsufficientDiskSpace {
+        path: std::path::PathBuf,
+        required_mb: u64,
+        available_mb: u64,
+        shortfall_mb: u64,
+    },
 }
 
 #[derive(Serialize, Debug)]
