@@ -667,6 +667,104 @@ export function SettingsTab() {
       <Card variant="flat" className="p-6">
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
+            <Icon icon="solar:folder-bold" className="w-6 h-6 text-white" />
+            <h3 className="text-3xl font-minecraft text-white lowercase">
+              Game Data Directory
+            </h3>
+          </div>
+          <p className="text-base text-white/70 font-minecraft-ten mt-2">
+            Choose a custom location to store game data (worlds, mods, libraries, etc.)
+          </p>
+        </div>
+
+        <div className="space-y-4 mt-6">
+          <div className="p-4 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
+            <div className="flex items-center gap-2 mb-3">
+              <Icon icon="solar:folder-path-bold" className="w-5 h-5 text-white" />
+              <h5 className="font-minecraft text-2xl lowercase text-white">
+                Custom Directory Path
+              </h5>
+            </div>
+            <p className="text-sm text-white/60 font-minecraft-ten mb-4">
+              Leave empty to use the default location. Changing this will move all game data to the new location.
+            </p>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={tempConfig?.custom_game_directory || ""}
+                placeholder="Default location will be used"
+                className="flex-1 p-3 rounded-md bg-black/40 border border-[#ffffff20] text-white placeholder-white/40 font-minecraft-ten focus:outline-none focus:ring-2 focus:ring-white/30"
+                disabled={saving}
+                readOnly
+              />
+              {tempConfig?.custom_game_directory && (
+                <Button
+                  variant="ghost"
+                  className="px-4 py-3 border border-[#ffffff20] hover:bg-red-500/20 hover:border-red-500/30 transition-colors"
+                  disabled={saving}
+                  onClick={() => {
+                    if (tempConfig) {
+                      setTempConfig({
+                        ...tempConfig,
+                        custom_game_directory: null,
+                      });
+                    }
+                  }}
+                  title="Reset to default location"
+                >
+                  <Icon icon="solar:close-circle-bold" className="w-5 h-5 text-red-400" />
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                className="px-4 py-3 border border-[#ffffff20] hover:bg-white/5 transition-colors"
+                disabled={saving}
+                onClick={async () => {
+                  try {
+                    const { open } = await import('@tauri-apps/plugin-dialog');
+                    const directory = await open({
+                      multiple: false,
+                      directory: true,
+                    });
+                    
+                    if (directory && tempConfig) {
+                      setTempConfig({
+                        ...tempConfig,
+                        custom_game_directory: directory,
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Fehler beim Ordner-Dialog:', error);
+                  }
+                }}
+                title="Select custom directory"
+              >
+                <Icon icon="solar:folder-open-bold" className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 rounded-lg border border-blue-500/30 bg-blue-900/20">
+          <div className="flex items-start gap-3">
+            <Icon icon="solar:info-circle-bold" className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+            <div>
+              <h4 className="text-xl font-minecraft text-blue-300 mb-2 lowercase">
+                Information
+              </h4>
+              <p className="text-sm text-blue-200/80 font-minecraft-ten">
+                This setting allows you to store game data on a different drive or location. 
+                Useful if your main drive is running out of space. The launcher will automatically 
+                handle the location change for new downloads and installations.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card variant="flat" className="p-6">
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:code-bold" className="w-6 h-6 text-white" />
             <h3 className="text-3xl font-minecraft text-white lowercase">
               Game Hooks

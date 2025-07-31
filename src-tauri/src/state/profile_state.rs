@@ -1784,6 +1784,16 @@ pub fn get_profile_mod_filename(source: &ModSource) -> crate::error::Result<Stri
 }
 
 pub fn default_profile_path() -> PathBuf {
+    // Check cache first (same system as meta_dir)
+    if let Ok(guard) = crate::config::CUSTOM_GAME_DIR_CACHE.read() {
+        if let Some(cached_value) = guard.as_ref() {
+            if let Some(custom_dir) = cached_value {
+                return custom_dir.join("profiles");
+            }
+        }
+    }
+    
+    // Fallback to standard logic
     LAUNCHER_DIRECTORY.data_dir().join("profiles")
 }
 
