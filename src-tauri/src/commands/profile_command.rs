@@ -1285,7 +1285,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         last_played: None,
         settings: source_profile.settings.clone(),
         state: ProfileState::NotInstalled, // Neues Profil ist noch nicht installiert
-        mods: Vec::new(),                  // Mods werden erst nach dem Kopieren aktualisiert
+        mods: source_profile.mods.clone(), // Kopiere die Modrinth-Mods aus dem Quellprofil
         selected_norisk_pack_id: source_profile.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
