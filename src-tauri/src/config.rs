@@ -59,7 +59,7 @@ impl ProjectDirsExt for ProjectDirs {
 }
 
 /// Returns the standard meta directory (ignores custom directory setting)
-/// Used for Java and other system components that need to stay in standard location
+/// Used for Java and other system components that need to stay in standard location due to macos...x
 pub fn standard_meta_dir() -> PathBuf {
     if cfg!(target_os = "windows") {
         LAUNCHER_DIRECTORY.data_dir().parent().unwrap().join("meta")
