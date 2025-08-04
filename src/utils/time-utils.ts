@@ -1,6 +1,5 @@
 /**
  * Converts an epoch millisecond timestamp into a relative time string (e.g., "5 minutes ago").
- * TODO: Consider using a library like date-fns for more robust formatting and localization.
  * @param timestamp The epoch timestamp in milliseconds.
  * @returns A relative time string.
  */
@@ -18,19 +17,27 @@ export function timeAgo(timestamp: number | null): string {
   if (secondsPast < 3600) {
     return `${Math.round(secondsPast / 60)}m ago`;
   }
-  if (secondsPast <= 86400) {
+  if (secondsPast < 86400) {
     return `${Math.round(secondsPast / 3600)}h ago`;
   }
   
-  // For older dates, just show the date
-  const date = new Date(timestamp);
-  const day = date.getDate();
-  const month = date.toLocaleString('default', { month: 'short' });
-  const year = date.getFullYear();
+  const daysPast = Math.floor(secondsPast / 86400);
   
-  if (secondsPast <= 86400 * 30) { // Roughly within a month
-     return `${day} ${month} ago`;
+  if (daysPast === 1) {
+    return '1 day ago';
   }
- 
-  return `${day} ${month} ${year}`;
+  if (daysPast < 7) {
+    return `${daysPast} days ago`;
+  }
+  if (daysPast < 30) {
+    const weeksPast = Math.floor(daysPast / 7);
+    return weeksPast === 1 ? '1 week ago' : `${weeksPast} weeks ago`;
+  }
+  if (daysPast < 365) {
+    const monthsPast = Math.floor(daysPast / 30);
+    return monthsPast === 1 ? '1 month ago' : `${monthsPast} months ago`;
+  }
+  
+  const yearsPast = Math.floor(daysPast / 365);
+  return yearsPast === 1 ? '1 year ago' : `${yearsPast} years ago`;
 } 
