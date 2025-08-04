@@ -1753,12 +1753,25 @@ impl ProfileManager {
 impl PostInitializationHandler for ProfileManager {
     async fn on_state_ready(&self, _app_handle: Arc<tauri::AppHandle>) -> Result<()> {
         info!("ProfileManager: on_state_ready called. Loading profiles...");
-        let loaded_profiles = self
+        let mut loaded_profiles = self
             .load_profiles_internal(&self.profiles_path.clone())
             .await?;
+        
+        // Perform profile migrations
+        let migration_count = crate::utils::migration_utils::migrate_profiles(&mut loaded_profiles);
+        
+        // Set profiles in memory
         let mut profiles_guard = self.profiles.write().await;
         *profiles_guard = loaded_profiles;
         drop(profiles_guard);
+        
+        // Save profiles to disk if migrations were performed
+        if migration_count > 0 {
+            info!("ProfileManager: Saving migrated profiles to disk...");
+            self.save_profiles().await?;
+            info!("ProfileManager: Successfully saved migrated profiles.");
+        }
+        
         info!("ProfileManager: Successfully loaded profiles in on_state_ready.");
         Ok(())
     }
