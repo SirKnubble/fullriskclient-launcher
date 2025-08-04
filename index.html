@@ -5,6 +5,49 @@
     <link rel="icon" type="image/png" href="/assets/logo.png"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>NoRisk Minecraft Launcher</title>
+    <script>
+        (function() {
+            try {
+                const storedTheme = localStorage.getItem("norisk-theme-storage");
+                if (storedTheme) {
+                    const themeData = JSON.parse(storedTheme);
+                    const root = document.documentElement;
+                    
+                    if (themeData.state?.accentColor?.value) {
+                        root.style.setProperty("--accent", themeData.state.accentColor.value);
+                        root.style.setProperty("--accent-hover", themeData.state.accentColor.hoverValue);
+                        root.style.setProperty("--accent-shadow", themeData.state.accentColor.shadowValue);
+                        root.style.setProperty("--accent-light", themeData.state.accentColor.light);
+                        root.style.setProperty("--accent-dark", themeData.state.accentColor.dark);
+                        
+                        const hexToRgb = (hex) => {
+                            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                            return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+                        };
+                        
+                        const rgbValue = hexToRgb(themeData.state.accentColor.value);
+                        if (rgbValue) {
+                            root.style.setProperty("--accent-rgb", rgbValue);
+                        }
+                    }
+                    
+                    if (themeData.state?.borderRadius !== undefined) {
+                        const borderRadius = Math.max(0, Math.min(32, themeData.state.borderRadius));
+                        root.style.setProperty("--border-radius", `${borderRadius}px`);
+                        root.setAttribute("data-border-radius", borderRadius.toString());
+                        
+                        if (borderRadius === 0) {
+                            root.classList.add("radius-flat");
+                        } else {
+                            root.classList.remove("radius-flat");
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to initialize theme:", e);
+            }
+        })();
+    </script>
 </head>
 <body>
 <div id="root"></div>
