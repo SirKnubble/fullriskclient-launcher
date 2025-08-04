@@ -44,6 +44,7 @@ import { ModrinthService } from "../../../../services/modrinth-service"; // Adde
 import { EmptyState } from "../../../ui/EmptyState"; // Added import
 import { useProfileStore } from "../../../../store/profile-store"; // Added import
 import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added import
+import * as FlagsmithService from "../../../../services/flagsmith-service"; // Added
 
 // Generic icons that can be used across different content types
 const LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD = [
@@ -63,6 +64,7 @@ const LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD = [
   "solar:refresh-outline", // For primary refresh button normal state
   "solar:download-minimalistic-bold", // For Update All button
   "solar:alt-arrow-down-bold", // For version dropdown button
+  "solar:shield-cross-bold-duotone", // For NoRisk blocked badge
 ];
 
 interface LocalContentTabV2Props<T extends LocalContentItem> {
@@ -100,6 +102,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     unregisterRefreshCallback,
   } = useAppDragDropStore();
 
+  const [isBlockedConfigLoaded, setIsBlockedConfigLoaded] = useState(false);
+
   const [noriskPacksConfig, setNoriskPacksConfig] =
     useState<NoriskModpacksConfig | null>(null);
   const [isFetchingPacksConfig, setIsFetchingPacksConfig] = useState(false);
@@ -116,6 +120,25 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   >(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
+
+  // Fetch Flagsmith config when a NoRisk pack is selected
+  useEffect(() => {
+    // Only fetch if a pack is selected, as blocking rules only apply in that context.
+    if (profile?.selected_norisk_pack_id) {
+      FlagsmithService.getBlockedModsConfig()
+        .then(() => {
+          setIsBlockedConfigLoaded(true);
+        })
+        .catch((err) => {
+          console.error("Failed to load NoRisk blocked mods config:", err);
+          // Optionally show a toast, but might be too noisy.
+          // toast.error("Could not load mod compatibility rules.");
+        });
+    } else {
+      // If no pack is selected, the config is not relevant/loaded.
+      setIsBlockedConfigLoaded(false);
+    }
+  }, [profile?.selected_norisk_pack_id]);
 
   const {
     items,
@@ -532,6 +555,14 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
       const isItemOpen = openVersionDropdownId === item.filename;
 
+      const isBlockedByNoRisk =
+        !!profile?.selected_norisk_pack_id &&
+        isBlockedConfigLoaded &&
+        FlagsmithService.isModBlockedByNoRisk(
+          item.filename,
+          item.modrinth_info?.project_id,
+        );
+
       let iconToShow: React.ReactNode;
       const modrinthProjectId = item.modrinth_info?.project_id;
       const modrinthIconUrl = modrinthProjectId
@@ -787,6 +818,20 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
       const itemBadgesNode = (
         <>
+          {isBlockedByNoRisk && (
+            <TagBadge
+              size="sm"
+              variant="destructive"
+              iconElement={
+                <Icon
+                  icon="solar:shield-cross-bold-duotone"
+                  className="w-3 h-3"
+                />
+              }
+            >
+              CRASHES WITH NRC
+            </TagBadge>
+          )}
           <TagBadge
             size="sm"
             variant={!item.is_disabled ? "success" : "destructive"}
@@ -998,6 +1043,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       isLoadingVersions,
       versionsError,
       handleSwitchContentVersion,
+      isBlockedConfigLoaded,
     ],
   );
 
