@@ -58,10 +58,11 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
     <Modal
       title="Terms of Service"
       titleIcon={<Icon icon="solar:document-bold" className="w-7 h-7 text-blue-400" />}
-      onClose={() => {}} // Prevent closing without accepting
+      onClose={() => {}}
       width="lg"
       footer={modalFooter}
       closeOnClickOutside={false}
+      showCloseButton={false}
     >
       <div className="p-6 space-y-6 text-white">
         <div className="text-center space-y-4">

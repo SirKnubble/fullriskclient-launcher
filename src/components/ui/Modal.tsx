@@ -18,6 +18,7 @@ interface ModalProps {
   closeOnClickOutside?: boolean;
   headerActions?: React.ReactNode;
   variant?: "default" | "flat" | "3d";
+  showCloseButton?: boolean;
 }
 
 export function Modal({
@@ -31,6 +32,7 @@ export function Modal({
   closeOnClickOutside = true,
   headerActions,
   variant = "default",
+  showCloseButton = true,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -162,17 +164,19 @@ export function Modal({
           </div>
           <div className="flex items-center space-x-2">
             {headerActions}
-            <IconButton
-              ref={closeButtonRef}
-              icon={<Icon icon="solar:close-circle-bold" />}
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              variant="ghost"
-              size="sm"
-              aria-label="Close modal"
-            />
+            {showCloseButton && (
+              <IconButton
+                ref={closeButtonRef}
+                icon={<Icon icon="solar:close-circle-bold" />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                variant="ghost"
+                size="sm"
+                aria-label="Close modal"
+              />
+            )}
           </div>
         </div>        <div className="flex-1 overflow-y-auto custom-scrollbar">
           {children}
