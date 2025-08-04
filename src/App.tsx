@@ -49,58 +49,6 @@ export function App() {
     useState<string>("none");
 
   const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
-  useEffect(() => {
-    const root = document.documentElement;
-    const storedTheme = localStorage.getItem("norisk-theme-storage");
-    if (storedTheme) {
-      try {
-        const themeData = JSON.parse(storedTheme);
-        if (themeData.state?.accentColor?.value) {
-          root.style.setProperty("--accent", themeData.state.accentColor.value);
-          root.style.setProperty(
-            "--accent-hover",
-            themeData.state.accentColor.hoverValue,
-          );
-
-          const hexToRgb = (hex: string) => {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
-              hex,
-            );
-            return result
-              ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
-              : null;
-          };
-
-          const rgbValue = hexToRgb(themeData.state.accentColor.value);
-          if (rgbValue) {
-            root.style.setProperty("--accent-rgb", rgbValue);
-          }
-        }
-        
-        if (themeData.state?.radiusTheme) {
-          const radiusTheme = themeData.state.radiusTheme;
-          root.setAttribute("data-radius-theme", radiusTheme);
-          
-          if (radiusTheme === "flat") {
-            root.classList.add("radius-flat");
-            root.style.setProperty("--radius", "0px");
-          } else {
-            root.classList.remove("radius-flat");
-            const radiusMap: Record<string, string> = {
-              sm: "var(--radius-sm)",
-              md: "var(--radius-md)",
-              lg: "var(--radius-lg)",
-              xl: "var(--radius-xl)",
-              "2xl": "var(--radius-2xl)",
-            };
-            root.style.setProperty("--radius", radiusMap[radiusTheme] || "var(--radius-md)");
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse stored theme:", e);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     const unlisten = listen<FrontendEventPayload>(
