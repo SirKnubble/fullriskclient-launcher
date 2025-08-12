@@ -1250,12 +1250,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   }
 
   // Determine if the special empty state for standard profiles should be shown
-  const shouldShowStandardProfileEmptyState =
-    profile.is_standard_version &&
-    (contentType === "NoRiskMod" && !profile?.selected_norisk_pack_id
-      ? true
-      : filteredItems.length === 0) &&
-    !error;
+  const shouldShowStandardProfileEmptyState = false;
 
   if (shouldShowStandardProfileEmptyState) {
     const handleCloneProfile = async () => {
@@ -1386,7 +1381,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       items.length === 0 &&
       selectedItemIds.size === 0
     ) {
-      return `You can add ${itemTypeNamePlural} to this profile or via Modrinth (if supported).`;
+      return `Drag & drop ${itemTypeNamePlural} here to add them, or click Browse to discover and install content online.`;
     } else if (
       searchQuery &&
       filteredItems.length === 0 &&
@@ -1397,6 +1392,29 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       return `Select ${itemTypeNamePlural} to perform batch actions or manage them individually.`;
     }
   };
+
+  const isTrulyEmptyState =
+    !error && !searchQuery && items.length === 0 && selectedItemIds.size === 0;
+
+  const handleEmptyStateBrowse = useCallback(() => {
+    if (!profile) return;
+    const browseType = ((ct: typeof contentType) => {
+      switch (ct) {
+        case "Mod":
+          return "mods";
+        case "ResourcePack":
+          return "resourcepacks";
+        case "ShaderPack":
+          return "shaderpacks";
+        case "DataPack":
+          return "datapacks";
+        default:
+          return "mods";
+      }
+    })(contentType);
+    if (onBrowseContentRequest) onBrowseContentRequest(browseType);
+    else navigate(`/profiles/${profile.id}/browse/${browseType}`);
+  }, [onBrowseContentRequest, navigate, profile, contentType]);
 
   return (
     <>
@@ -1417,6 +1435,16 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         }
         emptyStateMessage={getEmptyStateMessage()}
         emptyStateDescription={getEmptyStateDescription()}
+        emptyStateAction={isTrulyEmptyState ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleEmptyStateBrowse}
+            icon={<Icon icon="solar:magnifer-bold" />}
+          >
+            Browse {itemTypeNamePlural}
+          </Button>
+        ) : undefined}
         loadingItemCount={Math.min(items.length > 0 ? items.length : 5, 10)}
         showSkeletons={false}
         accentColorOverride={accentColor.value}

@@ -184,11 +184,10 @@ export function ProfileDetailView({
 
   const mainTabs = [
     { id: "content", label: "Content", icon: "solar:widget-bold" },
-    // Browse tab is only for non-standard profiles
-    ...(profile.is_standard_version ? [] : [{ id: "browse" as MainTabType, label: "Browse", icon: "solar:magnifer-bold" }]),
+    { id: "browse" as MainTabType, label: "Browse", icon: "solar:magnifer-bold" },
     { id: "worlds", label: "Worlds", icon: "solar:planet-bold" },
     { id: "screenshots", label: "Screenshots", icon: "solar:camera-bold" },
-    { id: "logs", label: "Logs", icon: "solar:code-bold" }, // solar:file-text-bold was for standard logs, solar:code-bold for non-standard. Let's unify to solar:code-bold or pick one. Using solar:code-bold for now.
+    { id: "logs", label: "Logs", icon: "solar:code-bold" },
   ];
 
   const contentSubTabs = [
@@ -498,7 +497,7 @@ export function ProfileDetailView({
                 )}
               </>
             )}
-            {activeMainTab === "browse" && !profile.is_standard_version && (
+            {activeMainTab === "browse" && (
               <BrowseTab
                 profile={currentProfile}
                 initialContentType={browseContentType}

@@ -328,6 +328,7 @@ impl MinecraftLauncher {
         }
 
         // Add Fabric specific mods folder argument if loader is Fabric
+        // Note: When using -Dfabric.addMods (prototype), this is still harmless and allows user mods in mods/.
         if let Some(p_ref) = &profile {
             if p_ref.loader == crate::state::profile_state::ModLoader::Fabric {
                 match state.profile_manager.get_profile_mods_path(p_ref) {

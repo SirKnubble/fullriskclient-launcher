@@ -1895,6 +1895,7 @@ impl LocalContentLoader {
         let state = State::get().await?;
         // Fetch profile using profile_id from params
         let profile = state.profile_manager.get_profile(params.profile_id).await?;
+        let profile_mods_path = state.profile_manager.get_profile_mods_path(&profile)?;
 
         debug!(
             "Loading items for profile: {} ({}), content_type: {:?}, calculate_hashes: {}, fetch_modrinth_data: {}",
@@ -1912,7 +1913,10 @@ impl LocalContentLoader {
                 let instance_path = state
                     .profile_manager
                     .calculate_instance_path_for_profile(&profile)?;
-                vec![instance_path.join("custom_mods")]
+                vec![
+                    instance_path.join("custom_mods"),
+                    profile_mods_path.clone(),
+                ]
             }
             ContentType::NoRiskMod => {
                 // For NoRisk mods, we don't actually need a physical directory
@@ -2208,13 +2212,13 @@ impl LocalContentLoader {
                     file_name_str
                 };
 
-                // Determine source_type based on parent directory name
+                // Determine source_type based on location
                 let source_type = if params.content_type == ContentType::Mod {
-                    // Check if this mod is in the custom_mods directory
-                    if path
+                    if path.starts_with(&profile_mods_path) {
+                        Some("custom".to_string())
+                    } else if path
                         .parent()
-                        .map(|p| p.file_name())
-                        .flatten()
+                        .and_then(|p| p.file_name())
                         .map(|name| name.to_string_lossy().to_string() == "custom_mods")
                         .unwrap_or(false)
                     {
