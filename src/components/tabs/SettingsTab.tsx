@@ -28,6 +28,7 @@ import { FullscreenEffectRenderer } from "../FullscreenEffectRenderer";
 import { openExternalUrl } from "../../services/tauri-service";
 import { openLauncherDirectory } from "../../services/tauri-service";
 import { IconButton } from ".././ui/buttons/IconButton";
+import { useFlags } from "flagsmith/react";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
@@ -55,6 +56,13 @@ export function SettingsTab() {
   } = useThemeStore();
   const { currentEffect, setCurrentEffect } = useBackgroundEffectStore();
   const { qualityLevel, setQualityLevel } = useQualitySettingsStore();
+
+  const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
+  const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
+  const canShowExperimental =
+    experimentalFlags[EXPERIMENTAL_FEATURE_FLAG_NAME]?.enabled === true ||
+    !!tempConfig?.is_experimental ||
+    !!config?.is_experimental;
 
   const backgroundOptions = [
     {
@@ -899,61 +907,63 @@ export function SettingsTab() {
         </div>
       </Card>
 
-      <Card variant="flat" className="p-6">
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon icon="solar:test-tube-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
-              Experimental Settings
-            </h3>
-          </div>
-          <p className="text-base text-white/70 font-minecraft-ten mt-2">
-            Enable experimental features and advanced configuration options
-          </p>
-        </div>
-
-        <div className="space-y-4 mt-6">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Experimental Mode
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Enable experimental features and unstable functionality. May
-                cause crashes or unexpected behavior.
-              </p>
+      {canShowExperimental && (
+        <Card variant="flat" className="p-6">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon icon="solar:test-tube-bold" className="w-6 h-6 text-white" />
+              <h3 className="text-3xl font-minecraft text-white lowercase">
+                Experimental Settings
+              </h3>
             </div>
-            <ToggleSwitch
-              checked={tempConfig?.is_experimental || false}
-              onChange={(newCheckedState) => {
-                if (tempConfig) {
-                  setTempConfig({
-                    ...tempConfig,
-                    is_experimental: newCheckedState,
-                  });
-                }
-              }}
-              disabled={saving}
-              size="lg"
-            />
+            <p className="text-base text-white/70 font-minecraft-ten mt-2">
+              Enable experimental features and advanced configuration options
+            </p>
           </div>
-        </div>
 
-        <div className="mt-6 p-4 rounded-lg border border-orange-500/30 bg-orange-900/20">
-          <div className="flex items-start gap-3">
-            <Icon icon="solar:danger-triangle-bold" className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
-            <div>
-              <h4 className="text-xl font-minecraft text-orange-300 mb-2 lowercase">
-                Warning
-              </h4>
-              <p className="text-sm text-orange-200/80 font-minecraft-ten">
-                Experimental features may be unstable and could cause unexpected behavior or crashes.
-                Use at your own risk and make sure to backup your data.
-              </p>
+          <div className="space-y-4 mt-6">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
+              <div className="flex-1">
+                <h5 className="font-minecraft text-2xl lowercase text-white">
+                  Experimental Mode
+                </h5>
+                <p className="text-sm text-white/60 font-minecraft-ten mt-1">
+                  Enable experimental features and unstable functionality. May
+                  cause crashes or unexpected behavior.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={tempConfig?.is_experimental || false}
+                onChange={(newCheckedState) => {
+                  if (tempConfig) {
+                    setTempConfig({
+                      ...tempConfig,
+                      is_experimental: newCheckedState,
+                    });
+                  }
+                }}
+                disabled={saving}
+                size="lg"
+              />
             </div>
           </div>
-        </div>
-      </Card>
+
+          <div className="mt-6 p-4 rounded-lg border border-orange-500/30 bg-orange-900/20">
+            <div className="flex items-start gap-3">
+              <Icon icon="solar:danger-triangle-bold" className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
+              <div>
+                <h4 className="text-xl font-minecraft text-orange-300 mb-2 lowercase">
+                  Warning
+                </h4>
+                <p className="text-sm text-orange-200/80 font-minecraft-ten">
+                  Experimental features may be unstable and could cause unexpected behavior or crashes.
+                  Use at your own risk and make sure to backup your data.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card variant="flat" className="p-6">
         <div className="mb-4">
