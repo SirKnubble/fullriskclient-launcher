@@ -1097,7 +1097,7 @@ pub async fn get_local_shaderpacks(
     let profile = state.profile_manager.get_profile(profile_id).await?;
 
     // Use the utility function to get all shaderpacks
-    let shaderpacks = shaderpack_utils::get_shaderpacks_for_profile(&profile)
+    let shaderpacks = shaderpack_utils::get_shaderpacks_for_profile(&profile, true, true)
         .await
         .map_err(|e| CommandError::from(e))?;
 
@@ -1544,7 +1544,7 @@ pub async fn get_local_datapacks(
     let profile = state.profile_manager.get_profile(profile_id).await?;
 
     // Use the utility function to get all datapacks
-    let datapacks = datapack_utils::get_datapacks_for_profile(&profile)
+    let datapacks = datapack_utils::get_datapacks_for_profile(&profile, true, true)
         .await
         .map_err(|e| CommandError::from(e))?;
 

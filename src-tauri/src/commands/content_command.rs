@@ -394,7 +394,7 @@ pub async fn toggle_content_from_profile(
                 "Targeted toggle for ShaderPacks with SHA1: {}",
                 current_sha1_hash
             );
-            match shaderpack_utils::get_shaderpacks_for_profile(&profile).await {
+            match shaderpack_utils::get_shaderpacks_for_profile(&profile, true, true).await {
                 Ok(shader_packs) => {
                     for pack_info in shader_packs {
                         if pack_info.sha1_hash.as_deref() == Some(&current_sha1_hash) {
@@ -458,7 +458,7 @@ pub async fn toggle_content_from_profile(
                 "Targeted toggle for DataPacks with SHA1: {}",
                 current_sha1_hash
             );
-            match datapack_utils::get_datapacks_for_profile(&profile).await {
+            match datapack_utils::get_datapacks_for_profile(&profile, true, true).await {
                 Ok(data_packs) => {
                     for pack_info in data_packs {
                         if pack_info.sha1_hash.as_deref() == Some(&current_sha1_hash) {

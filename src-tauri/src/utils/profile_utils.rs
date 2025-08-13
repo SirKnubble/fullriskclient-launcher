@@ -605,7 +605,7 @@ pub async fn check_content_installed(params: CheckContentParams) -> Result<Conte
                 "Checking locally installed shader packs in profile {}...",
                 params.profile_id
             );
-            match shaderpack_utils::get_shaderpacks_for_profile(&profile).await {
+            match shaderpack_utils::get_shaderpacks_for_profile(&profile, true, true).await {
                 Ok(packs) => {
                     for pack_info in &packs {
                         let modrinth_pid = pack_info
@@ -673,7 +673,7 @@ pub async fn check_content_installed(params: CheckContentParams) -> Result<Conte
                 "Checking locally installed data packs in profile {}...",
                 params.profile_id
             );
-            match datapack_utils::get_datapacks_for_profile(&profile).await {
+            match datapack_utils::get_datapacks_for_profile(&profile, true, true).await {
                 Ok(packs) => {
                     for pack_info in &packs {
                         let modrinth_pid = pack_info
@@ -1583,7 +1583,7 @@ async fn process_resourcepack_requests(
     results: &mut Vec<Option<ContentCheckResult>>,
 ) -> Result<()> {
     // Load all resource packs once
-    let packs = match resourcepack_utils::get_resourcepacks_for_profile(profile, true, false).await
+    let packs = match resourcepack_utils::get_resourcepacks_for_profile(profile, true, true).await
     {
         Ok(packs) => packs,
         Err(e) => {
@@ -1689,7 +1689,7 @@ async fn process_shaderpack_requests(
     results: &mut Vec<Option<ContentCheckResult>>,
 ) -> Result<()> {
     // Load all shader packs once
-    let packs = match shaderpack_utils::get_shaderpacks_for_profile(profile).await {
+    let packs = match shaderpack_utils::get_shaderpacks_for_profile(profile, true, true).await {
         Ok(packs) => packs,
         Err(e) => {
             warn!(
@@ -1774,7 +1774,7 @@ async fn process_datapack_requests(
     results: &mut Vec<Option<ContentCheckResult>>,
 ) -> Result<()> {
     // Load all data packs once
-    let packs = match datapack_utils::get_datapacks_for_profile(profile).await {
+    let packs = match datapack_utils::get_datapacks_for_profile(profile, true, true).await {
         Ok(packs) => packs,
         Err(e) => {
             warn!("Failed to list data packs: {}. Assuming none installed.", e);
