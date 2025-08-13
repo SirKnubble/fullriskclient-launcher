@@ -1394,6 +1394,23 @@ async fn process_mod_requests(
     requests: &[(&ContentCheckRequest, usize)],
     results: &mut Vec<Option<ContentCheckResult>>,
 ) -> Result<()> {
+    // Load all local mods once
+    let local_mods = match LocalContentLoader::load_items(LoadItemsParams {
+        profile_id: profile.id,
+        content_type: ContentType::Mod,
+        calculate_hashes: true,
+        fetch_modrinth_data: true,
+    }).await {
+        Ok(mods) => mods,
+        Err(e) => {
+            warn!(
+                "Failed to list local mods: {}. Assuming none installed.",
+                e
+            );
+            Vec::new()
+        }
+    };
+
     // For each request, we need to check both in NoRisk Pack and local installation
     for (request, idx) in requests {
         // Convert to the old params format for reusing norisk pack check logic
@@ -1497,7 +1514,7 @@ async fn process_mod_requests(
             }
         }
 
-        // Check if locally installed
+        // Check if locally installed - first check profile.mods
         for installed_mod in &profile.mods {
             let mut mod_project_id: Option<&str> = None;
             let mut mod_version_id: Option<&str> = None;
@@ -1559,6 +1576,46 @@ async fn process_mod_requests(
                     display_name: installed_mod.display_name.clone(),
                 });
                 break;
+            }
+        }
+
+        // If not found in profile.mods, check local files
+        if !status.is_installed {
+            for mod_item in &local_mods {
+                let modrinth_pid = mod_item.modrinth_info.as_ref().map(|m| m.project_id.as_str());
+                let modrinth_vid = mod_item.modrinth_info.as_ref().map(|m| m.version_id.as_str());
+                let mod_hash = mod_item.sha1_hash.as_deref();
+                let mod_filename_str = Some(mod_item.filename.as_str());
+
+                // Match against provided parameters
+                let mut match_project = true;
+                if let Some(pid) = &request.project_id {
+                    match_project = modrinth_pid == Some(pid.as_str());
+                }
+                let mut match_version = true;
+                if let Some(vid) = &request.version_id {
+                    match_version = modrinth_vid == Some(vid.as_str());
+                }
+                let mut match_hash = true;
+                if let Some(hash) = &request.file_hash_sha1 {
+                    match_hash = mod_hash == Some(hash.as_str());
+                }
+                let mut match_name = true;
+                if let Some(name) = &request.file_name {
+                    match_name = mod_filename_str == Some(name.as_str());
+                }
+
+                if match_project && match_version && match_hash && match_name {
+                    status.is_installed = true;
+                    status.is_enabled = Some(!mod_item.is_disabled); // Local files: enabled = !disabled
+                    status.found_item_details = Some(FoundItemDetails {
+                        item_type: ContentType::Mod,
+                        item_id: mod_item.id.clone(),
+                        file_name: Some(mod_item.filename.clone()),
+                        display_name: mod_item.modrinth_info.as_ref().map(|m| m.name.clone()),
+                    });
+                    break;
+                }
             }
         }
 
