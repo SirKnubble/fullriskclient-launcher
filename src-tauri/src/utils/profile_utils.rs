@@ -1083,6 +1083,9 @@ fn sanitize_profile_for_export(profile: &Profile) -> Profile {
     // Reset profile ID to ensure it's unique when imported
     export_profile.id = Uuid::new_v4();
 
+    // Exported profiles should always be user profiles, not standard templates
+    export_profile.is_standard_version = false;
+
     // Keep other essential data
     export_profile
 }
