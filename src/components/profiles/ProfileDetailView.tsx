@@ -277,16 +277,9 @@ export function ProfileDetailView({
             />
 
             <IconButton
-              icon={
-                isRefreshing ? (
-                  <Icon icon="solar:refresh-bold" className="animate-spin" />
-                ) : (
-                  <Icon icon="solar:refresh-bold" />
-                )
-              }
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              title="Refresh profile"
+              icon={<Icon icon="solar:folder-with-files-bold" />}
+              onClick={() => ProfileService.openProfileFolder(profile.id)}
+              title="Open Profile Folder"
               size="sm"
             />
           </div>
