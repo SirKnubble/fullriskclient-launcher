@@ -292,6 +292,7 @@ export function ExportSettingsTab({
                 "NoRiskClientLauncher",
                 "config",
                 "custom_mods",
+                "mods",
               ]}
               selectChildrenWithParent={true}
               defaultRootCollapsed={false}
