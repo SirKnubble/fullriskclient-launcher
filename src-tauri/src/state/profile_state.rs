@@ -1628,7 +1628,11 @@ impl ProfileManager {
         // --- Process Results ---
         // Use normal mods directory for direct file placement
         let profile = self.get_profile(profile_id).await?;
-        let mods_dir = self.get_profile_mods_path(&profile)?;
+        let mods_dir = if profile.loader == ModLoader::Fabric {
+            self.get_profile_mods_path(&profile)?
+        } else {
+            self.get_profile_custom_mods_path(profile_id).await?
+        };
         // Ensure mods_dir exists ONCE
         fs::create_dir_all(&mods_dir)
             .await
