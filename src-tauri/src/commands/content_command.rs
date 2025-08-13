@@ -98,16 +98,8 @@ async fn uninstall_content_by_sha1_internal(
     let mut asset_files_deleted_count = 0;
     let mut asset_file_deletion_errors_occurred = false;
 
-    // Only scan asset directories if content_type is None or not ContentType::Mod
-    let should_scan_assets = match content_type {
-        Some(profile_utils::ContentType::Mod) => {
-            log::info!(
-                "Content type is Mod, skipping asset directory scan for SHA1 uninstallation."
-            );
-            false
-        }
-        _ => true, // Includes None or other asset types
-    };
+    // Scan directories based on content type
+    let should_scan_assets = true; // Always scan directories now
 
     if should_scan_assets {
         match state_manager
@@ -116,10 +108,30 @@ async fn uninstall_content_by_sha1_internal(
             .await
         {
             Ok(profile_instance_path) => {
-                let asset_dirs_to_scan = vec!["shaderpacks", "resourcepacks", "datapacks"];
-                for dir_name in asset_dirs_to_scan {
-                    let asset_dir_path = profile_instance_path.join(dir_name);
-                    if asset_dir_path.is_dir() {
+                // Get profile mods path for local mods scanning
+                let profile_mods_path = state_manager.profile_manager.get_profile_mods_path(&profile)?;
+                
+                let mut dirs_to_scan = vec![
+                    ("shaderpacks", profile_instance_path.join("shaderpacks")),
+                    ("resourcepacks", profile_instance_path.join("resourcepacks")), 
+                    ("datapacks", profile_instance_path.join("datapacks")),
+                    ("mods", profile_mods_path),
+                    ("custom_mods", profile_instance_path.join("custom_mods")),
+                ];
+
+                // Filter directories based on content_type
+                if let Some(ref ct) = content_type {
+                    dirs_to_scan = match ct {
+                        profile_utils::ContentType::Mod => dirs_to_scan.into_iter().filter(|(name, _)| name == &"mods" || name == &"custom_mods").collect(),
+                        profile_utils::ContentType::ShaderPack => dirs_to_scan.into_iter().filter(|(name, _)| name == &"shaderpacks").collect(),
+                        profile_utils::ContentType::ResourcePack => dirs_to_scan.into_iter().filter(|(name, _)| name == &"resourcepacks").collect(),
+                        profile_utils::ContentType::DataPack => dirs_to_scan.into_iter().filter(|(name, _)| name == &"datapacks").collect(),
+                        _ => dirs_to_scan, // NoRiskMod or others: scan all
+                    };
+                }
+
+                for (dir_name, asset_dir_path) in dirs_to_scan {
+                    if asset_dir_path.exists() && asset_dir_path.is_dir() {
                         match fs::read_dir(&asset_dir_path).await {
                             Ok(mut entries) => {
                                 while let Some(entry_result) =
@@ -488,15 +500,39 @@ pub async fn toggle_content_from_profile(
             }
         }
         Some(profile_utils::ContentType::Mod) => {
-            // Mod type was handled in Phase 1. If mod_entries_toggled_count is 0 here, it means no mod matched.
-            // No further asset scanning is done if ContentType::Mod was specified.
-            log::debug!("ContentType::Mod specified, mod processing already done in Phase 1.");
+            log::debug!("Targeted toggle for Mods with SHA1: {}", current_sha1_hash);
+            // Check local mod files if no profile mod was toggled
             if mod_entries_toggled_count == 0 {
-                log::warn!(
-                    "ContentType::Mod specified, but no Modrinth entry found with SHA1 '{}' in profile {} to toggle.",
-                    current_sha1_hash, payload.profile_id
-                );
-                // We don't return an error here yet, as the final check below will handle it if nothing at all was toggled.
+                match profile_utils::LocalContentLoader::load_items(profile_utils::LoadItemsParams {
+                    profile_id: profile.id,
+                    content_type: profile_utils::ContentType::Mod,
+                    calculate_hashes: true,
+                    fetch_modrinth_data: false, // Don't need Modrinth data for toggling
+                }).await {
+                    Ok(local_mods) => {
+                        for mod_item in local_mods {
+                            if mod_item.sha1_hash.as_deref() == Some(&current_sha1_hash) {
+                                match toggle_single_asset_file(
+                                    &mod_item.path_str,
+                                    &mod_item.filename,
+                                    mod_item.is_disabled,
+                                    payload.enabled,
+                                    "mod",
+                                ).await {
+                                    Ok(_) => asset_files_toggled_count += 1,
+                                    Err(_) => asset_file_toggle_errors = true,
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "Failed to list local mods for profile {}: {}. Skipping local mod toggle.",
+                            payload.profile_id, e
+                        );
+                        asset_file_toggle_errors = true;
+                    }
+                }
             }
         }
         Some(profile_utils::ContentType::NoRiskMod) => {
