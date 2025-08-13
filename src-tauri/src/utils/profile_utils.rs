@@ -1086,6 +1086,13 @@ fn sanitize_profile_for_export(profile: &Profile) -> Profile {
     // Exported profiles should always be user profiles, not standard templates
     export_profile.is_standard_version = false;
 
+    // Change NORISK CLIENT group to CUSTOM for exports
+    if let Some(group) = &export_profile.group {
+        if group.eq_ignore_ascii_case("NORISK CLIENT") {
+            export_profile.group = Some("CUSTOM".to_string());
+        }
+    }
+
     // Keep other essential data
     export_profile
 }
