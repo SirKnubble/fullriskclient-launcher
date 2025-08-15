@@ -680,7 +680,7 @@ pub async fn install_minecraft_version(
     .await?;
 
     // --- Prototype: Provide managed mods via Fabric addMods meta file (Fabric only) ---
-    if modloader_enum == ModLoader::Fabric {
+    /*if modloader_enum == ModLoader::Fabric {
         let add_mods_arg = crate::minecraft::downloads::mod_resolver::build_fabric_add_mods_arg(
             profile.id,
             version_id,
@@ -691,7 +691,7 @@ pub async fn install_minecraft_version(
         current_jvm_args.push(add_mods_arg);
         launch_params = launch_params.with_additional_jvm_args(current_jvm_args);
         info!("Configured Fabric addMods meta file for profile '{}'", profile.name);
-    }
+    }*/
 
     // --- Step: Sync mods from cache to profile directory ---
     let sync_event_id = emit_progress_event(
@@ -717,9 +717,9 @@ pub async fn install_minecraft_version(
 
     // Pass the resolved target_mods list and the specific mods path to the sync function
     if modloader_enum == ModLoader::Fabric {
-        info!(
-            "Skipping mods folder sync for Fabric (using addMods meta file instead)."
-        );
+        mod_downloader_service
+        .link_mods_to_profile(&target_mods, &profile_mods_path)
+        .await?;
     } else if modloader_enum == ModLoader::Forge || modloader_enum == ModLoader::NeoForge {
         mod_downloader_service
             .link_mods_to_profile(&target_mods, &profile_mods_path)

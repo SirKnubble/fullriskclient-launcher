@@ -3,6 +3,7 @@ use crate::error::{AppError, Result};
 use crate::minecraft::downloads::mod_resolver::TargetMod;
 use crate::state::profile_state::{self, ModSource, Profile};
 use crate::utils::download_utils::{DownloadConfig, DownloadUtils};
+use crate::utils::file_utils;
 use futures::stream::{iter, StreamExt};
 use log::{debug, error, info, warn};
 use std::collections::{HashMap, HashSet};
@@ -360,6 +361,8 @@ impl ModDownloadService {
         true
     }
 
+
+
 	pub async fn link_mods_to_profile(
 		&self,
 		target_mods: &[TargetMod],
@@ -370,6 +373,9 @@ impl ModDownloadService {
 			"Linking resolved mods into profile mods directory '{:?}' for '{}'...",
 			profile_mods_dir, profile_name
 		);
+
+		// Clean existing hardlinks before creating new ones
+		file_utils::clean_hardlinks_from_directory(profile_mods_dir).await?;
 
 		if !profile_mods_dir.exists() {
 			debug!("Creating profile mods directory: {:?}", profile_mods_dir);

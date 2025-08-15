@@ -2265,6 +2265,14 @@ impl LocalContentLoader {
             }
 
             for (path, is_dir_flag) in items_to_process_with_paths {
+                // Skip hardlinks for mods
+                if params.content_type == ContentType::Mod {
+                    if crate::utils::file_utils::is_hard_link(&path).await {
+                        debug!("Skipping hardlink: {}", path.display());
+                        continue;
+                    }
+                }
+
                 let file_name_os = path.file_name().unwrap_or_default();
                 let file_name_str = file_name_os.to_string_lossy().to_string();
                 let metadata = fs::metadata(&path).await.map_err(|e| AppError::Io(e))?;

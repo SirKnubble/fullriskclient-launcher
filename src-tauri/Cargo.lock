@@ -3411,6 +3411,7 @@ dependencies = [
  "url",
  "urlencoding",
  "uuid 1.16.0",
+ "winapi",
  "zip",
 ]
 
