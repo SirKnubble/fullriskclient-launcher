@@ -708,8 +708,8 @@ impl MinecraftAuthStore {
             creds.expires
         );
 
-        if creds.expires < Utc::now() {
-            info!("[Token Check] Microsoft token expired, initiating refresh");
+        if creds.expires <= Utc::now() + Duration::minutes(5) {
+            info!("[Token Check] Microsoft token nearing expiry, initiating proactive refresh");
             let old_credentials = creds.clone();
 
             let res = self.refresh_token(&old_credentials).await;
