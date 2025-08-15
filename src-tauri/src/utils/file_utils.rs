@@ -286,3 +286,87 @@ pub async fn read_log_file_content(log_path: &Path) -> Result<String> {
         Ok("".to_string()) // Or return an error if preferred
     }
 }
+
+/// Checks if a file is a hardlink (has more than one link to the same data).
+/// 
+/// On Unix systems, uses nlink() to check the number of links.
+/// On Windows, uses GetFileInformationByHandle API to check nNumberOfLinks.
+/// 
+/// # Arguments
+/// 
+/// * `file_path` - The path to the file to check
+/// 
+/// # Returns
+/// 
+/// `true` if the file is a hardlink (has multiple references), `false` otherwise
+pub async fn is_hard_link(file_path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        match tokio::fs::metadata(file_path).await {
+            Ok(metadata) => metadata.nlink() > 1,
+            Err(_) => false,
+        }
+    }
+    
+    #[cfg(windows)]
+    {
+        use std::fs::File;
+        use std::os::windows::io::AsRawHandle;
+        use winapi::um::fileapi::{GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION};
+        
+        match File::open(file_path) {
+            Ok(file) => {
+                let handle = file.as_raw_handle();
+                let mut file_info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+                
+                unsafe {
+                    if GetFileInformationByHandle(handle, &mut file_info) != 0 {
+                        file_info.nNumberOfLinks > 1
+                    } else {
+                        false
+                    }
+                }
+            }
+            Err(_) => false,
+        }
+    }
+}
+
+/// Removes all hardlinks from a directory.
+/// Identifies hardlinks by checking if they have more than one reference.
+/// 
+/// # Arguments
+/// 
+/// * `directory_path` - The path to the directory to clean
+/// 
+/// # Returns
+/// 
+/// A `Result` indicating success or failure, with the number of removed hardlinks
+pub async fn clean_hardlinks_from_directory(directory_path: &Path) -> Result<usize> {
+    use tokio::fs::read_dir;
+    
+    if !directory_path.exists() {
+        log::debug!("Directory doesn't exist, no hardlinks to clean: {:?}", directory_path);
+        return Ok(0);
+    }
+
+    log::info!("Cleaning existing hardlinks from: {:?}", directory_path);
+    let mut dir_entries = read_dir(&directory_path).await.map_err(|e| AppError::Io(e))?;
+    let mut removed_count = 0;
+
+    while let Some(entry) = dir_entries.next_entry().await.map_err(|e| AppError::Io(e))? {
+        let path = entry.path();
+        if path.is_file() && is_hard_link(&path).await {
+            log::info!("Removing hardlink: {:?}", path);
+            if let Err(e) = tokio::fs::remove_file(&path).await {
+                log::warn!("Failed to remove hardlink {:?}: {}", path, e);
+            } else {
+                removed_count += 1;
+            }
+        }
+    }
+
+    log::info!("Cleaned {} hardlinks from: {:?}", removed_count, directory_path);
+    Ok(removed_count)
+}
