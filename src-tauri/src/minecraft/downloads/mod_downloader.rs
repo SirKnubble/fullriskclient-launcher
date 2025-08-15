@@ -360,4 +360,76 @@ impl ModDownloadService {
         true
     }
 
+	pub async fn link_mods_to_profile(
+		&self,
+		target_mods: &[TargetMod],
+		profile_mods_dir: &PathBuf,
+	) -> Result<()> {
+		let profile_name = "Target Profile";
+		info!(
+			"Linking resolved mods into profile mods directory '{:?}' for '{}'...",
+			profile_mods_dir, profile_name
+		);
+
+		if !profile_mods_dir.exists() {
+			debug!("Creating profile mods directory: {:?}", profile_mods_dir);
+			fs::create_dir_all(&profile_mods_dir).await?;
+		}
+
+		for tm in target_mods {
+			let source_path = &tm.cache_path;
+			let filename = &tm.filename;
+			let target_path = profile_mods_dir.join(filename);
+
+			// Skip if target already exists (respect user files)
+			if target_path.exists() {
+				info!(
+					"Skipping link for '{}' because target already exists in mods folder.",
+					filename
+				);
+				continue;
+			}
+
+			// Ensure parent dir
+			if let Some(parent) = target_path.parent() {
+				fs::create_dir_all(parent).await?;
+			}
+
+			// Try to create a hardlink first
+			match fs::hard_link(&source_path, &target_path).await {
+				Ok(_) => {
+					info!(
+						"Created hardlink for '{}' -> {:?}",
+						filename, target_path
+					);
+				}
+				Err(e) => {
+					warn!(
+						"Failed to create hardlink for '{}' ({}). Falling back to copy...",
+						filename, e
+					);
+					// Fallback: robust copy
+					if let Err(copy_err) = Self::robust_copy_file(&source_path, &target_path).await {
+						error!(
+							"Failed to copy '{}' to '{:?}' after hardlink failure: {}",
+							filename, target_path, copy_err
+						);
+						return Err(copy_err);
+					} else {
+						info!(
+							"Copied '{}' to '{:?}' as fallback (hardlink not available).",
+							filename, target_path
+						);
+					}
+				}
+			}
+		}
+
+		info!(
+			"Mod linking completed for '{}' -> {:?}",
+			profile_name, profile_mods_dir
+		);
+		Ok(())
+	}
+
 }

@@ -720,6 +720,10 @@ pub async fn install_minecraft_version(
         info!(
             "Skipping mods folder sync for Fabric (using addMods meta file instead)."
         );
+    } else if modloader_enum == ModLoader::Forge || modloader_enum == ModLoader::NeoForge {
+        mod_downloader_service
+            .link_mods_to_profile(&target_mods, &profile_mods_path)
+            .await?;
     } else {
         mod_downloader_service
             .sync_mods_to_profile(&target_mods, &profile_mods_path)
