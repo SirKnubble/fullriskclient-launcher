@@ -98,6 +98,9 @@ export function SocialsModal() {
       fetchMobileAppToken();
       fetchConfig();
       // Future: fetch statuses for other implemented platforms
+    } else {
+      setShowQrCode(false);
+      setMobileAppToken(null);
     }
   }, [isModalOpen, fetchDiscordStatus, fetchMobileAppToken, fetchConfig]);
 
