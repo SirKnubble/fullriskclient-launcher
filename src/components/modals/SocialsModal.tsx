@@ -9,11 +9,16 @@ import {
   discordAuthLink,
   discordAuthStatus,
   discordAuthUnlink,
+  getMobileAppToken,
+  resetMobileAppToken,
 } from "../../services/nrc-service";
 import { Skeleton } from "../ui/Skeleton";
 import { useSocialsModalStore } from "../../store/socials-modal-store";
 import { openExternalUrl } from "../../services/tauri-service";
 import { IconButton } from "../ui/buttons/IconButton";
+import { getLauncherConfig } from "../../services/launcher-config-service";
+import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
+import { useThemeStore } from "../../store/useThemeStore";
 
 // Define a type for social platform configuration
 interface SocialPlatform {
@@ -25,15 +30,27 @@ interface SocialPlatform {
   fetchStatus?: () => Promise<boolean>;
   handleLink?: () => Promise<void>;
   handleUnlink?: () => Promise<void>;
+  showMobileApp?: boolean;
+  generateQrCode?: () => Promise<void>;
+  resetToken?: () => Promise<void>;
 }
 
 export function SocialsModal() {
   const { isModalOpen, closeModal } = useSocialsModalStore();
+  const { activeAccount } = useMinecraftAuthStore();
+  const { accentColor } = useThemeStore();
   
   // States for Discord (can be generalized later if needed)
   const [isLoadingDiscordStatus, setIsLoadingDiscordStatus] = useState(true);
   const [isDiscordLinked, setIsDiscordLinked] = useState(false);
   const [isProcessingDiscordAction, setIsProcessingDiscordAction] = useState(false);
+
+  // States for Mobile App
+  const [isLoadingMobileAppToken, setIsLoadingMobileAppToken] = useState(true);
+  const [mobileAppToken, setMobileAppToken] = useState<string | null>(null);
+  const [isProcessingMobileAppAction, setIsProcessingMobileAppAction] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [experimentalMode, setExperimentalMode] = useState(false);
 
   const fetchDiscordStatus = useCallback(async (): Promise<boolean> => {
     setIsLoadingDiscordStatus(true);
@@ -51,12 +68,38 @@ export function SocialsModal() {
     }
   }, []);
 
+  const fetchMobileAppToken = useCallback(async () => {
+    setIsLoadingMobileAppToken(true);
+    try {
+      const token = await getMobileAppToken();
+      setMobileAppToken(token);
+    } catch (error) {
+      console.error("Failed to fetch mobile app token:", error);
+      toast.error("Could not fetch mobile app token. See console.");
+      setMobileAppToken(null);
+    } finally {
+      setIsLoadingMobileAppToken(false);
+    }
+  }, []);
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const config = await getLauncherConfig();
+      setExperimentalMode(config.is_experimental);
+    } catch (error) {
+      console.error("Failed to fetch launcher config:", error);
+      setExperimentalMode(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (isModalOpen) {
       fetchDiscordStatus();
+      fetchMobileAppToken();
+      fetchConfig();
       // Future: fetch statuses for other implemented platforms
     }
-  }, [isModalOpen, fetchDiscordStatus]);
+  }, [isModalOpen, fetchDiscordStatus, fetchMobileAppToken, fetchConfig]);
 
   const handleDiscordLink = async () => {
     setIsProcessingDiscordAction(true);
@@ -94,7 +137,54 @@ export function SocialsModal() {
     }
   };
 
+  const handleGenerateQrCode = async () => {
+    setShowQrCode(true);
+  };
+
+  const handleResetMobileAppToken = async () => {
+    setIsProcessingMobileAppAction(true);
+    try {
+      const newToken = await resetMobileAppToken();
+      setMobileAppToken(newToken);
+      setShowQrCode(false);
+      toast.success("Mobile app token reset successfully.");
+    } catch (error) {
+      console.error("Failed to reset mobile app token:", error);
+      toast.error("Could not reset mobile app token. See console.");
+    } finally {
+      setIsProcessingMobileAppAction(false);
+    }
+  };
+
+  const generateQrCodeData = () => {
+    if (!mobileAppToken || !activeAccount) return "";
+    
+    return JSON.stringify({
+      uuid: activeAccount.id,
+      experimental: experimentalMode,
+      token: mobileAppToken,
+    });
+  };
+
+  const generateQrCodeUrl = () => {
+    const codeContent = generateQrCodeData();
+    if (!codeContent) return "";
+    
+    // Convert hex to URL-encoded color for QR code
+    const fillColor = encodeURIComponent(accentColor.value);
+    return `https://qr-generator-putuwaw.vercel.app/api?data=${encodeURIComponent(codeContent)}&fill_color=${fillColor}`;
+  };
+
   const socialPlatforms: SocialPlatform[] = [
+    {
+      key: "mobile",
+      name: "Mobile App",
+      icon: "material-symbols:phone-android",
+      isImplemented: true,
+      showMobileApp: true,
+      generateQrCode: handleGenerateQrCode,
+      resetToken: handleResetMobileAppToken,
+    },
     {
       key: "discord",
       name: "Discord",
@@ -140,10 +230,76 @@ export function SocialsModal() {
   }
 
   const renderPlatformRow = (platform: SocialPlatform) => {
-    const isLoadingStatus = platform.key === "discord" ? isLoadingDiscordStatus : false;
-    const isLinked = platform.key === "discord" ? isDiscordLinked : false; // Placeholder for others
-    const isProcessingAction =
-      platform.key === "discord" ? isProcessingDiscordAction : false;
+    const isLoadingStatus = platform.key === "discord" ? isLoadingDiscordStatus : 
+                           platform.key === "mobile" ? isLoadingMobileAppToken : false;
+    const isLinked = platform.key === "discord" ? isDiscordLinked : false;
+    const isProcessingAction = platform.key === "discord" ? isProcessingDiscordAction :
+                              platform.key === "mobile" ? isProcessingMobileAppAction : false;
+
+    // Special handling for mobile app
+    if (platform.showMobileApp) {
+      return (
+        <div key={platform.key} className="space-y-2">
+          <div className="flex items-center justify-between p-3 bg-black/20 rounded-md gap-2">
+            <div className="flex items-center flex-grow">
+              <Icon icon={platform.icon} className="w-7 h-7 mr-3 text-white/80 flex-shrink-0" />
+              <span className="text-white/90 font-medium font-minecraft-ten text-xs">
+                Connect {platform.name}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {isLoadingMobileAppToken ? (
+                <Button variant="secondary" size="sm" disabled>
+                  <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
+                </Button>
+              ) : mobileAppToken ? (
+                showQrCode ? (
+                  <Button
+                    variant="destructive"
+                    onClick={platform.resetToken}
+                    disabled={isProcessingAction}
+                    size="sm"
+                    icon={<Icon icon="mdi:refresh" />}
+                  >
+                    Reset
+                  </Button>
+                ) : (
+                  <Button
+                    variant="default"
+                    onClick={platform.generateQrCode}
+                    disabled={isProcessingAction}
+                    size="sm"
+                    icon={<Icon icon="mdi:qrcode" />}
+                  >
+                    Show QR
+                  </Button>
+                )
+              ) : (
+                <Button variant="secondary" size="sm" disabled>
+                  Failed
+                </Button>
+              )}
+            </div>
+          </div>
+          
+          {/* QR Code Display */}
+          {showQrCode && mobileAppToken && (
+            <div className="flex justify-center p-3 bg-black/10 rounded-md">
+              <div className="text-center space-y-2">
+                <p className="text-white/70 font-minecraft-ten text-xs">
+                  Scan with NoRisk mobile app
+                </p>
+                <img
+                  src={generateQrCodeUrl()}
+                  alt="Mobile App QR Code"
+                  className="w-40 h-40 mx-auto border-2 border-white/20 rounded-lg"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
 
     return (
       <div
@@ -205,11 +361,11 @@ export function SocialsModal() {
       onClose={closeModal}
       width="md" // Adjusted width for more content
     >
-      <div className="p-4 space-y-3 min-h-[55vh] max-h-[60vh] overflow-y-auto custom-scrollbar">
-        {isLoadingDiscordStatus && socialPlatforms.find(p => p.key === 'discord')?.isImplemented ? (
+      <div className="p-4 space-y-2 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
+        {(isLoadingDiscordStatus || isLoadingMobileAppToken) && (socialPlatforms.find(p => p.key === 'discord')?.isImplemented || socialPlatforms.find(p => p.key === 'mobile')?.isImplemented) ? (
           <div className="space-y-2">
-            {socialPlatforms.filter(p => p.isImplemented && p.key === 'discord').map((platform, i) => (
-              <div key={`skeleton-discord-${i}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md gap-2">
+            {socialPlatforms.filter(p => p.isImplemented && (p.key === 'discord' || p.key === 'mobile')).map((platform, i) => (
+              <div key={`skeleton-${platform.key}-${i}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md gap-2">
                 <div className="flex items-center flex-grow">
                   <Skeleton variant="block" width={28} height={28} className="mr-3 flex-shrink-0" />
                   <Skeleton variant="text" width={150} height={16} />
@@ -220,7 +376,7 @@ export function SocialsModal() {
                 </div>
               </div>
             ))}
-            {socialPlatforms.filter(p => !p.isImplemented || p.key !== 'discord').map(platform => (
+            {socialPlatforms.filter(p => !p.isImplemented || (p.key !== 'discord' && p.key !== 'mobile')).map(platform => (
               <div key={`skeleton-${platform.key}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md opacity-70 gap-2">
                 <div className="flex items-center flex-grow">
                   <Icon icon={platform.icon} className="w-7 h-7 mr-3 text-white/50 flex-shrink-0" />
