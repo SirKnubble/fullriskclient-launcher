@@ -1,3 +1,4 @@
+use crate::config::ProjectDirsExt;
 use crate::error::{AppError, Result};
 use crate::integrations::modrinth::{ModrinthProjectType, ModrinthVersion};
 use crate::integrations::norisk_packs;
@@ -1976,19 +1977,17 @@ impl LocalContentLoader {
             ContentType::ShaderPack => vec![shaderpack_utils::get_shaderpacks_dir(&profile).await?],
             ContentType::DataPack => vec![datapack_utils::get_datapacks_dir(&profile).await?],
             ContentType::Mod => {
-                // For mods, get both standard and custom mods directories
+                // Prefer standard mods directory first, then custom_mods
                 let instance_path = state
                     .profile_manager
                     .calculate_instance_path_for_profile(&profile)?;
                 vec![
-                    instance_path.join("custom_mods"),
                     profile_mods_path.clone(),
+                    instance_path.join("custom_mods"),
                 ]
             }
             ContentType::NoRiskMod => {
-                // For NoRisk mods, we don't actually need a physical directory
-                // since these are managed via the NoRisk pack system
-                // Return an empty vector as we'll handle it differently
+                // For NoRisk mods, handled differently (no physical directory scan)
                 Vec::new()
             }
         };
@@ -2146,7 +2145,19 @@ impl LocalContentLoader {
                 }
 
                 // Use the first directory as fallback if file not found
-                let path_buf = found_path.unwrap_or_else(|| content_dirs[0].join(&actual_filename));
+                let path_buf = if let Some(found) = found_path { found } else {
+                    // Smarter fallback: if this profile mod comes from Modrinth/Url/Maven, point to mod_cache
+                    match &mod_item.source {
+                        crate::state::profile_state::ModSource::Modrinth { .. }
+                        | crate::state::profile_state::ModSource::Url { .. }
+                        | crate::state::profile_state::ModSource::Maven { .. } => {
+                            crate::config::ProjectDirsExt::meta_dir(&*crate::config::LAUNCHER_DIRECTORY)
+                                .join("mod_cache")
+                                .join(&actual_filename)
+                        }
+                        _ => content_dirs[0].join(&actual_filename),
+                    }
+                };
                 let path_str = path_buf.to_string_lossy().into_owned();
 
                 let file_size = 0; // Placeholder due to cache logic - will revisit
@@ -2279,7 +2290,7 @@ impl LocalContentLoader {
                     file_name_str
                 };
 
-                // Determine source_type based on location
+                // Determine source_type based on location (only mark custom if under custom_mods)
                 let source_type = if params.content_type == ContentType::Mod {
                     if path.starts_with(&profile_mods_path) {
                         Some("custom".to_string())
@@ -2515,6 +2526,25 @@ impl LocalContentLoader {
             }
         }
 
+        for (idx, item) in final_items.iter().enumerate() {
+            info!(
+                "Final item [{}]: filename='{}', path_str='{}', sha1_hash={:?}, file_size={}, is_disabled={}, is_directory={}, content_type={:?}, source_type={:?}, norisk_info={:?}, id={:?}, associated_loader={:?}, fallback_version={:?}, modrinth_info={:?}",
+                idx,
+                item.filename,
+                item.path_str,
+                item.sha1_hash,
+                item.file_size,
+                item.is_disabled,
+                item.is_directory,
+                item.content_type,
+                item.source_type,
+                item.norisk_info,
+                item.id,
+                item.associated_loader,
+                item.fallback_version,
+                item.modrinth_info
+            );
+        }
         info!(
             "Successfully loaded {} items of type {:?} for profile {}",
             final_items.len(),

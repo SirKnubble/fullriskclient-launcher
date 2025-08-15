@@ -782,6 +782,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
   }, [profile, selectedItemIds]);
 
   const handleOpenItemFolder = useCallback(async (item: T) => {
+    console.log("handleOpenItemFolder", item);
     if (!item.path) {
       toast.error("Path not available for this item.");
       return;
