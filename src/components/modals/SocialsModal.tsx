@@ -19,6 +19,7 @@ import { IconButton } from "../ui/buttons/IconButton";
 import { getLauncherConfig } from "../../services/launcher-config-service";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { useThemeStore } from "../../store/useThemeStore";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 // Define a type for social platform configuration
 interface SocialPlatform {
@@ -39,13 +40,13 @@ export function SocialsModal() {
   const { isModalOpen, closeModal } = useSocialsModalStore();
   const { activeAccount } = useMinecraftAuthStore();
   const { accentColor } = useThemeStore();
+  const { confirm, confirmDialog } = useConfirmDialog();
   
   // States for Discord (can be generalized later if needed)
   const [isLoadingDiscordStatus, setIsLoadingDiscordStatus] = useState(true);
   const [isDiscordLinked, setIsDiscordLinked] = useState(false);
   const [isProcessingDiscordAction, setIsProcessingDiscordAction] = useState(false);
 
-  // States for Mobile App
   const [isLoadingMobileAppToken, setIsLoadingMobileAppToken] = useState(true);
   const [mobileAppToken, setMobileAppToken] = useState<string | null>(null);
   const [isProcessingMobileAppAction, setIsProcessingMobileAppAction] = useState(false);
@@ -97,7 +98,8 @@ export function SocialsModal() {
       fetchDiscordStatus();
       fetchMobileAppToken();
       fetchConfig();
-      // Future: fetch statuses for other implemented platforms
+    } else {
+      setShowQrCode(false);
     }
   }, [isModalOpen, fetchDiscordStatus, fetchMobileAppToken, fetchConfig]);
 
@@ -138,7 +140,17 @@ export function SocialsModal() {
   };
 
   const handleGenerateQrCode = async () => {
-    setShowQrCode(true);
+    const confirmed = await confirm({
+      title: "Show QR Code",
+      message: "This QR code contains your Minecraft account token. Do not share it on stream or with others as it could compromise your account security.",
+      confirmText: "Show QR Code",
+      cancelText: "Cancel",
+      type: "warning"
+    });
+    
+    if (confirmed) {
+      setShowQrCode(true);
+    }
   };
 
   const handleResetMobileAppToken = async () => {
@@ -170,7 +182,6 @@ export function SocialsModal() {
     const codeContent = generateQrCodeData();
     if (!codeContent) return "";
     
-    // Convert hex to URL-encoded color for QR code
     const fillColor = encodeURIComponent(accentColor.value);
     return `https://qr-generator-putuwaw.vercel.app/api?data=${encodeURIComponent(codeContent)}&fill_color=${fillColor}`;
   };
@@ -236,7 +247,6 @@ export function SocialsModal() {
     const isProcessingAction = platform.key === "discord" ? isProcessingDiscordAction :
                               platform.key === "mobile" ? isProcessingMobileAppAction : false;
 
-    // Special handling for mobile app
     if (platform.showMobileApp) {
       return (
         <div key={platform.key} className="space-y-2">
@@ -287,7 +297,7 @@ export function SocialsModal() {
             <div className="flex justify-center p-3 bg-black/10 rounded-md">
               <div className="text-center space-y-2">
                 <p className="text-white/70 font-minecraft-ten text-xs">
-                  Scan with NoRisk mobile app
+                  Scan with NoRisk Client mobile App
                 </p>
                 <img
                   src={generateQrCodeUrl()}
@@ -355,54 +365,57 @@ export function SocialsModal() {
   };
 
   return (
-    <Modal
-      title="Social Accounts"
-      titleIcon={<Icon icon="fluent:people-community-20-filled" className="w-7 h-7" />} // Generic icon
-      onClose={closeModal}
-      width="md" // Adjusted width for more content
-    >
-      <div className="p-4 space-y-2 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
-        {(isLoadingDiscordStatus || isLoadingMobileAppToken) && (socialPlatforms.find(p => p.key === 'discord')?.isImplemented || socialPlatforms.find(p => p.key === 'mobile')?.isImplemented) ? (
-          <div className="space-y-2">
-            {socialPlatforms.filter(p => p.isImplemented && (p.key === 'discord' || p.key === 'mobile')).map((platform, i) => (
-              <div key={`skeleton-${platform.key}-${i}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md gap-2">
-                <div className="flex items-center flex-grow">
-                  <Skeleton variant="block" width={28} height={28} className="mr-3 flex-shrink-0" />
-                  <Skeleton variant="text" width={150} height={16} />
+    <>
+      <Modal
+        title="Social Accounts"
+        titleIcon={<Icon icon="fluent:people-community-20-filled" className="w-7 h-7" />}
+        onClose={closeModal}
+        width="md"
+      >
+        <div className="p-4 space-y-2 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
+          {(isLoadingDiscordStatus || isLoadingMobileAppToken) && (socialPlatforms.find(p => p.key === 'discord')?.isImplemented || socialPlatforms.find(p => p.key === 'mobile')?.isImplemented) ? (
+            <div className="space-y-2">
+              {socialPlatforms.filter(p => p.isImplemented && (p.key === 'discord' || p.key === 'mobile')).map((platform, i) => (
+                <div key={`skeleton-${platform.key}-${i}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md gap-2">
+                  <div className="flex items-center flex-grow">
+                    <Skeleton variant="block" width={28} height={28} className="mr-3 flex-shrink-0" />
+                    <Skeleton variant="text" width={150} height={16} />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Skeleton variant="block" width={80} height={32} />
+                    {platform.visitUrl && <Skeleton variant="block" width={32} height={32} /> }
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Skeleton variant="block" width={80} height={32} />
-                  {platform.visitUrl && <Skeleton variant="block" width={32} height={32} /> }
+              ))}
+              {socialPlatforms.filter(p => !p.isImplemented || (p.key !== 'discord' && p.key !== 'mobile')).map(platform => (
+                <div key={`skeleton-${platform.key}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md opacity-70 gap-2">
+                  <div className="flex items-center flex-grow">
+                    <Icon icon={platform.icon} className="w-7 h-7 mr-3 text-white/50 flex-shrink-0" />
+                    <span className='text-white/60 font-minecraft-ten text-xs'>Link {platform.name} account</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <Button variant="secondary" size="sm" disabled icon={<Icon icon="mdi:link-variant" />}>
+                      Link
+                    </Button>
+                    {platform.visitUrl && (
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        icon={<Icon icon="mdi:arrow-top-right-bold-box-outline" className="w-5 h-5" />}
+                        aria-label={`Visit ${platform.name} page`}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {socialPlatforms.filter(p => !p.isImplemented || (p.key !== 'discord' && p.key !== 'mobile')).map(platform => (
-              <div key={`skeleton-${platform.key}`} className="flex items-center justify-between p-3 bg-black/20 rounded-md opacity-70 gap-2">
-                <div className="flex items-center flex-grow">
-                  <Icon icon={platform.icon} className="w-7 h-7 mr-3 text-white/50 flex-shrink-0" />
-                  <span className='text-white/60 font-minecraft-ten text-xs'>Link {platform.name} account</span>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Button variant="secondary" size="sm" disabled icon={<Icon icon="mdi:link-variant" />}>
-                    Link
-                  </Button>
-                  {platform.visitUrl && (
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      disabled
-                      icon={<Icon icon="mdi:arrow-top-right-bold-box-outline" className="w-5 h-5" />}
-                      aria-label={`Visit ${platform.name} page`}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          socialPlatforms.map(renderPlatformRow)
-        )}
-      </div>
-    </Modal>
+              ))}
+            </div>
+          ) : (
+            socialPlatforms.map(renderPlatformRow)
+          )}
+        </div>
+      </Modal>
+      {confirmDialog}
+    </>
   );
 } 

@@ -525,7 +525,6 @@ impl NoRiskApi {
         Ok(())
     }
 
-    /// Request mcreal app token
     pub async fn get_mcreal_app_token(
         norisk_token: &str,
         request_uuid: &str,
@@ -573,7 +572,6 @@ impl NoRiskApi {
         })
     }
 
-    /// Reset mcreal app token
     pub async fn reset_mcreal_app_token(
         norisk_token: &str,
         request_uuid: &str,
