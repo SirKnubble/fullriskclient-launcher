@@ -57,7 +57,8 @@
           "https://*.norisk.gg",
           "https://textures.minecraft.net",
           "https://crafatar.com",
-          "data:"
+          "data:",
+          "https://qr-generator-putuwaw.vercel.app"
         ]
       },
       "assetProtocol": {
