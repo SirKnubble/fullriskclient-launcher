@@ -149,7 +149,7 @@ export function SocialsModal() {
     const confirmed = await confirm({
       title: "Show QR Code",
       message:
-        "This QR code contains your norsik token. Do not share it on stream or with others as it could compromise your account security.",
+        "This QR code contains your norisk token. Do not share it on stream or with others as it could compromise your account security.",
       confirmText: "Show QR Code",
       cancelText: "Cancel",
       type: "warning",
