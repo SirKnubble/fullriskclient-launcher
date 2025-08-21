@@ -786,6 +786,69 @@ impl NoriskModpacksConfig {
         Ok(final_mod_list)
     }
 
+    // Helper: merge incoming loader policy into accumulator (child overrides parent)
+    fn merge_loader_policy(acc: &mut LoaderPolicy, incoming: &LoaderPolicy) {
+        // Merge default loader specs
+        for (loader, spec) in &incoming.default {
+            acc.default.insert(loader.clone(), spec.clone());
+        }
+        // Merge byMinecraft -> loader -> spec
+        for (mc_pattern, loader_map) in &incoming.by_minecraft {
+            let entry = acc
+                .by_minecraft
+                .entry(mc_pattern.clone())
+                .or_insert_with(HashMap::new);
+            for (loader, spec) in loader_map {
+                entry.insert(loader.clone(), spec.clone());
+            }
+        }
+    }
+
+    // Resolve loader policy across inheritance (parents first, child overrides)
+    fn resolve_loader_policy_for_pack(
+        &self,
+        pack_id: &str,
+        visited: &mut HashSet<String>,
+    ) -> Result<Option<LoaderPolicy>> {
+        if !visited.insert(pack_id.to_string()) {
+            return Err(AppError::Other(format!(
+                "Circular inheritance detected while resolving loader policy for pack ID: {}",
+                pack_id
+            )));
+        }
+
+        let base_definition = self.packs.get(pack_id).ok_or_else(|| {
+            AppError::Other(format!("Pack ID '{}' not found", pack_id))
+        })?;
+
+        let mut merged: Option<LoaderPolicy> = None;
+
+        if let Some(parent_ids) = &base_definition.inherits_from {
+            for parent_id in parent_ids {
+                if let Some(parent_policy) =
+                    self.resolve_loader_policy_for_pack(parent_id, visited)?
+                {
+                    if let Some(acc) = &mut merged {
+                        Self::merge_loader_policy(acc, &parent_policy);
+                    } else {
+                        merged = Some(parent_policy.clone());
+                    }
+                }
+            }
+        }
+
+        if let Some(own) = &base_definition.loader_policy {
+            if let Some(acc) = &mut merged {
+                Self::merge_loader_policy(acc, own);
+            } else {
+                merged = Some(own.clone());
+            }
+        }
+
+        visited.remove(pack_id);
+        Ok(merged)
+    }
+
     // Helper function to get a fully resolved pack definition (including mods)
     // This combines the base definition with the resolved mods.
     pub fn get_resolved_pack_definition(&self, pack_id: &str) -> Result<NoriskPackDefinition> {
@@ -797,6 +860,10 @@ impl NoriskModpacksConfig {
         let mut visited = HashSet::new();
         let resolved_mods_vec = self.resolve_pack_mods(pack_id, &mut visited)?;
 
+        let mut visited_lp = HashSet::new();
+        let resolved_loader_policy =
+            self.resolve_loader_policy_for_pack(pack_id, &mut visited_lp)?;
+
         Ok(NoriskPackDefinition {
             display_name: base_definition.display_name.clone(),
             description: base_definition.description.clone(),
@@ -805,7 +872,7 @@ impl NoriskModpacksConfig {
             mods: resolved_mods_vec, // Use the fully resolved list here
             assets: base_definition.assets.clone(), // Added missing field
             is_experimental: base_definition.is_experimental, // Added missing field
-            loader_policy: base_definition.loader_policy.clone(), // Added missing field
+            loader_policy: resolved_loader_policy, // RESOLVED loader policy
         })
     }
 
