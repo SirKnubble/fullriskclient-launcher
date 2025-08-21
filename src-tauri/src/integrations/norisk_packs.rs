@@ -61,6 +61,9 @@ pub struct NoriskPackDefinition {
     /// Optional: Whether this pack is experimental.
     #[serde(rename = "isExperimental", default)]
     pub is_experimental: bool,
+    /// Optional: Policy controlling loader version per MC version/loader.
+    #[serde(rename = "loaderPolicy", default)]
+    pub loader_policy: Option<LoaderPolicy>,
 }
 
 /// Defines a single mod entry within a Norisk pack definition.
@@ -116,6 +119,38 @@ pub struct CompatibilityTarget {
 /// Type alias for the compatibility map: McVersion -> Loader -> CompatibilityTarget
 /// Example: {"1.8.9": {"vanilla": {"identifier": "URL", "filename": "OptiFine...jar"}}}
 pub type CompatibilityMap = HashMap<String, HashMap<String, CompatibilityTarget>>;
+
+/// Policy to control which mod loader version to use for a given Minecraft version and loader.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct LoaderPolicy {
+    /// Fallback definitions applied when no byMinecraft entry matches
+    #[serde(default)]
+    pub default: HashMap<String, LoaderSpec>,
+    /// Specific definitions per Minecraft version pattern (e.g., "1.20.1", "1.21", "1.21.*")
+    #[serde(rename = "byMinecraft", default)]
+    pub by_minecraft: HashMap<String, HashMap<String, LoaderSpec>>, // mcVersionPattern -> loader -> spec
+}
+
+/// How to pick a loader version given constraints.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum LoaderStrategy {
+    Exact,
+    Latest_compatible,
+    Min_compatible,
+}
+
+/// Definition of a desired/allowed loader version.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct LoaderSpec {
+    /// Exact version to use (implies strategy = exact when set)
+    pub version: Option<String>,
+    /// Minimum version allowed/required (used by non-exact strategies)
+    pub min: Option<String>,
+    /// Selection strategy; defaults to latest_compatible if not provided and version is None
+    #[serde(default)]
+    pub strategy: Option<LoaderStrategy>,
+}
 
 /// Helper function to determine the definitive filename for a mod defined within a Norisk Pack.
 /// Prioritizes the filename specified in the compatibility target, otherwise derives it for known types.
@@ -770,6 +805,7 @@ impl NoriskModpacksConfig {
             mods: resolved_mods_vec, // Use the fully resolved list here
             assets: base_definition.assets.clone(), // Added missing field
             is_experimental: base_definition.is_experimental, // Added missing field
+            loader_policy: base_definition.loader_policy.clone(), // Added missing field
         })
     }
 
