@@ -11,7 +11,7 @@ import type { CosmeticCape } from "../../types/noriskCapes";
 import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "@iconify/react";
 import { CapeImage } from "./CapeImage";
-import { getPlayerProfileByUuidOrName } from "../../services/cape-service";
+import { getPlayerProfileByUuidOrName, getCapesByHashes } from "../../services/cape-service";
 import { VirtuosoGrid } from "react-virtuoso";
 import { useThemeStore } from "../../store/useThemeStore";
 import { cn } from "../../lib/utils";
@@ -286,6 +286,7 @@ export interface CapeListProps {
   isFetchingMore?: boolean;
   onTriggerUpload?: () => void;
   onDownloadTemplate?: () => void;
+  groupFavoritesInHeader?: boolean;
 }
 
 export function CapeList({
@@ -301,6 +302,7 @@ export function CapeList({
   isFetchingMore = false,
   onTriggerUpload,
   onDownloadTemplate,
+  groupFavoritesInHeader = true,
 }: CapeListProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
@@ -331,6 +333,47 @@ export function CapeList({
       .map((c) => c as CosmeticCape)
       .filter((c) => setIds.has(c._id));
   }, [capes, favoriteCapeIds]);
+
+  const [favoriteCapesFetched, setFavoriteCapesFetched] = useState<Map<string, CosmeticCape>>(new Map());
+
+  const missingFavoriteIds = useMemo(() => {
+    if (!groupFavoritesInHeader) return [] as string[];
+    const presentIds = new Set(favoriteCapes.map((c) => c._id));
+    return favoriteCapeIds.filter((id) => !presentIds.has(id));
+  }, [favoriteCapeIds, favoriteCapes, groupFavoritesInHeader]);
+
+  useEffect(() => {
+    if (!groupFavoritesInHeader) return;
+    const idsToFetch = missingFavoriteIds.filter((id) => !favoriteCapesFetched.has(id));
+    if (idsToFetch.length === 0) return;
+    const chunk = idsToFetch.slice(0, 100);
+    getCapesByHashes(chunk)
+      .then((capes) => {
+        setFavoriteCapesFetched((prev) => {
+          const next = new Map(prev);
+          capes.forEach((c) => next.set(c._id, c));
+          return next;
+        });
+      })
+      .catch((e) => {
+        console.warn("[CapeList] Failed to fetch favorite capes by hashes:", e);
+      });
+  }, [missingFavoriteIds, favoriteCapesFetched, groupFavoritesInHeader]);
+
+  const allFavoriteCapesForHeader = useMemo(() => {
+    if (!groupFavoritesInHeader) return [] as CosmeticCape[];
+    const present = favoriteCapes;
+    const presentIds = new Set(present.map((c) => c._id));
+    const missing = favoriteCapeIds
+      .filter((id) => !presentIds.has(id))
+      .map((id) => ({
+        _id: id,
+        uses: 0,
+        firstSeen: "",
+        elytra: false,
+      } as unknown as CosmeticCape));
+    return [...present, ...missing];
+  }, [favoriteCapes, favoriteCapeIds, groupFavoritesInHeader]);
 
   useEffect(() => {
 
@@ -374,20 +417,28 @@ export function CapeList({
   const itemsToRender = useMemo(() => {
     const favoriteIdsSet = new Set(favoriteCapeIds);
     return capes.filter((item) => {
-      if (item._id === ADD_CAPE_PLACEHOLDER_ID) return favoriteCapes.length === 0;
+      if (item._id === ADD_CAPE_PLACEHOLDER_ID) return !groupFavoritesInHeader || favoriteCapes.length === 0;
+      if (!groupFavoritesInHeader) return true;
       return !favoriteIdsSet.has((item as CosmeticCape)._id);
     });
-  }, [capes, favoriteCapeIds, favoriteCapes.length]);
+  }, [capes, favoriteCapeIds, favoriteCapes.length, groupFavoritesInHeader]);
 
   const virtuosoComponents = useMemo(
     () => ({
       Header: () => {
-        if (favoriteCapes.length === 0) return null;
+        const present = favoriteCapes;
+        if (!groupFavoritesInHeader) return null;
+        const presentIds = new Set(present.map((c) => c._id));
+        const missing = favoriteCapeIds
+          .filter((id) => !presentIds.has(id))
+          .map((id) => favoriteCapesFetched.get(id) ?? ({ _id: id, uses: 0, firstSeen: "", elytra: false } as unknown as CosmeticCape));
+        const allFavoriteCapesForHeader = [...present, ...missing];
+        if (allFavoriteCapesForHeader.length === 0) return null;
         return (
           <div className="mb-2">
             <div className="flex items-center justify-between mb-2 px-4">
               <span className="font-minecraft text-white/80 lowercase text-xl">favorites</span>
-              <span className="text-white/40 text-xs font-minecraft">{favoriteCapes.length}</span>
+              <span className="text-white/40 text-xs font-minecraft">{allFavoriteCapesForHeader.length}</span>
             </div>
             <div
               style={{
@@ -405,7 +456,7 @@ export function CapeList({
                   onDownloadTemplate={onDownloadTemplate}
                 />
               )}
-              {favoriteCapes.map((cape) => {
+              {allFavoriteCapesForHeader.map((cape) => {
                 const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
                 return (
                   <CapeItemDisplay
@@ -440,7 +491,7 @@ export function CapeList({
       },
       List: ListComponent, 
     }),
-    [isFetchingMore, accentColor, favoriteCapes, isEquippingCapeId, onEquipCape, canDelete, onTriggerUpload, onDownloadTemplate],
+    [isFetchingMore, accentColor, favoriteCapes, favoriteCapeIds, favoriteCapesFetched, isEquippingCapeId, onEquipCape, canDelete, onTriggerUpload, onDownloadTemplate, groupFavoritesInHeader],
   ); 
 
   function calculateMenuPosition(x: number, y: number, menuWidth: number, menuHeight: number) {

@@ -496,6 +496,69 @@ impl CapeApi {
         }
     }
 
+    /// Fetch multiple capes by hashes (max 100)
+    pub async fn get_capes_by_hashes(
+        &self,
+        norisk_token: &str,
+        hashes: &[String],
+        is_experimental: bool,
+    ) -> Result<Vec<CosmeticCape>> {
+        let endpoint = "cape/many";
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        let joined: String = hashes.iter().take(100).cloned().collect::<Vec<_>>().join(",");
+        debug!(
+            "[Cape API] Requesting multiple capes (count={}): {}",
+            hashes.len().min(100),
+            joined
+        );
+        debug!("[Cape API] Full URL: {}", url);
+
+        let response = HTTP_CLIENT
+            .get(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("hash", joined)])
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!(
+                    "Failed to send get capes by hashes request: {}",
+                    e
+                ))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        if !status.is_success() {
+            let response_text = response
+                .text()
+                .await
+                .unwrap_or_else(|e| format!("Error reading error response body: {}", e));
+            error!(
+                "[Cape API] Error getting capes by hashes: Status {}, Response: {}",
+                status, response_text
+            );
+            return Err(AppError::RequestError(format!(
+                "Failed to get capes by hashes. Status: {}, Details: {}",
+                status, response_text
+            )));
+        }
+
+        response.json::<Vec<CosmeticCape>>().await.map_err(|e| {
+            error!(
+                "[Cape API] Failed to parse get capes by hashes response body: {}",
+                e
+            );
+            AppError::ParseError(format!(
+                "Failed to parse get capes by hashes response body: {}",
+                e
+            ))
+        })
+    }
+
     /// Add a cape to user's favorites
     ///
     /// Parameters:

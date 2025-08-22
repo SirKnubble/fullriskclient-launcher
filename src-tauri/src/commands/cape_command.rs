@@ -387,6 +387,51 @@ pub async fn add_favorite_cape(
         })
 }
 
+/// Get multiple capes by hashes (max 100)
+#[tauri::command]
+pub async fn get_capes_by_hashes(
+    hashes: Vec<String>,
+    norisk_token: Option<String>,
+) -> Result<Vec<CosmeticCape>, CommandError> {
+    debug!(
+        "Command called: get_capes_by_hashes (count={})",
+        hashes.len()
+    );
+
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+    debug!("Using experimental mode: {}", is_experimental);
+
+    let active_account = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or_else(|| CommandError::from(AppError::NoCredentialsError))?;
+
+    let token_to_use = match norisk_token {
+        Some(token) => {
+            debug!("Using provided NoRisk token.");
+            token
+        }
+        None => {
+            debug!("No token provided, retrieving from active account.");
+            active_account
+                .norisk_credentials
+                .get_token_for_mode(is_experimental)?
+        }
+    };
+
+    let cape_api = CapeApi::new();
+
+    cape_api
+        .get_capes_by_hashes(&token_to_use, &hashes, is_experimental)
+        .await
+        .map_err(|e| {
+            debug!("Failed to get capes by hashes: {:?}", e);
+            CommandError::from(e)
+        })
+}
+
 /// Remove a cape from the user's favorites
 ///
 /// Parameters:

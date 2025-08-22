@@ -93,7 +93,7 @@ use commands::path_commands::{get_launcher_directory, resolve_image_path};
 // Import cape commands
 use commands::cape_command::{
     browse_capes, delete_cape, download_template_and_open_explorer, equip_cape, get_player_capes,
-    unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape,
+    unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape, get_capes_by_hashes,
 };
 
 // Import NRC commands
@@ -476,7 +476,8 @@ async fn main() {
             commands::flagsmith_commands::is_modrinth_project_id_blocked,
             commands::flagsmith_commands::refresh_blocked_mods_config,
             commands::nrc_commands::get_mobile_app_token,
-            commands::nrc_commands::reset_mobile_app_token
+            commands::nrc_commands::reset_mobile_app_token,
+            get_capes_by_hashes
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 

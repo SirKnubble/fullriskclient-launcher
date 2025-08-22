@@ -179,3 +179,13 @@ export const toggleCapeFavorite = async (
 ): Promise<string[]> => {
   return setCapeFavorite(capeHash, !isCurrentlyFavorite, noriskToken);
 }; 
+
+/**
+ * Fetch multiple capes by hashes (max 100)
+ */
+export const getCapesByHashes = (
+  hashes: string[],
+  noriskToken?: string,
+): Promise<CosmeticCape[]> => {
+  return invoke('get_capes_by_hashes', { hashes, noriskToken });
+}; 
