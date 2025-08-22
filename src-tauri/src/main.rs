@@ -331,6 +331,8 @@ async fn main() {
             } else {
                 error!("Could not get main window handle to attach focus listener!");
             }
+
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
