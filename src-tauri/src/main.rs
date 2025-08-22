@@ -93,7 +93,7 @@ use commands::path_commands::{get_launcher_directory, resolve_image_path};
 // Import cape commands
 use commands::cape_command::{
     browse_capes, delete_cape, download_template_and_open_explorer, equip_cape, get_player_capes,
-    unequip_cape, upload_cape,
+    unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape,
 };
 
 // Import NRC commands
@@ -422,6 +422,8 @@ async fn main() {
             delete_cape,
             upload_cape,
             unequip_cape,
+            add_favorite_cape,
+            remove_favorite_cape,
             refresh_norisk_packs,
             refresh_standard_versions,
             is_content_installed,
