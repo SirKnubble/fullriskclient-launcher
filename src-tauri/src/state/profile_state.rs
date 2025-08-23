@@ -1825,8 +1825,9 @@ impl PostInitializationHandler for ProfileManager {
 
         // Fire-and-forget: purge trashed items after init (test: 2 minutes)
         tauri::async_runtime::spawn(async move {
+            let seconds_30_days = 30 * 24 * 60 * 60;
             let seconds_2_minutes = 2 * 60;
-            if let Err(e) = crate::utils::trash_utils::purge_expired(seconds_2_minutes).await {
+            if let Err(e) = crate::utils::trash_utils::purge_expired(seconds_30_days).await {
                 log::warn!("Trash purge after init failed: {}", e);
             }
         });
