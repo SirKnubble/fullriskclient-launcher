@@ -1527,8 +1527,7 @@ fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
         .get(reqwest::header::DATE)
         .and_then(|x| x.to_str().ok())
         .and_then(|x| DateTime::parse_from_rfc2822(x).ok())
-        .map(|x| x.with_timezone(&Utc))
-        .unwrap_or(Utc::now())
+        .map_or(Utc::now(), |x| x.with_timezone(&Utc))
 }
 
 fn generate_oauth_challenge() -> String {
