@@ -45,6 +45,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [systemRam, setSystemRam] = useState<number>(8192);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -120,6 +121,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
       });
 
       toast.success("Profile saved successfully!");
+      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to save profile:", err);
       toast.error("Failed to save profile. Please try again.");
@@ -205,6 +207,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             profile={profile}
             editedProfile={editedProfile}
             updateProfile={updateProfileData}
+            refreshTrigger={refreshTrigger}
           />
         );
       case "java":

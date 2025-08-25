@@ -5,6 +5,7 @@ use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
 use crate::integrations::norisk_versions::NoriskVersionsConfig;
 use crate::minecraft::installer;
+use crate::minecraft::modloader::{ModloaderFactory, ResolvedLoaderVersion};
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState,
@@ -524,6 +525,29 @@ pub async fn repair_profile(id: Uuid) -> Result<(), CommandError> {
     repair_utils::repair_profile(id).await?;
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn resolve_loader_version(
+    profile_id: Uuid,
+    minecraft_version: String,
+) -> Result<ResolvedLoaderVersion, CommandError> {
+    info!(
+        "Executing resolve_loader_version command for profile {} with MC version {}",
+        profile_id, minecraft_version
+    );
+    
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    let norisk_pack_config = state.norisk_pack_manager.get_config().await;
+    
+    let resolved = ModloaderFactory::resolve_loader_version(
+        &profile,
+        &minecraft_version,
+        Some(&norisk_pack_config),
+    ).await;
+    
+    Ok(resolved)
 }
 
 #[tauri::command]

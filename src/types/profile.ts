@@ -8,6 +8,17 @@ export type ProfileState =
   | "running"
   | "error";
 
+export type LoaderVersionReason = 
+  | "profile_default"
+  | "norisk_pack"
+  | "user_overwrite"
+  | "not_resolved";
+
+export interface ResolvedLoaderVersion {
+  version: string | null;
+  reason: LoaderVersionReason;
+}
+
 interface ImageSourceBase {
   type: "url" | "relativePath" | "relativeProfile" | "absolutePath" | "base64";
 }
@@ -62,6 +73,8 @@ export interface WindowSize {
 export interface ProfileSettings {
   java_path: string | null;       // Option<String> -> string | null
   use_custom_java_path: boolean; // Added boolean flag
+  use_overwrite_loader_version: boolean; // Added boolean flag for loader version overwrite
+  overwrite_loader_version: string | null; // Option<String> -> string | null
   memory: MemorySettings;
   resolution: WindowSize | null;
   fullscreen: boolean;

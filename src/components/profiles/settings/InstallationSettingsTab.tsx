@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import type { ModLoader, Profile } from "../../../types/profile";
+import type { ModLoader, Profile, ResolvedLoaderVersion } from "../../../types/profile";
 import type { MinecraftVersion } from "../../../types/minecraft";
 import { invoke } from "@tauri-apps/api/core";
 import { StatusMessage } from "../../ui/StatusMessage";
@@ -10,6 +10,7 @@ import { useThemeStore } from "../../../store/useThemeStore";
 import { SearchInput } from "../../ui/SearchInput";
 import { Select } from "../../ui/Select";
 import { Card } from "../../ui/Card";
+import { Checkbox } from "../../ui/Checkbox";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../ui/buttons/Button";
@@ -20,6 +21,7 @@ interface InstallationSettingsTabProps {
   profile: Profile;
   editedProfile: Profile;
   updateProfile: (updates: Partial<Profile>) => void;
+  refreshTrigger?: number; // Increment this to trigger a refresh
 }
 
 type VersionType = "release" | "snapshot" | "old-beta" | "old-alpha";
@@ -28,6 +30,7 @@ export function InstallationSettingsTab({
   profile,
   editedProfile,
   updateProfile,
+  refreshTrigger,
 }: InstallationSettingsTabProps) {
   const [selectedVersionType, setSelectedVersionType] =
     useState<VersionType>("release");
@@ -41,6 +44,7 @@ export function InstallationSettingsTab({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRepairing, setIsRepairing] = useState(false);
+  const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
@@ -215,6 +219,54 @@ export function InstallationSettingsTab({
     fetchLoaderVersions();
   }, [editedProfile.game_version, editedProfile.loader]);
 
+  useEffect(() => {
+    async function fetchResolvedLoaderVersion() {
+      if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
+        setResolvedLoaderVersion(null);
+        return;
+      }
+
+      try {
+        const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
+          profileId: editedProfile.id,
+          minecraftVersion: editedProfile.game_version,
+        });
+        setResolvedLoaderVersion(resolved);
+      } catch (err) {
+        console.error("Failed to resolve loader version:", err);
+        setResolvedLoaderVersion(null);
+      }
+    }
+
+    fetchResolvedLoaderVersion();
+  }, [editedProfile.id, editedProfile.game_version, editedProfile.loader, editedProfile.loader_version, editedProfile.settings.use_overwrite_loader_version, editedProfile.settings.overwrite_loader_version, editedProfile.selected_norisk_pack_id]);
+
+  // Separate function that can be called externally
+  const fetchResolvedLoaderVersion = async () => {
+    if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
+      setResolvedLoaderVersion(null);
+      return;
+    }
+
+    try {
+      const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
+        profileId: editedProfile.id,
+        minecraftVersion: editedProfile.game_version,
+      });
+      setResolvedLoaderVersion(resolved);
+    } catch (err) {
+      console.error("Failed to resolve loader version:", err);
+      setResolvedLoaderVersion(null);
+    }
+  };
+
+  // Effect to refresh when parent signals a save occurred
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchResolvedLoaderVersion();
+    }
+  }, [refreshTrigger]);
+
   function isModLoaderCompatible(
     loader: string,
     minecraftVersion: string,
@@ -367,6 +419,21 @@ export function InstallationSettingsTab({
       toast.error(`Failed to repair profile: ${errorMessage}`);
     } finally {
       setIsRepairing(false);
+    }
+  };
+
+  const getReasonText = (reason: string): string => {
+    switch (reason) {
+      case "norisk_pack":
+        return "Forced by NoRisk Pack";
+      case "user_overwrite":
+        return "User Overwrite";
+      case "profile_default":
+        return "Profile Default";
+      case "not_resolved":
+        return "Not Resolved";
+      default:
+        return reason;
     }
   };
 
@@ -558,6 +625,26 @@ export function InstallationSettingsTab({
         {editedProfile.loader !== "vanilla" && (
           <div ref={loaderVersionRef}>
             <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">{`${editedProfile.loader} version`}</h3>
+            
+            {resolvedLoaderVersion && (
+              <Card
+                variant="flat"
+                className="p-3 mb-4 border border-white/10 bg-black/20"
+              >
+                <div className="text-xs text-white/90 font-minecraft-ten">
+                  Current Loader Version: {" "}
+                  <span className="text-white font-bold">
+                    {resolvedLoaderVersion.version || "Not Set"}
+                  </span>
+                  {resolvedLoaderVersion.reason !== "profile_default" && (
+                    <span className="text-white/70 ml-2">
+                      ({getReasonText(resolvedLoaderVersion.reason)})
+                    </span>
+                  )}
+                </div>
+              </Card>
+            )}
+            
             {isLoadingLoaderVersions ? (
               <Card
                 variant="flat"
@@ -574,19 +661,41 @@ export function InstallationSettingsTab({
                 </div>
               </Card>
             ) : loaderVersions.length > 0 ? (
-              <Select
-                value={editedProfile.loader_version || ""}
-                onChange={(value) => updateProfile({ loader_version: value })}
-                options={[
-                  { value: "", label: "select a version" },
-                  ...loaderVersions.map((version) => ({
-                    value: version,
-                    label: version,
-                  })),
-                ]}
-                className="text-2xl py-3"
-                variant="flat"
-              />
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <Checkbox
+                    checked={editedProfile.settings.use_overwrite_loader_version}
+                    onChange={(e) => updateProfile({
+                      settings: {
+                        ...editedProfile.settings,
+                        use_overwrite_loader_version: e.target.checked
+                      }
+                    })}
+                    label={`Use Custom ${editedProfile.loader.charAt(0).toUpperCase() + editedProfile.loader.slice(1)} Version`}
+                    size="md"
+                  />
+                  
+                  <Select
+                    value={editedProfile.settings.overwrite_loader_version || ""}
+                    onChange={(value) => updateProfile({
+                      settings: {
+                        ...editedProfile.settings,
+                        overwrite_loader_version: value
+                      }
+                    })}
+                    options={[
+                      { value: "", label: "Select Custom Version" },
+                      ...loaderVersions.map((version) => ({
+                        value: version,
+                        label: version,
+                      })),
+                    ]}
+                    className="text-2xl py-3"
+                    variant="flat"
+                    disabled={!editedProfile.settings.use_overwrite_loader_version}
+                  />
+                </div>
+              </div>
             ) : (
               <Card
                 variant="flat"

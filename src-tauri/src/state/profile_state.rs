@@ -185,6 +185,9 @@ pub struct ProfileSettings {
     pub java_path: Option<String>, // Java Pfad
     #[serde(default)]
     pub use_custom_java_path: bool, // Ob der benutzerdefinierte Java-Pfad verwendet werden soll
+    #[serde(default)]
+    pub use_overwrite_loader_version: bool, // Ob die überschriebene Loader-Version verwendet werden soll
+    pub overwrite_loader_version: Option<String>, // Überschriebene Loader-Version
     pub memory: MemorySettings,    // Speicher Einstellungen
     #[serde(default)]
     pub resolution: Option<WindowSize>, // Auflösung
@@ -1874,6 +1877,8 @@ impl Default for ProfileSettings {
         Self {
             java_path: None,
             use_custom_java_path: false,
+            use_overwrite_loader_version: false,
+            overwrite_loader_version: None,
             memory: MemorySettings::default(),
             resolution: None,
             fullscreen: false,
