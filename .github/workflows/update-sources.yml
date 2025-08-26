@@ -1,0 +1,45 @@
+name: Update Flatpak sources
+
+on:
+  push:
+    paths:
+      - "src-tauri/Cargo.lock"
+      - "yarn.lock"
+
+jobs:
+  update-sources:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install tools
+        run: |
+          pip install flatpak-cargo-generator flatpak-node-generator
+
+      - name: Generate cargo-sources.json
+        run: flatpak-cargo-generator Cargo.lock -o packaging/flatpak/cargo-sources.json
+
+      - name: Generate node-sources.json (Yarn)
+        run: |
+          if [ -f yarn.lock ]; then
+            flatpak-node-generator yarn yarn.lock -o packaging/flatpak/node-sources.json
+          fi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ `git status --porcelain` ]]; then
+            git add packaging/flatpak/cargo-sources.json packaging/flatpak/node-sources.json || true
+            git commit -m "chore: update flatpak dependency manifests"
+            git push
+          else
+            echo "No changes to commit."
+          fi
