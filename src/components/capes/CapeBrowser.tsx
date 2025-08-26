@@ -54,6 +54,22 @@ export function CapeBrowser() {
   const [previewImagePath, setPreviewImagePath] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [showElytraPreview, setShowElytraPreview] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+
+  // Helper function to format error messages
+  const formatErrorMessage = (error: string): string => {
+    const detailsIndex = error.indexOf("Details:");
+    if (detailsIndex !== -1) {
+      return error.substring(detailsIndex + 8).trim(); // +8 to skip "Details:"
+    }
+    return error; // Fallback to original error if "Details:" not found
+  };
+
+  // Helper function to determine if error is a warning (contains "In Review")
+  const isWarningMessage = (error: string): boolean => {
+    return error.toLowerCase().includes("in review");
+  };
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [capeToDelete, setCapeToDelete] = useState<CosmeticCape | null>(null);
@@ -304,12 +320,16 @@ export function CapeBrowser() {
     setPreviewImageUrl(null);
     setShowPreviewModal(false);
     setShowElytraPreview(false);
+    setUploadError(null);
+    setUploadWarning(null);
   };
 
   const handleConfirmUpload = async (filePath?: string) => {
     const path = filePath || previewImagePath;
     if (!path) return;
     setIsUploading(true);
+    setUploadError(null); // Reset error before upload
+    setUploadWarning(null); // Reset warning before upload
     try {
       await uploadCape(path);
       toast.success("Cape uploaded successfully!");
@@ -320,7 +340,15 @@ export function CapeBrowser() {
       setShowElytraPreview(false);
     } catch (err: any) {
       console.error("Error uploading cape:", err);
-      toast.error(`Failed to upload cape: ${err.message || "Unknown error"}`);
+      const formattedError = formatErrorMessage(err.message || "Unknown error");
+
+      if (isWarningMessage(formattedError)) {
+        setUploadWarning(formattedError);
+        setUploadError(null);
+      } else {
+        setUploadError(formattedError);
+        setUploadWarning(null);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -386,8 +414,25 @@ export function CapeBrowser() {
         >
           <div className="p-4">
             <p className="text-white/80 mb-4 text-center font-minecraft-ten">
-              Does this look correct? If so, hit upload!
+              {uploadError ? "Failed to upload Cape" : uploadWarning ? "Cape submitted for review" : "Does this look correct? If so, hit upload!"}
             </p>
+            {uploadError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-500/50 rounded-md">
+                <p className="text-red-400 text-sm font-minecraft-ten text-center">
+                  {uploadError}
+                </p>
+              </div>
+            )}
+            {uploadWarning && (
+              <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-500/50 rounded-md">
+                <p className="text-yellow-400 text-sm font-minecraft-ten text-center">
+                  {uploadWarning}
+                </p>
+                <p className="text-yellow-300/70 text-xs font-minecraft-ten text-center mt-2">
+                  Reviews can take up to 24 hours
+                </p>
+              </div>
+            )}
             <div className="relative flex justify-center items-center mb-6 p-2 rounded-md aspect-[10/16] max-w-[200px] mx-auto">
               <SkinView3DWrapper
                 capeUrl={previewImageUrl}
@@ -417,7 +462,7 @@ export function CapeBrowser() {
               <Button
                 onClick={() => handleConfirmUpload()}
                 variant="flat"
-                disabled={isUploading}
+                disabled={isUploading || !!uploadError || !!uploadWarning}
                 size="lg"
               >
                 {isUploading ? "Uploading..." : "Upload Cape"}
