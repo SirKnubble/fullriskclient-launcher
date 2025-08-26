@@ -25,7 +25,7 @@ jobs:
           pip install flatpak-cargo-generator flatpak-node-generator
 
       - name: Generate cargo-sources.json
-        run: flatpak-cargo-generator Cargo.lock -o packaging/flatpak/cargo-sources.json
+        run: flatpak-cargo-generator src-tauri/Cargo.lock -o packaging/flatpak/cargo-sources.json
 
       - name: Generate node-sources.json (Yarn)
         run: |
