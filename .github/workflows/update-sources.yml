@@ -5,6 +5,7 @@ on:
     paths:
       - "src-tauri/Cargo.lock"
       - "yarn.lock"
+  workflow_dispatch:
 
 jobs:
   update-sources:
