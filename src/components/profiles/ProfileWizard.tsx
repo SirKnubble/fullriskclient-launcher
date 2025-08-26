@@ -47,6 +47,8 @@ export function ProfileWizard({ onClose, onSave }: ProfileWizardProps) {
       fullscreen: false,
       custom_jvm_args: null,
       java_path: null,
+      use_overwrite_loader_version: false,
+      overwrite_loader_version: null,
       use_custom_java_path: false,
       extra_game_args: [],
     },
