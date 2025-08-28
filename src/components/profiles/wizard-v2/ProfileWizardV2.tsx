@@ -20,9 +20,10 @@ import { toast } from "react-hot-toast";
 interface ProfileWizardV2Props {
   onClose: () => void;
   onSave: (profile: any) => void;
+  defaultGroup?: string | null;
 }
 
-export function ProfileWizardV2({ onClose, onSave }: ProfileWizardV2Props) {
+export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizardV2Props) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -282,6 +283,7 @@ export function ProfileWizardV2({ onClose, onSave }: ProfileWizardV2Props) {
         selectedMinecraftVersion={selectedVersion}
         selectedLoader={selectedLoader}
         selectedLoaderVersion={selectedLoaderVersion}
+        defaultGroup={defaultGroup}
       />
     );
   }

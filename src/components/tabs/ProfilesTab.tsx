@@ -11,7 +11,7 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { gsap } from "gsap";
 import { ProfileImport } from "../profiles/ProfileImport";
 import { ProfileSettings } from "../profiles/ProfileSettings";
-import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
+import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
 import { toast } from "react-hot-toast";

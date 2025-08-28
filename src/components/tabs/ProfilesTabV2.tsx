@@ -12,10 +12,10 @@ import { SearchWithFilters } from "../ui/SearchWithFilters";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { useNavigate } from "react-router-dom";
-import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { ProfileImport } from "../profiles/ProfileImport";
 import * as ProfileService from "../../services/profile-service";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { useProfileWizardStore } from "../../store/profile-wizard-store";
 
 export function ProfilesTabV2() {
   const {
@@ -26,11 +26,11 @@ export function ProfilesTabV2() {
   } = useProfileStore();
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
+  const { openModal: openWizard } = useProfileWizardStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [versionFilter, setVersionFilter] = useState("all");
   const [activeGroup, setActiveGroup] = useState("all");
-  const [showWizard, setShowWizard] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
   // Action buttons configuration
@@ -51,7 +51,9 @@ export function ProfilesTabV2() {
       icon: "solar:widget-add-bold",
       tooltip: "Create new profile",
       onClick: () => {
-        setShowWizard(true);
+        // Pass current group as default, but not if it's "all"
+        const defaultGroup = activeGroup === "all" ? null : activeGroup;
+        openWizard(defaultGroup);
         navigate("/profiles");
       },
     },
@@ -123,7 +125,6 @@ export function ProfilesTabV2() {
   // Handler functions from ProfilesTab.tsx
   const handleCreateProfile = () => {
     console.log("[ProfilesTabV2] handleCreateProfile called.");
-    setShowWizard(false);
     fetchProfiles();
     navigate("/profiles");
   };
@@ -318,17 +319,6 @@ export function ProfilesTabV2() {
       </div>
 
       {/* Modals from ProfilesTab.tsx */}
-      {showWizard && (
-        <ProfileWizardV2
-          onClose={() => {
-            setShowWizard(false);
-            navigate("/profiles");
-          }}
-          onSave={(profile) => {
-            handleCreateProfile();
-          }}
-        />
-      )}
       {showImport && (
         <ProfileImport
           onClose={() => {

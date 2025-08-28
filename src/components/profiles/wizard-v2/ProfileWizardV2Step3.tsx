@@ -35,6 +35,7 @@ interface ProfileWizardV2Step3Props {
     selectedMinecraftVersion: string;
     selectedLoader: ModLoader;
     selectedLoaderVersion: string | null;
+    defaultGroup?: string | null;
 }
 
 export function ProfileWizardV2Step3({
@@ -43,11 +44,12 @@ export function ProfileWizardV2Step3({
     onCreate,
     selectedMinecraftVersion,
     selectedLoader,
-    selectedLoaderVersion
+    selectedLoaderVersion,
+    defaultGroup
 }: ProfileWizardV2Step3Props) {
     const accentColor = useThemeStore((state) => state.accentColor);
     const [profileName, setProfileName] = useState("");
-    const [profileGroup, setProfileGroup] = useState("");
+    const [profileGroup, setProfileGroup] = useState(defaultGroup || "");
     const [memoryMaxMb, setMemoryMaxMb] = useState<number>(3072); // 3GB default
     const [systemRamMb] = useState<number>(16384); // 16GB default for slider range
     const [selectedNoriskPackId, setSelectedNoriskPackId] = useState<string | null>(null);
@@ -55,6 +57,13 @@ export function ProfileWizardV2Step3({
     const [loadingPacks, setLoadingPacks] = useState(false);
     const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<string | null>(null);
     const [showYellowWarning, setShowYellowWarning] = useState(false);
+
+    // Update profile group when defaultGroup changes
+    useEffect(() => {
+        if (defaultGroup && !profileGroup) {
+            setProfileGroup(defaultGroup);
+        }
+    }, [defaultGroup, profileGroup]);
     const [checkingCompatibility, setCheckingCompatibility] = useState(false);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
