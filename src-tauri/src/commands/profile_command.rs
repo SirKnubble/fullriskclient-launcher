@@ -47,7 +47,7 @@ pub struct CreateProfileParams {
     selected_norisk_pack_id: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct UpdateProfileParams {
     name: Option<String>,
     game_version: Option<String>,
@@ -435,6 +435,86 @@ pub async fn update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
     }
 }
 
+/// Checks if mods directory migration is needed based on profile changes
+fn needs_mods_migration(
+    original_profile: &Profile, 
+    updated_profile: &Profile, 
+    params: &UpdateProfileParams
+) -> Result<bool, CommandError> {
+    // Check if any settings that affect mods path have changed
+    let original_uses_shared = original_profile.should_use_shared_minecraft_folder();
+    let updated_uses_shared = updated_profile.should_use_shared_minecraft_folder();
+    
+    // Check if group changed (affects shared path)
+    let group_changed = params.group.is_some() || params.clear_group == Some(true);
+    
+    // Check if use_shared_minecraft_folder changed 
+    let shared_setting_changed = params.use_shared_minecraft_folder.is_some();
+    
+    // Migration needed if:
+    // 1. The shared folder usage changed (single <-> shared)
+    // 2. Group changed (affects shared path calculation)
+    let migration_needed = (original_uses_shared != updated_uses_shared) ||
+                          (group_changed && updated_uses_shared) ||
+                          (shared_setting_changed && updated_uses_shared);
+    
+    info!(
+        "Migration check for profile {}: original_shared={}, updated_shared={}, group_changed={}, shared_setting_changed={} -> migration_needed={}",
+        original_profile.id,
+        original_uses_shared,
+        updated_uses_shared, 
+        group_changed,
+        shared_setting_changed,
+        migration_needed
+    );
+    
+    Ok(migration_needed)
+}
+
+/// Migrates mods directory from old path to new path
+async fn migrate_mods_directory(old_path: &std::path::Path, new_path: &std::path::Path) -> Result<(), CommandError> {
+    use tokio::fs;
+    
+    // Skip if paths are the same
+    if old_path == new_path {
+        info!("Mods paths are identical, skipping migration");
+        return Ok(());
+    }
+    
+    // Check if old directory exists
+    if !old_path.exists() {
+        info!("Old mods directory {:?} doesn't exist, nothing to migrate", old_path);
+        return Ok(());
+    }
+    
+    info!("Starting mods migration from {:?} to {:?}", old_path, new_path);
+    
+    // Remove new directory if it already exists to ensure clean migration
+    if new_path.exists() {
+        info!("Removing existing new mods directory: {:?}", new_path);
+        fs::remove_dir_all(new_path).await.map_err(|e| {
+            CommandError::from(AppError::Io(e))
+        })?;
+    }
+    
+    // Get state to access semaphore
+    let state = State::get().await?;
+    let io_semaphore = state.io_semaphore.clone();
+    
+    // Use the existing copy_dir_recursively function from path_utils
+    path_utils::copy_dir_recursively(old_path, new_path, io_semaphore).await.map_err(|e| {
+        CommandError::from(AppError::Other(format!("Failed to copy mods directory: {}", e)))
+    })?;
+    
+    // Remove old directory after successful copy
+    fs::remove_dir_all(old_path).await.map_err(|e| {
+        CommandError::from(AppError::Io(e))
+    })?;
+    
+    info!("Successfully migrated mods from {:?} to {:?}", old_path, new_path);
+    Ok(())
+}
+
 // Helper function to contain the actual logic and allow for ? operator
 async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(), CommandError> {
     info!(
@@ -443,6 +523,10 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
     );
     let state = State::get().await?;
     let mut profile = state.profile_manager.get_profile(id).await?;
+    
+    // Get original profile for migration check and clone params for later use
+    let original_profile = state.profile_manager.get_profile(id).await?;
+    let params_for_migration = params.clone();
 
     if let Some(name) = &params.name {
         // Borrow params.name
@@ -515,6 +599,39 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
             "norisk_information not provided or explicitly null, keeping existing: {:?}",
             profile.norisk_information
         );
+    }
+
+    // Check if mods directory location needs to change (using the params copy from above)
+    let mods_migration_needed = needs_mods_migration(&original_profile, &profile, &params_for_migration)?;
+    
+    if mods_migration_needed {
+        info!("Mods directory migration needed for profile {}", id);
+        
+        // Get old and new mods paths
+        let old_mods_path = if original_profile.is_standard_version || !original_profile.should_use_shared_minecraft_folder() {
+            state.profile_manager.get_profile_mods_path_single(&original_profile)?
+        } else {
+            state.profile_manager.get_profile_mods_path_shared(&original_profile)?
+        };
+        
+        let new_mods_path = if profile.is_standard_version || !profile.should_use_shared_minecraft_folder() {
+            state.profile_manager.get_profile_mods_path_single(&profile)?
+        } else {
+            state.profile_manager.get_profile_mods_path_shared(&profile)?
+        };
+        
+        // Only migrate if paths are actually different
+        if old_mods_path != new_mods_path {
+            info!(
+                "Migrating mods from {:?} to {:?} for profile {}",
+                old_mods_path, new_mods_path, id
+            );
+            
+            // Perform the migration
+            migrate_mods_directory(&old_mods_path, &new_mods_path).await?;
+        } else {
+            info!("Mods paths are identical, skipping migration for profile {}", id);
+        }
     }
 
     state.profile_manager.update_profile(id, profile).await?;

@@ -1451,19 +1451,10 @@ impl ProfileManager {
         Ok(final_path)
     }
 
-    /// Returns the path to the mods directory for a given profile.
-    /// The mods directory is located inside the instance path.
-    /// For Fabric, it's specifically within a versioned fabric subfolder.
-    pub fn get_profile_mods_path(&self, profile: &Profile) -> Result<PathBuf> {
+    /// Returns the path to the mods directory for individual/isolated profiles.
+    /// This always uses the standard single profile logic.
+    pub fn get_profile_mods_path_single(&self, profile: &Profile) -> Result<PathBuf> {
         let instance_path = self.calculate_instance_path_for_profile(profile)?;
-        log::debug!(
-            "Calculating mods path for profile '{}' (Loader: {:?}, Game Version: {}) starting from instance path: {:?}",
-            profile.name,
-            profile.loader,
-            profile.game_version,
-            instance_path
-        );
-
         let mods_path = match profile.loader {
             ModLoader::Fabric => {
                 let fabric_version_folder = format!("{}-{}-{}", "nrc", profile.game_version, "fabric");
@@ -1471,11 +1462,73 @@ impl ProfileManager {
             }
             _ => instance_path.join("mods"),
         };
-        log::info!(
-            "Calculated mods path for profile '{}': {:?}",
+        log::debug!(
+            "Calculated single mods path for profile '{}': {:?}",
             profile.name,
             mods_path
         );
+        Ok(mods_path)
+    }
+
+    /// Returns the path to the mods directory for shared/grouped profiles.
+    /// This uses the UUID-based shared pattern.
+    pub fn get_profile_mods_path_shared(&self, profile: &Profile) -> Result<PathBuf> {
+        let instance_path = self.calculate_instance_path_for_profile(profile)?;
+        
+        // Extract first 2 and last 2 characters from UUID
+        let uuid_str = profile.id.to_string().replace("-", "");
+        let uuid_short = if uuid_str.len() >= 4 {
+            format!("{}{}", &uuid_str[0..2], &uuid_str[uuid_str.len()-2..])
+        } else {
+            uuid_str[0..4.min(uuid_str.len())].to_string()
+        };
+        
+        let mods_path = match profile.loader {
+            ModLoader::Fabric => {
+                let fabric_version_folder = format!("nrc-{}-fabric-{}", profile.game_version, uuid_short);
+                instance_path.join("mods").join(fabric_version_folder)
+            }
+            _ => instance_path.join("mods"),
+        };
+        log::debug!(
+            "Calculated shared mods path for profile '{}': {:?}",
+            profile.name,
+            mods_path
+        );
+        Ok(mods_path)
+    }
+
+    /// Returns the path to the mods directory for a given profile.
+    /// Automatically chooses between single and shared based on profile settings.
+    pub fn get_profile_mods_path(&self, profile: &Profile) -> Result<PathBuf> {
+        log::debug!(
+            "Calculating mods path for profile '{}' (Loader: {:?}, Game Version: {}, Standard: {}, Uses Shared: {})",
+            profile.name,
+            profile.loader,
+            profile.game_version,
+            profile.is_standard_version,
+            profile.should_use_shared_minecraft_folder()
+        );
+
+        // Use standard logic for standard versions or profiles without group/shared folder
+        let mods_path = if profile.is_standard_version || !profile.should_use_shared_minecraft_folder() {
+            let path = self.get_profile_mods_path_single(profile)?;
+            log::info!(
+                "Calculated standard mods path for profile '{}': {:?}",
+                profile.name,
+                path
+            );
+            path
+        } else {
+            let path = self.get_profile_mods_path_shared(profile)?;
+            log::info!(
+                "Calculated shared mods path for profile '{}': {:?}",
+                profile.name,
+                path
+            );
+            path
+        };
+        
         Ok(mods_path)
     }
 
