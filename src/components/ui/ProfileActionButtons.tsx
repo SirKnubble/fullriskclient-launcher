@@ -13,7 +13,7 @@ export interface ActionButton {
   /** Icon to display */
   icon: string;
   /** Button variant/style */
-  variant: "primary" | "secondary" | "icon-only";
+  variant: "primary" | "secondary" | "icon-only" | "destructive";
   /** Optional tooltip text */
   tooltip?: string;
   /** Whether the button is disabled */
@@ -86,6 +86,12 @@ export function ProfileActionButtons({
       case "icon-only":
         return {
           className: `${baseClasses} bg-black/30 hover:bg-black/40 text-white/70 hover:text-white py-[0.57rem] px-[0.57rem] justify-center border-white/10 hover:border-white/20`,
+          style: {},
+        };
+      
+      case "destructive":
+        return {
+          className: `${baseClasses} bg-red-600/20 hover:bg-red-600/30 text-white hover:text-white px-3 py-1 border-red-500/30 hover:border-red-500/50`,
           style: {},
         };
       
