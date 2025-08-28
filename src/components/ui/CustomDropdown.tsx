@@ -59,11 +59,23 @@ export function CustomDropdown({
       {/* Dropdown Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 bg-transparent hover:bg-white/5 rounded-md px-2 py-1 text-white font-minecraft text-sm transition-all duration-200 focus:outline-none ${
-          label ? 'w-full justify-between border border-white/10 hover:border-white/20 bg-black/50 hover:bg-black/60 px-4 py-3' : 'hover:bg-white/10'
+        className={`flex items-center gap-2 bg-transparent rounded-md px-2 py-1 text-white font-minecraft text-sm transition-all duration-200 focus:outline-none focus:ring-0 focus:border-transparent ${
+          label ? 'w-full justify-between border border-white/10 hover:border-white/20 bg-black/50 hover:bg-black/60 px-4 py-3' : ''
         }`}
         style={{
           boxShadow: isOpen ? `0 0 0 1px ${accentColor.value}40` : 'none',
+          outline: 'none',
+          border: label ? undefined : 'none',
+        }}
+        onMouseEnter={(e) => {
+          if (!label) {
+            e.currentTarget.style.backgroundColor = `${accentColor.value}15`;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!label) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
         }}
         title={selectedOption?.label}
       >
@@ -84,14 +96,14 @@ export function CustomDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div className={`absolute top-full mt-2 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden ${
-          label ? 'left-0 right-0' : 'left-0 w-48'
+          label ? 'left-0 right-0' : 'left-0 w-56'
         }`}>
           <div className="py-2">
             {options.map((option) => (
               <button
                 key={option.value}
                 onClick={() => handleOptionClick(option.value)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft text-sm transition-colors duration-150 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-sm transition-colors duration-150 ${
                   option.value === value
                     ? 'bg-white/10 text-white'
                     : 'text-white/80 hover:bg-white/5 hover:text-white'
@@ -101,16 +113,18 @@ export function CustomDropdown({
                 }}
               >
                 {option.icon && (
-                  <Icon icon={option.icon} className="w-4 h-4 text-white/70" />
+                  <Icon icon={option.icon} className="w-4 h-4 text-white/70 flex-shrink-0" />
                 )}
-                <span>{option.label}</span>
-                {option.value === value && (
-                  <Icon 
-                    icon="solar:check-circle-bold" 
-                    className="w-4 h-4 ml-auto"
-                    style={{ color: accentColor.value }}
-                  />
-                )}
+                <span className="flex-1">{option.label}</span>
+                <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
+                  {option.value === value && (
+                    <Icon 
+                      icon="solar:check-circle-bold" 
+                      className="w-4 h-4"
+                      style={{ color: accentColor.value }}
+                    />
+                  )}
+                </div>
               </button>
             ))}
           </div>
