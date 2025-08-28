@@ -122,6 +122,9 @@ pub struct Profile {
     /// Optional group name for UI organization and filtering
     #[serde(default)]
     pub group: Option<String>,
+    /// Whether this profile should use a shared Minecraft folder
+    #[serde(default = "default_true")]
+    pub use_shared_minecraft_folder: bool,
     /// True if this is a standard profile template, false if it's a user profile.
     #[serde(default)] // Defaults to false for existing user profiles
     pub is_standard_version: bool,
@@ -234,6 +237,24 @@ pub struct CustomModInfo {
     pub filename: String, // Base filename (e.g., OptiFine.jar)
     pub is_enabled: bool, // True if the file doesn't end with .disabled
     pub path: PathBuf,    // Full path to the file in custom_mods directory
+}
+
+impl Profile {
+    /// Returns whether this profile should actually use a shared Minecraft folder.
+    /// This method takes into account both the profile setting and special group logic.
+    pub fn should_use_shared_minecraft_folder(&self) -> bool {
+        // For isolated groups (server, modpacks), always return false regardless of the setting
+        if let Some(group) = &self.group {
+            if ProfileManager::is_isolated_group(group) {
+                return false;
+            }
+            // Profile has a group and it's not isolated, so use shared folder
+            return true;
+        }
+        
+        // Profile has no group, don't use shared folder (use original path logic)
+        false
+    }
 }
 
 // Profile Manager
@@ -1286,28 +1307,68 @@ impl ProfileManager {
         }
     }
 
+    /// Helper function to check if a group belongs to NoRisk Client
+    fn is_norisk_client_group(group_name: &str) -> bool {
+        let normalized = group_name.to_lowercase();
+        normalized == "nrc" || normalized == "noriskclient" || normalized == "norisk client"
+    }
+
+    /// Helper function to check if a group should NOT use shared Minecraft folder
+    fn is_isolated_group(group_name: &str) -> bool {
+        let normalized = group_name.to_lowercase();
+        normalized == "server" || normalized == "modpacks"
+    }
+
+    /// Sanitizes a group name for safe filesystem usage
+    fn sanitize_group_name(group_name: &str) -> String {
+        sanitize_filename::sanitize(group_name.to_lowercase())
+    }
+
+    /// Builds the default path using profile.path segments
+    fn build_path_from_profile_path(profile: &Profile) -> PathBuf {
+        let mut path = default_profile_path();
+        
+        // Explicitly split profile.path by '/' and push each segment
+        for segment in profile.path.split('/') {
+            if !segment.is_empty() {
+                path.push(segment);
+            }
+        }
+        path
+    }
+
     /// Calculates the instance path for a given Profile object based on its properties.
     /// This method does NOT check if the profile exists in the manager.
     pub fn calculate_instance_path_for_profile(&self, profile: &Profile) -> Result<PathBuf> {
         log::trace!(
-            "Calculating instance path for profile '{}' (Raw profile.path: '{}', Version: {})",
+            "Calculating instance path for profile '{}' (Raw profile.path: '{}', Version: {}, Group: {:?})",
             profile.name,
             profile.path, // Log the raw profile.path string
-            profile.game_version
+            profile.game_version,
+            profile.group
         );
 
-        let base_path = default_profile_path();
-        let mut final_path = base_path;
-
-        // Explicitly split profile.path by '/' and push each segment
-        // This ensures that segments like "noriskclient" and "new" from "noriskclient/new"
-        // are appended individually. PathBuf::push is OS-aware.
-        for segment in profile.path.split('/') {
-            if !segment.is_empty() {
-                // Avoid creating empty segments if path has "//" or leading/trailing "/"
-                final_path.push(segment);
+        // Determine final path based on shared folder logic and group
+        let final_path = if !profile.should_use_shared_minecraft_folder() {
+            // Profile should NOT use shared folder (isolated groups or no group) - use original logic with profile.path
+            log::trace!("Profile '{}' should not use shared Minecraft folder, using original path logic", profile.name);
+            Self::build_path_from_profile_path(profile)
+        } else if let Some(group) = &profile.group {
+            if Self::is_norisk_client_group(group) {
+                // NoRisk Client groups go to "noriskclient/new"
+                log::trace!("Profile '{}' belongs to NoRisk Client group, using noriskclient/new path", profile.name);
+                default_profile_path().join("noriskclient").join("new")
+            } else {
+                // Other custom groups go to "groups/{sanitized_group_name}"
+                let sanitized_group = Self::sanitize_group_name(group);
+                log::trace!("Profile '{}' belongs to custom group '{}', using groups/{} path", profile.name, group, sanitized_group);
+                default_profile_path().join("groups").join(sanitized_group)
             }
-        }
+        } else {
+            // No group but should use shared folder, use the original logic with profile.path
+            log::trace!("Profile '{}' has no group but uses shared folder, using original path logic", profile.name);
+            Self::build_path_from_profile_path(profile)
+        };
 
         log::trace!(
             "Constructed final path for profile '{}': {:?}",

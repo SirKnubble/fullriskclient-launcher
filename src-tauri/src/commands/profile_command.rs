@@ -56,6 +56,8 @@ pub struct UpdateProfileParams {
     settings: Option<ProfileSettings>,
     selected_norisk_pack_id: Option<String>,
     group: Option<String>,
+    clear_group: Option<bool>,
+    use_shared_minecraft_folder: Option<bool>,
     clear_selected_norisk_pack: Option<bool>,
     norisk_information: Option<crate::state::profile_state::NoriskInformation>,
 }
@@ -138,6 +140,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
+        use_shared_minecraft_folder: true,
         group: None,
         description: None,
         banner: None,
@@ -482,10 +485,19 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
         // No change to selected_norisk_pack_id if neither clear is true nor a new value is provided
     }
 
-    if let Some(new_group) = &params.group {
-        // Borrow params.group
+    // Handle group based on clear_group and new value
+    if params.clear_group == Some(true) {
+        info!("Clearing group for profile {}", id);
+        profile.group = None;
+    } else if let Some(new_group) = &params.group {
         info!("Updating group to: {}", new_group);
         profile.group = Some(new_group.clone());
+    }
+
+    // Handle use_shared_minecraft_folder
+    if let Some(use_shared) = params.use_shared_minecraft_folder {
+        info!("Updating use_shared_minecraft_folder to: {}", use_shared);
+        profile.use_shared_minecraft_folder = use_shared;
     }
 
     // Handle norisk_information
@@ -1314,6 +1326,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
         group: source_profile.group.clone(),
+        use_shared_minecraft_folder: source_profile.should_use_shared_minecraft_folder(),
         is_standard_version: false,
         description: source_profile.description.clone(),
         norisk_information: source_profile.norisk_information.clone(),

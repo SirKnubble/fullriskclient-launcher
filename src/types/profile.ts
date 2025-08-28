@@ -169,6 +169,7 @@ export interface Profile {
   disabled_norisk_mods_detailed: NoriskModIdentifier[];
   source_standard_profile_id: string | null;
   group: string | null;
+  use_shared_minecraft_folder: boolean;
   is_standard_version: boolean;
   description: string | null;
   banner: ProfileBanner | null;
@@ -200,6 +201,8 @@ export interface UpdateProfileParams {
   settings?: ProfileSettings;
   selected_norisk_pack_id?: string;
   group?: string | null;
+  clear_group?: boolean;
+  use_shared_minecraft_folder?: boolean;
   description?: string | null;
   clear_selected_norisk_pack?: boolean;
   banner?: ProfileBanner | null;

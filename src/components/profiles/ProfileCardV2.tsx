@@ -8,6 +8,7 @@ import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
+import { ProfileSettings } from "./ProfileSettings";
 import { useLaunchStateStore } from "../../store/launch-state-store";
 import * as ProcessService from "../../services/process-service";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
@@ -20,6 +21,8 @@ interface ProfileCardV2Props {
   onPlay?: (profile: Profile) => void;
   onSettings?: (profile: Profile) => void;
   onMods?: (profile: Profile) => void;
+  onDelete?: (profileId: string, profileName: string) => void;
+  onOpenFolder?: (profile: Profile) => void;
 }
 
 export function ProfileCardV2({
@@ -27,6 +30,8 @@ export function ProfileCardV2({
   onPlay,
   onSettings,
   onMods,
+  onDelete,
+  onOpenFolder,
 }: ProfileCardV2Props) {
   const [isHovered, setIsHovered] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -34,6 +39,9 @@ export function ProfileCardV2({
   // Settings context menu state
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  
+  // Settings modal state
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
@@ -42,11 +50,8 @@ export function ProfileCardV2({
       label: "Edit Profile",
       icon: "solar:settings-bold",
       onClick: (profile) => {
-        if (onSettings) {
-          onSettings(profile);
-        } else {
-          toast.success(`⚙️ Opening settings for ${profile.name}!`);
-        }
+        console.log("Edit Profile clicked for:", profile.name);
+        setIsSettingsModalOpen(true);
       },
     },
     {
@@ -72,8 +77,12 @@ export function ProfileCardV2({
       label: "Open Folder",
       icon: "solar:folder-bold",
       onClick: (profile) => {
-        toast.success(`📁 Opening folder for ${profile.name}!`);
-        console.log("Opening folder for profile:", profile.name);
+        if (onOpenFolder) {
+          onOpenFolder(profile);
+        } else {
+          toast.success(`📁 Opening folder for ${profile.name}!`);
+          console.log("Opening folder for profile:", profile.name);
+        }
       },
     },
     {
@@ -83,8 +92,12 @@ export function ProfileCardV2({
       destructive: true,
       separator: true, // Trennstrich vor Delete
       onClick: (profile) => {
-        toast.error(`🗑️ Delete ${profile.name}!`);
-        console.log("Deleting profile:", profile.name);
+        if (onDelete) {
+          onDelete(profile.id, profile.name);
+        } else {
+          toast.error(`🗑️ Delete ${profile.name}!`);
+          console.log("Deleting profile:", profile.name);
+        }
       },
     },
   ];
@@ -374,6 +387,14 @@ export function ProfileCardV2({
         items={contextMenuItems}
         onClose={() => setIsContextMenuOpen(false)}
       />
+
+      {/* Profile Settings Modal */}
+      {isSettingsModalOpen && (
+        <ProfileSettings
+          profile={profile}
+          onClose={() => setIsSettingsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { useNavigate } from "react-router-dom";
 import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { ProfileImport } from "../profiles/ProfileImport";
+import * as ProfileService from "../../services/profile-service";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
 export function ProfilesTabV2() {
   const {
@@ -23,11 +25,11 @@ export function ProfilesTabV2() {
     fetchProfiles,
   } = useProfileStore();
   const navigate = useNavigate();
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [versionFilter, setVersionFilter] = useState("all");
   const [activeGroup, setActiveGroup] = useState("all");
-  const [showAddGroup, setShowAddGroup] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -55,21 +57,64 @@ export function ProfilesTabV2() {
     },
   ];
   
+  // Get unique profile groups dynamically (normalized to lowercase)
+  const getUniqueProfileGroups = () => {
+    const uniqueGroups = new Set<string>();
+    profiles.forEach(profile => {
+      if (profile.group && profile.group.trim() !== "") {
+        // Normalize to lowercase to avoid duplicates like "Custom" and "CUSTOM"
+        uniqueGroups.add(profile.group.toLowerCase());
+      }
+    });
+    return Array.from(uniqueGroups).sort();
+  };
+
+  // Helper function to check if a group belongs to NRC
+  const isNrcGroup = (groupName: string | null): boolean => {
+    if (!groupName) return false;
+    const normalized = groupName.toLowerCase();
+    return normalized === "nrc" || normalized === "noriskclient" || normalized === "norisk client";
+  };
+
   // Calculate group counts based on current search/filter
   const getFilteredCountForGroup = (groupId: string) => {
     if (groupId === "all") return profiles.length;
-    const groupName = groupId === "nrc" ? "NORISK CLIENT" : 
-                     groupId === "server" ? "SERVER" : 
-                     groupId === "modpacks" ? "MODPACKS" : "";
-    return profiles.filter(p => p.group === groupName).length;
+    
+    // Handle default groups
+    if (groupId === "nrc") return profiles.filter(p => isNrcGroup(p.group)).length;
+    if (groupId === "server") return profiles.filter(p => p.group === "SERVER").length;
+    if (groupId === "modpacks") return profiles.filter(p => p.group === "MODPACKS").length;
+    
+    // Handle dynamic groups (groupId is normalized lowercase, compare with profile.group in lowercase)
+    return profiles.filter(p => p.group && p.group.toLowerCase() === groupId).length;
   };
 
-  const groups: GroupTab[] = [
-    { id: "all", name: "All", count: getFilteredCountForGroup("all") },
-    { id: "nrc", name: "NRC", count: getFilteredCountForGroup("nrc") },
-    { id: "server", name: "SERVER", count: getFilteredCountForGroup("server") },
-    { id: "modpacks", name: "MODPACKS", count: getFilteredCountForGroup("modpacks") },
-  ];
+  // Create groups array with default groups + dynamic groups
+  const createGroups = (): GroupTab[] => {
+    const defaultGroups: GroupTab[] = [
+      { id: "all", name: "All", count: getFilteredCountForGroup("all") },
+      { id: "nrc", name: "NRC", count: getFilteredCountForGroup("nrc") },
+      { id: "server", name: "SERVER", count: getFilteredCountForGroup("server") },
+      { id: "modpacks", name: "MODPACKS", count: getFilteredCountForGroup("modpacks") },
+    ];
+
+    // Get unique profile groups and convert to GroupTab format
+    const uniqueGroups = getUniqueProfileGroups();
+    const dynamicGroups: GroupTab[] = uniqueGroups
+      .filter(group => 
+        !["server", "modpacks"].includes(group) && // Exclude SERVER and MODPACKS (already normalized)
+        !isNrcGroup(group) // Exclude all NRC variations
+      )
+      .map(group => ({
+        id: group, // group is already lowercase from getUniqueProfileGroups
+        name: group, // group is already lowercase from getUniqueProfileGroups
+        count: getFilteredCountForGroup(group), // Use the updated function
+      }));
+
+    return [...defaultGroups, ...dynamicGroups];
+  };
+
+  const groups = createGroups();
 
   useEffect(() => {
     fetchProfiles();
@@ -88,6 +133,53 @@ export function ProfilesTabV2() {
     fetchProfiles();
     setShowImport(false);
     navigate("/profiles");
+  };
+
+  const handleDeleteProfile = async (
+    profileId: string,
+    profileName: string,
+  ) => {
+    console.log(
+      "[ProfilesTabV2] handleDeleteProfile called for:",
+      profileId,
+      profileName,
+    );
+    
+    const confirmed = await confirm({
+      title: "delete profile",
+      message: `Are you sure you want to delete profile "${profileName}"? This action cannot be undone.`,
+      confirmText: "DELETE",
+      cancelText: "CANCEL",
+      type: "danger",
+      fullscreen: true,
+    });
+
+    if (confirmed) {
+      const deletePromise = useProfileStore.getState().deleteProfile(profileId);
+      toast.promise(deletePromise, {
+        loading: `Deleting profile '${profileName}'...`,
+        success: () => {
+          fetchProfiles();
+          return `Profile '${profileName}' deleted successfully!`;
+        },
+        error: (err) =>
+          `Failed to delete profile: ${err instanceof Error ? err.message : String(err.message)}`,
+      });
+    }
+  };
+
+  const handleOpenFolder = async (profile: Profile) => {
+    console.log("[ProfilesTabV2] handleOpenFolder called for:", profile.name);
+    const openPromise = ProfileService.openProfileFolder(profile.id);
+    toast.promise(openPromise, {
+      loading: `Opening folder for '${profile.name}'...`,
+      success: `Successfully opened folder for '${profile.name}'!`,
+      error: (err) => {
+        const message = err instanceof Error ? err.message : String(err.message);
+        console.error(`Failed to open folder for ${profile.name}:`, err);
+        return `Failed to open folder: ${message}`;
+      },
+    });
   };
 
   // Note: Launch functionality is now handled directly in ProfileCardV2
@@ -136,9 +228,10 @@ export function ProfilesTabV2() {
     
     // Group filter
     const matchesGroup = activeGroup === "all" || 
-      (activeGroup === "nrc" && profile.group === "NORISK CLIENT") ||
+      (activeGroup === "nrc" && isNrcGroup(profile.group)) ||
       (activeGroup === "server" && profile.group === "SERVER") ||
-      (activeGroup === "modpacks" && profile.group === "MODPACKS");
+      (activeGroup === "modpacks" && profile.group === "MODPACKS") ||
+      (profile.group && profile.group.toLowerCase() === activeGroup);
     
     // Version filter (simplified for now)
     const matchesVersion = versionFilter === "all" || 
@@ -175,7 +268,7 @@ export function ProfilesTabV2() {
         groups={groups}
         activeGroup={activeGroup}
         onGroupChange={setActiveGroup}
-        onAddGroup={() => setShowAddGroup(true)}
+        showAddButton={false}
       />
 
       {/* Search & Filter Header */}
@@ -215,6 +308,8 @@ export function ProfilesTabV2() {
             profile={profile}
             onSettings={handleSettings}
             onMods={handleMods}
+            onDelete={handleDeleteProfile}
+            onOpenFolder={handleOpenFolder}
           />
         ))}
       </div>
@@ -243,6 +338,7 @@ export function ProfilesTabV2() {
           onImportComplete={handleImportComplete}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }
