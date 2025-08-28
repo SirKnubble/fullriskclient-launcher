@@ -392,9 +392,35 @@ impl ProfileManager {
         Ok(())
     }
 
+    /// Helper function to check if any other profile uses the same instance path
+    /// This is used before deleting a profile directory to ensure we don't delete
+    /// files that are still needed by other profiles
+    async fn has_other_profile_with_same_path(&self, exclude_id: Uuid, target_path: &PathBuf) -> bool {
+        let profiles = self.profiles.read().await;
+        
+        for (&profile_id, profile) in profiles.iter() {
+            // Skip the profile we're about to delete
+            if profile_id == exclude_id {
+                continue;
+            }
+            
+            // Calculate the path for this profile and compare
+            if let Ok(other_path) = self.calculate_instance_path_for_profile(profile) {
+                if other_path == *target_path {
+                    info!(
+                        "Found another profile '{}' (ID: {}) using the same path: {:?}",
+                        profile.name, profile_id, target_path
+                    );
+                    return true;
+                }
+            }
+        }
+        
+        false
+    }
+
     pub async fn delete_profile(&self, id: Uuid) -> Result<()> {
         let profile_to_delete: Option<Profile>;
-        let profile_dir_path: Option<PathBuf>;
 
         // Scope to release the read lock quickly
         {
@@ -403,19 +429,18 @@ impl ProfileManager {
         }
 
         // If the profile exists, determine its path using the helper function
-        if let Some(profile) = &profile_to_delete {
+        let profile_dir_path = if let Some(profile) = &profile_to_delete {
             match self.calculate_instance_path_for_profile(&profile) {
                 Ok(path) => {
-                    profile_dir_path = Some(path.clone());
                     info!(
                         "Profile '{}' marked for deletion. Directory path: {:?}",
                         profile.name, path
                     );
+                    Some(path)
                 }
                 Err(e) => {
                     // Should not happen if profile object is valid, but handle defensively
                     error!("Failed to calculate instance path for profile '{}': {}. Aborting directory deletion.", profile.name, e);
-                    profile_dir_path = None;
                     // Return an error, as we can't be sure about the path
                     return Err(AppError::Other(format!(
                         "Could not calculate profile path: {}",
@@ -425,27 +450,75 @@ impl ProfileManager {
             }
         } else {
             // Profile not found in map, nothing to delete on filesystem
-            profile_dir_path = None;
             info!("Profile with ID {} not found for deletion.", id);
             return Err(AppError::ProfileNotFound(id)); // Return error if profile doesn't exist
-        }
+        };
 
-        // Attempt to delete the directory (outside the profile map lock)
-        if let Some(path) = profile_dir_path {
-            if path.exists() {
-                info!("Moving profile directory to trash: {:?}", path);
-                match crate::utils::trash_utils::move_path_to_trash(&path, Some("profiles")).await {
-                    Ok(wrapper) => info!("Profile directory moved to trash wrapper: {:?}", wrapper),
-                    Err(e) => {
-                        error!("Failed to move profile directory {:?} to trash: {}", path, e);
-                        return Err(e);
-                    }
-                }
-            } else {
+        // Check if other profiles use the same path before attempting directory deletion
+        let should_delete_directory = if let Some(path) = &profile_dir_path {
+            if self.has_other_profile_with_same_path(id, path).await {
                 info!(
-                    "Profile directory {:?} does not exist. Skipping directory deletion.",
+                    "Another profile is using the same directory path {:?}. Skipping directory deletion.",
                     path
                 );
+                false
+            } else {
+                info!(
+                    "No other profile uses the directory path {:?}. Safe to delete.",
+                    path
+                );
+                true
+            }
+        } else {
+            false
+        };
+
+        // Attempt to delete the directory only if no other profile uses it
+        if should_delete_directory {
+            if let Some(ref path) = profile_dir_path {
+                if path.exists() {
+                    info!("Moving profile directory to trash: {:?}", path);
+                    match crate::utils::trash_utils::move_path_to_trash(path, Some("profiles")).await {
+                        Ok(wrapper) => info!("Profile directory moved to trash wrapper: {:?}", wrapper),
+                        Err(e) => {
+                            error!("Failed to move profile directory {:?} to trash: {}", path, e);
+                            return Err(e);
+                        }
+                    }
+                } else {
+                    info!(
+                        "Profile directory {:?} does not exist. Skipping directory deletion.",
+                        path
+                    );
+                }
+            }
+        }
+
+        // Additionally, always try to delete the individual profile path (build_path_from_profile_path)
+        // This covers cases where the profile might have files in both group and individual directories
+        if let Some(profile) = &profile_to_delete {
+            let individual_path = Self::build_path_from_profile_path(profile);
+            
+            // Only delete if it's different from the main path
+            if Some(&individual_path) != profile_dir_path.as_ref() {
+                if individual_path.exists() {
+                    info!("Moving individual profile directory to trash: {:?}", individual_path);
+                    match crate::utils::trash_utils::move_path_to_trash(&individual_path, Some("profiles")).await {
+                        Ok(wrapper) => info!("Individual profile directory moved to trash wrapper: {:?}", wrapper),
+                        Err(e) => {
+                            error!("Failed to move individual profile directory {:?} to trash: {}", individual_path, e);
+                            // Don't return error here, as the main profile deletion was successful
+                            warn!("Continuing despite individual path deletion failure.");
+                        }
+                    }
+                } else {
+                    info!(
+                        "Individual profile directory {:?} does not exist. Skipping deletion.",
+                        individual_path
+                    );
+                }
+            } else {
+                info!("Individual path is the same as main path, skipping separate deletion.");
             }
         }
 
