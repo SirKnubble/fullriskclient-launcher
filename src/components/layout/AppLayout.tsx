@@ -27,6 +27,7 @@ import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { ProfileWizardV2Modal } from "../modals/ProfileWizardV2Modal";
 import { ProfileSettingsModal } from "../modals/ProfileSettingsModal";
+import { ProfileDuplicateModal } from "../modals/ProfileDuplicateModal";
 import { exit, relaunch } from '@tauri-apps/plugin-process';
 
 const navItems = [
@@ -298,6 +299,7 @@ export function AppLayout({
       <SocialsModal />
       <ProfileWizardV2Modal />
       <ProfileSettingsModal />
+      <ProfileDuplicateModal />
     </div>
   );
 }

@@ -148,11 +148,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               <div className="flex items-center justify-center w-10 h-full text-white">
                 {icon}
               </div>
-            )}<input
+            )}            <input
               ref={ref}
               className={cn(
-                "flex-1 h-full bg-transparent border-none outline-none px-3 py-2 text-white font-minecraft placeholder:text-white/50 lowercase",
+                "flex-1 h-full bg-transparent border-none outline-none px-3 text-white font-minecraft placeholder:text-white/50 lowercase",
+                "flex items-center"
               )}
+              style={{
+                lineHeight: "1.1",
+                paddingTop: "0",
+                paddingBottom: "0",
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               spellCheck={false}

@@ -12,6 +12,7 @@ import { Card } from "../../ui/Card";
 import { gsap } from "gsap";
 import { toast } from "react-hot-toast";
 import { ProfileIcon } from "../ProfileIcon";
+import { useProfileDuplicateStore } from "../../../store/profile-duplicate-store";
 
 interface GeneralSettingsTabProps {
   profile: Profile;
@@ -48,6 +49,9 @@ export function GeneralSettingsTab({
   const tabRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
+  
+  // Profile duplicate store
+  const { openModal: openDuplicateModal } = useProfileDuplicateStore();
 
   useEffect(() => {
     if (isBackgroundAnimationEnabled) {
@@ -133,27 +137,9 @@ export function GeneralSettingsTab({
     }
   };
 
-  const handleDuplicate = async () => {
-    try {
-      setLoading(true);
-
-      await invoke("copy_profile", {
-        params: {
-          source_profile_id: profile.id,
-          new_profile_name: `${profile.name} (copy)`,
-          include_files: undefined,
-        },
-      });
-
-      toast.success("Profile cloned successfully!");
-    } catch (err) {
-      console.error("Failed to clone profile:", err);
-      toast.error(
-        `Failed to clone profile: ${err instanceof Error ? err.message : String(err.message)}`,
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleDuplicate = () => {
+    console.log("Duplicate button clicked for profile:", profile.name);
+    openDuplicateModal(profile);
   };
 
   const noriskPackOptions = Object.entries(noriskPacks).map(
@@ -301,17 +287,7 @@ export function GeneralSettingsTab({
               size="md"
               className="text-2xl"
             >
-              {loading ? (
-                <>
-                  <Icon
-                    icon="solar:refresh-bold"
-                    className="w-5 h-5 animate-spin text-white"
-                  />
-                  <span>duplicating...</span>
-                </>
-              ) : (
-                "duplicate"
-              )}
+              duplicate
             </Button>
           </div>
 

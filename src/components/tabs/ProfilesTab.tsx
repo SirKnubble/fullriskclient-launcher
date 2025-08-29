@@ -12,6 +12,7 @@ import { gsap } from "gsap";
 import { ProfileImport } from "../profiles/ProfileImport";
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
+import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
 import { toast } from "react-hot-toast";
@@ -293,9 +294,7 @@ export function ProfilesTab() {
 
   const handleEditProfile = (profile: Profile) => {
     console.log("[ProfilesTab] handleEditProfile called for:", profile);
-    setSelectedProfile(profile);
-    setShowSettings(true);
-
+    openModal(profile);
     console.log("[ProfilesTab] Profile settings modal opened. Underlying view/URL remains unchanged by this action.");
   };
 

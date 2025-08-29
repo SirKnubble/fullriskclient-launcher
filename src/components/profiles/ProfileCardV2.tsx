@@ -9,6 +9,7 @@ import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
+import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useLaunchStateStore } from "../../store/launch-state-store";
 import * as ProcessService from "../../services/process-service";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
@@ -43,6 +44,9 @@ export function ProfileCardV2({
   // Profile settings store
   const { openModal } = useProfileSettingsStore();
   
+  // Profile duplicate store
+  const { openModal: openDuplicateModal } = useProfileDuplicateStore();
+  
   // Resolved loader version state
   const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
 
@@ -62,8 +66,8 @@ export function ProfileCardV2({
       label: "Duplicate",
       icon: "solar:copy-bold",
       onClick: (profile) => {
-        toast.success(`📋 Duplicating ${profile.name}!`);
-        console.log("Duplicating profile:", profile.name);
+        console.log("Duplicate Profile clicked for:", profile.name);
+        openDuplicateModal(profile);
       },
     },
     {
