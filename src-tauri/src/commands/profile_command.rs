@@ -250,22 +250,44 @@ pub async fn launch_profile(
     let profile_id = profile.id; // Store profile ID for later use
     let profile_clone = profile.clone();
 
+    // Determine Quick Play parameters - use profile settings if none provided
+    let (final_quick_play_sp, final_quick_play_mp) = if quick_play_singleplayer.is_none() && quick_play_multiplayer.is_none() {
+        // Check profile's quick_play_path setting
+        if let Some(quick_play_path) = &profile.settings.quick_play_path {
+            if quick_play_path.contains('.') {
+                // Contains dot, assume it's a server address (multiplayer)
+                info!("Using profile's quick_play_path as multiplayer server: {}", quick_play_path);
+                (None, Some(quick_play_path.clone()))
+            } else {
+                // No dot, assume it's a world name (singleplayer)
+                info!("Using profile's quick_play_path as singleplayer world: {}", quick_play_path);
+                (Some(quick_play_path.clone()), None)
+            }
+        } else {
+            // No Quick Play configured
+            (None, None)
+        }
+    } else {
+        // Use explicitly provided parameters
+        (quick_play_singleplayer, quick_play_multiplayer)
+    };
+
     // Clone Quick Play parameters for the spawned task
-    let quick_play_sp_clone = quick_play_singleplayer.clone();
-    let quick_play_mp_clone = quick_play_multiplayer.clone();
+    let quick_play_sp_clone = final_quick_play_sp.clone();
+    let quick_play_mp_clone = final_quick_play_mp.clone();
 
     // Log if Quick Play is being used
-    if quick_play_singleplayer.is_some() {
+    if final_quick_play_sp.is_some() {
         info!(
             "Launching profile {} with Quick Play singleplayer: {}",
             id,
-            quick_play_singleplayer.as_ref().unwrap()
+            final_quick_play_sp.as_ref().unwrap()
         );
-    } else if quick_play_multiplayer.is_some() {
+    } else if final_quick_play_mp.is_some() {
         info!(
             "Launching profile {} with Quick Play multiplayer: {}",
             id,
-            quick_play_multiplayer.as_ref().unwrap()
+            final_quick_play_mp.as_ref().unwrap()
         );
     }
 

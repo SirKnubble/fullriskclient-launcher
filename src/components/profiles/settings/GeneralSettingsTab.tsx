@@ -212,6 +212,30 @@ export function GeneralSettingsTab({
 
         <div>
           <label className="block text-3xl font-minecraft text-white mb-2 lowercase">
+            quick play path
+          </label>
+          <Input
+            value={editedProfile.settings.quick_play_path || ""}
+            onChange={(e) => 
+              updateProfile({ 
+                settings: { 
+                  ...editedProfile.settings, 
+                  quick_play_path: e.target.value || null 
+                } 
+              })
+            }
+            placeholder="World name or server address (e.g. MyWorld or hypixel.net)"
+            className="text-2xl py-3"
+            variant="flat"
+          />
+          <p className="text-xs text-white/70 mt-2 font-minecraft-ten tracking-wide select-none">
+            Enter a world name for singleplayer or server address for multiplayer. 
+            Server addresses are detected by containing a dot (e.g. hypixel.net).
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-3xl font-minecraft text-white mb-2 lowercase">
             norisk client pack
           </label>
           {loading ? (

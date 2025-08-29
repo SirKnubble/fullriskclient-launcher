@@ -8,7 +8,7 @@ import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
-import { ProfileSettings } from "./ProfileSettings";
+import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useLaunchStateStore } from "../../store/launch-state-store";
 import * as ProcessService from "../../services/process-service";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
@@ -40,8 +40,8 @@ export function ProfileCardV2({
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   
-  // Settings modal state
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  // Profile settings store
+  const { openModal } = useProfileSettingsStore();
   
   // Resolved loader version state
   const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
@@ -54,7 +54,7 @@ export function ProfileCardV2({
       icon: "solar:settings-bold",
       onClick: (profile) => {
         console.log("Edit Profile clicked for:", profile.name);
-        setIsSettingsModalOpen(true);
+        openModal(profile);
       },
     },
     {
@@ -455,13 +455,7 @@ export function ProfileCardV2({
         onClose={() => setIsContextMenuOpen(false)}
       />
 
-      {/* Profile Settings Modal */}
-      {isSettingsModalOpen && (
-        <ProfileSettings
-          profile={profile}
-          onClose={() => setIsSettingsModalOpen(false)}
-        />
-      )}
+
     </div>
   );
 }

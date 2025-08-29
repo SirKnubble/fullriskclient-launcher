@@ -80,6 +80,7 @@ export interface ProfileSettings {
   fullscreen: boolean;
   extra_game_args: string[];           // Vec<String> -> string[] (Renamed from extra_args)
   custom_jvm_args: string | null;   // Option<String> -> string | null (New)
+  quick_play_path: string | null;   // Option<String> -> string | null (Quick Play path)
 }
 
 interface ModSourceBase {

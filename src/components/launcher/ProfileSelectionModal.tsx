@@ -9,7 +9,7 @@ import { VirtuosoGrid } from "react-virtuoso";
 import React, { useState } from "react";
 import { toast } from "react-hot-toast";
 import { ExportProfileModal } from "../profiles/ExportProfileModal";
-import { ProfileSettings } from "../profiles/ProfileSettings";
+import { useProfileSettingsStore } from "../../store/profile-settings-store";
 
 interface ProfileSelectionModalProps {
   onVersionChange: (versionId: string) => void;
@@ -28,9 +28,8 @@ export function ProfileSelectionModal({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [profileToExport, setProfileToExport] = useState<Profile | null>(null);
   
-  // Settings modal state
-  const [showSettings, setShowSettings] = useState(false);
-  const [profileToEdit, setProfileToEdit] = useState<Profile | null>(null);
+  // Profile settings store
+  const { openModal } = useProfileSettingsStore();
 
   const handleVersionSelect = (versionId: string) => {
     setSelectedVersion(versionId);
@@ -68,8 +67,7 @@ export function ProfileSelectionModal({
       console.log("Attempted to edit standard profile, returning.");
       return;
     }
-    setProfileToEdit(profile);
-    setShowSettings(true);
+    openModal(profile);
   };
 
   if (!isModalOpen) return null;
@@ -157,17 +155,7 @@ export function ProfileSelectionModal({
         />
       )}
       
-      {/* Profile Settings Modal */}
-      {showSettings && profileToEdit && !profileToEdit.is_standard_version && (
-        <ProfileSettings
-          profile={profileToEdit}
-          onClose={() => {
-            console.log("ProfileSettings onClose called in ProfileSelectionModal");
-            setShowSettings(false);
-            setProfileToEdit(null);
-          }}
-        />
-      )}
+
     </Modal>
   );
 }

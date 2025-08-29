@@ -10,7 +10,7 @@ import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../store/useThemeStore";
 import { gsap } from "gsap";
 import { ProfileImport } from "../profiles/ProfileImport";
-import { ProfileSettings } from "../profiles/ProfileSettings";
+import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
@@ -51,7 +51,7 @@ export function ProfilesTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showWizard, setShowWizard] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const { openModal } = useProfileSettingsStore();
   const [showDetailView, setShowDetailView] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -571,23 +571,7 @@ export function ProfilesTab() {
           }}
         />
       )}
-      {showSettings &&
-        selectedProfile && (
-          <ProfileSettings
-            profile={selectedProfile}
-            onClose={() => {
-              console.log(
-                "[ProfilesTab] ProfileSettings onClose called. Current routeProfileId:",
-                params.profileId,
-              );
-              setShowSettings(false);
-              console.log(
-                "[ProfilesTab] ProfileSettings closed. Staying on current view for URL:",
-                location.pathname,
-              );
-            }}
-          />
-        )}
+
       {showImport && (
         <ProfileImport
           onClose={() => {
