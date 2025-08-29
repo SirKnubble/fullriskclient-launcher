@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState, useEffect, useRef } from "react";
 
-import type { Profile } from "../../types/profile";
+import type { Profile, ResolvedLoaderVersion } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
@@ -42,6 +42,9 @@ export function ProfileCardV2({
   
   // Settings modal state
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  // Resolved loader version state
+  const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
@@ -109,6 +112,29 @@ export function ProfileCardV2({
   useEffect(() => {
     initializeProfile(profile.id);
   }, [profile.id, initializeProfile]);
+
+  // Fetch resolved loader version
+  useEffect(() => {
+    async function fetchResolvedLoaderVersion() {
+      if (!profile.game_version || profile.loader === "vanilla") {
+        setResolvedLoaderVersion(null);
+        return;
+      }
+
+      try {
+        const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
+          profileId: profile.id,
+          minecraftVersion: profile.game_version,
+        });
+        setResolvedLoaderVersion(resolved);
+      } catch (err) {
+        console.error("Failed to resolve loader version:", err);
+        setResolvedLoaderVersion(null);
+      }
+    }
+
+    fetchResolvedLoaderVersion();
+  }, [profile.id, profile.game_version, profile.loader, profile.loader_version]);
 
   // Event listener for detailed launch status - similar to MainLaunchButton.tsx
   useEffect(() => {
@@ -234,6 +260,30 @@ export function ProfileCardV2({
     }
   };
 
+  // Format last played date
+  const formatLastPlayed = (lastPlayed: string | null): string => {
+    if (!lastPlayed) return "Never played";
+    
+    const date = new Date(lastPlayed);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    const diffInMonths = Math.floor(diffInDays / 30);
+    const diffInYears = Math.floor(diffInDays / 365);
+    
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
+    if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+    
+    return `${diffInYears}y ago`;
+  };
+
   // Launch handler with abort functionality - similar to LaunchButton.tsx
   const handleLaunch = async (profile: Profile) => {
     const currentProfile = getProfileState(profile.id);
@@ -339,36 +389,53 @@ export function ProfileCardV2({
       {/* Profile Info */}
       <div className="flex-1 min-w-0">
         <h3 
-          className="text-white font-minecraft-ten text-sm whitespace-nowrap overflow-hidden text-ellipsis"
+          className="text-white font-minecraft-ten text-sm whitespace-nowrap overflow-hidden text-ellipsis normal-case mb-1"
           title={profile.name}
         >
           {profile.name}
         </h3>
-        <div 
-          className="text-white/60 text-xs font-minecraft-ten flex items-center gap-2"
-          title={
-            isButtonLaunching
-              ? buttonStatusMessage || currentStep || "Starting..."
-              : `${profile.loader || "Vanilla"} - ${profile.game_version}`
-          }
-        >
-          {isButtonLaunching ? (
-            <span className="opacity-70">
-              {buttonStatusMessage || currentStep || "Starting..."}
+        
+        {isButtonLaunching ? (
+          <div className="text-white/60 text-xs font-minecraft-ten opacity-70">
+            {buttonStatusMessage || currentStep || "Starting..."}
+          </div>
+        ) : (
+                  <div className="flex items-center gap-2 text-xs font-minecraft-ten">
+          {/* Minecraft Version */}
+          <div className="text-white/70 flex items-center gap-1">
+            <img
+              src="/icons/minecraft.png"
+              alt="Minecraft"
+              className="w-3 h-3 object-contain"
+            />
+            <span>{profile.game_version}</span>
+          </div>
+          
+          <div className="w-px h-3 bg-white/30"></div>
+          
+          {/* Loader Version */}
+          <div className="text-white/60 flex items-center gap-1">
+            <img
+              src={getModLoaderIcon()}
+              alt={profile.loader || "Vanilla"}
+              className="w-3 h-3 object-contain"
+            />
+            <span>
+              {profile.loader === "vanilla" 
+                ? "Vanilla" 
+                : `${resolvedLoaderVersion?.version || profile.loader_version || "Unknown"}`
+              }
             </span>
-          ) : (
-            <>
-              <img
-                src={getModLoaderIcon()}
-                alt={profile.loader || "Vanilla"}
-                className="w-3 h-3 object-contain"
-              />
-              <span>
-                {profile.loader || "Vanilla"} {profile.game_version}
-              </span>
-            </>
-          )}
+          </div>
+          
+          <div className="w-px h-3 bg-white/30"></div>
+          
+          {/* Last Played */}
+          <div className="text-white/50">
+            {formatLastPlayed(profile.last_played)}
+          </div>
         </div>
+        )}
       </div>
 
       {/* Action Buttons */}
