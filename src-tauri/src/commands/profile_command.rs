@@ -463,28 +463,39 @@ fn needs_mods_migration(
     updated_profile: &Profile, 
     params: &UpdateProfileParams
 ) -> Result<bool, CommandError> {
-    // Check if any settings that affect mods path have changed
-    let original_uses_shared = original_profile.should_use_shared_minecraft_folder();
-    let updated_uses_shared = updated_profile.should_use_shared_minecraft_folder();
+    // Only check for actual path-affecting changes for regular user profiles
     
-    // Check if group changed (affects shared path)
-    let group_changed = params.group.is_some() || params.clear_group == Some(true);
+    // Check if group actually changed (affects shared path)
+    let group_changed = if params.clear_group == Some(true) {
+        // Clearing group: changed if profile had a group before
+        original_profile.group.is_some()
+    } else if let Some(new_group) = &params.group {
+        // Setting new group: changed if different from current group
+        original_profile.group.as_deref() != Some(new_group)
+    } else {
+        // No group change requested
+        false
+    };
     
-    // Check if use_shared_minecraft_folder changed 
+    // Check if use_shared_minecraft_folder setting changed 
     let shared_setting_changed = params.use_shared_minecraft_folder.is_some();
     
-    // Migration needed if:
-    // 1. The shared folder usage changed (single <-> shared)
-    // 2. Group changed (affects shared path calculation)
-    let migration_needed = (original_uses_shared != updated_uses_shared) ||
-                          (group_changed && updated_uses_shared) ||
-                          (shared_setting_changed && updated_uses_shared);
+    // Only migrate if we actually changed something that affects the mods path
+    let migration_needed = if group_changed || shared_setting_changed {
+        // Recalculate if shared folder usage would change
+        let original_uses_shared = original_profile.should_use_shared_minecraft_folder();
+        let updated_uses_shared = updated_profile.should_use_shared_minecraft_folder();
+        
+        // Migration needed if shared folder usage actually changed
+        original_uses_shared != updated_uses_shared
+    } else {
+        // No path-affecting changes, no migration needed
+        false
+    };
     
     info!(
-        "Migration check for profile {}: original_shared={}, updated_shared={}, group_changed={}, shared_setting_changed={} -> migration_needed={}",
+        "Migration check for profile {}: group_changed={}, shared_setting_changed={} -> migration_needed={}",
         original_profile.id,
-        original_uses_shared,
-        updated_uses_shared, 
         group_changed,
         shared_setting_changed,
         migration_needed
@@ -2038,57 +2049,30 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     info!("Executing get_all_profiles_and_last_played command");
     let state = State::get().await?;
 
-    // 1. Fetch User Profiles
+    // Fetch User Profiles (includes editable copies of standard profiles)
     let user_profiles = state.profile_manager.list_profiles().await?;
 
-    // 2. Fetch Standard Norisk Profiles
-    let norisk_versions_config = state.norisk_version_manager.get_config().await;
-    let standard_profiles = norisk_versions_config.profiles; // This is Vec<Profile>
-
-    // 3. Combine Profiles
-    let mut all_profiles_combined = user_profiles.clone();
-    all_profiles_combined.extend(standard_profiles.clone());
-
-    // Deduplicate based on ID, preferring user profiles if IDs clash (highly unlikely with UUIDs but safe)
-    // This is a more robust way to combine, though simple concatenation is often fine.
-    let mut unique_profiles_map: HashMap<Uuid, Profile> = HashMap::new();
-    for profile in standard_profiles.iter() {
-        unique_profiles_map.insert(profile.id, profile.clone());
-    }
-    for profile in user_profiles.iter() {
-        // User profiles overwrite standard if same ID
-        unique_profiles_map.insert(profile.id, profile.clone());
-    }
-    let all_profiles_final: Vec<Profile> = unique_profiles_map.values().cloned().collect();
-
-    // 4. Handle `last_played_profile_id`
+    // Handle `last_played_profile_id`
     let mut launcher_config = state.config_manager.get_config().await;
     let mut effective_last_played_id = launcher_config.last_played_profile;
     let mut config_needs_update = false;
 
     // Validate existing last_played_profile_id
     if let Some(id_to_check) = effective_last_played_id {
-        let exists = all_profiles_final.iter().any(|p| p.id == id_to_check);
+        let exists = user_profiles.iter().any(|p| p.id == id_to_check);
         if !exists {
             info!(
                 "Last played profile ID {} no longer exists. Marking for reset.",
                 id_to_check
             );
             effective_last_played_id = None; // Mark for reset logic below
-                                             // The actual launcher_config.last_played_profile will be updated if a new default is found or it's set to None
         }
     }
 
     // If effective_last_played_id is None (either initially or after validation failed)
     if effective_last_played_id.is_none() {
         info!("Last played profile ID is not set or invalid. Attempting to set a default.");
-        let new_default_id: Option<Uuid> = if !standard_profiles.is_empty() {
-            standard_profiles.first().map(|p| p.id)
-        } else if !user_profiles.is_empty() {
-            user_profiles.first().map(|p| p.id)
-        } else {
-            None
-        };
+        let new_default_id: Option<Uuid> = user_profiles.first().map(|p| p.id);
 
         // Check if the determined new_default_id is different from what's in the original config.
         // This ensures we only write to config if there's an actual change.
@@ -2115,7 +2099,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     }
 
     Ok(AllProfilesAndLastPlayed {
-        all_profiles: all_profiles_final,
+        all_profiles: user_profiles,
         last_played_profile_id: effective_last_played_id,
     })
 }

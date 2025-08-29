@@ -248,7 +248,7 @@ export function JavaSettingsTab({
   }
   
   // Use global memory settings for standard profiles, profile settings for custom profiles
-  const memory = editedProfile.is_standard_version 
+  const memory = editedProfile.is_standard_version
     ? (globalMemorySettings || { min: 1024, max: recommendedMaxRam })
     : (editedProfile.settings?.memory || { min: 1024, max: recommendedMaxRam });
 
@@ -355,23 +355,7 @@ export function JavaSettingsTab({
 
   return (
     <div ref={tabRef} className="space-y-6 select-none">
-      {editedProfile.is_standard_version && (
-        <Card variant="flat" className="p-4 border border-yellow-500/30 bg-yellow-500/10">
-          <div className="flex items-start gap-3">
-            <Icon icon="solar:info-circle-bold" className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-yellow-100 font-minecraft-ten leading-relaxed">
-              <p className="mb-2 font-semibold">You are editing a standard profile template.</p>
-              <p>
-                Standard profiles are designed to provide a stable, working baseline. 
-                To fully customize settings, add mods, or make other changes, please <strong>clone this profile</strong> first. 
-                This ensures you always have a functional standard version to fall back to.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-      {!editedProfile.is_standard_version && (
-        <div ref={javaInstallRef} className="space-y-4">
+      <div ref={javaInstallRef} className="space-y-4">
         <div>
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             java installation
@@ -514,7 +498,6 @@ export function JavaSettingsTab({
           )}
         </div>
       </div>
-      )}
 
       <div ref={memoryRef} className="space-y-4">
         <div>
@@ -560,8 +543,7 @@ export function JavaSettingsTab({
         </div>
       </div>
 
-      {!editedProfile.is_standard_version && (
-        <div ref={argsRef} className="space-y-4">
+      <div ref={argsRef} className="space-y-4">
           <div>
             <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
               java arguments
@@ -596,7 +578,6 @@ export function JavaSettingsTab({
           )}
         </div>
       </div>
-      )}
     </div>
   );
 }

@@ -179,6 +179,7 @@ export function GeneralSettingsTab({
               placeholder="Enter profile name"
               className="text-2xl py-3 flex-1"
               variant="flat"
+              disabled={profile.is_standard_version ? true : false}
             />
           </div>
         </div>
@@ -193,6 +194,7 @@ export function GeneralSettingsTab({
             placeholder="e.g. modpacks, vanilla+"
             className="text-2xl py-3"
             variant="flat"
+            disabled={profile.is_standard_version ? true : false}
           />
         </div>
 

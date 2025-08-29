@@ -491,8 +491,10 @@ export function InstallationSettingsTab({
                   selectedVersionType === type
                     ? "bg-accent/20 border-accent text-white"
                     : "bg-black/20 hover:bg-black/30 border-white/10 text-white/80",
+                  profile.is_standard_version && "cursor-not-allowed opacity-50"
                 )}
-                onClick={() => handleVersionTypeClick(type as VersionType)}
+                onClick={() => !profile.is_standard_version && handleVersionTypeClick(type as VersionType)}
+                disabled={profile.is_standard_version ? true : false}
               >
                 {type}
               </Button>
@@ -511,6 +513,7 @@ export function InstallationSettingsTab({
               placeholder="search versions..."
               className="w-full text-2xl py-3"
               variant="flat"
+              disabled={profile.is_standard_version ? true : false}
             />
           </div>
 
@@ -555,8 +558,10 @@ export function InstallationSettingsTab({
                           editedProfile.game_version === version
                             ? "bg-accent/20 border-accent text-white"
                             : "bg-black/20 hover:bg-black/30 border-white/10 text-white/80 hover:text-white",
+                          profile.is_standard_version && "cursor-not-allowed opacity-50"
                         )}
-                        onClick={() => handleGameVersionClick(version)}
+                        onClick={() => !profile.is_standard_version && handleGameVersionClick(version)}
+                        disabled={profile.is_standard_version ? true : false}
                       >
                         {version}
                       </Button>

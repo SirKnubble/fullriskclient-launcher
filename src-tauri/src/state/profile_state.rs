@@ -89,7 +89,7 @@ pub enum ImageSource {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProfileBanner {
     pub source: ImageSource,
 }
@@ -377,15 +377,6 @@ impl ProfileManager {
     }
 
     pub async fn update_profile(&self, id: Uuid, profile: Profile) -> Result<()> {
-        // Check if the profile being updated is a standard version
-        if profile.is_standard_version {
-            warn!(
-                "Attempted to update a standard version profile (ID: {}). Updates to standard versions are not allowed.",
-                id
-            );
-            return Ok(()); // Do not proceed with update for standard versions
-        }
-
         {
             let mut profiles = self.profiles.write().await;
             profiles.insert(id, profile);
@@ -1937,6 +1928,184 @@ impl ProfileManager {
         Ok(())
     }
 
+    /// Synchronizes standard profiles by creating editable copies for each norisk_version
+    /// that doesn't already have a user copy, and updates existing copies with forced fields.
+    /// Called during launcher startup.
+    pub async fn sync_standard_profiles(&self) -> Result<()> {
+        info!("ProfileManager: Starting standard profiles synchronization...");
+
+        // Get standard profiles from norisk version manager
+        let state = match crate::state::state_manager::State::get().await {
+            Ok(state) => state,
+            Err(e) => {
+                warn!("ProfileManager: Could not get global state for standard profile sync: {}", e);
+                return Ok(()); // Non-critical, skip sync
+            }
+        };
+
+        let standard_profiles = state.norisk_version_manager.get_config().await.profiles;
+        info!("ProfileManager: Found {} standard profiles to sync", standard_profiles.len());
+
+        if standard_profiles.is_empty() {
+            info!("ProfileManager: No standard profiles found, skipping sync");
+            return Ok(());
+        }
+
+        // Get all user profiles and create lookup maps
+        let user_profiles = self.list_profiles().await?;
+        let mut existing_copies_by_source_id: std::collections::HashMap<Uuid, Uuid> = std::collections::HashMap::new();
+        
+        for profile in &user_profiles {
+            if let Some(source_id) = profile.source_standard_profile_id {
+                existing_copies_by_source_id.insert(source_id, profile.id);
+            }
+        }
+
+        let mut copies_created = 0;
+        let mut copies_updated = 0;
+
+        for standard_profile in standard_profiles {
+            if let Some(existing_copy_id) = existing_copies_by_source_id.get(&standard_profile.id) {
+                // Update existing copy with forced fields
+                match self.update_copy_with_forced_fields(*existing_copy_id, &standard_profile).await {
+                    Ok(updated) => {
+                        if updated {
+                            info!("ProfileManager: Updated forced fields for copy {} of standard profile '{}'", existing_copy_id, standard_profile.name);
+                            copies_updated += 1;
+                        }
+                    }
+                    Err(e) => {
+                        warn!("ProfileManager: Failed to update copy {} for standard profile '{}': {}", existing_copy_id, standard_profile.name, e);
+                    }
+                }
+            } else {
+                // Create new copy
+                match self.create_editable_copy_from_standard(&standard_profile).await {
+                    Ok(new_id) => {
+                        info!("ProfileManager: Created editable copy {} for standard profile '{}'", new_id, standard_profile.name);
+                        copies_created += 1;
+                    }
+                    Err(e) => {
+                        warn!("ProfileManager: Failed to create copy for standard profile '{}': {}", standard_profile.name, e);
+                    }
+                }
+            }
+        }
+
+        info!("ProfileManager: Standard profile sync complete. Created {} new copies, updated {} existing copies", copies_created, copies_updated);
+        Ok(())
+    }
+
+    /// Creates an editable copy of a standard profile for user customization
+    async fn create_editable_copy_from_standard(&self, standard_profile: &Profile) -> Result<Uuid> {
+        let mut editable_copy = standard_profile.clone();
+           
+        // Link back to original standard profile
+        editable_copy.source_standard_profile_id = Some(standard_profile.id);
+        
+        // Update timestamps
+        editable_copy.created = chrono::Utc::now();
+        editable_copy.last_played = None;
+        
+        // Reset state to not installed for user copy
+        editable_copy.state = ProfileState::NotInstalled;
+
+        // Create the profile using existing create_profile method
+        let new_id = self.create_profile(editable_copy).await?;
+        
+        Ok(new_id)
+    }
+
+    /// Updates an existing copy with forced fields from the standard profile
+    /// Returns true if any changes were made, false otherwise
+    async fn update_copy_with_forced_fields(&self, copy_id: Uuid, standard_profile: &Profile) -> Result<bool> {
+        let mut profiles = self.profiles.write().await;
+        
+        if let Some(copy) = profiles.get_mut(&copy_id) {
+            let mut changed = false;
+            
+            // Force update name if different
+            if copy.name != standard_profile.name {
+                info!("Updating name for copy {}: '{}' -> '{}'", copy_id, copy.name, standard_profile.name);
+                copy.name = standard_profile.name.clone();
+                changed = true;
+            }
+            
+            // Force update group if different
+            if copy.group != standard_profile.group {
+                info!("Updating group for copy {}: {:?} -> {:?}", copy_id, copy.group, standard_profile.group);
+                copy.group = standard_profile.group.clone();
+                changed = true;
+            }
+            
+            // Force update game version if different
+            if copy.game_version != standard_profile.game_version {
+                info!("Updating game version for copy {}: '{}' -> '{}'", copy_id, copy.game_version, standard_profile.game_version);
+                copy.game_version = standard_profile.game_version.clone();
+                changed = true;
+            }
+            
+            // Force update loader if different
+            if copy.loader != standard_profile.loader {
+                info!("Updating loader for copy {}: {:?} -> {:?}", copy_id, copy.loader, standard_profile.loader);
+                copy.loader = standard_profile.loader.clone();
+                changed = true;
+            }
+            
+            // Force update loader version if different
+            if copy.loader_version != standard_profile.loader_version {
+                info!("Updating loader version for copy {}: {:?} -> {:?}", copy_id, copy.loader_version, standard_profile.loader_version);
+                copy.loader_version = standard_profile.loader_version.clone();
+                changed = true;
+            }
+            
+            // Force update description if different
+            if copy.description != standard_profile.description {
+                info!("Updating description for copy {}", copy_id);
+                copy.description = standard_profile.description.clone();
+                changed = true;
+            }
+            
+            // Force update NoRisk pack selection if different
+            if copy.selected_norisk_pack_id != standard_profile.selected_norisk_pack_id {
+                info!("Updating NoRisk pack for copy {}: {:?} -> {:?}", copy_id, copy.selected_norisk_pack_id, standard_profile.selected_norisk_pack_id);
+                copy.selected_norisk_pack_id = standard_profile.selected_norisk_pack_id.clone();
+                changed = true;
+            }
+            
+            // Force update banner if different
+            if copy.banner != standard_profile.banner {
+                info!("Updating banner for copy {}", copy_id);
+                copy.banner = standard_profile.banner.clone();
+                changed = true;
+            }
+
+              // Force update banner if different
+            if copy.background != standard_profile.background {
+                info!("Updating background for copy {}", copy_id);
+                copy.background = standard_profile.background.clone();
+                changed = true;
+            }
+            
+            // Force update is_standard_version if different
+            if copy.is_standard_version != standard_profile.is_standard_version {
+                info!("Updating is_standard_version for copy {}: {} -> {}", copy_id, copy.is_standard_version, standard_profile.is_standard_version);
+                copy.is_standard_version = standard_profile.is_standard_version;
+                changed = true;
+            }
+            
+            if changed {
+                drop(profiles);
+                self.save_profiles().await?;
+                info!("Saved forced field updates for copy {}", copy_id);
+            }
+            
+            Ok(changed)
+        } else {
+            Err(AppError::ProfileNotFound(copy_id))
+        }
+    }
+
     /// Deletes a custom mod file (either .jar or .jar.disabled) from the profile's custom_mods directory.
     pub async fn delete_custom_mod_file(&self, profile_id: Uuid, filename: &str) -> Result<()> {
         info!(
@@ -2011,6 +2180,11 @@ impl PostInitializationHandler for ProfileManager {
             info!("ProfileManager: Saving migrated profiles to disk...");
             self.save_profiles().await?;
             info!("ProfileManager: Successfully saved migrated profiles.");
+        }
+
+        // Sync standard profiles - create editable copies for each norisk_version
+        if let Err(e) = self.sync_standard_profiles().await {
+            warn!("ProfileManager: Failed to sync standard profiles: {}", e);
         }
         
         info!("ProfileManager: Successfully loaded profiles in on_state_ready.");
