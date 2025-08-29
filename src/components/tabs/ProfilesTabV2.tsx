@@ -161,6 +161,13 @@ export function ProfilesTabV2() {
       profileName,
     );
     
+    // Find the profile to check if it's a standard version
+    const profile = profiles.find(p => p.id === profileId);
+    if (profile?.is_standard_version) {
+      toast.error("Standard profiles cannot be deleted.");
+      return;
+    }
+    
     const confirmed = await confirm({
       title: "delete profile",
       message: `Are you sure you want to delete profile "${profileName}"? This action cannot be undone.`,

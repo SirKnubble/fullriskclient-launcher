@@ -98,6 +98,7 @@ export function ProfileCardV2({
       icon: "solar:trash-bin-trash-bold",
       destructive: true,
       separator: true, // Trennstrich vor Delete
+      disabled: profile.is_standard_version,
       onClick: (profile) => {
         if (onDelete) {
           onDelete(profile.id, profile.name);
@@ -365,6 +366,12 @@ export function ProfileCardV2({
       onClick: (profile, e) => {
         e.preventDefault();
         e.stopPropagation();
+        
+        // If menu is already open, close it
+        if (isContextMenuOpen) {
+          setIsContextMenuOpen(false);
+          return;
+        }
         
         // Calculate position for context menu relative to the card container
         const buttonRect = e.currentTarget.getBoundingClientRect();
