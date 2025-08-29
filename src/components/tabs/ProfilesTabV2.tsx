@@ -66,8 +66,8 @@ export function ProfilesTabV2() {
       icon: "solar:widget-add-bold",
       tooltip: "Create new profile",
       onClick: () => {
-        // Pass current group as default, but not if it's "all"
-        const defaultGroup = activeGroup === "all" ? null : activeGroup;
+        // Pass current group as default, but not if it's "all" or "server"
+        const defaultGroup = (activeGroup === "all" || activeGroup === "server") ? null : activeGroup;
         openWizard(defaultGroup);
         navigate("/profiles");
       },
