@@ -17,6 +17,7 @@ import * as ProfileService from "../../services/profile-service";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { useThemeStore } from "../../store/useThemeStore";
+import { Icon } from "@iconify/react";
 
 export function ProfilesTabV2() {
   const {
@@ -34,9 +35,11 @@ export function ProfilesTabV2() {
     profilesTabActiveGroup,
     profilesTabSortBy,
     profilesTabVersionFilter,
+    profilesTabLayoutMode,
     setProfilesTabActiveGroup,
     setProfilesTabSortBy,
     setProfilesTabVersionFilter,
+    setProfilesTabLayoutMode,
   } = useThemeStore();
   
   // Local non-persistent state
@@ -47,6 +50,7 @@ export function ProfilesTabV2() {
   const activeGroup = profilesTabActiveGroup;
   const sortBy = profilesTabSortBy;
   const versionFilter = profilesTabVersionFilter;
+  const layoutMode = profilesTabLayoutMode;
 
   // Action buttons configuration
   const actionButtons: ActionButton[] = [
@@ -311,7 +315,7 @@ export function ProfilesTabV2() {
       {/* Search & Filter Header */}
       <div className="mb-6 pb-4 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <div className="flex-1">
+          <div className="flex items-center gap-2 flex-1">
             <SearchWithFilters
               placeholder="Search profiles..."
               searchValue={searchQuery}
@@ -332,23 +336,54 @@ export function ProfilesTabV2() {
               filterValue={versionFilter}
               onFilterChange={setProfilesTabVersionFilter}
             />
+            
+                         {/* Layout Toggle Button - Right next to SearchWithFilters */}
+                         <button
+              onClick={() => {
+                const nextMode = layoutMode === "list" ? "grid" : layoutMode === "grid" ? "compact" : "list";
+                setProfilesTabLayoutMode(nextMode);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
+              title={
+                layoutMode === "list" 
+                  ? "Switch to grid view (2 profiles per row)" 
+                  : layoutMode === "grid"
+                  ? "Switch to compact view (3 profiles per row)"
+                  : "Switch to list view"
+              }
+            >
+              <div className="w-4 h-8 flex items-center justify-center">
+                <Icon 
+                  icon="solar:list-bold"
+                  className="w-8 h-8"
+                />
+              </div>
+            </button>
           </div>
+          
           <ActionButtons actions={actionButtons} />
         </div>
       </div>
 
       {/* Profile list */}
-      <div className="space-y-3">
-        {sortedProfiles.map((profile) => (
-          <ProfileCardV2
-            key={profile.id}
-            profile={profile}
-            onSettings={handleSettings}
-            onMods={handleMods}
-            onDelete={handleDeleteProfile}
-            onOpenFolder={handleOpenFolder}
-          />
-        ))}
+      <div className={
+        layoutMode === "list" 
+          ? "space-y-3"
+          : layoutMode === "grid"
+          ? "grid grid-cols-2 gap-3" 
+          : "grid grid-cols-3 gap-3"
+      }>
+                 {sortedProfiles.map((profile) => (
+           <ProfileCardV2
+             key={profile.id}
+             profile={profile}
+             onSettings={handleSettings}
+             onMods={handleMods}
+             onDelete={handleDeleteProfile}
+             onOpenFolder={handleOpenFolder}
+             layoutMode={layoutMode}
+           />
+         ))}
       </div>
 
       {/* Bottom tip */}

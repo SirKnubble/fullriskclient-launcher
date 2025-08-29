@@ -8,9 +8,11 @@ import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
+import { Icon } from "@iconify/react";
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useLaunchStateStore } from "../../store/launch-state-store";
+import { useThemeStore } from "../../store/useThemeStore";
 import * as ProcessService from "../../services/process-service";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
 import { EventPayload as FrontendEventPayload, EventType as FrontendEventType } from "../../types/events";
@@ -24,6 +26,7 @@ interface ProfileCardV2Props {
   onMods?: (profile: Profile) => void;
   onDelete?: (profileId: string, profileName: string) => void;
   onOpenFolder?: (profile: Profile) => void;
+  layoutMode?: "list" | "grid" | "compact";
 }
 
 export function ProfileCardV2({
@@ -33,9 +36,11 @@ export function ProfileCardV2({
   onMods,
   onDelete,
   onOpenFolder,
+  layoutMode = "list",
 }: ProfileCardV2Props) {
   const [isHovered, setIsHovered] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const accentColor = useThemeStore((state) => state.accentColor);
   
   // Settings context menu state
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
@@ -388,6 +393,185 @@ export function ProfileCardV2({
     },
   ];
 
+    // Grid layout (more compact, similar to ProfileCard.tsx)
+  if (layoutMode === "grid" || layoutMode === "compact") {
+    const isCompact = layoutMode === "compact";
+    const iconSize = isCompact ? 16 : 20; // Smaller icons for compact mode
+    const padding = isCompact ? "p-3" : "p-4"; // Less padding for compact mode
+    const gap = isCompact ? "gap-2" : "gap-3"; // Smaller gaps for compact mode
+    
+    return (
+      <div
+        className={`relative flex flex-col ${gap} ${padding} rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Action buttons - top right */}
+        <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
+          {/* Settings button */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // If menu is already open, close it
+              if (isContextMenuOpen) {
+                setIsContextMenuOpen(false);
+                return;
+              }
+              
+              // Calculate position for context menu relative to the card container
+              const buttonRect = e.currentTarget.getBoundingClientRect();
+              const cardRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
+              
+              if (cardRect) {
+                setContextMenuPosition({
+                  x: buttonRect.right - cardRect.left - 200, // Position menu to the left of the button
+                  y: buttonRect.bottom - cardRect.top + 4,   // Position below the button
+                });
+                setIsContextMenuOpen(true);
+              }
+            }}
+            className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200`}
+            title="Profile Options"
+          >
+            <Icon icon="solar:settings-bold" className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
+          </button>
+          
+          {/* Mods button */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (onMods) {
+                onMods(profile);
+              } else {
+                toast.success(`📦 Managing mods for ${profile.name}!`);
+                console.log("Managing mods for profile:", profile.name);
+              }
+            }}
+            className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200`}
+            title="Manage Mods"
+          >
+            <Icon icon="solar:box-bold" className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
+          </button>
+        </div>
+
+        {/* Profile content */}
+        <div className={`flex items-center ${isCompact ? 'gap-3' : 'gap-4'} relative z-10 w-full`}>
+          <div className={`relative ${isCompact ? 'w-16 h-16' : 'w-20 h-20'} flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border-2 transition-all duration-200`}
+            style={{
+              backgroundColor: isHovered ? `${accentColor.value}20` : 'transparent',
+              borderColor: isHovered ? `${accentColor.value}60` : 'transparent',
+            }}
+          >
+            <ProfileIconV2 profile={profile} size={isCompact ? "md" : "lg"} className="w-full h-full" />
+            
+            {/* Play button overlay - similar to ProfileCard.tsx */}
+            {(isButtonLaunching || isHovered) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer rounded-lg">
+                <button
+                  onClick={() => handleLaunch(profile)}
+                  className={`${isCompact ? 'w-8 h-8' : 'w-12 h-12'} flex items-center justify-center text-white hover:text-white/80 transition-colors`}
+                  disabled={false}
+                >
+                  {isButtonLaunching ? (
+                    <Icon icon="solar:stop-bold" className={isCompact ? 'w-6 h-6' : 'w-8 h-8'} />
+                  ) : (
+                    <Icon icon="solar:play-bold" className={isCompact ? 'w-6 h-6' : 'w-8 h-8'} />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className={`flex-grow min-w-0 mr-auto pr-2 ${isCompact ? 'max-w-[calc(100%-64px)]' : 'max-w-[calc(100%-80px)]'}`}>
+            <h3
+              className={`font-minecraft-ten text-white ${isCompact ? 'text-base' : 'text-lg'} whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case`}
+              title={profile.name}
+            >
+              {profile.name}
+            </h3>
+            {isButtonLaunching ? (
+              <div className="text-white/60 text-xs font-minecraft-ten opacity-70 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                {buttonStatusMessage || currentStep || "Starting..."}
+              </div>
+            ) : (
+              isCompact ? (
+                 // Compact mode: Only MC version + last played
+                 <div className="flex items-center gap-1.5 text-xs font-minecraft-ten">
+                   {/* Minecraft Version */}
+                   <div className="text-white/70 flex items-center gap-0.5">
+                     <img
+                       src="/icons/minecraft.png"
+                       alt="Minecraft"
+                       className="w-2.5 h-2.5 object-contain"
+                     />
+                     <span>{profile.game_version}</span>
+                   </div>
+                   
+                   <div className="w-px h-2.5 bg-white/30"></div>
+                   
+                   {/* Last Played */}
+                   <div className="text-white/50">
+                     {formatLastPlayed(profile.last_played)}
+                   </div>
+                 </div>
+               ) : (
+                 // Grid mode: Full info display
+                 <div className="flex items-center gap-2 text-xs font-minecraft-ten">
+                   {/* Minecraft Version */}
+                   <div className="text-white/70 flex items-center gap-1">
+                     <img
+                       src="/icons/minecraft.png"
+                       alt="Minecraft"
+                       className="w-3 h-3 object-contain"
+                     />
+                     <span>{profile.game_version}</span>
+                   </div>
+                   
+                   <div className="w-px h-3 bg-white/30"></div>
+                   
+                   {/* Loader Version */}
+                   <div className="text-white/60 flex items-center gap-1">
+                     <img
+                       src={getModLoaderIcon()}
+                       alt={profile.loader || "Vanilla"}
+                       className="w-3 h-3 object-contain"
+                     />
+                     <span>
+                       {profile.loader === "vanilla" 
+                         ? "Vanilla" 
+                         : `${resolvedLoaderVersion?.version || profile.loader_version || "Unknown"}`
+                       }
+                     </span>
+                   </div>
+                   
+                   <div className="w-px h-3 bg-white/30"></div>
+                   
+                   {/* Last Played */}
+                   <div className="text-white/50">
+                     {formatLastPlayed(profile.last_played)}
+                   </div>
+                 </div>
+               )
+            )}
+          </div>
+        </div>
+
+        {/* Settings Context Menu */}
+        <SettingsContextMenu
+          profile={profile}
+          isOpen={isContextMenuOpen}
+          position={contextMenuPosition}
+          items={contextMenuItems}
+          onClose={() => setIsContextMenuOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  // List layout (original layout)
   return (
     <div
       className="relative flex items-center gap-4 p-3 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200"
@@ -407,11 +591,11 @@ export function ProfileCardV2({
         </h3>
         
         {isButtonLaunching ? (
-          <div className="text-white/60 text-xs font-minecraft-ten opacity-70">
+          <div className="text-white/60 text-xs font-minecraft-ten opacity-70 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
             {buttonStatusMessage || currentStep || "Starting..."}
           </div>
         ) : (
-                  <div className="flex items-center gap-2 text-xs font-minecraft-ten">
+          <div className="flex items-center gap-2 text-xs font-minecraft-ten">
           {/* Minecraft Version */}
           <div className="text-white/70 flex items-center gap-1">
             <img

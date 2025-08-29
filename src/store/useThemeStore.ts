@@ -230,9 +230,11 @@ interface ThemeState {
   profilesTabActiveGroup: string;
   profilesTabSortBy: string;
   profilesTabVersionFilter: string;
+  profilesTabLayoutMode: "list" | "grid" | "compact";
   setProfilesTabActiveGroup: (group: string) => void;
   setProfilesTabSortBy: (sortBy: string) => void;
   setProfilesTabVersionFilter: (filter: string) => void;
+  setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -251,6 +253,7 @@ export const useThemeStore = create<ThemeState>()(
       profilesTabActiveGroup: "all",
       profilesTabSortBy: "last_played",
       profilesTabVersionFilter: "all",
+      profilesTabLayoutMode: "list",
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -397,6 +400,10 @@ export const useThemeStore = create<ThemeState>()(
 
       setProfilesTabVersionFilter: (filter: string) => {
         set({ profilesTabVersionFilter: filter });
+      },
+
+      setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
+        set({ profilesTabLayoutMode: mode });
       },
     }),    {
       name: "norisk-theme-storage",
