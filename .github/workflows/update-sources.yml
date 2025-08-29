@@ -49,13 +49,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ $(git status --porcelain) ]]; then
-            if [ -f packaging/flatpak/cargo-sources.json ]; then
-              git add packaging/flatpak/cargo-sources.json
-            fi
-            if [ -f packaging/flatpak/node-sources.json ]; then
-              git add packaging/flatpak/node-sources.json
-            fi
+
+          FILES_TO_COMMIT=""
+          if [ -f packaging/flatpak/cargo-sources.json ]; then
+            FILES_TO_COMMIT="$FILES_TO_COMMIT packaging/flatpak/cargo-sources.json"
+          fi
+          if [ -f packaging/flatpak/node-sources.json ]; then
+            FILES_TO_COMMIT="$FILES_TO_COMMIT packaging/flatpak/node-sources.json"
+          fi
+
+          if [ -n "$FILES_TO_COMMIT" ] && [[ $(git status --porcelain $FILES_TO_COMMIT) ]]; then
+            git add $FILES_TO_COMMIT
             git commit -m "chore: update flatpak dependency manifests"
             git push
           else
