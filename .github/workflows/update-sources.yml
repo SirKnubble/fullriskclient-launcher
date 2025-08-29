@@ -59,7 +59,7 @@ jobs:
           fi
 
           if [ -n "$FILES_TO_COMMIT" ] && [[ $(git status --porcelain $FILES_TO_COMMIT) ]]; then
-            git add $FILES_TO_COMMIT
+            git add -- $FILES_TO_COMMIT
             git commit -m "chore: update flatpak dependency manifests"
             git push
           else
