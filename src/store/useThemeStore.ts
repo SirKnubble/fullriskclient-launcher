@@ -226,6 +226,13 @@ interface ThemeState {
   collapsedProfileGroups: string[];
   setCollapsedProfileGroups: (groups: string[]) => void;
   toggleCollapsedProfileGroup: (groupKey: string) => void;
+  // ProfilesTabV2 persistent filters
+  profilesTabActiveGroup: string;
+  profilesTabSortBy: string;
+  profilesTabVersionFilter: string;
+  setProfilesTabActiveGroup: (group: string) => void;
+  setProfilesTabSortBy: (sortBy: string) => void;
+  setProfilesTabVersionFilter: (filter: string) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -240,6 +247,10 @@ export const useThemeStore = create<ThemeState>()(
       customColorHistory: [],
       borderRadius: DEFAULT_BORDER_RADIUS,
       collapsedProfileGroups: [],
+      // ProfilesTabV2 persistent filters - defaults
+      profilesTabActiveGroup: "all",
+      profilesTabSortBy: "last_played",
+      profilesTabVersionFilter: "all",
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -373,6 +384,19 @@ export const useThemeStore = create<ThemeState>()(
             : [...state.collapsedProfileGroups, groupKey];
           return { collapsedProfileGroups: next };
         });
+      },
+
+      // ProfilesTabV2 persistent filters setters
+      setProfilesTabActiveGroup: (group: string) => {
+        set({ profilesTabActiveGroup: group });
+      },
+
+      setProfilesTabSortBy: (sortBy: string) => {
+        set({ profilesTabSortBy: sortBy });
+      },
+
+      setProfilesTabVersionFilter: (filter: string) => {
+        set({ profilesTabVersionFilter: filter });
       },
     }),    {
       name: "norisk-theme-storage",

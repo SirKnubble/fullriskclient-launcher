@@ -16,6 +16,7 @@ import { ProfileImport } from "../profiles/ProfileImport";
 import * as ProfileService from "../../services/profile-service";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
+import { useThemeStore } from "../../store/useThemeStore";
 
 export function ProfilesTabV2() {
   const {
@@ -27,11 +28,25 @@ export function ProfilesTabV2() {
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
   const { openModal: openWizard } = useProfileWizardStore();
+  
+  // Persistent filters from theme store
+  const {
+    profilesTabActiveGroup,
+    profilesTabSortBy,
+    profilesTabVersionFilter,
+    setProfilesTabActiveGroup,
+    setProfilesTabSortBy,
+    setProfilesTabVersionFilter,
+  } = useThemeStore();
+  
+  // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("name");
-  const [versionFilter, setVersionFilter] = useState("all");
-  const [activeGroup, setActiveGroup] = useState("all");
   const [showImport, setShowImport] = useState(false);
+  
+  // Use persistent values instead of local state
+  const activeGroup = profilesTabActiveGroup;
+  const sortBy = profilesTabSortBy;
+  const versionFilter = profilesTabVersionFilter;
 
   // Action buttons configuration
   const actionButtons: ActionButton[] = [
@@ -247,15 +262,29 @@ export function ProfilesTabV2() {
       case "name":
         return a.name.localeCompare(b.name);
       case "last_played":
-        // Convert string dates to timestamps for comparison
+        // Multi-level sorting: last_played -> date_created -> name
         const aTimestamp = a.last_played ? new Date(a.last_played).getTime() : 0;
         const bTimestamp = b.last_played ? new Date(b.last_played).getTime() : 0;
-        return bTimestamp - aTimestamp;
-      case "date_created":
-        // Convert string dates to timestamps for comparison
+        
+        // Primary sort: by last_played (descending)
+        if (bTimestamp !== aTimestamp) {
+          return bTimestamp - aTimestamp;
+        }
+        
+        // Secondary sort: by date_created (descending) 
         const aCreated = new Date(a.created).getTime();
         const bCreated = new Date(b.created).getTime();
-        return bCreated - aCreated;
+        if (bCreated !== aCreated) {
+          return bCreated - aCreated;
+        }
+        
+        // Tertiary sort: by name (ascending)
+        return a.name.localeCompare(b.name);
+      case "date_created":
+        // Convert string dates to timestamps for comparison
+        const aCreatedTimestamp = new Date(a.created).getTime();
+        const bCreatedTimestamp = new Date(b.created).getTime();
+        return bCreatedTimestamp - aCreatedTimestamp;
       default:
         return a.name.localeCompare(b.name);
     }
@@ -268,7 +297,7 @@ export function ProfilesTabV2() {
       <GroupTabs
         groups={groups}
         activeGroup={activeGroup}
-        onGroupChange={setActiveGroup}
+        onGroupChange={setProfilesTabActiveGroup}
         showAddButton={false}
       />
 
@@ -286,7 +315,7 @@ export function ProfilesTabV2() {
                 { value: "date_created", label: "Date created", icon: "solar:calendar-add-bold" },
               ]}
               sortValue={sortBy}
-              onSortChange={setSortBy}
+              onSortChange={setProfilesTabSortBy}
               filterOptions={[
                 { value: "all", label: "All versions", icon: "solar:layers-bold" },
                 { value: "1.21", label: "1.21.x", icon: "solar:gamepad-bold" },
@@ -294,7 +323,7 @@ export function ProfilesTabV2() {
                 { value: "1.19", label: "1.19.x", icon: "solar:gamepad-bold" },
               ]}
               filterValue={versionFilter}
-              onFilterChange={setVersionFilter}
+              onFilterChange={setProfilesTabVersionFilter}
             />
           </div>
           <ActionButtons actions={actionButtons} />
