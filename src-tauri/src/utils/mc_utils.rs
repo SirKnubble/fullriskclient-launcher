@@ -88,6 +88,38 @@ struct VersionData {
     // Add Id and Snapshot if needed later
 }
 
+/// Helper function to check if a Minecraft version is legacy (< 1.13)
+/// This is useful for determining path structures and compatibility
+pub fn is_legacy_minecraft_version(mc_version: &str) -> bool {
+    let mc_version_parts: Vec<&str> = mc_version.split('.').collect();
+    
+    if mc_version_parts.is_empty() {
+        return false;
+    }
+    
+    // Parse major version
+    let major = match mc_version_parts[0].parse::<u32>() {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    
+    match major {
+        1 if mc_version_parts.len() > 1 => {
+            let minor = match mc_version_parts[1].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => return false,
+            };
+            
+            // Minecraft 1.12.x and below are considered legacy
+            minor < 13
+        }
+        // Anything below 1.x is definitely legacy
+        0 => true,
+        // Anything 2.x and above is definitely not legacy
+        _ => false,
+    }
+}
+
 /// Returns the path to the default .minecraft directory based on OS
 pub fn get_default_minecraft_dir() -> PathBuf {
     if cfg!(target_os = "windows") {

@@ -4,6 +4,7 @@ use crate::error::Result;
 use crate::integrations::modrinth::{self, ModrinthDependencyType, ModrinthVersion};
 use crate::state::post_init::PostInitializationHandler;
 use crate::utils::hash_utils;
+use crate::utils::mc_utils;
 use crate::utils::path_utils;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -1385,6 +1386,7 @@ impl ProfileManager {
         normalized == "server" || normalized == "modpacks"
     }
 
+
     /// Sanitizes a group name for safe filesystem usage
     fn sanitize_group_name(group_name: &str) -> String {
         sanitize_filename::sanitize(group_name.to_lowercase())
@@ -1421,9 +1423,14 @@ impl ProfileManager {
             Self::build_path_from_profile_path(profile)
         } else if let Some(group) = &profile.group {
             if Self::is_norisk_client_group(group) {
-                // NoRisk Client groups go to "noriskclient/new"
-                log::trace!("Profile '{}' belongs to NoRisk Client group, using noriskclient/new path", profile.name);
-                default_profile_path().join("noriskclient").join("new")
+                // NoRisk Client groups go to "noriskclient/legacy" for MC < 1.13, "noriskclient/new" otherwise
+                if mc_utils::is_legacy_minecraft_version(&profile.game_version) {
+                    log::trace!("Profile '{}' belongs to NoRisk Client group with legacy MC version {}, using noriskclient/legacy path", profile.name, profile.game_version);
+                    default_profile_path().join("noriskclient").join("legacy")
+                } else {
+                    log::trace!("Profile '{}' belongs to NoRisk Client group with modern MC version {}, using noriskclient/new path", profile.name, profile.game_version);
+                    default_profile_path().join("noriskclient").join("new")
+                }
             } else {
                 // Other custom groups go to "groups/{sanitized_group_name}"
                 let sanitized_group = Self::sanitize_group_name(group);
