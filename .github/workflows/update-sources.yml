@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout your project
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -20,14 +20,24 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install tools
-        run: |
-          sudo apt update && sudo apt install pipx
-          pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node
-          pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=cargo
+      - name: Install pip dependencies for cargo generator
+        run: pip install tomlkit aiohttp
+
+      - name: Checkout flatpak-builder-tools
+        uses: actions/checkout@v4
+        with:
+          repository: flatpak/flatpak-builder-tools
+          path: flatpak-builder-tools
 
       - name: Generate cargo-sources.json
-        run: flatpak-cargo-generator src-tauri/Cargo.lock -o packaging/flatpak/cargo-sources.json
+        run: |
+          python3 flatpak-builder-tools/cargo/flatpak-cargo-generator.py src-tauri/Cargo.lock -o packaging/flatpak/cargo-sources.json
+
+      - name: Install pipx
+        run: sudo apt update && sudo apt install -y pipx
+
+      - name: Install flatpak-node-generator
+        run: pipx install git+https://github.com/flatpak/flatpak-builder-tools.git#subdirectory=node
 
       - name: Generate node-sources.json (Yarn)
         run: |
