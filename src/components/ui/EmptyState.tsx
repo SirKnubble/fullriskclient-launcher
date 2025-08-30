@@ -83,14 +83,11 @@ export function EmptyState({
     <div
       ref={containerRef}
       className={cn(
-        "flex flex-col items-center justify-center rounded-lg backdrop-blur-sm",
+        "flex flex-col items-center justify-center",
         compact ? "p-4" : "p-8",
         fullHeight ? "h-full w-full" : "auto",
         className,
       )}
-      style={{
-        backgroundColor: `${accentColor.value}10`,
-      }}
     >
       <div
         style={{

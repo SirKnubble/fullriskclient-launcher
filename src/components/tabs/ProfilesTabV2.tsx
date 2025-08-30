@@ -213,15 +213,15 @@ export function ProfilesTabV2() {
 
   const handleSettings = (profile: Profile) => {
     console.log("Opening settings for profile:", profile.name);
-    // Navigate to the profile detail view
-    navigate(`/profiles/${profile.id}`);
+    // Navigate to the profile detail view V2
+    navigate(`/profilesv2/${profile.id}`);
   };
 
   const handleMods = (profile: Profile) => {
     console.log("Managing mods for profile:", profile.name);
-    // Navigate to the profile detail view with mods tab focus
-    navigate(`/profiles/${profile.id}`);
-    // Note: The ProfileDetailView will show the mods tab by default
+    // Navigate to the profile detail view V2 with mods tab focus
+    navigate(`/profilesv2/${profile.id}`);
+    // Note: The ProfileDetailViewV2 will show the mods tab by default
   };
 
   if (loading) {

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Profile, ResolvedLoaderVersion } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
-import { ProfileActionButtons, type ActionButton } from "../ui/ProfileActionButtons";
+import { ProfileActionButtons, type ProfileActionButton } from "../ui/ProfileActionButtons";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
 import { Icon } from "@iconify/react";
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
@@ -332,7 +332,7 @@ export function ProfileCardV2({
   };
 
   // Action button configuration
-  const actionButtons: ActionButton[] = [
+  const actionButtons: ProfileActionButton[] = [
     {
       id: "play",
       label: isButtonLaunching ? "STOP" : "PLAY",

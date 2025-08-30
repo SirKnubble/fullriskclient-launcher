@@ -8,6 +8,7 @@ import { StoreTab } from "../components/tabs/StoreTab";
 import { SettingsTab } from "../components/tabs/SettingsTab";
 import { BrowseTab } from "../components/profiles/detail/BrowseTab";
 import { ProfilesTabV2 } from "../components/tabs/ProfilesTabV2";
+import { ProfileDetailViewV2Wrapper } from "../components/profiles/ProfileDetailViewV2Wrapper";
 
 export const router = createHashRouter([
   {
@@ -25,6 +26,10 @@ export const router = createHashRouter([
       {
         path: "profiles/:profileId",
         element: <ProfilesTab />,
+      },
+      {
+        path: "profilesv2/:profileId",
+        element: <ProfileDetailViewV2Wrapper />,
       },
       {
         path: "profiles",

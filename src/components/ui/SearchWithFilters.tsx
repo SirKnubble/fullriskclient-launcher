@@ -1,6 +1,7 @@
 "use client";
 
 import { Icon } from "@iconify/react";
+import { StableIcon } from "./IconWrapper";
 import { CustomDropdown } from "./CustomDropdown";
 import type { DropdownOption } from "./CustomDropdown";
 
@@ -56,7 +57,7 @@ export function SearchWithFilters({
     <div className={`flex items-center gap-4 ${className}`}>
       {/* Search with integrated filters */}
       <div className="flex items-center gap-2 bg-black/50 rounded-lg px-4 py-3 border border-white/10 hover:border-white/20 transition-colors flex-1 max-w-md">
-        <Icon icon={searchIcon} className="w-4 h-4 text-white/50" />
+        <StableIcon icon={searchIcon} className="w-4 h-4 text-white/50" />
         <input
           type="text"
           placeholder={placeholder}

@@ -97,13 +97,13 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     };    const getSizeClasses = () => {
       switch (size) {
         case "sm":
-          return "px-2 py-1 rounded-md min-h-[15px]";
+          return "px-1.5 py-0.5 rounded-sm min-h-[12px]";
         case "lg":
-          return "px-4 py-1.5 rounded-md min-h-[36px]";
+          return "px-3 py-1 rounded-md min-h-[28px]";
         case "xl":
-          return "px-5 py-2 rounded-md min-h-[44px]";
+          return "px-4 py-1.5 rounded-md min-h-[36px]";
         default:
-          return "px-2 py-1 rounded-md min-h-[15px]";
+          return "px-1.5 py-0.5 rounded-sm min-h-[12px]";
       }
     };    const variantStyles = getVariantStyles();
     const sizeClasses = getSizeClasses();
@@ -115,13 +115,13 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const getTextSizeClass = () => {
       switch (size) {
         case "sm":
-          return "text-[0.9em]";
+          return "text-[0.6em]";
         case "lg":
-          return "text-base";
+          return "text-sm";
         case "xl":
-          return "text-lg";
+          return "text-base";
         default:
-          return "text-[0.7em]";
+          return "text-[0.55em]";
       }
     };
 
@@ -178,7 +178,7 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
           }}
         >
           {iconElement && (
-            <span className="flex-shrink-0 w-3 h-3 flex items-center justify-center" aria-hidden="true">
+            <span className="flex-shrink-0 w-2.5 h-2.5 flex items-center justify-center" aria-hidden="true">
               {iconElement}
             </span>
           )}

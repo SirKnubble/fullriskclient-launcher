@@ -68,7 +68,7 @@ export function GenericList<T>({
   searchQuery = "",
   accentColor = "#FFFFFF",
   listContainerClassName = "",
-  ulClassName = "divide-y divide-white/10",
+  ulClassName = "space-y-2",
   showEmptyState = true,
 }: GenericListProps<T>) {
   const effectiveAccentColor = accentColor || "#FFFFFF";
@@ -83,19 +83,13 @@ export function GenericList<T>({
     }    if (loadingItemCount && loadingItemCount > 0) {
       return (
         <div
-          className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-          style={{
-            backgroundColor: `${effectiveAccentColor}08`,
-            borderColor: `${effectiveAccentColor}20`,
-          }}
+          className={`${listContainerClassName}`}
         >
-          <div className="h-full overflow-y-auto custom-scrollbar">
-            <ul className={ulClassName}>
-              {Array.from({ length: loadingItemCount }).map((_, index) => (
-                <GenericListItemSkeleton key={`skeleton-${index}`} accentColor={effectiveAccentColor} />
-              ))}
-            </ul>
-          </div>
+          <ul className={ulClassName}>
+            {Array.from({ length: loadingItemCount }).map((_, index) => (
+              <GenericListItemSkeleton key={`skeleton-${index}`} accentColor={effectiveAccentColor} />
+            ))}
+          </ul>
         </div>
       );    } else if (items.length === 0) {
       return (
@@ -139,36 +133,20 @@ export function GenericList<T>({
     );
   }
   if (isEmpty && !isLoading && !error && !showEmptyState) {
-     return (
-        <div
-            className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-            style={{
-                backgroundColor: `${effectiveAccentColor}08`,
-                borderColor: `${effectiveAccentColor}20`,
-            }}
-        >            <div className="h-full overflow-y-auto custom-scrollbar">
-                <ul className={ulClassName}>
-                </ul>
-            </div>
-        </div>
-     );
+     return null; // Return nothing for empty state without background
   }
   if (!isEmpty) {
     return (
         <div
-        className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-        style={{
-            backgroundColor: `${effectiveAccentColor}08`,
-            borderColor: `${effectiveAccentColor}20`,
-        }}
+        className={`${listContainerClassName}`}
         >
-        <Virtuoso
-            style={{ height: '100%' }} 
-            data={items}            itemContent={(index, item) => {
-                return renderItem(item, index);
-            }}
-            className="custom-scrollbar"
-          />
+        <ul className={ulClassName}>
+          {items.map((item, index) => (
+            <li key={index}>
+              {renderItem(item, index)}
+            </li>
+          ))}
+        </ul>
         </div>
     );
   }

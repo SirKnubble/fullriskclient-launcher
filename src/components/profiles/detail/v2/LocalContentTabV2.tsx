@@ -10,7 +10,7 @@ import React, {
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../ui/buttons/Button";
-import { IconButton } from "../../../ui/buttons/IconButton";
+import { ContentActionButtons, type ContentActionButton } from "../../../ui/ContentActionButtons";
 import { GenericDetailListItem } from "../items/GenericDetailListItem";
 import { TagBadge } from "../../../ui/TagBadge";
 import { useThemeStore } from "../../../../store/useThemeStore";
@@ -19,7 +19,8 @@ import { preloadIcons } from "../../../../lib/icon-utils";
 import type { Profile } from "../../../../types/profile";
 import type { ModrinthVersion } from "../../../../types/modrinth";
 import { SearchInput } from "../../../ui/SearchInput";
-import { Checkbox } from "../../../ui/Checkbox";
+import { SearchWithFilters } from "../../../ui/SearchWithFilters";
+import { CheckboxV2 } from "../../../ui/CheckboxV2";
 import { ConfirmDeleteDialog } from "../../../modals/ConfirmDeleteDialog";
 import { formatFileSize } from "../../../../utils/format-file-size";
 import { toast } from "react-hot-toast";
@@ -816,149 +817,99 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         );
       })();
 
-      const itemBadgesNode = (
-        <>
-          {isBlockedByNoRisk && (
-            <TagBadge
-              size="sm"
-              variant="destructive"
-              iconElement={
-                <Icon
-                  icon="solar:shield-cross-bold-duotone"
-                  className="w-3 h-3"
-                />
-              }
-            >
-              CRASHES WITH NRC
-            </TagBadge>
-          )}
-          <TagBadge
-            size="sm"
-            variant={!item.is_disabled ? "success" : "destructive"}
-            iconElement={
-              !item.is_disabled ? (
-                <Icon
-                  icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[3]}
-                  className="w-3 h-3"
-                />
-              ) : (
-                <Icon
-                  icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[4]}
-                  className="w-3 h-3"
-                />
-              )
-            }
-          >
-            {!item.is_disabled ? "Enabled" : "Disabled"}
-          </TagBadge>
-          {item.modrinth_info && (
-            <TagBadge size="sm" variant="info">
-              Modrinth
-            </TagBadge>
-          )}
-          {item.source_type && (
-            <TagBadge size="sm" variant="warning">
-              {item.source_type.charAt(0).toUpperCase() +
-                item.source_type.slice(1)}
-            </TagBadge>
-          )}
-        </>
-      );
+      const itemBadgesNode = [
+        ...(isBlockedByNoRisk ? [{
+          text: "CRASHES WITH NRC",
+          color: "#ef4444"
+        }] : []),
+        ...(item.modrinth_info ? [{
+          icon: "https://cdn.modrinth.com/modrinth-new.png",
+          text: "Modrinth",
+          color: item.is_disabled ? "#6b7280" : "#22c55e"
+        }] : []),
+        ...(item.source_type ? [{
+          text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
+          color: item.is_disabled ? "#6b7280" : "#f59e0b"
+        }] : [])
+      ];
 
-      let itemUpdateActionNode: React.ReactNode = null;
-      // Prevent update action for NoRisk mods
+      // Build action buttons array for this item
+      const itemActions: ContentActionButton[] = [];
+
+      // Update action (if available and not NoRisk mod) - icon-only
       if (updateAvailableVersion && !isCurrentlyUpdating && !item.norisk_info) {
+        console.log(`Update available for ${item.filename}:`, updateAvailableVersion);
         if (
           !item.modrinth_info ||
           item.modrinth_info.version_id !== updateAvailableVersion.id
         ) {
-          itemUpdateActionNode = (
-            <IconButton
-              size="sm"
-              variant="success"
-              onClick={() =>
-                handleUpdateContentItem(item, updateAvailableVersion)
-              }
-              icon={
-                <Icon
-                  icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10]}
-                  className="w-3.5 h-3.5"
-                />
-              }
-              title={`Update to ${updateAvailableVersion.version_number}`}
-            />
-          );
+          console.log(`Adding highlight update button for ${item.filename}`);
+          itemActions.push({
+            id: "update",
+            label: "", // Force icon-only but keep highlight variant
+            icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10],
+            variant: "highlight" as const,
+            tooltip: `Update to ${updateAvailableVersion.version_number}`,
+            onClick: () => handleUpdateContentItem(item, updateAvailableVersion),
+          });
         }
       } else if (isCurrentlyUpdating && !item.norisk_info) {
-        // Also ensure no update indicator for NoRisk mods
-        itemUpdateActionNode = (
-          <IconButton
-            size="sm"
-            variant="secondary"
-            icon={
-              <Icon
-                icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]}
-                className="animate-spin w-3.5 h-3.5"
-              />
-            }
-            title={`Updating...`}
-          />
-        );
+        itemActions.push({
+          id: "updating",
+          icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11],
+          variant: "secondary",
+          tooltip: "Updating...",
+          disabled: true,
+          loading: true,
+          onClick: () => {},
+        });
       }
 
-      const itemMainActionNode = (
-        <Button
-          size="sm"
-          variant={!item.is_disabled ? "secondary" : "default"}
-          onClick={() => handleToggleItemEnabled(item)}
-        >
-          {isToggling ? "..." : !item.is_disabled ? "Disable" : "Enable"}
-        </Button>
-      );
+      // Main toggle action
+      itemActions.push({
+        id: "toggle",
+        label: isToggling ? "..." : !item.is_disabled ? "DISABLE" : "ENABLE",
+        icon: !item.is_disabled ? "solar:close-circle-bold" : "solar:check-circle-bold",
+        variant: !item.is_disabled ? "secondary" : "primary",
+        tooltip: !item.is_disabled ? "Disable this item" : "Enable this item",
+        disabled: isToggling,
+        onClick: () => handleToggleItemEnabled(item),
+      });
 
-      // Prevent delete action for NoRisk mods
-      const itemDeleteActionNode: React.ReactNode = item.norisk_info ? null : (
-        <IconButton
-          title={`Delete ${itemTypeName}`}
-          icon={
-            isDeleting ? (
-              <Icon
-                icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]}
-                className="animate-spin w-3.5 h-3.5"
-              />
-            ) : (
-              <Icon
-                icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6]}
-                className="w-3.5 h-3.5"
-              />
-            )
-          }
-          variant="destructive"
-          size="sm"
-          onClick={() => handleDeleteItem(item)}
+      // Delete action (if not NoRisk mod) - icon-only
+      if (!item.norisk_info) {
+        itemActions.push({
+          id: "delete",
+          icon: isDeleting ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6],
+          variant: "destructive",
+          tooltip: `Delete ${itemTypeName}`,
+          disabled: isDeleting,
+          loading: isDeleting,
+          onClick: () => handleDeleteItem(item),
+        });
+      }
+
+      // More actions - icon-only
+      itemActions.push({
+        id: "more",
+        icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[7],
+        variant: "secondary",
+        tooltip: "More Actions",
+        onClick: (e) => {
+          e.stopPropagation();
+          setActiveDropdownId(
+            activeDropdownId === item.filename ? null : item.filename,
+          );
+        },
+      });
+
+      const itemActionsNode = (
+        <ContentActionButtons
+          actions={itemActions}
         />
       );
 
-      const itemMoreActionsTriggerNode = (
-        <IconButton
-          title="More Actions"
-          icon={
-            <Icon
-              icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[7]}
-              className="w-3.5 h-3.5"
-            />
-          }
-          variant="ghost"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setActiveDropdownId(
-              activeDropdownId === item.filename ? null : item.filename,
-            );
-          }}
-          data-item-id={item.filename}
-        />
-      );
+
 
       const itemDropdownNode = (
         <ThemedSurface className="absolute top-full right-0 mt-1 w-44 z-20">
@@ -996,11 +947,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           iconNode={itemIconNode}
           title={itemTitle}
           descriptionNode={itemDescriptionNode}
-          badgesNode={itemBadgesNode}
-          updateActionNode={itemUpdateActionNode}
-          mainActionNode={itemMainActionNode}
-          deleteActionNode={itemDeleteActionNode}
-          moreActionsTriggerNode={itemMoreActionsTriggerNode}
+          infoItems={itemBadgesNode}
+          isDisabled={item.is_disabled}
+          actionsNode={itemActionsNode}
           dropdownNode={itemDropdownNode}
           isDropdownVisible={activeDropdownId === item.filename}
           accentColor={accentColor.value}
@@ -1055,56 +1004,15 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     isBatchToggling || isBatchDeleting || isUpdatingAll;
 
   const primaryLeftActionsContent = (
-    <div className="flex flex-col gap-2 flex-grow min-w-0">
+    <div className="flex flex-col flex-grow min-w-0">
       <div className="flex items-center gap-2">
-        <SearchInput
-          value={searchQuery}
-          onChange={(val) => setSearchQuery(val)}
+        <SearchWithFilters
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
           placeholder={`Search ${itemTypeNamePlural}...`}
-          className="flex-grow !h-9"
-        />
-        {effectiveOnAddContent && contentType !== "NoRiskMod" && profile && (
-          <div className="flex flex-shrink-0">
-            <Button
-              onClick={() => {
-                if (profile && onBrowseContentRequest) {
-                  // Check if onBrowseContentRequest is available
-                  const browseContentType =
-                    getBrowseTabContentType(contentType);
-                  onBrowseContentRequest(browseContentType); // Call the new prop
-                } else if (profile) {
-                  // Fallback or original navigation logic if prop not provided (though it should be)
-                  const browseContentType =
-                    getBrowseTabContentType(contentType);
-                  navigate(
-                    `/profiles/${profile.id}/browse/${browseContentType}`,
-                  );
-                }
-              }}
-              variant="secondary"
-              size="sm"
-              className="!h-9 rounded-r-none border-r-transparent focus:z-10"
-              title="Browse for content online"
-            >
-              Browse
-            </Button>
-            <IconButton
-              icon={<Icon icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[12]} />}
-              onClick={effectiveOnAddContent}
-              variant="secondary"
-              size="xs"
-              className="!h-9 !w-9 rounded-l-none focus:z-10"
-              title={addContentButtonText}
-            />
-          </div>
-        )}
-        <IconButton
-          icon={<Icon icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[13]} />}
-          onClick={() => fetchData(true)}
-          variant="secondary"
-          size="sm"
-          title="Refresh List"
-          className="!h-9 !w-9 flex-shrink-0"
+          showSort={false}
+          showFilter={false}
+          className="!h-8 flex-grow"
         />
       </div>
       {contentUpdateError && (
@@ -1113,22 +1021,18 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         </div>
       )}
       <>
-        <div
-          className="h-px w-full my-1"
-          style={{ backgroundColor: `${accentColor.value}30` }}
-        />
         <div className="flex items-center justify-between w-full min-h-14">
           {/* Left side: Select All Checkbox */}
-          <Checkbox
-            customSize="md"
+          <CheckboxV2
+            size="md"
             checked={areAllFilteredSelected}
-            onChange={(e) => handleSelectAllToggle(e.target.checked)}
+            onChange={(checked) => handleSelectAllToggle(checked)}
             label={
               selectedItemIds.size > 0
                 ? `${selectedItemIds.size} selected`
                 : "Select All"
             }
-            title={
+            tooltip={
               areAllFilteredSelected
                 ? "Deselect all visible"
                 : "Select all visible"
@@ -1139,23 +1043,21 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           <div className="flex items-center gap-2">
             {/* Batch Toggle Button - Common for all types if items are selected */}
             {selectedItemIds.size > 0 && (
-              <Button
+              <ContentActionButtons
+                actions={[
+                  {
+                    id: "batch-toggle",
+                    label: isBatchToggling ? "TOGGLING..." : `TOGGLE (${selectedItemIds.size})`,
+                    icon: isBatchToggling ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : "solar:refresh-bold",
+                    variant: "text" as const,
+                    disabled: isBatchToggling,
+                    loading: isBatchToggling,
+                    tooltip: `Toggle enable/disable for ${selectedItemIds.size} selected items`,
+                    onClick: handleBatchToggleSelected,
+                  },
+                ]}
                 size="sm"
-                variant="secondary"
-                onClick={handleBatchToggleSelected}
-                icon={
-                  isBatchToggling ? (
-                    <Icon
-                      icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]}
-                      className="animate-spin mr-1.5"
-                    />
-                  ) : undefined
-                }
-              >
-                {isBatchToggling
-                  ? "Toggling..."
-                  : `Toggle (${selectedItemIds.size})`}
-              </Button>
+              />
             )}
 
             {/* NoRisk Pack Selector - Only for NoRiskMod type */}
@@ -1185,53 +1087,80 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
             {/* Delete and Update All buttons - Only for non-NoRiskMod types */}
             {contentType !== "NoRiskMod" && (
-              <>
-                {selectedItemIds.size > 0 && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={handleBatchDeleteSelected}
-                    icon={
-                      isBatchDeleting ? (
-                        <Icon
-                          icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]}
-                          className="animate-spin mr-1.5"
-                        />
-                      ) : undefined
-                    }
-                  >
-                    {isBatchDeleting
-                      ? "Deleting..."
-                      : `Delete (${selectedItemIds.size})`}
-                  </Button>
-                )}
-                {Object.keys(contentUpdates).length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="success"
-                    onClick={handleUpdateAllAvailableContent}
-                    icon={
-                      isUpdatingAll ? (
-                        <Icon
-                          icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]}
-                          className="animate-spin mr-1.5"
-                        />
-                      ) : (
-                        <Icon
-                          icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[14]}
-                          className="mr-1.5"
-                        />
-                      )
-                    }
-                    className={selectedItemIds.size > 0 ? "ml-2" : ""}
-                  >
-                    {isUpdatingAll
-                      ? "Updating All..."
-                      : `Update All (${Object.keys(contentUpdates).length})`}
-                  </Button>
-                )}
-              </>
+              <ContentActionButtons
+                actions={[
+                  ...(selectedItemIds.size > 0 ? [{
+                    id: "batch-delete",
+                    label: isBatchDeleting ? "DELETING..." : `DELETE (${selectedItemIds.size})`,
+                    icon: isBatchDeleting ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6],
+                    variant: "text" as const,
+                    disabled: isBatchDeleting,
+                    loading: isBatchDeleting,
+                    tooltip: `Delete ${selectedItemIds.size} selected items`,
+                    onClick: handleBatchDeleteSelected,
+                  }] : []),
+                  ...(Object.keys(contentUpdates).length > 0 ? [{
+                    id: "update-all",
+                    label: isUpdatingAll ? "UPDATING ALL..." : `UPDATE ALL (${Object.keys(contentUpdates).length})`,
+                    icon: isUpdatingAll ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[14],
+                    variant: "highlight" as const,
+                    disabled: isUpdatingAll,
+                    loading: isUpdatingAll,
+                    tooltip: `Update all ${Object.keys(contentUpdates).length} available updates`,
+                    onClick: handleUpdateAllAvailableContent,
+                  }] : []),
+                ]}
+                size="sm"
+              />
             )}
+
+            {/* Browse and Add buttons - only for non-NoRiskMod types */}
+            {effectiveOnAddContent && contentType !== "NoRiskMod" && profile && (
+              <ContentActionButtons
+                actions={[
+                  {
+                    id: "browse",
+                    label: `DOWNLOAD ${itemTypeNamePlural.toUpperCase()}`,
+                    icon: "solar:add-circle-bold",
+                    variant: "highlight" as const,
+                    tooltip: `Browse and download ${itemTypeNamePlural} online`,
+                    onClick: () => {
+                      if (profile && onBrowseContentRequest) {
+                        const browseContentType = getBrowseTabContentType(contentType);
+                        onBrowseContentRequest(browseContentType);
+                      } else if (profile) {
+                        const browseContentType = getBrowseTabContentType(contentType);
+                        navigate(`/profiles/${profile.id}/browse/${browseContentType}`);
+                      }
+                    },
+                  },
+                  {
+                    id: "add",
+                    label: "IMPORT",
+                    icon: "solar:folder-with-files-bold",
+                    variant: "text" as const,
+                    tooltip: addContentButtonText,
+                    onClick: effectiveOnAddContent,
+                  },
+                ]}
+                size="sm"
+              />
+            )}
+
+            {/* Refresh button - always visible for all content types */}
+            <ContentActionButtons
+              actions={[
+                {
+                  id: "refresh",
+                  label: "REFRESH",
+                  icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[13],
+                  variant: "text" as const,
+                  tooltip: "Refresh List",
+                  onClick: () => fetchData(true),
+                },
+              ]}
+              size="sm"
+            />
           </div>
         </div>
       </>
@@ -1435,16 +1364,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         }
         emptyStateMessage={getEmptyStateMessage()}
         emptyStateDescription={getEmptyStateDescription()}
-        emptyStateAction={isTrulyEmptyState ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleEmptyStateBrowse}
-            icon={<Icon icon="solar:magnifer-bold" />}
-          >
-            Browse {itemTypeNamePlural}
-          </Button>
-        ) : undefined}
+        emptyStateAction={undefined}
         loadingItemCount={Math.min(items.length > 0 ? items.length : 5, 10)}
         showSkeletons={false}
         accentColorOverride={accentColor.value}

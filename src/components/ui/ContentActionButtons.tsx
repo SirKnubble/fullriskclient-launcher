@@ -1,14 +1,13 @@
 "use client";
 
 import React from "react";
-import type { Profile } from "../../types/profile";
 import { ActionButton, type ActionButtonVariant } from "./ActionButton";
 
-export interface ProfileActionButton {
+export interface ContentActionButton {
   /** Unique identifier for the button */
   id: string;
-  /** Label text to display */
-  label: string;
+  /** Label text to display (optional for icon-only buttons) */
+  label?: string;
   /** Icon to display */
   icon: string;
   /** Button variant/style */
@@ -17,15 +16,15 @@ export interface ProfileActionButton {
   tooltip?: string;
   /** Whether the button is disabled */
   disabled?: boolean;
+  /** Whether the button is loading (shows spinner) */
+  loading?: boolean;
   /** Click handler */
-  onClick: (profile: Profile, e: React.MouseEvent) => void;
+  onClick: (e: React.MouseEvent) => void;
 }
 
-export interface ProfileActionButtonsProps {
-  /** The profile these actions are for */
-  profile: Profile;
+export interface ContentActionButtonsProps {
   /** Array of action button configurations */
-  actions: ProfileActionButton[];
+  actions: ContentActionButton[];
   /** Additional CSS classes */
   className?: string;
   /** Button size */
@@ -36,22 +35,21 @@ export interface ProfileActionButtonsProps {
   flexSpacerAfterIndex?: number;
 }
 
-export function ProfileActionButtons({
-  profile,
+export function ContentActionButtons({
   actions,
   className = "",
   size = "md",
   useFlexSpacer = false,
   flexSpacerAfterIndex = 1,
-}: ProfileActionButtonsProps) {
-  const handleButtonClick = (action: ProfileActionButton, e: React.MouseEvent) => {
-    if (!action.disabled) {
-      action.onClick(profile, e);
+}: ContentActionButtonsProps) {
+  const handleButtonClick = (action: ContentActionButton, e: React.MouseEvent) => {
+    if (!action.disabled && !action.loading) {
+      action.onClick(e);
     }
   };
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center gap-2 ${className}`}>
       {actions.map((action, index) => {
         const buttonElement = (
           <ActionButton
@@ -61,9 +59,10 @@ export function ProfileActionButtons({
             icon={action.icon}
             variant={action.variant}
             tooltip={action.tooltip}
-            disabled={action.disabled}
+            disabled={action.disabled || action.loading}
             size={size}
             onClick={(e) => handleButtonClick(action, e)}
+            className={action.loading ? "animate-spin" : ""}
           />
         );
 
