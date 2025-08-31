@@ -13,6 +13,7 @@ import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
 import { BrowseTab } from "./detail/BrowseTab";
 import { WorldsTab } from "./detail/WorldsTab";
+import { ScreenshotsTab } from "./detail/ScreenshotsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 
 type MainTabType = "content" | "browse" | "worlds" | "logs" | "screenshots";
@@ -355,18 +356,14 @@ export function ProfileDetailViewV2({
           )}
           
           {activeMainTab === "screenshots" && (
-            <div className="text-center text-white/50">
-              <Icon
-                icon="solar:camera-bold-duotone"
-                className="w-16 h-16 mx-auto mb-4 opacity-50"
-              />
-              <p className="font-minecraft text-lg uppercase">
-                Screenshots
-              </p>
-              <p className="font-minecraft text-sm mt-2">
-                View and manage your screenshots
-              </p>
-            </div>
+            <ScreenshotsTab
+              profile={currentProfile}
+              isActive={true}
+              onOpenScreenshotModal={(screenshot) => {
+                // TODO: Implement screenshot modal using global modal system
+                console.log("Open screenshot modal for:", screenshot);
+              }}
+            />
           )}
           
           {activeMainTab === "logs" && (
