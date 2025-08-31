@@ -31,20 +31,25 @@ export function ActionButtons({
 }: ActionButtonsProps) {
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      {actions.map((action) => (
-        <button
-          key={action.id}
-          onClick={action.onClick}
-          className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
-          title={action.tooltip}
-          disabled={action.disabled}
-        >
-          <div className="w-4 h-4 flex items-center justify-center">
-            <Icon icon={action.icon} className="w-4 h-4" />
-          </div>
-          <span style={{ transform: 'translateY(-0.075em)' }}>{action.label}</span>
-        </button>
-      ))}
+      {actions.map((action) => {
+        const isIconOnly = !action.label || action.label.trim() === "";
+        return (
+          <button
+            key={action.id}
+            onClick={action.onClick}
+            className={`flex items-center ${isIconOnly ? 'justify-center w-10 h-10' : 'gap-2 px-4 py-2'} bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200`}
+            title={action.tooltip}
+            disabled={action.disabled}
+          >
+            <div className="w-4 h-4 flex items-center justify-center">
+              <Icon icon={action.icon} className="w-4 h-4" />
+            </div>
+            {!isIconOnly && (
+              <span style={{ transform: 'translateY(-0.075em)' }}>{action.label}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

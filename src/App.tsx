@@ -20,6 +20,7 @@ import {
 } from "./types/events";
 import { GlobalCrashReportModal } from "./components/modals/GlobalCrashReportModal";
 import { TermsOfServiceModal } from "./components/modals/TermsOfServiceModal";
+import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
 import { refreshNrcDataOnMount } from "./services/nrc-service";
@@ -245,6 +246,7 @@ export function App() {
         <GlobalToaster />
         <GlobalCrashReportModal />
         <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
+        <GlobalModalPortal />
         <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
           <Outlet context={profilesTabContext} />
         </AppLayout>

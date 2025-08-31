@@ -12,6 +12,7 @@ import { ActionButton as SingleActionButton } from "../ui/ActionButton";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
 import { BrowseTab } from "./detail/BrowseTab";
+import { WorldsTab } from "./detail/WorldsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 
 type MainTabType = "content" | "browse" | "worlds" | "logs" | "screenshots";
@@ -346,18 +347,11 @@ export function ProfileDetailViewV2({
           )}
           
           {activeMainTab === "worlds" && (
-            <div className="text-center text-white/50">
-              <Icon
-                icon="solar:planet-bold-duotone"
-                className="w-16 h-16 mx-auto mb-4 opacity-50"
-              />
-              <p className="font-minecraft text-lg uppercase">
-                Worlds
-              </p>
-              <p className="font-minecraft text-sm mt-2">
-                Manage your Minecraft worlds
-              </p>
-            </div>
+            <WorldsTab
+              profile={currentProfile}
+              onRefresh={handleRefresh}
+              isActive={true}
+            />
           )}
           
           {activeMainTab === "screenshots" && (
