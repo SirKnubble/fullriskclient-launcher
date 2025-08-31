@@ -11,8 +11,8 @@ import type {
 import type { AccentColor } from '../../../store/useThemeStore';
 import { useThemeStore } from '../../../store/useThemeStore';
 import { Icon } from '@iconify/react';
-import { SearchInput } from '../../ui/SearchInput';
-import { Checkbox } from '../../ui/Checkbox';
+import { SearchWithFilters } from '../../ui/SearchWithFilters';
+import { CheckboxV2 } from '../../ui/CheckboxV2';
 import { gsap } from "gsap";
 
 // Re-define UIDynamicFilterGroup if it's specific to the sidebar and not used elsewhere globally
@@ -95,25 +95,18 @@ const AccordionItem: React.FC<AccordionItemProps> = ({
   return (
     <div 
       className={cn(
-        "relative overflow-hidden transition-all duration-300 rounded-lg border backdrop-blur-sm"
+        "relative overflow-hidden transition-all duration-300 rounded-lg bg-black/20 border border-white/10 hover:border-white/20"
       )}
-      style={{
-        backgroundColor: `${accentColor.value}10`,
-        borderColor: `${accentColor.value}30`,
-      }}
     >
       <button
         ref={buttonRef}
         onClick={toggleAccordion}
         className={cn(
-          "w-full px-3 py-2.5 text-left font-minecraft text-gray-200 flex justify-between items-center focus:outline-none transition-colors lowercase text-2xl",
-          isOpen && "border-b", 
+          "w-full px-3 py-2.5 text-left font-minecraft text-white flex justify-between items-center focus:outline-none transition-colors lowercase text-2xl",
+          isOpen && "border-b border-white/10", 
           "hover:bg-white/5",
           "relative z-10"
         )}
-        style={{
-          borderBottomColor: isOpen ? `${accentColor.value}20` : 'transparent',
-        }}
       >
         <div className="flex items-center gap-2">
           <span className="truncate mr-2">{title}</span>
@@ -188,14 +181,12 @@ const FilterOption = ({
       ref={buttonRef}
       onClick={handleClick}
       className={cn(
-        "w-full flex items-center justify-between p-1.5 text-xl font-minecraft transition-colors duration-200 cursor-pointer rounded-md mb-1.5 border",
-        !isSelected && "text-gray-300 hover:brightness-[1.15]" // Default text color for unselected, and hover effect
+        "w-full flex items-center justify-between p-1.5 text-xl font-minecraft transition-colors duration-200 cursor-pointer rounded-md mb-1 bg-black/20 border border-white/10 hover:border-white/20",
+        isSelected ? "text-white" : "text-gray-300 hover:text-white"
       )}
       style={{
-        backgroundColor: isSelected ? `${accentColor.value}2E` : `${accentColor.value}12`, // Approx 18% and 7% opacity
-        borderColor: isSelected ? `${accentColor.value}59` : `${accentColor.value}29`,    // Approx 35% and 16% opacity
-        color: isSelected ? accentColor.value : undefined, // Accent text color for selected, inherit for unselected
-        // Removed boxShadow and transform properties
+        backgroundColor: isSelected ? `${accentColor.value}20` : undefined,
+        borderColor: isSelected ? `${accentColor.value}60` : undefined,
       }}
     >
       <span className="flex items-center flex-grow text-left">
@@ -318,12 +309,10 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
     <div 
       ref={sidebarRef}
       className={cn(
-        "filters-sidebar w-1/4 max-w-[15rem] flex-shrink-0 overflow-y-auto h-full",
-        "hide-scrollbar rounded-lg border backdrop-blur-sm"
+        "filters-sidebar w-1/4 max-w-[15rem] flex-shrink-0 overflow-y-auto h-full space-y-1",
+        "hide-scrollbar"
       )}
       style={{
-        backgroundColor: `${accentColor.value}08`,
-        borderColor: `${accentColor.value}20`,
         scrollbarWidth: "none",
         msOverflowStyle: "none",
       }}
@@ -335,21 +324,17 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
           activeCount={totalGameVersionFilters}
         >
           <div className="space-y-2">
-            <div
-              className="relative mb-2"
-              style={{
-                borderColor: `${accentColor.value}60`,
-                borderBottomColor: accentColor.value,
-                boxShadow: `0 4px 0 rgba(0,0,0,0.2), 0 6px 10px rgba(0,0,0,0.15), inset 0 1px 0 ${accentColor.value}20, inset 0 0 0 1px ${accentColor.value}10`,
-              }}
-            >
-              <SearchInput
-                value={gameVersionSearchTerm}
-                onChange={onGameVersionSearchTermChange}
-                placeholder="Search version..."
-                className="w-full h-[40px]"
-                size="sm"
-              />
+            <div className="relative mb-2">
+              <div className="flex items-center gap-2 bg-black/50 rounded-lg px-3 py-2 border border-white/10 hover:border-white/20 transition-colors mr-1">
+                <Icon icon="solar:magnifer-bold" className="w-3 h-3 text-white/50 flex-shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search version..."
+                  value={gameVersionSearchTerm}
+                  onChange={(e) => onGameVersionSearchTermChange(e.target.value)}
+                  className="bg-transparent text-white placeholder-white/50 font-minecraft-ten text-xs flex-1 outline-none min-w-0"
+                />
+              </div>
             </div>
 
             <div className="space-y-1 pr-1 overflow-y-auto hide-scrollbar max-h-96">
@@ -369,18 +354,12 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
             </div>
             
             <div className="flex items-center mt-2 p-1">
-              <Checkbox
-                id="showAllVersionsSidebarInNewComponent"
+              <CheckboxV2
                 checked={showAllGameVersionsSidebar}
-                onChange={(e) => onShowAllGameVersionsSidebarChange(e.target.checked)}
-                className="rounded-sm"
+                onChange={onShowAllGameVersionsSidebarChange}
+                label="Show all versions"
+                size="lg"
               />
-              <label 
-                htmlFor="showAllVersionsSidebarInNewComponent" 
-                className="ml-2 text-sm truncate cursor-pointer text-gray-200"
-              >
-                Show all versions
-              </label>
             </div>
           </div>
         </AccordionItem>

@@ -154,7 +154,7 @@ export function BrowseTab({
           initialProjectType={getProjectType() as ModrinthProjectType}
           allowedProjectTypes={["mod", "resourcepack", "shader", "datapack"]}
           className="h-full"
-          initialSidebarVisible={true}
+          initialSidebarVisible={false}
           overrideDisplayContext="detail"
           disableVirtualization={true}
         />
