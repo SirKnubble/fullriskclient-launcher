@@ -9,7 +9,7 @@ import type {
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
 import { Icon } from "@iconify/react";
-import { Button } from "../../ui/buttons/Button";
+import { ActionButton } from "../../ui/ActionButton";
 import { TagBadge } from "../../ui/TagBadge";
 import { gsap } from "gsap";
 import { useIsFirstRender } from "../../../hooks/useIsFirstRender";
@@ -176,60 +176,15 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     };
 
     let buttonText = "Install";
-    let buttonIcon: React.ReactNode = null;
     let buttonVariant: "default" | "success" | "secondary" = "success";
     let buttonDisabled = false;
 
     if (project.project_type === "modpack" && isInstallingModpackVersion) {
       buttonText = "Installing...";
-      buttonIcon = (
-        <svg
-          className="animate-spin mr-2 h-4 w-4 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      );
       buttonVariant = "secondary";
       buttonDisabled = true;
     } else if (isInstalling) {
       buttonText = "Installing...";
-      buttonIcon = (
-        <svg
-          className="animate-spin mr-2 h-4 w-4 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      );
       buttonVariant = "secondary";
       buttonDisabled = true;
     } else if (versionStatus && versionStatus.is_installed) {
@@ -372,45 +327,38 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                     (versionStatus?.is_included_in_norisk_pack &&
                       versionStatus?.norisk_pack_item_details &&
                       onToggleEnableClick)) && (
-                    <Button
+                    <ActionButton
                       onClick={handleToggleEnableButtonClick}
-                      size="xs"
-                      shadowDepth="short"
+                      size="sm"
                       variant={
                         versionStatus.is_enabled ? "warning" : "secondary"
                       }
-                      className="min-w-[80px] justify-center"
-                    >
-                      {versionStatus.is_enabled ? "Active" : "Disabled"}
-                    </Button>
+                      label={versionStatus.is_enabled ? "Active" : "Disabled"}
+                      className="min-w-[80px]"
+                    />
                   )}
                 {selectedProfileId &&
                   versionStatus?.is_installed &&
                   !isModpack &&
                   onDeleteClick && (
-                    <Button
+                    <ActionButton
                       onClick={handleDeleteButtonClick}
-                      size="xs"
-                      shadowDepth="short"
+                      size="sm"
                       variant="destructive"
-                      className="min-w-[80px] justify-center"
-                    >
-                      Delete
-                    </Button>
+                      label="Delete"
+                      className="min-w-[80px]"
+                    />
                   )}
                 {(!selectedProfileId || !versionStatus?.is_installed) && (
-                  <Button
+                  <ActionButton
                     onClick={handleButtonClick}
-                    size="xs"
-                    shadowDepth="short"
-                    variant={buttonVariant}
+                    size="sm"
+                    variant={buttonVariant === "success" ? "primary" : buttonVariant}
                     disabled={buttonDisabled || isInstalling}
-                    className="min-w-[80px] justify-center"
-                    icon={buttonIcon}
-                    iconPosition="left"
-                  >
-                    {buttonText}
-                  </Button>
+                    className="min-w-[80px]"
+                    icon={isInstalling || isInstallingModpackVersion ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
+                    label={buttonText}
+                  />
                 )}
               </div>
             </div>

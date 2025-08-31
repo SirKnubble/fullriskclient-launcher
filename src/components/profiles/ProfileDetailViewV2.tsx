@@ -11,6 +11,7 @@ import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { ActionButton as SingleActionButton } from "../ui/ActionButton";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
+import { BrowseTab } from "./detail/BrowseTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 
 type MainTabType = "content" | "browse" | "worlds" | "logs" | "screenshots";
@@ -30,6 +31,7 @@ export function ProfileDetailViewV2({
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>("content");
   const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
+  const [browseContentType, setBrowseContentType] = useState<string>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
 
   // Memoized callback for getDisplayFileName
@@ -44,7 +46,7 @@ export function ProfileDetailViewV2({
   // Handler for browse content requests
   const handleBrowseContent = useCallback((contentType: string) => {
     console.log("Browse content requested for:", contentType);
-    // This could navigate to browse tab or open a modal
+    setBrowseContentType(contentType);
     setActiveMainTab("browse");
   }, []);
 
@@ -321,18 +323,12 @@ export function ProfileDetailViewV2({
           )}
           
           {activeMainTab === "browse" && (
-            <div className="text-center text-white/50">
-              <Icon
-                icon="solar:magnifer-bold-duotone"
-                className="w-16 h-16 mx-auto mb-4 opacity-50"
-              />
-              <p className="font-minecraft text-lg uppercase">
-                Browse Content
-              </p>
-              <p className="font-minecraft text-sm mt-2">
-                Browse and download new content
-              </p>
-            </div>
+            <BrowseTab
+              profile={currentProfile}
+              initialContentType={browseContentType}
+              onRefresh={handleRefresh}
+              parentTransitionActive={false}
+            />
           )}
           
           {activeMainTab === "worlds" && (

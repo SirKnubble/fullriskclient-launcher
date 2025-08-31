@@ -111,12 +111,12 @@ export function ModrinthSearchV2({
   // New state for Sort Order, now with ModrinthSortType
   const [sortOrder, setSortOrder] = useState<ModrinthSortType>('relevance');
   
-  const sortOptions: { value: ModrinthSortType; label: string; icon?: React.ReactNode }[] = [
-    { value: 'relevance', label: 'Relevance', icon: <Icon icon="solar:sort-bold" className="w-4 h-4" /> },
-    { value: 'downloads', label: 'Downloads', icon: <Icon icon="solar:download-bold" className="w-4 h-4" /> },
-    { value: 'follows', label: 'Follows', icon: <Icon icon="solar:heart-bold" className="w-4 h-4" /> },
-    { value: 'newest', label: 'Newest', icon: <Icon icon="solar:calendar-mark-bold" className="w-4 h-4" /> }, // Changed icon
-    { value: 'updated', label: 'Updated', icon: <Icon icon="solar:refresh-bold" className="w-4 h-4" /> },
+  const sortOptions: { value: ModrinthSortType; label: string; icon?: string }[] = [
+    { value: 'relevance', label: 'Relevance', icon: 'solar:sort-bold' },
+    { value: 'downloads', label: 'Downloads', icon: 'solar:download-bold' },
+    { value: 'follows', label: 'Follows', icon: 'solar:heart-bold' },
+    { value: 'newest', label: 'Newest', icon: 'solar:calendar-mark-bold' },
+    { value: 'updated', label: 'Updated', icon: 'solar:refresh-bold' },
   ];
 
   const [allCategoriesData, setAllCategoriesData] = useState<ModrinthCategory[]>([]);
@@ -2217,11 +2217,7 @@ export function ModrinthSearchV2({
           }}
           sortOrder={sortOrder}
           onSortOrderChange={setSortOrder}
-          sortOptions={sortOptions.map(opt => ({ // Map to SelectOption structure if not already
-            value: opt.value,
-            label: opt.label,
-            icon: opt.icon
-          }))}
+          sortOptions={sortOptions}
           isSidebarVisible={isSidebarVisible}
           onToggleSidebar={() => setIsSidebarVisible(!isSidebarVisible)}
           selectedGameVersions={selectedGameVersions}

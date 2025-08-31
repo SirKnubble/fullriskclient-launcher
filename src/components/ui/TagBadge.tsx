@@ -128,11 +128,7 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const customStyling =
       variant === "flat"
         ? {
-            borderWidth: "1px",
-            borderBottomWidth: "2px",
-            backgroundColor: `${variantStyles.main}30`,
-            borderColor: `${variantStyles.main}80`,
-            borderBottomColor: isHovered ? variantStyles.light : variantStyles.dark,
+            backgroundColor: `${variantStyles.main}20`,
             boxShadow: "none",
           }
         : {};    const { 
@@ -155,11 +151,8 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
         className,
       ),
       style: {
-        backgroundColor: `${variantStyles.main}30`,
-        borderWidth: "1px",
-        borderStyle: "solid",
-        borderColor: `${variantStyles.main}80`,
-        color: variantStyles.text,
+        backgroundColor: `${variantStyles.main}15`,
+        color: "#a1a1aa", // text-zinc-400
         filter: isHovered && isClickable && !disabled ? "brightness(1.1)" : "brightness(1)",
         ...customStyling
       },

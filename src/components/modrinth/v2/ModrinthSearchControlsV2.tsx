@@ -6,9 +6,8 @@ import type {
   ModrinthSortType,
 } from "../../../types/modrinth";
 // Profile type will be defined locally
-import { Button } from "../../ui/buttons/Button";
-import { SearchInput } from "../../ui/SearchInput";
-import { Select, type SelectOption } from "../../ui/Select";
+import { SearchWithFilters } from "../../ui/SearchWithFilters";
+import { GroupTabs, type GroupTab } from "../../ui/GroupTabs";
 import { IconButton } from "../../ui/buttons/IconButton";
 import { TagBadge } from "../../ui/TagBadge";
 import { Icon } from "@iconify/react";
@@ -99,179 +98,142 @@ export const ModrinthSearchControlsV2: React.FC<
     (filterClientRequired ? 1 : 0) +
     (filterServerRequired ? 1 : 0);
 
+  // Create groups array for project types
+  const groups: GroupTab[] = allProjectTypes.map(type => ({
+    id: type,
+    name: type.charAt(0).toUpperCase() + type.slice(1) + 's',
+    count: 0, // Could be populated with result counts if needed
+  }));
+
   return (
-    <div
-      className="p-3 rounded-lg border backdrop-blur-sm mb-3"
-      style={{
-        backgroundColor: `${accentColor.value}10`,
-        borderColor: `${accentColor.value}30`,
-      }}
-    >
-      <div className={`search-bar-and-types p-${isDetailView ? "1.5" : "2"}`}>
-        <div className="project-types flex space-x-2 mb-3">
-          {allProjectTypes.map((type) => (
-            <Button
-              key={type}
-              onClick={() => onProjectTypeChange(type)}
-              variant={projectType === type ? "flat" : "ghost"}
-              size={buttonSize}
-              className={`flex-1 min-w-0 text-[1.7em]`}
+    <>
+      {/* Group Tabs for Project Types */}
+      <GroupTabs
+        groups={groups}
+        activeGroup={projectType}
+        onGroupChange={onProjectTypeChange}
+        showAddButton={false}
+      />
+
+      {/* Search & Filter Header */}
+      <div className="mb-6 pb-4 border-b border-white/10">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 flex-1">
+            <SearchWithFilters
+              placeholder={`Search ${projectType}s...`}
+              searchValue={searchTerm}
+              onSearchChange={onSearchTermChange}
+              sortOptions={sortOptions}
+              sortValue={sortOrder}
+              onSortChange={(value) => onSortOrderChange(value as ModrinthSortType)}
+            />
+            
+            <button
+              onClick={onToggleSidebar}
+              className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
+              title={isSidebarVisible ? "Hide filters" : "Show filters"}
             >
-              {type}s
-            </Button>
-          ))}
-        </div>
-
-        <div className="flex items-center space-x-2 mb-2">
-          <SearchInput
-            value={searchTerm}
-            onChange={onSearchTermChange}
-            placeholder={`Search for ${projectType}s...`}
-            className={`flex-grow h-[48px]`}
-            variant="flat"
-            size="lg"
-          />
-
-          <Select
-            value={sortOrder}
-            onChange={(value) => onSortOrderChange(value as ModrinthSortType)}
-            options={sortOptions}
-            className={`max-w-[180px] h-[48px]`}
-            variant="flat"
-            size="sm"
-          />
-
-          <IconButton
-            onClick={onToggleSidebar}
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                />
-              </svg>
-            }
-            size={isDetailView ? "md" : "md"}
-            variant={"ghost"}
-            title={isSidebarVisible ? "Hide filters" : "Show filters"}
-          />
-        </div>
-
-        {totalFilters > 0 && (
-          <div className={cn("flex items-center mt-2 gap-2")}>
-            <div
-              className={cn(
-                "flex-1 border rounded-md h-[48px] overflow-x-auto overflow-y-hidden whitespace-nowrap",
-                "hide-scrollbar",
-              )}
-              style={{
-                backgroundColor: `${accentColor.value}15`,
-                borderColor: `${accentColor.value}30`,
-                boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.05)",
-              }}
-              ref={filtersContainerRef}
-            >
-              <div className="flex items-center gap-2 p-2">
-                <TagBadge
-                  variant="destructive"
-                  className="cursor-pointer hover:brightness-110 transition-all flex-shrink-0 flex items-center"
-                  onClick={onClearAllFilters}
-                  size="md"
-                >
-                  <Icon
-                    icon="solar:trash-bin-trash-bold"
-                    className="w-4 h-4 mr-1"
-                  />
-                  <span>Clear All</span>
-                </TagBadge>
-
-                {selectedGameVersions.map((version) => (
-                  <TagBadge
-                    key={`gv-${version}`}
-                    className="inline-flex whitespace-nowrap items-center"
-                    size="md"
-                    onClick={() => onRemoveGameVersionTag(version)}
-                  >
-                    <span>{version}</span>
-                    <Icon
-                      icon="solar:close-circle-bold"
-                      className="w-4 h-4 ml-1"
-                    />
-                  </TagBadge>
-                ))}
-
-                {currentSelectedLoaders.map((loader) => (
-                  <TagBadge
-                    key={`loader-${loader}`}
-                    className="inline-flex whitespace-nowrap items-center"
-                    size="md"
-                    onClick={() => onRemoveLoaderTag(loader)}
-                  >
-                    <span>{loader}</span>
-                    <Icon
-                      icon="solar:close-circle-bold"
-                      className="w-4 h-4 ml-1"
-                    />
-                  </TagBadge>
-                ))}
-
-                {currentSelectedCategories.map((category) => (
-                  <TagBadge
-                    key={`cat-${category}`}
-                    className="inline-flex whitespace-nowrap items-center"
-                    size="md"
-                    onClick={() => onRemoveCategoryTag(category)}
-                  >
-                    <span>{category}</span>
-                    <Icon
-                      icon="solar:close-circle-bold"
-                      className="w-4 h-4 ml-1"
-                    />
-                  </TagBadge>
-                ))}
-
-                {filterClientRequired && (
-                  <TagBadge
-                    key="client-req"
-                    className="inline-flex whitespace-nowrap items-center"
-                    size="md"
-                    onClick={onRemoveClientRequiredTag}
-                  >
-                    <span>Client</span>
-                    <Icon
-                      icon="solar:close-circle-bold"
-                      className="w-4 h-4 ml-1"
-                    />
-                  </TagBadge>
-                )}
-
-                {filterServerRequired && (
-                  <TagBadge
-                    key="server-req"
-                    className="inline-flex whitespace-nowrap items-center"
-                    size="md"
-                    onClick={onRemoveServerRequiredTag}
-                  >
-                    <span>Server</span>
-                    <Icon
-                      icon="solar:close-circle-bold"
-                      className="w-4 h-4 ml-1"
-                    />
-                  </TagBadge>
-                )}
+              <div className="w-4 h-8 flex items-center justify-center">
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                </svg>
               </div>
-            </div>
+            </button>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+
+      {totalFilters > 0 && (
+        <div className="flex items-center gap-2 mt-4">
+          <TagBadge
+            variant="destructive"
+            className="cursor-pointer hover:brightness-110 transition-all flex-shrink-0 flex items-center"
+            onClick={onClearAllFilters}
+            size="md"
+          >
+            <Icon
+              icon="solar:trash-bin-trash-bold"
+              className="w-4 h-4 mr-1"
+            />
+            <span>Clear All</span>
+          </TagBadge>
+
+          {selectedGameVersions.map((version) => (
+            <TagBadge
+              key={`gv-${version}`}
+              className="inline-flex whitespace-nowrap items-center"
+              size="md"
+              onClick={() => onRemoveGameVersionTag(version)}
+            >
+              <span>{version}</span>
+              <Icon
+                icon="solar:close-circle-bold"
+                className="w-4 h-4 ml-1"
+              />
+            </TagBadge>
+          ))}
+
+          {currentSelectedLoaders.map((loader) => (
+            <TagBadge
+              key={`loader-${loader}`}
+              className="inline-flex whitespace-nowrap items-center"
+              size="md"
+              onClick={() => onRemoveLoaderTag(loader)}
+            >
+              <span>{loader}</span>
+              <Icon
+                icon="solar:close-circle-bold"
+                className="w-4 h-4 ml-1"
+              />
+            </TagBadge>
+          ))}
+
+          {currentSelectedCategories.map((category) => (
+            <TagBadge
+              key={`cat-${category}`}
+              className="inline-flex whitespace-nowrap items-center"
+              size="md"
+              onClick={() => onRemoveCategoryTag(category)}
+            >
+              <span>{category}</span>
+              <Icon
+                icon="solar:close-circle-bold"
+                className="w-4 h-4 ml-1"
+              />
+            </TagBadge>
+          ))}
+
+          {filterClientRequired && (
+            <TagBadge
+              key="client-req"
+              className="inline-flex whitespace-nowrap items-center"
+              size="md"
+              onClick={onRemoveClientRequiredTag}
+            >
+              <span>Client</span>
+              <Icon
+                icon="solar:close-circle-bold"
+                className="w-4 h-4 ml-1"
+              />
+            </TagBadge>
+          )}
+
+          {filterServerRequired && (
+            <TagBadge
+              key="server-req"
+              className="inline-flex whitespace-nowrap items-center"
+              size="md"
+              onClick={onRemoveServerRequiredTag}
+            >
+              <span>Server</span>
+              <Icon
+                icon="solar:close-circle-bold"
+                className="w-4 h-4 ml-1"
+              />
+            </TagBadge>
+          )}
+        </div>
+      )}
+    </>
   );
 };
