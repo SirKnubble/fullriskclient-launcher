@@ -123,7 +123,7 @@ export const ModrinthSearchControlsV2: React.FC<
       />
 
       {/* Search & Filter Header */}
-      <div className="mb-6 pb-4 border-b border-white/10">
+      <div className="mb-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 flex-1">
             <SearchWithFilters
