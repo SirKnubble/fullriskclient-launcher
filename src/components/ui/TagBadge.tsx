@@ -19,7 +19,7 @@ export interface TagBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   iconElement?: React.ReactNode;
-  variant?: ComponentVariant | "inactive" | "flat";
+  variant?: ComponentVariant | "inactive" | "flat" | "filter";
   size?: ComponentSize;
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   disabled?: boolean;
@@ -93,6 +93,14 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
           text: "#f3f4f6",
         };
       }
+      if (variant === "filter") {
+        return {
+          main: accentColor.value,
+          light: accentColor.value,
+          dark: accentColor.value,
+          text: "#ffffff",
+        };
+      }
       return getVariantColors(variant as ComponentVariant, accentColor);
     };    const getSizeClasses = () => {
       switch (size) {
@@ -131,6 +139,14 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
             backgroundColor: `${variantStyles.main}20`,
             boxShadow: "none",
           }
+        : variant === "destructive"
+        ? {
+            backgroundColor: "#dc262620",
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderColor: "#dc262680",
+            color: "#ffffff",
+          }
         : {};    const { 
       onCopy, 
       onCut, 
@@ -151,8 +167,11 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
         className,
       ),
       style: {
-        backgroundColor: `${variantStyles.main}15`,
-        color: "#a1a1aa", // text-zinc-400
+        backgroundColor: variant === "filter" ? `${variantStyles.main}30` : variant === "destructive" ? undefined : `${variantStyles.main}15`,
+        borderWidth: variant === "filter" ? "1px" : variant === "destructive" ? undefined : "0px",
+        borderStyle: variant === "filter" ? "solid" : variant === "destructive" ? undefined : "none",
+        borderColor: variant === "filter" ? `${variantStyles.main}80` : variant === "destructive" ? undefined : "transparent",
+        color: variant === "filter" ? variantStyles.text : variant === "destructive" ? undefined : "#a1a1aa", // text-zinc-400
         filter: isHovered && isClickable && !disabled ? "brightness(1.1)" : "brightness(1)",
         ...customStyling
       },

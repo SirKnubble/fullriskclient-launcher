@@ -74,7 +74,6 @@ export function ProfileDetailViewV2({
   // Main tabs configuration
   const mainTabs: GroupTab[] = [
     { id: "content", name: "Content", count: 0, icon: "solar:widget-bold" },
-    { id: "browse", name: "Browse", count: 0, icon: "solar:magnifer-bold" },
     { id: "worlds", name: "Worlds", count: 0, icon: "solar:planet-bold" },
     { id: "screenshots", name: "Screenshots", count: 0, icon: "solar:camera-bold" },
     { id: "logs", name: "Logs", count: 0, icon: "solar:code-bold" },
@@ -111,8 +110,8 @@ export function ProfileDetailViewV2({
   ];
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">
           <div className="flex items-center gap-4 mb-4">
@@ -184,7 +183,20 @@ export function ProfileDetailViewV2({
 
             {/* Action Buttons - Right side of the header row */}
             <div className="flex items-center gap-3">
-              <ActionButtons actions={actionButtons.filter(btn => btn.id !== 'back')} />
+              {activeMainTab === "browse" ? (
+                <button
+                  onClick={() => setActiveMainTab("content")}
+                  className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                  title="Back to content"
+                >
+                  <div className="w-4 h-4 flex items-center justify-center">
+                    <Icon icon="solar:arrow-left-bold" className="w-4 h-4" />
+                  </div>
+                  <span style={{ transform: 'translateY(-0.075em)' }}>BACK</span>
+                </button>
+              ) : (
+                <ActionButtons actions={actionButtons.filter(btn => btn.id !== 'back')} />
+              )}
             </div>
           </div>
 
@@ -192,14 +204,16 @@ export function ProfileDetailViewV2({
           <div className="h-px w-full bg-white/10 mt-4 mb-4" />
 
           {/* Main Tabs Navigation - under divider */}
-          <div className="flex-shrink-0">
-            <GroupTabs
-              groups={mainTabs}
-              activeGroup={activeMainTab}
-              onGroupChange={(tabId) => setActiveMainTab(tabId as MainTabType)}
-              showAddButton={false}
-            />
-          </div>
+          {activeMainTab !== "browse" && (
+            <div className="flex-shrink-0">
+              <GroupTabs
+                groups={mainTabs}
+                activeGroup={activeMainTab}
+                onGroupChange={(tabId) => setActiveMainTab(tabId as MainTabType)}
+                showAddButton={false}
+              />
+            </div>
+          )}
         </div>
 
 

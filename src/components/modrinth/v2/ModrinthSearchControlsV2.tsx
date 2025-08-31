@@ -18,7 +18,14 @@ import { cn } from "../../../lib/utils";
 // Define Profile type locally, similar to ModrinthSearchV2.tsx
 type Profile = any;
 
-export interface ModrinthSearchControlsV2Props {
+export // Define SelectOption type locally
+interface SelectOption {
+  value: string;
+  label: string;
+  icon?: string;
+}
+
+interface ModrinthSearchControlsV2Props {
   searchTerm: string;
   onSearchTermChange: (term: string) => void;
   projectType: ModrinthProjectType;
@@ -141,99 +148,105 @@ export const ModrinthSearchControlsV2: React.FC<
             </button>
           </div>
         </div>
+
+        {/* Filter Tags - Under Search */}
+        {totalFilters > 0 && (
+          <div className="flex items-center gap-2 mt-4">
+            <TagBadge
+              variant="destructive"
+              className="cursor-pointer hover:brightness-110 transition-all flex-shrink-0 flex items-center"
+              onClick={onClearAllFilters}
+              size="md"
+            >
+              <Icon
+                icon="solar:trash-bin-trash-bold"
+                className="w-4 h-4 mr-1"
+              />
+              <span>Clear All</span>
+            </TagBadge>
+
+            {selectedGameVersions.map((version) => (
+              <TagBadge
+                key={`gv-${version}`}
+                variant="filter"
+                className="inline-flex whitespace-nowrap items-center"
+                size="md"
+                onClick={() => onRemoveGameVersionTag(version)}
+              >
+                <span>{version}</span>
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-4 h-4 ml-1"
+                />
+              </TagBadge>
+            ))}
+
+            {currentSelectedLoaders.map((loader) => (
+              <TagBadge
+                key={`loader-${loader}`}
+                variant="filter"
+                className="inline-flex whitespace-nowrap items-center"
+                size="md"
+                onClick={() => onRemoveLoaderTag(loader)}
+              >
+                <span>{loader}</span>
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-4 h-4 ml-1"
+                />
+              </TagBadge>
+            ))}
+
+            {currentSelectedCategories.map((category) => (
+              <TagBadge
+                key={`cat-${category}`}
+                variant="filter"
+                className="inline-flex whitespace-nowrap items-center"
+                size="md"
+                onClick={() => onRemoveCategoryTag(category)}
+              >
+                <span>{category}</span>
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-4 h-4 ml-1"
+                />
+              </TagBadge>
+            ))}
+
+            {filterClientRequired && (
+              <TagBadge
+                key="client-req"
+                variant="filter"
+                className="inline-flex whitespace-nowrap items-center"
+                size="md"
+                onClick={onRemoveClientRequiredTag}
+              >
+                <span>Client</span>
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-4 h-4 ml-1"
+                />
+              </TagBadge>
+            )}
+
+            {filterServerRequired && (
+              <TagBadge
+                key="server-req"
+                variant="filter"
+                className="inline-flex whitespace-nowrap items-center"
+                size="md"
+                onClick={onRemoveServerRequiredTag}
+              >
+                <span>Server</span>
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-4 h-4 ml-1"
+                />
+              </TagBadge>
+            )}
+          </div>
+        )}
       </div>
-
-      {totalFilters > 0 && (
-        <div className="flex items-center gap-2 mt-4">
-          <TagBadge
-            variant="destructive"
-            className="cursor-pointer hover:brightness-110 transition-all flex-shrink-0 flex items-center"
-            onClick={onClearAllFilters}
-            size="md"
-          >
-            <Icon
-              icon="solar:trash-bin-trash-bold"
-              className="w-4 h-4 mr-1"
-            />
-            <span>Clear All</span>
-          </TagBadge>
-
-          {selectedGameVersions.map((version) => (
-            <TagBadge
-              key={`gv-${version}`}
-              className="inline-flex whitespace-nowrap items-center"
-              size="md"
-              onClick={() => onRemoveGameVersionTag(version)}
-            >
-              <span>{version}</span>
-              <Icon
-                icon="solar:close-circle-bold"
-                className="w-4 h-4 ml-1"
-              />
-            </TagBadge>
-          ))}
-
-          {currentSelectedLoaders.map((loader) => (
-            <TagBadge
-              key={`loader-${loader}`}
-              className="inline-flex whitespace-nowrap items-center"
-              size="md"
-              onClick={() => onRemoveLoaderTag(loader)}
-            >
-              <span>{loader}</span>
-              <Icon
-                icon="solar:close-circle-bold"
-                className="w-4 h-4 ml-1"
-              />
-            </TagBadge>
-          ))}
-
-          {currentSelectedCategories.map((category) => (
-            <TagBadge
-              key={`cat-${category}`}
-              className="inline-flex whitespace-nowrap items-center"
-              size="md"
-              onClick={() => onRemoveCategoryTag(category)}
-            >
-              <span>{category}</span>
-              <Icon
-                icon="solar:close-circle-bold"
-                className="w-4 h-4 ml-1"
-              />
-            </TagBadge>
-          ))}
-
-          {filterClientRequired && (
-            <TagBadge
-              key="client-req"
-              className="inline-flex whitespace-nowrap items-center"
-              size="md"
-              onClick={onRemoveClientRequiredTag}
-            >
-              <span>Client</span>
-              <Icon
-                icon="solar:close-circle-bold"
-                className="w-4 h-4 ml-1"
-              />
-            </TagBadge>
-          )}
-
-          {filterServerRequired && (
-            <TagBadge
-              key="server-req"
-              className="inline-flex whitespace-nowrap items-center"
-              size="md"
-              onClick={onRemoveServerRequiredTag}
-            >
-              <span>Server</span>
-              <Icon
-                icon="solar:close-circle-bold"
-                className="w-4 h-4 ml-1"
-              />
-            </TagBadge>
-          )}
-        </div>
-      )}
     </>
   );
 };

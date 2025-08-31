@@ -146,7 +146,7 @@ export function BrowseTab({
   }
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col p-4 gap-4">
+    <div ref={containerRef} className="h-full flex flex-col">
       <div className="flex-1 overflow-hidden">
         <ModrinthSearchV2
           profiles={[currentProfile]}

@@ -393,7 +393,9 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 </TagBadge>
 
                 {filters.versionType !== "all" && (
-                  <TagBadge className="inline-flex whitespace-nowrap">
+                  <TagBadge 
+                    variant="filter"
+                    className="inline-flex whitespace-nowrap">
                     Type: {filters.versionType}
                     <button
                       onClick={() =>
@@ -413,6 +415,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 {filters.gameVersions.map((version) => (
                   <TagBadge
                     key={`gv-${version}`}
+                    variant="filter"
                     className="inline-flex whitespace-nowrap"
                   >
                     {version}
@@ -437,6 +440,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 {filters.loaders.map((loader) => (
                   <TagBadge
                     key={`loader-${loader}`}
+                    variant="filter"
                     className="inline-flex whitespace-nowrap"
                   >
                     {loader}

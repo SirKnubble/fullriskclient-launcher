@@ -302,8 +302,8 @@ export function ProfilesTabV2() {
   });
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 p-6 overflow-y-auto no-scrollbar">
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
       {/* Group Tabs */}
       <GroupTabs
         groups={groups}
