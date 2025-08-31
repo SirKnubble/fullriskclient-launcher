@@ -14,6 +14,7 @@ import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
 import { BrowseTab } from "./detail/BrowseTab";
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
+import { LogsTab } from "./detail/LogsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 
 type MainTabType = "content" | "browse" | "worlds" | "logs" | "screenshots";
@@ -113,7 +114,7 @@ export function ProfileDetailViewV2({
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className={`flex-1 ${activeMainTab === "logs" ? "flex flex-col min-h-0" : "overflow-y-auto no-scrollbar"}`}>
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">
           <div className="flex items-center gap-4 mb-4">
@@ -221,7 +222,7 @@ export function ProfileDetailViewV2({
 
 
         {/* Content Area */}
-        <div className="min-h-0">
+        <div className="flex-1 min-h-0">
           {activeMainTab === "content" && (
             <div>
               {/* Content Type Tabs */}
@@ -348,36 +349,35 @@ export function ProfileDetailViewV2({
           )}
           
           {activeMainTab === "worlds" && (
-            <WorldsTab
-              profile={currentProfile}
-              onRefresh={handleRefresh}
-              isActive={true}
-            />
+            <div className="h-full">
+              <WorldsTab
+                profile={currentProfile}
+                onRefresh={handleRefresh}
+                isActive={true}
+              />
+            </div>
           )}
           
           {activeMainTab === "screenshots" && (
-            <ScreenshotsTab
-              profile={currentProfile}
-              isActive={true}
-              onOpenScreenshotModal={(screenshot) => {
-                // TODO: Implement screenshot modal using global modal system
-                console.log("Open screenshot modal for:", screenshot);
-              }}
-            />
+            <div className="h-full">
+              <ScreenshotsTab
+                profile={currentProfile}
+                isActive={true}
+                onOpenScreenshotModal={(screenshot) => {
+                  // TODO: Implement screenshot modal using global modal system
+                  console.log("Open screenshot modal for:", screenshot);
+                }}
+              />
+            </div>
           )}
           
           {activeMainTab === "logs" && (
-            <div className="text-center text-white/50">
-              <Icon
-                icon="solar:code-bold-duotone"
-                className="w-16 h-16 mx-auto mb-4 opacity-50"
+            <div className="h-full">
+              <LogsTab
+                profile={currentProfile}
+                isActive={true}
+                onRefresh={handleRefresh}
               />
-              <p className="font-minecraft text-lg uppercase">
-                Logs
-              </p>
-              <p className="font-minecraft text-sm mt-2">
-                View profile and game logs
-              </p>
             </div>
           )}
         </div>
