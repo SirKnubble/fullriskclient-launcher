@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import type { Profile } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
@@ -11,13 +12,13 @@ import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { ActionButton as SingleActionButton } from "../ui/ActionButton";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
-import { BrowseTab } from "./detail/BrowseTab";
+
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
 import { LogsTab } from "./detail/LogsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 
-type MainTabType = "content" | "browse" | "worlds" | "logs" | "screenshots";
+type MainTabType = "content" | "worlds" | "logs" | "screenshots";
 type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
 
 interface ProfileDetailViewV2Props {
@@ -31,10 +32,10 @@ export function ProfileDetailViewV2({
   onClose,
   onEdit,
 }: ProfileDetailViewV2Props) {
+  const navigate = useNavigate();
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>("content");
   const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
-  const [browseContentType, setBrowseContentType] = useState<string>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
 
   // Memoized callback for getDisplayFileName
@@ -49,9 +50,9 @@ export function ProfileDetailViewV2({
   // Handler for browse content requests
   const handleBrowseContent = useCallback((contentType: string) => {
     console.log("Browse content requested for:", contentType);
-    setBrowseContentType(contentType);
-    setActiveMainTab("browse");
-  }, []);
+    // Navigate to the browse route instead of just changing the tab
+    navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
+  }, [navigate, profile.id]);
 
   // Effect to synchronize the internal currentProfile state with the profile prop
   useEffect(() => {
@@ -186,20 +187,7 @@ export function ProfileDetailViewV2({
 
             {/* Action Buttons - Right side of the header row */}
             <div className="flex items-center gap-3">
-              {activeMainTab === "browse" ? (
-                <button
-                  onClick={() => setActiveMainTab("content")}
-                  className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
-                  title="Back to content"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <Icon icon="solar:arrow-left-bold" className="w-4 h-4" />
-                  </div>
-                  <span style={{ transform: 'translateY(-0.075em)' }}>BACK</span>
-                </button>
-              ) : (
-                <ActionButtons actions={actionButtons.filter(btn => btn.id !== 'back')} />
-              )}
+              <ActionButtons actions={actionButtons.filter(btn => btn.id !== 'back')} />
             </div>
           </div>
 
@@ -207,16 +195,14 @@ export function ProfileDetailViewV2({
           <div className="h-px w-full bg-white/10 mt-4 mb-4" />
 
           {/* Main Tabs Navigation - under divider */}
-          {activeMainTab !== "browse" && (
-            <div className="flex-shrink-0">
-              <GroupTabs
-                groups={mainTabs}
-                activeGroup={activeMainTab}
-                onGroupChange={(tabId) => setActiveMainTab(tabId as MainTabType)}
-                showAddButton={false}
-              />
-            </div>
-          )}
+          <div className="flex-shrink-0">
+            <GroupTabs
+              groups={mainTabs}
+              activeGroup={activeMainTab}
+              onGroupChange={(tabId) => setActiveMainTab(tabId as MainTabType)}
+              showAddButton={false}
+            />
+          </div>
         </div>
 
 
@@ -338,16 +324,7 @@ export function ProfileDetailViewV2({
               )}
             </div>
           )}
-          
-          {activeMainTab === "browse" && (
-            <BrowseTab
-              profile={currentProfile}
-              initialContentType={browseContentType}
-              onRefresh={handleRefresh}
-              parentTransitionActive={false}
-            />
-          )}
-          
+
           {activeMainTab === "worlds" && (
             <div className="h-full">
               <WorldsTab

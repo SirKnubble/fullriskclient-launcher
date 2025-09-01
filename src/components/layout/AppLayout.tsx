@@ -7,6 +7,7 @@ import { Icon } from "@iconify/react";
 
 import { VerticalNavbar } from ".././navigation/VerticalNavbar";
 import { UserProfileBar } from ".././header/UserProfileBar";
+import { NavigationHistory } from "../ui/NavigationHistory";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
   BACKGROUND_EFFECTS,
@@ -371,6 +372,8 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
       data-tauri-drag-region
     >
       <div className="flex items-center gap-4" data-tauri-drag-region>
+        <NavigationHistory />
+
         <div className="flex flex-col items-start -mt-2.5">
           <h1
             className="font-minecraft text-4xl tracking-wider text-white font-bold lowercase text-shadow"
