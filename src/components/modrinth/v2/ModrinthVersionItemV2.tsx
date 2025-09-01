@@ -176,7 +176,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     };
 
     let buttonText = "Install";
-    let buttonVariant: "default" | "success" | "secondary" = "success";
+    let buttonVariant: "primary" | "secondary" = "primary";
     let buttonDisabled = false;
 
     if (project.project_type === "modpack" && isInstallingModpackVersion) {
@@ -190,14 +190,14 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     } else if (versionStatus && versionStatus.is_installed) {
       if (versionStatus?.is_included_in_norisk_pack && !isModpack) {
         buttonText = "In Pack";
-        buttonVariant = "default";
+        buttonVariant = "secondary";
         buttonDisabled = true;
       } else if (versionStatus?.is_installed && !isModpack) {
         buttonText = "Installed";
         buttonDisabled = true;
       } else if (isModpack && !versionStatus?.is_installed) {
         buttonText = "Install";
-        buttonVariant = "success";
+        buttonVariant = "primary";
         buttonDisabled = false;
       }
     }
@@ -355,7 +355,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                   <ActionButton
                     onClick={handleButtonClick}
                     size="sm"
-                    variant={buttonVariant === "primary" ? "primary" : buttonVariant}
+                    variant={buttonVariant}
                     disabled={buttonDisabled || isInstalling}
                     className="min-w-[80px]"
                     icon={isInstalling || isInstallingModpackVersion ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
