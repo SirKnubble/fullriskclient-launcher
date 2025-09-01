@@ -304,7 +304,7 @@ export function ProfilesTab() {
       profile.id,
       profile.name,
     );
-    navigate(`/profiles/${profile.id}`);
+    navigate(`/profilesv2/${profile.id}`);
     console.log(
       "[ProfilesTab] Navigated to /profiles/" +
         profile.id +

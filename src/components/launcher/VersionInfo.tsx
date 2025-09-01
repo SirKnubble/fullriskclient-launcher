@@ -60,7 +60,7 @@ export function VersionInfo({ profileId, className }: VersionInfoProps) {
 
   const handleNavigateToProfiles = () => {
     if (profile && !profile.is_standard_version) {
-      navigate(`/profiles/${profile.id}`);
+      navigate(`/profilesv2/${profile.id}`);
     } else {
       // For standard profiles or if profile data isn't fully loaded,
       // navigating to /profiles is a safe fallback.

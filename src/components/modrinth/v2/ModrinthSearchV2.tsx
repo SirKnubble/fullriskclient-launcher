@@ -1726,7 +1726,7 @@ export function ModrinthSearchV2({
         setInternalProfiles(updatedProfiles); // Sync local state
 
         // Now it's safe to navigate
-        navigate(`/profiles/${newProfileId}`);
+        navigate(`/profilesv2/${newProfileId}`);
       } catch (profileError) {
         console.error("Failed to refresh profiles list internally:", profileError);
         toast.error("Profile installed, but failed to navigate automatically.");
@@ -1794,7 +1794,7 @@ export function ModrinthSearchV2({
         setInternalProfiles(updatedProfiles); // Sync local state
 
         // Now it's safe to navigate
-        navigate(`/profiles/${newProfileId}`);
+        navigate(`/profilesv2/${newProfileId}`);
       } catch (profileError) {
         console.error("Failed to refresh profiles list internally:", profileError);
         toast.error("Profile installed, but failed to navigate automatically.");

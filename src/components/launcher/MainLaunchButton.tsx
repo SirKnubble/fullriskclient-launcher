@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "../../lib/utils";
@@ -11,7 +12,7 @@ import {
 } from "../../store/launch-state-store";
 import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
-import { ProfileSelectionModal } from "./ProfileSelectionModal";
+
 import * as ProcessService from "../../services/process-service";
 import { Event as TauriEvent, listen } from "@tauri-apps/api/event";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -55,8 +56,8 @@ export function MainLaunchButton({
   const [transientSuccessActive, setTransientSuccessActive] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { selectedVersion, setSelectedVersion, openModal } =
-    useVersionSelectionStore();
+  const { selectedVersion, setSelectedVersion } = useVersionSelectionStore();
+  const navigate = useNavigate();
 
   const {
     initializeProfile,
@@ -352,7 +353,9 @@ export function MainLaunchButton({
   const handleOpenModal = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isButtonLaunching) return;
-    openModal();
+
+    // Navigate to profiles tab instead of opening modal
+    navigate("/profiles");
   };
 
   const getMainButtonIcon = () => {
@@ -453,13 +456,6 @@ export function MainLaunchButton({
           />
         </div>
       </div>
-
-      {versions && (
-        <ProfileSelectionModal
-          onVersionChange={handleVersionChange}
-          title="Select Version"
-        />
-      )}
     </div>
   );
 }

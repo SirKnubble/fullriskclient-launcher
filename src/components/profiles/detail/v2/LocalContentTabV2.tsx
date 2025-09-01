@@ -1130,7 +1130,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                         onBrowseContentRequest(browseContentType);
                       } else if (profile) {
                         const browseContentType = getBrowseTabContentType(contentType);
-                        navigate(`/profiles/${profile.id}/browse/${browseContentType}`);
+                        navigate(`/profilesv2/${profile.id}/browse/${browseContentType}`);
                       }
                     },
                   },
@@ -1224,7 +1224,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
               fetchProfiles(); // Refresh profiles list in the store
               if (onRefreshRequired) onRefreshRequired(); // Refresh parent view if callback provided
-              navigate(`/profiles/${newProfileId}`); // Navigate to the new profile's detail view
+              navigate(`/profilesv2/${newProfileId}`); // Navigate to the new profile's detail view
               return `Profile '${newName}' cloned successfully!`; // Toast for cloning success
             },
             error: (err) =>
@@ -1342,7 +1342,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       }
     })(contentType);
     if (onBrowseContentRequest) onBrowseContentRequest(browseType);
-    else navigate(`/profiles/${profile.id}/browse/${browseType}`);
+    else navigate(`/profilesv2/${profile.id}/browse/${browseType}`);
   }, [onBrowseContentRequest, navigate, profile, contentType]);
 
   return (
