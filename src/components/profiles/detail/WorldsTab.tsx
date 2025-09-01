@@ -16,6 +16,7 @@ import { TagBadge } from "../../ui/TagBadge";
 import { CopyWorldDialog } from "../../modals/CopyWorldDialog";
 import { ConfirmDeleteDialog } from "../../modals/ConfirmDeleteDialog";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
+import { useProfileLaunch } from "../../../hooks/useProfileLaunch";
 import { toast } from "react-hot-toast";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { LaunchButton } from "../../ui/buttons/LaunchButton";
@@ -90,6 +91,38 @@ export function WorldsTab({
   const allProfilesFromStore = useProfileStore((state) => state.profiles);
   const isLoadingProfilesFromStore = useProfileStore((state) => state.loading);
   const { showModal, hideModal } = useGlobalModal();
+
+  // Profile launch hook for world/server launching
+  const { isLaunching, statusMessage, handleQuickPlayLaunch } = useProfileLaunch({
+    profileId: profile.id,
+    onLaunchSuccess: () => {
+      console.log("Profile launched successfully from WorldsTab:", profile.name);
+    },
+    onLaunchError: (error) => {
+      console.error("Profile launch error from WorldsTab:", error);
+    },
+  });
+
+  // Handler for world/server launch with QuickPlay support
+  const handleWorldServerLaunch = useCallback(async (item: DisplayItem) => {
+    const isWorld = item.type === "world";
+
+    if (isWorld) {
+      // Launch with specific world using QuickPlay
+      console.log(`🚀 QuickPlay Singleplayer: Launching world: ${item.folder_name}`);
+      toast.success(`🚀 Launching world: ${item.display_name || item.folder_name}`);
+      handleQuickPlayLaunch(item.folder_name, undefined);
+    } else if (item.address) {
+      // Launch with specific server using QuickPlay
+      console.log(`🌐 QuickPlay Multiplayer: Joining server: ${item.address}`);
+      toast.success(`🌐 Joining server: ${item.name || item.address}`);
+      handleQuickPlayLaunch(undefined, item.address);
+    } else {
+      // Regular launch as fallback
+      console.log("Regular launch fallback");
+      handleQuickPlayLaunch(undefined, undefined);
+    }
+  }, [handleQuickPlayLaunch]);
 
   // --- State ---
   const [worlds, setWorlds] = useState<WorldInfo[]>([]);
@@ -775,19 +808,12 @@ export function WorldsTab({
       const playActions = [
         {
           id: "play",
-          label: isWorld ? "PLAY" : "JOIN",
-          icon: isWorld ? "solar:play-bold" : "solar:login-3-bold",
-          tooltip: isWorld ? "Play World" : "Join Server",
+          label: isLaunching ? "STOP" : (isWorld ? "PLAY" : "JOIN"),
+          icon: isLaunching ? "solar:stop-bold" : (isWorld ? "solar:play-bold" : "solar:login-3-bold"),
+          variant: isLaunching ? "destructive" : "secondary",
+          tooltip: isLaunching ? "Stop Launch" : (isWorld ? "Play World" : "Join Server"),
           disabled: !isWorld && !item.address,
-          onClick: () => {
-            if (onLaunchRequest) {
-              onLaunchRequest({
-                profileId: profile.id,
-                quickPlaySingleplayer: isWorld ? item.folder_name : undefined,
-                quickPlayMultiplayer: !isWorld && item.address ? item.address : undefined,
-              });
-            }
-          },
+          onClick: () => handleWorldServerLaunch(item),
         },
       ];
 
@@ -825,21 +851,13 @@ export function WorldsTab({
         <div className="flex items-center gap-2">
           {/* Play/Join Button */}
           <ActionButton
-            icon={isWorld ? "solar:play-bold" : "solar:login-3-bold"}
-            label={isWorld ? "PLAY" : "JOIN"}
-            variant="secondary"
+            icon={isLaunching ? "solar:stop-bold" : (isWorld ? "solar:play-bold" : "solar:login-3-bold")}
+            label={isLaunching ? "STOP" : (isWorld ? "PLAY" : "JOIN")}
+            variant={isLaunching ? "destructive" : "secondary"}
             size="sm"
-            tooltip={isWorld ? "Play World" : "Join Server"}
+            tooltip={isLaunching ? "Stop Launch" : (isWorld ? "Play World" : "Join Server")}
             disabled={!isWorld && !item.address}
-            onClick={() => {
-              if (onLaunchRequest) {
-                onLaunchRequest({
-                  profileId: profile.id,
-                  quickPlaySingleplayer: isWorld ? item.folder_name : undefined,
-                  quickPlayMultiplayer: !isWorld && item.address ? item.address : undefined,
-                });
-              }
-            }}
+            onClick={() => handleWorldServerLaunch(item)}
           />
           
           {/* World Actions */}

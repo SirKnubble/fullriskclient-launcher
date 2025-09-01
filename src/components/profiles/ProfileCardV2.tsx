@@ -11,15 +11,10 @@ import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContext
 import { Icon } from "@iconify/react";
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
-import { useLaunchStateStore } from "../../store/launch-state-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "./ExportProfileModal";
-import * as ProcessService from "../../services/process-service";
-import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
-import { EventPayload as FrontendEventPayload, EventType as FrontendEventType } from "../../types/events";
-import { invoke } from "@tauri-apps/api/core";
-import { LaunchState } from "../../store/launch-state-store";
+import { useProfileLaunch } from "../../hooks/useProfileLaunch";
 
 interface ProfileCardV2Props {
   profile: Profile;
@@ -41,7 +36,6 @@ export function ProfileCardV2({
   layoutMode = "list",
 }: ProfileCardV2Props) {
   const [isHovered, setIsHovered] = useState(false);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
   const { openContextMenuId, setOpenContextMenuId } = useThemeStore();
   
@@ -128,13 +122,18 @@ export function ProfileCardV2({
     },
   ];
 
-  // Launch state management - similar to ProfileCard.tsx and MainLaunchButton.tsx
-  const { getProfileState, initializeProfile, initiateButtonLaunch, finalizeButtonLaunch, setButtonStatusMessage, setLaunchError } = useLaunchStateStore();
-  const { isButtonLaunching, buttonStatusMessage, currentStep, launchState } = getProfileState(profile.id);
+  // Profile launch hook
+  const { isLaunching, statusMessage, handleLaunch } = useProfileLaunch({
+    profileId: profile.id,
+    onLaunchSuccess: () => {
+      console.log("Profile launched successfully:", profile.name);
+    },
+    onLaunchError: (error) => {
+      console.error("Profile launch error:", error);
+    },
+  });
 
-  useEffect(() => {
-    initializeProfile(profile.id);
-  }, [profile.id, initializeProfile]);
+
 
   // Close this menu if another context menu opens globally
   useEffect(() => {
@@ -156,11 +155,8 @@ export function ProfileCardV2({
       }
 
       try {
-        const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
-          profileId: profile.id,
-          minecraftVersion: profile.game_version,
-        });
-        setResolvedLoaderVersion(resolved);
+        // TODO: Implement loader version resolution
+        setResolvedLoaderVersion(null);
       } catch (err) {
         console.error("Failed to resolve loader version:", err);
         setResolvedLoaderVersion(null);
@@ -170,113 +166,9 @@ export function ProfileCardV2({
     fetchResolvedLoaderVersion();
   }, [profile.id, profile.game_version, profile.loader, profile.loader_version]);
 
-  // Event listener for detailed launch status - similar to MainLaunchButton.tsx
-  useEffect(() => {
-    let unlistenStateEvent: (() => void) | undefined;
 
-    const setupDetailedListener = async () => {
-      console.log(`[ProfileCardV2] Setting up detailed status listener for ${profile.id}`);
-      unlistenStateEvent = await listen<FrontendEventPayload>(
-        "state_event",
-        (event: TauriEvent<FrontendEventPayload>) => {
-          if (event.payload.target_id === profile.id) {
-            const eventTypeFromPayload = event.payload.event_type;
-            const eventMessage = event.payload.message;
 
-            if (eventTypeFromPayload === FrontendEventType.LaunchSuccessful) {
-              console.log(`[ProfileCardV2] LaunchSuccessful event for ${profile.id}`);
-              finalizeButtonLaunch(profile.id);
-              setButtonStatusMessage(profile.id, "STARTING!");
-              setTimeout(() => {
-                setButtonStatusMessage(profile.id, null);
-              }, 3000);
-            } else if (eventTypeFromPayload === FrontendEventType.Error) {
-              console.log(`[ProfileCardV2] Error event via state_event for ${profile.id}`);
-              const eventErrorMsg = eventMessage || "Error during launch process.";
-              toast.error(`Error: ${eventErrorMsg}`);
-              setLaunchError(profile.id, eventErrorMsg);
-            } else {
-              if (eventMessage) {
-                setButtonStatusMessage(profile.id, eventMessage);
-              }
-            }
-          }
-        }
-      );
-    };
 
-    if (isButtonLaunching) {
-      setupDetailedListener();
-      if (!buttonStatusMessage) {
-        setButtonStatusMessage(profile.id, "Initializing launch...");
-      }
-    }
-
-    return () => {
-      if (unlistenStateEvent) {
-        unlistenStateEvent();
-      }
-    };
-  }, [profile.id, isButtonLaunching, finalizeButtonLaunch, setButtonStatusMessage, setLaunchError, buttonStatusMessage]);
-
-  // Polling for launch status - similar to MainLaunchButton.tsx
-  useEffect(() => {
-    const clearPolling = () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-        console.log(`[ProfileCardV2] Polling stopped for ${profile.id}`);
-      }
-    };
-
-    if (isButtonLaunching && profile.id) {
-      console.log(`[ProfileCardV2] Starting polling for launcher task finished for ${profile.id}`);
-      pollingIntervalRef.current = setInterval(async () => {
-        try {
-          const isStillPhysicallyLaunching = await invoke<boolean>(
-            "is_profile_launching",
-            { profileId: profile.id }
-          );
-          const launcherTaskFinished = !isStillPhysicallyLaunching;
-
-          if (launcherTaskFinished) {
-            console.log(`[ProfileCardV2] Polling determined launcher task finished for ${profile.id}`);
-            clearPolling();
-
-            const currentProfileStateAfterPoll = getProfileState(profile.id);
-            if (
-              currentProfileStateAfterPoll.launchState === LaunchState.ERROR ||
-              currentProfileStateAfterPoll.error
-            ) {
-              console.log(`[ProfileCardV2] Polling: Launch task finished, but an error was detected in store.`);
-              if (currentProfileStateAfterPoll.isButtonLaunching) {
-                finalizeButtonLaunch(
-                  profile.id,
-                  currentProfileStateAfterPoll.error || "Unknown error after completion."
-                );
-              }
-            } else {
-              console.log(`[ProfileCardV2] Polling: Launch task finished successfully.`);
-              if (currentProfileStateAfterPoll.isButtonLaunching) {
-                finalizeButtonLaunch(profile.id);
-              }
-            }
-          }
-        } catch (err: any) {
-          console.error(`[ProfileCardV2] Error during polling is_profile_launching:`, err);
-          const pollErrorMsg =
-            err.message || err.toString() || "Error while checking profile status.";
-          toast.error(`Polling error: ${pollErrorMsg}`);
-          finalizeButtonLaunch(profile.id, pollErrorMsg);
-          clearPolling();
-        }
-      }, 1500);
-    } else {
-      clearPolling();
-    }
-
-    return clearPolling;
-  }, [profile.id, isButtonLaunching, finalizeButtonLaunch, getProfileState]);
 
   // Get mod loader icon - reused from ProfileCard.tsx
   const getModLoaderIcon = () => {
@@ -318,56 +210,21 @@ export function ProfileCardV2({
     return `${diffInYears}y ago`;
   };
 
-  // Launch handler with abort functionality - similar to LaunchButton.tsx
-  const handleLaunch = async (profile: Profile) => {
-    const currentProfile = getProfileState(profile.id);
 
-    if (currentProfile.isButtonLaunching) {
-      try {
-        setButtonStatusMessage(profile.id, "Attempting to stop...");
-        await ProcessService.abort(profile.id);
-        toast.success("Launch process stopped.");
-        finalizeButtonLaunch(profile.id);
-      } catch (err: any) {
-        console.error("Failed to abort launch:", err);
-        const abortErrorMsg =
-          typeof err === "string"
-            ? err
-            : err.message || err.toString() || "Error during abort.";
-        toast.error(`Stop failed: ${abortErrorMsg}`);
-        finalizeButtonLaunch(profile.id, abortErrorMsg);
-      }
-      return;
-    }
-
-    initiateButtonLaunch(profile.id);
-
-    try {
-      await ProcessService.launch(profile.id);
-    } catch (err: any) {
-      console.error("Failed to launch profile:", err);
-      const launchErrorMsg =
-        typeof err === "string"
-          ? err
-          : err.message || err.toString() || "Unknown error during launch.";
-      toast.error(`Launch failed: ${launchErrorMsg}`);
-      setLaunchError(profile.id, launchErrorMsg);
-    }
-  };
 
   // Action button configuration
   const actionButtons: ProfileActionButton[] = [
     {
       id: "play",
-      label: isButtonLaunching ? "STOP" : "PLAY",
-      icon: isButtonLaunching ? "solar:stop-bold" : "solar:play-bold",
-      variant: isButtonLaunching ? "destructive" : "primary",
-      tooltip: isButtonLaunching ? "Launch stoppen" : "Minecraft spielen!",
+      label: isLaunching ? "STOP" : "PLAY",
+      icon: isLaunching ? "solar:stop-bold" : "solar:play-bold",
+      variant: isLaunching ? "destructive" : "primary",
+      tooltip: isLaunching ? "Launch stoppen" : "Minecraft spielen!",
       onClick: (profile, e) => {
         if (onPlay) {
           onPlay(profile);
         } else {
-          handleLaunch(profile);
+          handleLaunch();
         }
       },
     },
@@ -516,14 +373,14 @@ export function ProfileCardV2({
             <ProfileIconV2 profile={profile} size={isCompact ? "md" : "lg"} className="w-full h-full" />
             
             {/* Play button overlay - similar to ProfileCard.tsx */}
-            {(isButtonLaunching || isHovered) && (
+            {(isLaunching || isHovered) && (
               <div className="play-overlay absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer rounded-lg">
                 <button
-                  onClick={() => handleLaunch(profile)}
+                  onClick={() => handleLaunch()}
                   className={`${isCompact ? 'w-8 h-8' : 'w-12 h-12'} flex items-center justify-center text-white hover:text-white/80 transition-colors`}
                   disabled={false}
                 >
-                  {isButtonLaunching ? (
+                  {isLaunching ? (
                     <Icon icon="solar:stop-bold" className={isCompact ? 'w-6 h-6' : 'w-8 h-8'} />
                   ) : (
                     <Icon icon="solar:play-bold" className={isCompact ? 'w-6 h-6' : 'w-8 h-8'} />
@@ -540,9 +397,9 @@ export function ProfileCardV2({
             >
               {profile.name}
             </h3>
-            {isButtonLaunching ? (
+            {isLaunching ? (
               <div className="text-white/60 text-xs font-minecraft-ten opacity-70 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
-                {buttonStatusMessage || currentStep || "Starting..."}
+                {statusMessage || "Starting..."}
               </div>
             ) : (
               isCompact ? (
@@ -654,9 +511,9 @@ export function ProfileCardV2({
           {profile.name}
         </h3>
         
-        {isButtonLaunching ? (
+        {isLaunching ? (
           <div className="text-white/60 text-xs font-minecraft-ten opacity-70 whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
-            {buttonStatusMessage || currentStep || "Starting..."}
+            {statusMessage || "Starting..."}
           </div>
         ) : (
           <div className="flex items-center gap-2 text-xs font-minecraft-ten">

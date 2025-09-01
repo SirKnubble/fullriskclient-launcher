@@ -21,6 +21,7 @@ import { useProfileStore } from "../../store/profile-store";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import * as ProfileService from "../../services/profile-service";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
+import { useProfileLaunch } from "../../hooks/useProfileLaunch";
 
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
@@ -70,6 +71,42 @@ export function ProfileDetailViewV2({
 
   // Profile duplicate store
   const { openModal: openDuplicateModal } = useProfileDuplicateStore();
+
+  // Profile launch hook
+  const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } = useProfileLaunch({
+    profileId: profile.id,
+    onLaunchSuccess: () => {
+      console.log("Profile launched successfully:", profile.name);
+    },
+    onLaunchError: (error) => {
+      console.error("Profile launch error:", error);
+    },
+  });
+
+  // Handler for world/server launch requests from WorldsTab
+  const handleLaunchRequest = useCallback(async (params: {
+    profileId: string;
+    quickPlaySingleplayer?: string;
+    quickPlayMultiplayer?: string;
+  }) => {
+    console.log("🚀 Launch request received:", params);
+
+    if (params.quickPlaySingleplayer) {
+      // Launch with specific world using QuickPlay
+      console.log(`🚀 QuickPlay Singleplayer: Launching world: ${params.quickPlaySingleplayer}`);
+      toast.success(`🚀 Launching world: ${params.quickPlaySingleplayer}`);
+      handleQuickPlayLaunch(params.quickPlaySingleplayer, undefined);
+    } else if (params.quickPlayMultiplayer) {
+      // Launch with specific server using QuickPlay
+      console.log(`🌐 QuickPlay Multiplayer: Joining server: ${params.quickPlayMultiplayer}`);
+      toast.success(`🌐 Joining server: ${params.quickPlayMultiplayer}`);
+      handleQuickPlayLaunch(undefined, params.quickPlayMultiplayer);
+    } else {
+      // Regular launch
+      console.log("Regular launch");
+      handleQuickPlayLaunch(undefined, undefined);
+    }
+  }, [handleQuickPlayLaunch]);
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
@@ -254,13 +291,10 @@ export function ProfileDetailViewV2({
     },
     {
       id: "play",
-      label: "PLAY",
-      icon: "solar:play-bold",
-      tooltip: "Start playing",
-      onClick: () => {
-        // TODO: Implement play functionality
-        console.log("Play button clicked");
-      },
+      label: isLaunching ? "STOP" : "PLAY",
+      icon: isLaunching ? "solar:stop-bold" : "solar:play-bold",
+      tooltip: isLaunching ? "Stop playing" : "Start playing",
+      onClick: handleLaunch,
     },
     {
       id: "settings",
@@ -326,52 +360,66 @@ export function ProfileDetailViewV2({
                 {profile.name || profile.id}
               </h1>
 
-              {/* Game Info */}
-              <div className="flex items-center gap-3 text-sm font-minecraft-ten">
-                {/* Minecraft Version */}
-                <div className="text-white/70 flex items-center gap-2">
-                  <img
-                    src="/icons/minecraft.png"
-                    alt="Minecraft"
-                    className="w-4 h-4 object-contain"
-                  />
-                  <span>{profile.game_version}</span>
-                </div>
 
-                {/* Loader Info (if not vanilla) */}
-                {profile.loader && profile.loader !== "vanilla" && (
-                  <>
-                    <div className="w-px h-4 bg-white/30"></div>
-                    <div className="text-white/60 flex items-center gap-2">
+
+              {/* Game Info / Launch Status */}
+              <div className="text-sm font-minecraft-ten">
+                {isLaunching && statusMessage ? (
+                  /* Launch Status Message */
+                  <div className="text-white/60 flex items-center gap-2 min-w-0 max-w-lg">
+                    <span className="truncate text-sm font-minecraft-ten" title={statusMessage}>
+                      {statusMessage}
+                    </span>
+                  </div>
+                ) : (
+                  /* Normal Game Info */
+                  <div className="flex items-center gap-3">
+                    {/* Minecraft Version */}
+                    <div className="text-white/70 flex items-center gap-2">
                       <img
-                        src={getModLoaderIcon()}
-                        alt={profile.loader}
+                        src="/icons/minecraft.png"
+                        alt="Minecraft"
                         className="w-4 h-4 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = "/icons/minecraft.png";
-                        }}
                       />
-                      <span className="capitalize">{profile.loader}</span>
-                      {profile.loader_version && (
-                        <span className="text-white/50">
-                          {profile.loader_version}
-                        </span>
-                      )}
+                      <span>{profile.game_version}</span>
                     </div>
-                  </>
-                )}
 
-                {/* Profile Group (if exists) */}
-                {profile.group && (
-                  <>
-                    <div className="w-px h-4 bg-white/30"></div>
-                    <div className="text-white/50 flex items-center gap-1">
-                      <Icon icon="solar:folder-bold" className="w-3 h-3" />
-                      <span className="uppercase text-xs tracking-wide">
-                        {profile.group}
-                      </span>
-                    </div>
-                  </>
+                    {/* Loader Info (if not vanilla) */}
+                    {profile.loader && profile.loader !== "vanilla" && (
+                      <>
+                        <div className="w-px h-4 bg-white/30"></div>
+                        <div className="text-white/60 flex items-center gap-2">
+                          <img
+                            src={getModLoaderIcon()}
+                            alt={profile.loader}
+                            className="w-4 h-4 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.src = "/icons/minecraft.png";
+                            }}
+                          />
+                          <span className="capitalize">{profile.loader}</span>
+                          {profile.loader_version && (
+                            <span className="text-white/50">
+                              {profile.loader_version}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Profile Group (if exists) */}
+                    {profile.group && (
+                      <>
+                        <div className="w-px h-4 bg-white/30"></div>
+                        <div className="text-white/50 flex items-center gap-1">
+                          <Icon icon="solar:folder-bold" className="w-3 h-3" />
+                          <span className="uppercase text-xs tracking-wide">
+                            {profile.group}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -558,6 +606,7 @@ export function ProfileDetailViewV2({
                 profile={currentProfile}
                 onRefresh={handleRefresh}
                 isActive={true}
+                onLaunchRequest={handleLaunchRequest}
               />
             </div>
           )}
