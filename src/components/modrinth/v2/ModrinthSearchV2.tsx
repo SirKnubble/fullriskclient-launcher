@@ -109,6 +109,10 @@ export function ModrinthSearchV2({
   const [offset, setOffset] = useState(0);
   const [totalHits, setTotalHits] = useState(0);
   const limit = 20;
+  
+  // State to control delayed display of "No results found" message
+  const [showNoResultsMessage, setShowNoResultsMessage] = useState(false);
+  const noResultsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // New state for Sort Order, now with ModrinthSortType
   const [sortOrder, setSortOrder] = useState<ModrinthSortType>('relevance');
@@ -282,6 +286,13 @@ export function ModrinthSearchV2({
       offset: newSearch ? 0 : offset // Log the offset that will be used
     });
 
+    // Clear any existing timeout for the "No results found" message
+    if (noResultsTimeoutRef.current) {
+      clearTimeout(noResultsTimeoutRef.current);
+      noResultsTimeoutRef.current = null;
+    }
+    setShowNoResultsMessage(false);
+
     if (newSearch) {
       console.log('[ModrinthSearchV2] New search, resetting offset.');
       setOffset(0);
@@ -322,6 +333,13 @@ export function ModrinthSearchV2({
       }
     } finally {
       setLoading(false);
+      
+      // Set up delayed "No results found" message only for new searches
+      if (newSearch) {
+        noResultsTimeoutRef.current = setTimeout(() => {
+          setShowNoResultsMessage(true);
+        }, 250); // Show message after 1.5 seconds
+      }
     }
   }, [
     searchTerm, projectType, offset, limit, sortOrder,
@@ -1592,6 +1610,15 @@ export function ModrinthSearchV2({
     }
   }, [projectType, selectedProfile]);
 
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (noResultsTimeoutRef.current) {
+        clearTimeout(noResultsTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const accentColor = useThemeStore((state) => state.accentColor); // Get accent color
   const [hoveredVersionId, setHoveredVersionId] = useState<string | null>(null); // New state for version hover
   const [openVersionDropdowns, setOpenVersionDropdowns] = useState<Record<string, { type: boolean; gameVersion: boolean; loader: boolean }>>({});
@@ -2242,8 +2269,8 @@ export function ModrinthSearchV2({
           {searchResults.length === 0 && !loading && error && (
             <p className="p-4 text-red-500 text-center">Error: {error}</p>
           )}
-          {searchResults.length === 0 && !loading && !error && (
-            <p className="p-4 text-center text-gray-400">No results found. Try adjusting filters or search term.</p>
+          {searchResults.length === 0 && !loading && !error && showNoResultsMessage && (
+            <p className="p-4 text-center text-xl lowercase text-gray-400">No results found. Try adjusting filters or search term.</p>
           )}
 
           {searchResults.length > 0 && (
@@ -2321,7 +2348,7 @@ export function ModrinthSearchV2({
                 
                 {/* End of results */}
                 {!loading && searchResults.length > 0 && searchResults.length >= totalHits && (
-                  <div className="p-4 text-center text-sm text-gray-400">
+                  <div className="p-4 text-center text-xl text-gray-400">
                     No more results.
                   </div>
                 )}
@@ -2392,7 +2419,7 @@ export function ModrinthSearchV2({
                     }
                     if (!loading && searchResults.length > 0 && searchResults.length >= totalHits) {
                        return (
-                        <div className="p-4 text-center text-sm text-gray-400">
+                        <div className="p-4 text-center text-xl lowercase text-gray-400">
                           No more results.
                         </div>
                       );
