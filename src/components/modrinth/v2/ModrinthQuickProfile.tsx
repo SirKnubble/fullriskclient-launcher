@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Input } from "../../ui/Input";
-import { Select, type SelectOption } from "../../ui/Select";
+import React, { useState, useMemo, useEffect } from "react";
+import { SearchStyleInput } from "../../ui/Input";
 import { IconButton } from "../../ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
 import type { AccentColor } from "../../../store/useThemeStore";
@@ -22,9 +21,7 @@ interface ModrinthQuickProfileProps {
   onSourceProfileChange: (profileId: string | null) => void;
 }
 
-const PLACEHOLDER_VALUE = "__placeholder__";
-const NO_PROFILES_VALUE = "__no_profiles__";
-const LOADING_PROFILES_VALUE = "__loading_profiles__";
+
 
 export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
   accentColor,
@@ -38,20 +35,12 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
   onSourceProfileChange,
 }) => {
   const [showSourceSelectInput, setShowSourceSelectInput] = useState(false);
+  const [profileSearchValue, setProfileSearchValue] = useState('');
+  const [maxProfilesToShow, setMaxProfilesToShow] = useState(9);
   const { profiles: storeProfiles, loading: profilesLoading } =
     useProfileStore();
 
-  const sourceProfileOptions: SelectOption[] = storeProfiles.map((p) => ({
-    value: p.id,
-    label: p.name,
-  }));
 
-  if (storeProfiles.length > 0 && !profilesLoading) {
-    sourceProfileOptions.unshift({
-      value: PLACEHOLDER_VALUE,
-      label: "Select a profile to copy from...",
-    });
-  }
 
   const handleToggleCopySection = () => {
     if (selectedSourceProfileId) {
@@ -63,6 +52,29 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
   };
 
   const isActuallyCopying = selectedSourceProfileId !== null;
+
+  // Filter profiles based on search
+  const filteredProfiles = useMemo(() => {
+    if (!profileSearchValue.trim()) return storeProfiles;
+    const searchTerm = profileSearchValue.toLowerCase().trim();
+    return storeProfiles.filter(profile =>
+      profile.name.toLowerCase().includes(searchTerm) ||
+      profile.game_version?.toLowerCase().includes(searchTerm) ||
+      profile.loader?.toLowerCase().includes(searchTerm) ||
+      profile.loader_version?.toLowerCase().includes(searchTerm)
+    );
+  }, [storeProfiles, profileSearchValue]);
+
+  // Reset maxProfilesToShow when search changes
+  useEffect(() => {
+    setMaxProfilesToShow(9);
+  }, [profileSearchValue]);
+
+  const displayedProfiles = filteredProfiles.slice(0, maxProfilesToShow);
+
+  const handleLoadMoreProfiles = () => {
+    setMaxProfilesToShow(prev => prev + 9);
+  };
 
   return (
     <div
@@ -98,13 +110,13 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
           >
             New Profile Name
           </label>
-          <Input
+          <SearchStyleInput
             id="quickProfileNameInput"
             value={profileName}
             onChange={(e) => onProfileNameChange(e.target.value)}
             placeholder="Enter name for new profile"
-            className="w-full text-center text-lg"
-            aria-describedby={error ? "profileNameError" : undefined}
+            icon="solar:user-bold"
+            error={error || undefined}
             disabled={isLoading}
           />
         </div>
@@ -131,70 +143,117 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
           className="flex-shrink-0 mt-0.5"
         />
       </div>
-      {error && (
-        <p
-          id="profileNameError"
-          className="text-red-500 text-xs mt-1 text-center"
-        >
-          {error}
-        </p>
-      )}
+
 
       {(showSourceSelectInput || isActuallyCopying) && (
-        <div className="space-y-1 pt-2 animated-fade-in">
-          <label
-            htmlFor="sourceProfileSelect"
-            className="block text-xs font-medium font-minecraft-ten text-gray-400"
-          >
-            Source Profile to Copy
-          </label>
-          <Select
-            value={selectedSourceProfileId || PLACEHOLDER_VALUE}
-            onChange={(value) => {
-              if (
-                value === PLACEHOLDER_VALUE ||
-                value === NO_PROFILES_VALUE ||
-                value === LOADING_PROFILES_VALUE
-              ) {
-                onSourceProfileChange(null);
-              } else {
-                onSourceProfileChange(value);
-                setShowSourceSelectInput(true);
-              }
-            }}
-            options={
-              profilesLoading
-                ? [
-                    {
-                      value: LOADING_PROFILES_VALUE,
-                      label: "Loading profiles...",
-                    },
-                  ]
-                : storeProfiles.length === 0
-                  ? [
-                      {
-                        value: NO_PROFILES_VALUE,
-                        label: "No profiles available to copy",
-                      },
-                    ]
-                  : sourceProfileOptions
-            }
-            placeholder="Select a profile to copy from..."
-            disabled={
-              isLoading ||
-              profilesLoading ||
-              (storeProfiles.length === 0 && !profilesLoading)
-            }
-            className="w-full"
-          />
-          {storeProfiles.length === 0 &&
-            !profilesLoading &&
-            (showSourceSelectInput || isActuallyCopying) && (
-              <p className="text-xs text-amber-500 mt-1 text-center">
-                You don't have any profiles to copy from. A new empty profile
-                will be created if you proceed without selecting a source.
-              </p>
-            )}
+        <div className="pt-2 animated-fade-in space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-medium font-minecraft-ten text-gray-400">
+              Source Profile to Copy
+            </label>
+            <span className="text-xs text-white/50 font-minecraft-ten">
+              {filteredProfiles.length} profile{filteredProfiles.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {profilesLoading ? (
+            <div className="flex items-center justify-center gap-2 p-3 bg-black/20 rounded-lg">
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin text-white/50" />
+              <span className="text-sm text-white/50 font-minecraft-ten">Loading profiles...</span>
+            </div>
+          ) : storeProfiles.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 p-3 bg-black/20 rounded-lg">
+              <Icon icon="solar:folder-error-bold" className="w-4 h-4 text-amber-500" />
+              <span className="text-sm text-amber-500 font-minecraft-ten">No profiles available</span>
+            </div>
+          ) : (
+            <>
+              {/* Search Bar */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <Icon icon="solar:magnifer-bold" className="w-3 h-3 text-white/50" />
+                </div>
+                <input
+                  type="text"
+                  value={profileSearchValue}
+                  onChange={(e) => setProfileSearchValue(e.target.value)}
+                  placeholder="Search profiles..."
+                  className="w-full pl-7 pr-3 py-1.5 bg-black/20 border border-white/10 rounded-md text-xs font-minecraft-ten text-white placeholder-white/50 focus:border-accent focus:outline-none transition-colors"
+                  disabled={isLoading}
+                />
+                {profileSearchValue && (
+                  <button
+                    onClick={() => setProfileSearchValue('')}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center hover:bg-white/10 rounded-r-md"
+                  >
+                    <Icon icon="solar:close-circle-bold" className="w-3 h-3 text-white/50 hover:text-white" />
+                  </button>
+                )}
+              </div>
+
+              {/* Profile Grid */}
+              <div className="grid grid-cols-3 gap-1.5 max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                {displayedProfiles.map((profile) => (
+                  <button
+                    key={profile.id}
+                    onClick={() => {
+                      onSourceProfileChange(profile.id);
+                      setShowSourceSelectInput(true);
+                    }}
+                    disabled={isLoading}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-2 rounded-md bg-black/20 border transition-all duration-200 hover:bg-black/30 text-center",
+                      selectedSourceProfileId === profile.id
+                        ? "border-accent bg-accent/10"
+                        : "border-white/10 hover:border-white/20",
+                      isLoading && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <div className="w-5 h-5 rounded flex items-center justify-center overflow-hidden bg-black/40">
+                      <Icon icon="solar:user-bold" className="w-3 h-3 text-white/70" />
+                    </div>
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="text-xs font-minecraft-ten text-white truncate" title={profile.name}>
+                        {profile.name}
+                      </div>
+                      <div className="text-xs text-white/40 font-minecraft-ten truncate">
+                        {profile.game_version}
+                      </div>
+                    </div>
+                    {selectedSourceProfileId === profile.id && (
+                      <Icon icon="solar:check-circle-bold" className="w-3 h-3 text-accent flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+
+                {filteredProfiles.length > maxProfilesToShow && (
+                  <button
+                    onClick={handleLoadMoreProfiles}
+                    disabled={isLoading}
+                    className="flex flex-col items-center justify-center gap-1 p-2 rounded-md bg-black/20 border border-white/10 hover:border-white/20 hover:bg-black/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Icon icon="solar:add-circle-bold" className="w-4 h-4 text-white/50" />
+                    <span className="text-xs font-minecraft-ten text-white/50">
+                      +{Math.min(9, filteredProfiles.length - maxProfilesToShow)} more
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {filteredProfiles.length === 0 && profileSearchValue && (
+                <div className="text-center py-2">
+                  <Icon icon="solar:search-bold" className="w-4 h-4 text-white/30 mx-auto mb-1" />
+                  <span className="text-xs text-white/50 font-minecraft-ten">No profiles found</span>
+                </div>
+              )}
+            </>
+          )}
+
+          {storeProfiles.length === 0 && !profilesLoading && (
+            <p className="text-xs text-amber-500 mt-2 text-center">
+              You don't have any profiles to copy from. A new empty profile will be created if you proceed without selecting a source.
+            </p>
+          )}
         </div>
       )}
     </div>

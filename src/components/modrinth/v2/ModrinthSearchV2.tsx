@@ -2016,7 +2016,6 @@ export function ModrinthSearchV2({
   ): Promise<void> => {
 
     try {
-      const store = useProfileStore.getState(); // Store-Instanz holen
       let newProfileId: string;
       let successMessageDetail = `Successfully created profile '${profileName}'`;
       let gameVersion = '1.21.1'; // Default fallback
@@ -2025,16 +2024,38 @@ export function ModrinthSearchV2({
 
       // Handle profile creation
       if (sourceProfileIdToCopy) {
-        const sourceProfile = internalProfiles.find(p => p.id === sourceProfileIdToCopy);
-        const sourceProfileName = sourceProfile ? sourceProfile.name : "source profile";
+        // Get the source profile from the store
+        console.log('🔍 Looking for source profile:', sourceProfileIdToCopy);
+        const allProfiles = await ProfileService.getAllProfilesAndLastPlayed();
+        console.log('📋 Available profiles:', allProfiles.all_profiles.map(p => ({ id: p.id, name: p.name })));
 
-        // Verwende die Store-Methode copyProfile
-        newProfileId = await store.copyProfile(
-          sourceProfileIdToCopy,
-          profileName,
-          undefined, // includeFiles is undefined, as we want to include all
-          true       // includeAll is true
-        );
+        const sourceProfile = allProfiles.all_profiles.find(p => p.id === sourceProfileIdToCopy);
+        console.log('🎯 Found source profile:', sourceProfile);
+
+        if (!sourceProfile) {
+          throw new Error(`Source profile with ID ${sourceProfileIdToCopy} not found`);
+        }
+
+        const sourceProfileName = sourceProfile.name;
+
+        // Copy profile using the service directly
+        const copyParams = {
+          source_profile_id: sourceProfileIdToCopy,
+          new_profile_name: profileName,
+          include_files: undefined, // Let the backend handle includeAll
+        };
+
+        console.log('🔄 Copying profile with params:', copyParams);
+        newProfileId = await ProfileService.copyProfile(copyParams);
+        console.log('✅ Profile copied successfully, new ID:', newProfileId);
+
+        // If the source profile is a standard version, update the new profile to be custom
+        if (sourceProfile?.is_standard_version) {
+          await ProfileService.updateProfile(newProfileId, {
+            group: "CUSTOM",
+          });
+        }
+
         successMessageDetail = `Successfully copied profile '${profileName}' from '${sourceProfileName}'`;
 
         // Get game version from the source profile for compatibility filtering
@@ -2058,7 +2079,9 @@ export function ModrinthSearchV2({
           console.log('🔍 Available loaders from UI:', allLoadersData.map(l => l.name));
 
           // Get all versions for this project
+          console.log('🔄 Fetching mod versions from API...');
           const modVersions = await ModrinthService.getModVersions(project.project_id);
+          console.log('✅ Got', modVersions.length, 'versions from API');
 
           if (!modVersions || modVersions.length === 0) {
             throw new Error(`No versions found for ${project.title}`);
@@ -2175,7 +2198,15 @@ export function ModrinthSearchV2({
 
           // Safety check - ensure versionToInstall is valid
           if (!versionToInstall) {
-            throw new Error(`Invalid version data for ${project.title}`);
+            console.log('⚠️ Version selection logic failed, versionToInstall is null');
+            console.log('🔍 Debug info:', {
+              modVersionsLength: modVersions.length,
+              selectedGameVersions,
+              currentSelectedLoaders,
+              filteredVersionsLength: filteredVersions.length,
+              fabricVersionsLength: fabricVersions?.length || 0
+            });
+            // Don't throw here, let the fallback logic handle it
           }
 
 
@@ -2222,15 +2253,28 @@ export function ModrinthSearchV2({
             console.log('⚠️ No loaders found in version, using fallback:', loader);
           }
 
-          console.log('📦 Final selection - MC version:', gameVersion, 'with loader:', loader, 'for mod:', project.title, 'using version:', versionToInstall.version_number);
+          console.log('📦 Final selection - MC version:', gameVersion, 'with loader:', loader, 'for mod:', project.title, 'using version:', versionToInstall?.version_number || 'null');
+
+          // Final safety check - if versionToInstall is still null, set it to the first available version
+          if (!versionToInstall) {
+            console.log('🚨 EMERGENCY FALLBACK: versionToInstall is still null, using first available version');
+            if (modVersions && modVersions.length > 0) {
+              versionToInstall = modVersions[0];
+              console.log('✅ Emergency fallback version:', versionToInstall.version_number);
+            } else {
+              throw new Error(`No versions available for ${project.title} after all fallback attempts`);
+            }
+          }
         }
 
-        // Verwende die Store-Methode createProfile
-        newProfileId = await store.createProfile({
+        // Create new profile using the service directly
+        console.log('🔄 Creating new profile:', { name: profileName, game_version: gameVersion, loader });
+        newProfileId = await ProfileService.createProfile({
           name: profileName,
           game_version: gameVersion,
           loader: loader,
         });
+        console.log('✅ Profile created successfully, new ID:', newProfileId);
       }
 
       // Handle installation based on whether version is available
@@ -2286,7 +2330,14 @@ export function ModrinthSearchV2({
 
         // Safety check before installation
         if (!versionToInstall) {
-          throw new Error(`No version selected for ${project.title}`);
+          console.log('⚠️ No version was selected by the complex logic, falling back to first available version');
+          // Fallback: use the first version from the versions array
+          if (versions && versions.length > 0) {
+            versionToInstall = versions[0];
+            console.log('✅ Using fallback version:', versionToInstall.version_number);
+          } else {
+            throw new Error(`No versions available for ${project.title}`);
+          }
         }
 
         // Handle different possible file structures
@@ -2348,9 +2399,16 @@ export function ModrinthSearchV2({
         console.log('✅ Content installed successfully:', project.title, versionToInstall.version_number);
       }
 
-      // Refresh profiles list
-      const refreshed = await ProfileService.getAllProfilesAndLastPlayed();
-      setInternalProfiles(refreshed.all_profiles);
+      // Update the store and local state to reflect changes
+      const updatedProfiles = await ProfileService.getAllProfilesAndLastPlayed();
+      setInternalProfiles(updatedProfiles.all_profiles);
+
+      // Update the global profile store properly
+      useProfileStore.setState({
+        profiles: updatedProfiles.all_profiles,
+        lastPlayedProfileId: updatedProfiles.last_played_profile_id,
+        loading: false,
+      });
 
       // Navigate to the newly created profile
       console.log('🚀 Navigating to new profile:', newProfileId);
