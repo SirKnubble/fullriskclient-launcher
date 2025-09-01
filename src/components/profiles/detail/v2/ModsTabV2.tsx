@@ -456,15 +456,13 @@ export function ModsTabV2({ profile, onRefreshRequired }: ModsTabV2Props) {
     );
 
     return (
-      <GenericDetailListItem
-        key={mod.id}
+              <GenericDetailListItem
         id={mod.id}
         isSelected={selectedModIds.has(mod.id)}
         onSelectionChange={(checked) => handleModSelectionChange(mod.id, checked)}
         iconNode={itemIconNode}
         title={itemTitle}
         descriptionNode={itemDescriptionNode}
-        badgesNode={itemBadgesNode}
         updateActionNode={itemUpdateActionNode}
         mainActionNode={itemMainActionNode}
         deleteActionNode={itemDeleteActionNode}

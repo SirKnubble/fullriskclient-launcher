@@ -331,10 +331,11 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                       onClick={handleToggleEnableButtonClick}
                       size="sm"
                       variant={
-                        versionStatus.is_enabled ? "warning" : "secondary"
+                        versionStatus.is_enabled ? "highlight" : "secondary"
                       }
                       label={versionStatus.is_enabled ? "Active" : "Disabled"}
                       className="min-w-[80px]"
+                      icon="solar:settings-bold"
                     />
                   )}
                 {selectedProfileId &&
@@ -347,13 +348,14 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                       variant="destructive"
                       label="Delete"
                       className="min-w-[80px]"
+                      icon="solar:trash-bin-minimalistic-bold"
                     />
                   )}
                 {(!selectedProfileId || !versionStatus?.is_installed) && (
                   <ActionButton
                     onClick={handleButtonClick}
                     size="sm"
-                    variant={buttonVariant === "success" ? "primary" : buttonVariant}
+                    variant={buttonVariant === "primary" ? "primary" : buttonVariant}
                     disabled={buttonDisabled || isInstalling}
                     className="min-w-[80px]"
                     icon={isInstalling || isInstallingModpackVersion ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
