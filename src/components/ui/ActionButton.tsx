@@ -54,8 +54,8 @@ export function ActionButton({
     switch (size) {
       case "sm":
         return effectiveVariant === "icon-only" 
-          ? "py-[0.57rem] px-[0.57rem] text-xl" 
-          : "px-2 py-0.5 text-xl";
+          ? "py-[0.6rem] px-[0.6rem] text-xl" 
+          : "px-2 py-0.5 text-2xl";
       case "lg":
         return effectiveVariant === "icon-only" 
           ? "py-[0.57rem] px-[0.57rem] text-3xl" 

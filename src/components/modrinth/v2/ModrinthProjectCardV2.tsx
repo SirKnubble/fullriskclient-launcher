@@ -287,15 +287,32 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
               }}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white font-minecraft-ten text-sm whitespace-nowrap overflow-hidden text-ellipsis normal-case hover:underline cursor-pointer"
+              className="text-white font-minecraft-ten text-lg whitespace-nowrap overflow-hidden text-ellipsis normal-case hover:underline cursor-pointer"
               title={`Open ${hit.title} on Modrinth`}
             >
               {hit.title}
             </a>
             {hit.author && (
-              <p className="text-xs text-gray-400 truncate font-minecraft-ten flex-shrink min-w-0">
+              <a
+                href={`https://modrinth.com/user/${hit.author}`}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await openExternalUrl(
+                      `https://modrinth.com/user/${hit.author}`,
+                    );
+                  } catch (error) {
+                    console.error("Failed to open external URL:", error);
+                    toast.error("Could not open link in browser.");
+                  }
+                }}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gray-400 truncate font-minecraft-ten flex-shrink min-w-0 hover:text-gray-200 hover:underline cursor-pointer"
+                title={`Open ${hit.author}'s profile on Modrinth`}
+              >
                 by {hit.author}
-              </p>
+              </a>
             )}
           </div>
 
@@ -304,7 +321,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
             {hit.description}
           </p>
 
-          <div className="flex items-center gap-1 text-xs font-minecraft-ten">
+          <div className="flex items-center gap-1 text-sm font-minecraft-ten">
             {/* Status badges */}
             {installStatus && (
               <>

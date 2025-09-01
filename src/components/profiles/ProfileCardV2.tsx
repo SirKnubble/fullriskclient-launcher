@@ -41,10 +41,13 @@ export function ProfileCardV2({
   const [isHovered, setIsHovered] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
+  const { openContextMenuId, setOpenContextMenuId } = useThemeStore();
   
   // Settings context menu state
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+  const contextMenuId = `profile-${profile.id}`;
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   
   // Profile settings store
   const { openModal } = useProfileSettingsStore();
@@ -122,6 +125,17 @@ export function ProfileCardV2({
   useEffect(() => {
     initializeProfile(profile.id);
   }, [profile.id, initializeProfile]);
+
+  // Close this menu if another context menu opens globally
+  useEffect(() => {
+    if (openContextMenuId && openContextMenuId !== contextMenuId && isContextMenuOpen) {
+      setIsContextMenuOpen(false);
+    }
+  }, [openContextMenuId, contextMenuId, isContextMenuOpen]);
+
+
+
+
 
   // Fetch resolved loader version
   useEffect(() => {
@@ -368,28 +382,33 @@ export function ProfileCardV2({
       icon: "solar:settings-bold",
       variant: "icon-only",
       tooltip: "Profil Optionen",
-      onClick: (profile, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // If menu is already open, close it
-        if (isContextMenuOpen) {
-          setIsContextMenuOpen(false);
-          return;
-        }
-        
-        // Calculate position for context menu relative to the card container
-        const buttonRect = e.currentTarget.getBoundingClientRect();
-        const cardRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
-        
-        if (cardRect) {
-          setContextMenuPosition({
-            x: buttonRect.right - cardRect.left - 200, // Position menu to the left of the button
-            y: buttonRect.bottom - cardRect.top + 4,   // Position below the button
-          });
-          setIsContextMenuOpen(true);
-        }
-      },
+             onClick: (profile, e) => {
+         e.preventDefault();
+         e.stopPropagation();
+         
+         // Close any other open context menus first
+         if (openContextMenuId && openContextMenuId !== contextMenuId) {
+           setOpenContextMenuId(null);
+         }
+         
+         // Simple toggle like CustomDropdown
+         const newState = !isContextMenuOpen;
+         setIsContextMenuOpen(newState);
+         setOpenContextMenuId(newState ? contextMenuId : null);
+         
+         // Calculate position when opening
+         if (!isContextMenuOpen) {
+           const buttonRect = e.currentTarget.getBoundingClientRect();
+           const cardRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
+           
+           if (cardRect) {
+             setContextMenuPosition({
+               x: buttonRect.right - cardRect.left - 200, // Position menu to the left of the button
+               y: buttonRect.bottom - cardRect.top + 4,   // Position below the button
+             });
+           }
+         }
+       },
     },
   ];
 
@@ -402,38 +421,57 @@ export function ProfileCardV2({
     
     return (
       <div
-        className={`relative flex flex-col ${gap} ${padding} rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200`}
+        className={`relative flex flex-col ${gap} ${padding} rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 cursor-pointer`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={(e) => {
+          // Don't trigger if clicking on action buttons or play overlay
+          const target = e.target as Element;
+          if (e.target === e.currentTarget || (!target.closest('button') && !target.closest('.play-overlay'))) {
+            if (onMods) {
+              onMods(profile);
+            } else {
+              toast.success(`📦 Managing mods for ${profile.name}!`);
+              console.log("Managing mods for profile:", profile.name);
+            }
+          }
+        }}
       >
         {/* Action buttons - top right */}
         <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
           {/* Settings button */}
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              
-              // If menu is already open, close it
-              if (isContextMenuOpen) {
-                setIsContextMenuOpen(false);
-                return;
-              }
-              
-              // Calculate position for context menu relative to the card container
-              const buttonRect = e.currentTarget.getBoundingClientRect();
-              const cardRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
-              
-              if (cardRect) {
-                setContextMenuPosition({
-                  x: buttonRect.right - cardRect.left - 200, // Position menu to the left of the button
-                  y: buttonRect.bottom - cardRect.top + 4,   // Position below the button
-                });
-                setIsContextMenuOpen(true);
-              }
-            }}
+            ref={settingsButtonRef}
+                         onClick={(e) => {
+               e.preventDefault();
+               e.stopPropagation();
+               
+               // Close any other open context menus first
+               if (openContextMenuId && openContextMenuId !== contextMenuId) {
+                 setOpenContextMenuId(null);
+               }
+               
+               // Simple toggle like CustomDropdown
+               const newState = !isContextMenuOpen;
+               setIsContextMenuOpen(newState);
+               setOpenContextMenuId(newState ? contextMenuId : null);
+               
+               // Calculate position when opening
+               if (!isContextMenuOpen) {
+                 const buttonRect = e.currentTarget.getBoundingClientRect();
+                 const cardRect = e.currentTarget.closest('.relative')?.getBoundingClientRect();
+                 
+                 if (cardRect) {
+                   setContextMenuPosition({
+                     x: buttonRect.right - cardRect.left - 200, // Position menu to the left of the button
+                     y: buttonRect.bottom - cardRect.top + 4,   // Position below the button
+                   });
+                 }
+               }
+             }}
             className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200`}
             title="Profile Options"
+            data-action="settings"
           >
             <Icon icon="solar:settings-bold" className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
           </button>
@@ -469,7 +507,7 @@ export function ProfileCardV2({
             
             {/* Play button overlay - similar to ProfileCard.tsx */}
             {(isButtonLaunching || isHovered) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer rounded-lg">
+              <div className="play-overlay absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-150 cursor-pointer rounded-lg">
                 <button
                   onClick={() => handleLaunch(profile)}
                   className={`${isCompact ? 'w-8 h-8' : 'w-12 h-12'} flex items-center justify-center text-white hover:text-white/80 transition-colors`}
@@ -560,13 +598,17 @@ export function ProfileCardV2({
         </div>
 
         {/* Settings Context Menu */}
-        <SettingsContextMenu
-          profile={profile}
-          isOpen={isContextMenuOpen}
-          position={contextMenuPosition}
-          items={contextMenuItems}
-          onClose={() => setIsContextMenuOpen(false)}
-        />
+                 <SettingsContextMenu
+           profile={profile}
+           isOpen={isContextMenuOpen}
+           position={contextMenuPosition}
+           items={contextMenuItems}
+           onClose={() => {
+             setIsContextMenuOpen(false);
+             setOpenContextMenuId(null);
+           }}
+           triggerButtonRef={settingsButtonRef}
+         />
       </div>
     );
   }
@@ -574,9 +616,21 @@ export function ProfileCardV2({
   // List layout (original layout)
   return (
     <div
-      className="relative flex items-center gap-4 p-3 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200"
+      className="relative flex items-center gap-4 p-3 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        // Don't trigger if clicking on action buttons
+        const target = e.target as Element;
+        if (e.target === e.currentTarget || !target.closest('button')) {
+          if (onMods) {
+            onMods(profile);
+          } else {
+            toast.success(`📦 Managing mods for ${profile.name}!`);
+            console.log("Managing mods for profile:", profile.name);
+          }
+        }
+      }}
     >
       {/* Profile Icon */}
       <ProfileIconV2 profile={profile} size="md" />
@@ -641,14 +695,18 @@ export function ProfileCardV2({
         flexSpacerAfterIndex={1}
       />
 
-      {/* Settings Context Menu */}
-      <SettingsContextMenu
-        profile={profile}
-        isOpen={isContextMenuOpen}
-        position={contextMenuPosition}
-        items={contextMenuItems}
-        onClose={() => setIsContextMenuOpen(false)}
-      />
+             {/* Settings Context Menu */}
+       <SettingsContextMenu
+         profile={profile}
+         isOpen={isContextMenuOpen}
+         position={contextMenuPosition}
+         items={contextMenuItems}
+         onClose={() => {
+           setIsContextMenuOpen(false);
+           setOpenContextMenuId(null);
+         }}
+         triggerButtonRef={undefined} // List layout doesn't have direct button ref
+       />
 
 
     </div>

@@ -123,13 +123,13 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const getTextSizeClass = () => {
       switch (size) {
         case "sm":
-          return "text-[0.6em]";
+          return "text-[0.75em]";
         case "lg":
-          return "text-sm";
-        case "xl":
           return "text-base";
+        case "xl":
+          return "text-lg";
         default:
-          return "text-[0.55em]";
+          return "text-[0.7em]";
       }
     };
 

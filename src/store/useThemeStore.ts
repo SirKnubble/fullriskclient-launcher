@@ -235,6 +235,9 @@ interface ThemeState {
   setProfilesTabSortBy: (sortBy: string) => void;
   setProfilesTabVersionFilter: (filter: string) => void;
   setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => void;
+  // Global context menu management
+  openContextMenuId: string | null;
+  setOpenContextMenuId: (id: string | null) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -254,6 +257,8 @@ export const useThemeStore = create<ThemeState>()(
       profilesTabSortBy: "last_played",
       profilesTabVersionFilter: "all",
       profilesTabLayoutMode: "list",
+      // Global context menu management - defaults
+      openContextMenuId: null,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -404,6 +409,11 @@ export const useThemeStore = create<ThemeState>()(
 
       setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
         set({ profilesTabLayoutMode: mode });
+      },
+
+      // Global context menu management
+      setOpenContextMenuId: (id: string | null) => {
+        set({ openContextMenuId: id });
       },
     }),    {
       name: "norisk-theme-storage",

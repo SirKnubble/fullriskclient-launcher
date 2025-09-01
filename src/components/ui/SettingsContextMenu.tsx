@@ -33,6 +33,8 @@ export interface SettingsContextMenuProps {
   items: ContextMenuItem[];
   /** Close handler */
   onClose: () => void;
+  /** Optional ref to the settings button that triggers this menu */
+  triggerButtonRef?: React.RefObject<HTMLElement>;
 }
 
 export function SettingsContextMenu({
@@ -41,6 +43,7 @@ export function SettingsContextMenu({
   position,
   items,
   onClose,
+  triggerButtonRef,
 }: SettingsContextMenuProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -48,9 +51,27 @@ export function SettingsContextMenu({
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
+      const target = event.target as Node;
+      
+      // Don't close if clicking inside the menu
+      if (menuRef.current && menuRef.current.contains(target)) {
+        return;
       }
+      
+      // Don't close if clicking on the trigger button or any button with data-action="settings" (let the button handle the toggle)
+      if (triggerButtonRef?.current && triggerButtonRef.current.contains(target)) {
+        return;
+      }
+      
+      // Additional check: look for any settings button in the DOM tree (for list mode)
+      const clickedElement = target as Element;
+      const settingsButton = clickedElement.closest('button[data-action="settings"], button[title*="Profile Options"], button[title*="Profil Optionen"]');
+      if (settingsButton) {
+        return;
+      }
+      
+      // Close if clicking anywhere else
+      onClose();
     };
 
     if (isOpen) {
