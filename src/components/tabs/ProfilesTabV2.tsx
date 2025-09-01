@@ -49,7 +49,6 @@ export function ProfilesTabV2() {
   
   // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
-  const [showImport, setShowImport] = useState(false);
   
   // Use persistent values instead of local state
   const activeGroup = profilesTabActiveGroup;
@@ -65,7 +64,13 @@ export function ProfilesTabV2() {
       icon: "solar:upload-bold",
       tooltip: "Import profile",
       onClick: () => {
-        setShowImport(true);
+        showModal("profile-import", <ProfileImport
+          onClose={() => {
+            hideModal("profile-import");
+            navigate("/profiles");
+          }}
+          onImportComplete={handleImportComplete}
+        />);
         navigate("/profiles");
       },
     },
@@ -156,7 +161,7 @@ export function ProfilesTabV2() {
   const handleImportComplete = () => {
     console.log("[ProfilesTabV2] handleImportComplete called.");
     fetchProfiles();
-    setShowImport(false);
+    hideModal("profile-import");
     navigate("/profiles");
   };
 
@@ -395,15 +400,6 @@ export function ProfilesTabV2() {
       </div>
 
       {/* Modals from ProfilesTab.tsx */}
-      {showImport && (
-        <ProfileImport
-          onClose={() => {
-            setShowImport(false);
-            navigate("/profiles");
-          }}
-          onImportComplete={handleImportComplete}
-        />
-      )}
       {confirmDialog}
     </div>
   );
