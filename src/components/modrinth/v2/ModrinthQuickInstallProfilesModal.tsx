@@ -11,6 +11,7 @@ import { SearchWithFilters } from '../../ui/SearchWithFilters';
 import type { DropdownOption } from '../../ui/CustomDropdown';
 import { ModrinthQuickProfile } from './ModrinthQuickProfile';
 import { ActionButton } from '../../ui/ActionButton';
+import { toast } from 'react-hot-toast';
 
 /**
  * Universal Profiles Modal for Modrinth Installation
@@ -92,6 +93,7 @@ export function ModrinthQuickInstallProfilesModal({
   const [quickProfileName, setQuickProfileName] = useState('');
   const [quickProfileError, setQuickProfileError] = useState<string | null>(null);
   const [selectedSourceProfileId, setSelectedSourceProfileId] = useState<string | null>(null);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
 
   // Debug logging
   console.log('🎯 Modal rendered with:', {
@@ -143,7 +145,7 @@ export function ModrinthQuickInstallProfilesModal({
     setSelectedSourceProfileId(null);
   };
 
-  // Handle profile creation
+  // Handle profile creation with promise toast
   const handleCreateAndInstallProfile = async () => {
     if (!quickProfileName.trim()) {
       setQuickProfileError("Profile name cannot be empty.");
@@ -151,14 +153,32 @@ export function ModrinthQuickInstallProfilesModal({
     }
     setQuickProfileError(null);
 
+    setIsCreatingProfile(true);
+
+    const profileNameToCreate = quickProfileName.trim();
+    const createPromise = onInstallToNewProfile!(profileNameToCreate, project, version, selectedSourceProfileId);
+
     try {
-      await onInstallToNewProfile!(quickProfileName.trim(), project, version, selectedSourceProfileId);
-      console.log('✅ New profile created successfully');
-      // Close the modal after successful profile creation
-      onClose();
-    } catch (error) {
-      console.error('❌ Failed to create new profile:', error);
-      setQuickProfileError(error instanceof Error ? error.message : 'Failed to create profile');
+      await toast.promise(createPromise, {
+        loading: selectedSourceProfileId
+          ? `Creating profile '${profileNameToCreate}' by copying existing profile and installing ${project.title}...`
+          : `Creating profile '${profileNameToCreate}' and installing ${project.title}...`,
+        success: (result) => {
+          console.log('✅ New profile created successfully');
+          // Close the modal after successful profile creation
+          onClose();
+          return selectedSourceProfileId
+            ? `Successfully created profile '${profileNameToCreate}' by copying existing profile and installed ${project.title}!`
+            : `Successfully created profile '${profileNameToCreate}' and installed ${project.title}!`;
+        },
+        error: (error) => {
+          console.error('❌ Failed to create new profile:', error);
+          setQuickProfileError(error instanceof Error ? error.message : 'Failed to create profile');
+          return `Failed to create profile: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        }
+      });
+    } finally {
+      setIsCreatingProfile(false);
     }
   };
 
@@ -308,6 +328,7 @@ export function ModrinthQuickInstallProfilesModal({
                 if (quickProfileError && name.trim()) setQuickProfileError(null);
               }}
               error={quickProfileError}
+              isLoading={isCreatingProfile}
               selectedSourceProfileId={selectedSourceProfileId}
               onSourceProfileChange={setSelectedSourceProfileId}
             />
@@ -326,12 +347,13 @@ export function ModrinthQuickInstallProfilesModal({
               </button>
 
               <ActionButton
-                icon="solar:play-bold-duotone"
-                label="Create & Install"
+                icon={isCreatingProfile ? "solar:refresh-bold" : "solar:play-bold-duotone"}
+                label={isCreatingProfile ? "Creating..." : "Create & Install"}
                 variant="primary"
                 size="md"
                 className="py-[0.29em]"
-                disabled={!quickProfileName.trim()}
+                iconClassName={isCreatingProfile ? "animate-spin" : ""}
+                disabled={!quickProfileName.trim() || isCreatingProfile}
                 onClick={() => {
                   console.log('✅ Creating profile and installing');
                   handleCreateAndInstallProfile();

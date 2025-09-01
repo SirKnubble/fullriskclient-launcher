@@ -2267,20 +2267,9 @@ export function ModrinthSearchV2({
           game_versions: version.game_versions,
         };
 
-        // Use toast.promise for installation
-        const versionInfo = ` (${version.version_number})`;
-        const loadingMessage = sourceProfileIdToCopy
-          ? `Copying profile '${profileName}' and installing ${project.title}${versionInfo}...`
-          : `Creating profile '${profileName}' and installing ${project.title}${versionInfo}...`;
-
-        await toast.promise(
-          installContentToProfile(payload),
-          {
-            loading: loadingMessage,
-            success: () => `${successMessageDetail} and installed ${project.title} v${version.version_number}!`,
-            error: (err) => `Failed to install: ${err.message || 'Unknown error'}`,
-          }
-        );
+        // Install content (toast is handled by the modal)
+        await installContentToProfile(payload);
+        console.log('✅ Content installed successfully:', project.title, version.version_number);
       } else {
         // No specific version - get the latest version and install it
         console.log('🔍 Getting latest version for:', project.title);
@@ -2354,20 +2343,9 @@ export function ModrinthSearchV2({
           game_versions: versionToInstall.game_versions,
         };
 
-        // Use toast.promise for installation
-        const versionInfo = ` (${versionToInstall.version_number})`;
-        const loadingMessage = sourceProfileIdToCopy
-          ? `Copying profile '${profileName}' and installing ${project.title}${versionInfo}...`
-          : `Creating profile '${profileName}' and installing ${project.title}${versionInfo}...`;
-
-        await toast.promise(
-          installContentToProfile(payload),
-          {
-            loading: loadingMessage,
-            success: () => `${successMessageDetail} and installed ${project.title} v${versionToInstall.version_number}!`,
-            error: (err) => `Failed to install: ${err.message || 'Unknown error'}`,
-          }
-        );
+        // Install content (toast is handled by the modal)
+        await installContentToProfile(payload);
+        console.log('✅ Content installed successfully:', project.title, versionToInstall.version_number);
       }
 
       // Refresh profiles list

@@ -25,6 +25,8 @@ export interface ActionButtonProps {
   onClick?: (e: React.MouseEvent) => void;
   /** Custom size override */
   size?: "sm" | "md" | "lg";
+  /** Additional CSS classes for the icon */
+  iconClassName?: string;
 }
 
 export function ActionButton({
@@ -37,6 +39,7 @@ export function ActionButton({
   className = "",
   onClick,
   size = "md",
+  iconClassName = "",
 }: ActionButtonProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
 
@@ -192,9 +195,9 @@ export function ActionButton({
       disabled={isDisabled}
     >
       <div className={effectiveVariant === "icon-only" ? `${getIconSize()} flex items-center justify-center` : `${getIconSize()} flex items-center justify-center`}>
-        <Icon 
-          icon={icon} 
-          className={getIconSize()} 
+        <Icon
+          icon={icon}
+          className={`${getIconSize()} ${iconClassName}`}
         />
       </div>
       {effectiveVariant !== "icon-only" && label && (
