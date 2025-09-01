@@ -904,6 +904,7 @@ export function ModrinthSearchV2({
             console.log('🗑️ Uninstalling from profile:', profileId);
             await handleDeleteVersionFromProfile(profileId, project, version);
           }}
+          onInstallToNewProfile={handleInstallToNewProfile}
           onProfileClick={(profile) => {
             console.log('🖱️ Navigating to profile:', profile.name);
             hideModal(modalId);
@@ -950,6 +951,7 @@ export function ModrinthSearchV2({
             console.log('🗑️ Uninstalling from profile:', profileId);
             await handleDeleteVersionFromProfile(profileId, project, version);
           }}
+          onInstallToNewProfile={handleInstallToNewProfile}
           onProfileClick={(profile) => {
             console.log('🖱️ Navigating to profile:', profile.name);
             hideModal(modalId);
@@ -996,6 +998,7 @@ export function ModrinthSearchV2({
             console.log('🗑️ Uninstalling from profile:', profileId);
             await handleDeleteVersionFromProfile(profileId, project, version);
           }}
+          onInstallToNewProfile={handleInstallToNewProfile}
           onProfileClick={(profile) => {
             console.log('🖱️ Navigating to profile:', profile.name);
             hideModal(modalId);
@@ -1342,6 +1345,7 @@ export function ModrinthSearchV2({
         project={project}
         profiles={internalProfiles}
         onProfileSelect={handleProfileSelectionForQuickInstall}
+        onInstallToNewProfile={handleInstallToNewProfile}
         onProfileClick={(profile) => {
           // Close modal first, then navigate to profile page
           console.log('🖱️ Profile clicked for navigation:', profile.name);
@@ -1419,6 +1423,7 @@ export function ModrinthSearchV2({
           project={currentQuickInstallProject}
           profiles={internalProfiles}
           onProfileSelect={handleProfileSelectionForQuickInstall}
+          onInstallToNewProfile={handleInstallToNewProfile}
           onProfileClick={(profile) => {
             // Close modal first, then navigate to profile page
             hideModal(modalId);
@@ -2006,33 +2011,218 @@ export function ModrinthSearchV2({
   const handleInstallToNewProfile = async (
     profileName: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: ModrinthVersion | null,
     sourceProfileIdToCopy?: string | null // Parameter for copying
   ): Promise<void> => {
 
-    const installationPromise = async () => {
+    try {
+      const store = useProfileStore.getState(); // Store-Instanz holen
       let newProfileId: string;
       let successMessageDetail = `Successfully created profile '${profileName}'`;
-      const store = useProfileStore.getState(); // Store-Instanz holen
+      let gameVersion = '1.21.1'; // Default fallback
+      let loader = 'fabric'; // Default to fabric, will be overridden if needed
+      let versionToInstall: ModrinthVersion | null = null; // The version we'll install
 
+      // Handle profile creation
       if (sourceProfileIdToCopy) {
         const sourceProfile = internalProfiles.find(p => p.id === sourceProfileIdToCopy);
         const sourceProfileName = sourceProfile ? sourceProfile.name : "source profile";
-        
+
         // Verwende die Store-Methode copyProfile
         newProfileId = await store.copyProfile(
-          sourceProfileIdToCopy, 
+          sourceProfileIdToCopy,
           profileName,
           undefined, // includeFiles is undefined, as we want to include all
           true       // includeAll is true
         );
         successMessageDetail = `Successfully copied profile '${profileName}' from '${sourceProfileName}'`;
 
+        // Get game version from the source profile for compatibility filtering
+        if (sourceProfile) {
+          gameVersion = sourceProfile.game_version || '1.21.1';
+          loader = sourceProfile.loader || 'vanilla';
+        }
       } else {
-        const gameVersion = version.game_versions[0] || 'unknown';
-        let loader = 'vanilla';
-        if (project.project_type === 'mod' || project.project_type === 'modpack') {
-          loader = version.loaders[0] || 'vanilla';
+        // Handle both cases: with version and without version
+
+        if (version) {
+          // Version is available - use it
+          gameVersion = version.game_versions[0] || '1.21.1';
+          if (project.project_type === 'mod' || project.project_type === 'modpack') {
+            loader = version.loaders[0] || 'vanilla';
+          }
+        } else {
+          // No version specified - get the best compatible version based on current filters
+          console.log('🔍 Finding best compatible version for:', project.title);
+          console.log('🔍 Current filters - Game versions:', selectedGameVersions, 'Loaders:', currentSelectedLoaders);
+          console.log('🔍 Available loaders from UI:', allLoadersData.map(l => l.name));
+
+          // Get all versions for this project
+          const modVersions = await ModrinthService.getModVersions(project.project_id);
+
+          if (!modVersions || modVersions.length === 0) {
+            throw new Error(`No versions found for ${project.title}`);
+          }
+
+          // STRATEGY: FABRIC-FIRST with Filter Support
+          console.log('🎯 FABRIC-FIRST strategy with filter support');
+          console.log('🔍 Current filters - Game versions:', selectedGameVersions, 'Loaders:', currentSelectedLoaders);
+
+          // Step 1: Apply game version filter if active
+          let filteredVersions = modVersions;
+          if (selectedGameVersions && selectedGameVersions.length > 0) {
+            filteredVersions = modVersions.filter(version =>
+              version.game_versions.some(gv => selectedGameVersions.includes(gv))
+            );
+            console.log(`🎮 Filtered to ${filteredVersions.length} versions matching game versions:`, selectedGameVersions);
+          }
+
+          // Step 2: Apply loader filter if active
+          if (currentSelectedLoaders && currentSelectedLoaders.length > 0) {
+            filteredVersions = filteredVersions.filter(version =>
+              version.loaders && version.loaders.some(l =>
+                currentSelectedLoaders.some(filterL => filterL.toLowerCase() === l.toLowerCase())
+              )
+            );
+            console.log(`🔧 Filtered to ${filteredVersions.length} versions matching loaders:`, currentSelectedLoaders);
+          }
+
+          // Step 3: If no versions match filters, fall back to all versions
+          if (filteredVersions.length === 0) {
+            console.log('⚠️ No versions match current filters, using all versions');
+            filteredVersions = modVersions;
+          }
+
+          // Step 4: FABRIC-FIRST within filtered versions
+          const fabricVersions = filteredVersions.filter(version =>
+            version.loaders && version.loaders.some(l => l.toLowerCase() === 'fabric')
+          );
+
+          console.log(`✅ Found ${fabricVersions.length} Fabric-compatible versions out of ${filteredVersions.length} filtered versions`);
+
+          if (fabricVersions.length > 0) {
+            // Use Fabric version with highest MC version
+            const sortedFabricVersions = fabricVersions.sort((a, b) => {
+              const aMaxMC = a.game_versions.sort((x, y) => y.localeCompare(x, undefined, { numeric: true }))[0];
+              const bMaxMC = b.game_versions.sort((x, y) => y.localeCompare(x, undefined, { numeric: true }))[0];
+              return bMaxMC.localeCompare(aMaxMC, undefined, { numeric: true });
+            });
+
+            versionToInstall = sortedFabricVersions[0];
+            loader = 'fabric';
+
+            // Get highest MC version supported by this Fabric version
+            const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
+              return b.localeCompare(a, undefined, { numeric: true });
+            });
+            gameVersion = sortedMCVersions[0] || '1.21.1';
+
+            console.log('🎉 FABRIC SUCCESS: Using Fabric version', versionToInstall.version_number, 'for MC', gameVersion);
+          } else {
+            // No Fabric versions found in filtered results, use best available
+            console.log('⚠️ No Fabric versions found in filtered results, using best available');
+
+            // Try to find any version that matches loader filter
+            if (currentSelectedLoaders && currentSelectedLoaders.length > 0) {
+              const loaderMatchingVersions = filteredVersions.filter(version =>
+                version.loaders && version.loaders.some(l =>
+                  currentSelectedLoaders.some(filterL => filterL.toLowerCase() === l.toLowerCase())
+                )
+              );
+
+              if (loaderMatchingVersions.length > 0) {
+                // Sort by MC version and pick highest
+                const sortedLoaderVersions = loaderMatchingVersions.sort((a, b) => {
+                  const aMaxMC = a.game_versions.sort((x, y) => y.localeCompare(x, undefined, { numeric: true }))[0];
+                  const bMaxMC = b.game_versions.sort((x, y) => y.localeCompare(x, undefined, { numeric: true }))[0];
+                  return bMaxMC.localeCompare(aMaxMC, undefined, { numeric: true });
+                });
+
+                versionToInstall = sortedLoaderVersions[0];
+                loader = currentSelectedLoaders[0].toLowerCase(); // Use filtered loader
+
+                const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
+                  return b.localeCompare(a, undefined, { numeric: true });
+                });
+                gameVersion = sortedMCVersions[0] || '1.21.1';
+
+                console.log('🎯 FILTER MATCH: Using filtered loader', loader, 'version', versionToInstall.version_number, 'for MC', gameVersion);
+              } else {
+                // No loader match, use latest from filtered
+                versionToInstall = filteredVersions[0];
+                loader = 'fabric'; // Default fallback
+
+                const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
+                  return b.localeCompare(a, undefined, { numeric: true });
+                });
+                gameVersion = sortedMCVersions[0] || '1.21.1';
+
+                console.log('📦 FILTERED FALLBACK: Using latest filtered version with fabric loader');
+              }
+            } else {
+              // No loader filter, use latest from filtered
+              versionToInstall = filteredVersions[0];
+              loader = 'fabric'; // Default to fabric
+
+              const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
+                return b.localeCompare(a, undefined, { numeric: true });
+              });
+              gameVersion = sortedMCVersions[0] || '1.21.1';
+
+              console.log('📦 SIMPLE FALLBACK: Using latest filtered version with fabric loader');
+            }
+          }
+
+          // Safety check - ensure versionToInstall is valid
+          if (!versionToInstall) {
+            throw new Error(`Invalid version data for ${project.title}`);
+          }
+
+
+
+
+
+          // Set the loader based on the version to install (with Fabric priority)
+          if (versionToInstall && versionToInstall.loaders && versionToInstall.loaders.length > 0) {
+            const versionLoaders = versionToInstall.loaders.map(l => l.toLowerCase());
+            console.log('🔧 Available loaders in selected version:', versionLoaders);
+            console.log('🔧 Version details:', {
+              version: versionToInstall.version_number,
+              mc_versions: versionToInstall.game_versions,
+              loaders: versionToInstall.loaders
+            });
+
+            // Use preferred loader order: fabric > forge > quilt > neoforge
+            const preferredLoaderOrder = ['fabric', 'forge', 'quilt', 'neoforge'];
+            console.log('🔧 Checking against priority order:', preferredLoaderOrder);
+
+            const selectedLoader = preferredLoaderOrder.find(l => versionLoaders.includes(l.toLowerCase()));
+
+            if (selectedLoader) {
+              loader = selectedLoader;
+              console.log('✅ Selected preferred loader:', loader, 'from priority order');
+            } else {
+              // If no preferred loader found, use the first available loader
+              loader = versionLoaders[0];
+              console.log('⚠️ No preferred loader found, using first available:', loader, '(available:', versionLoaders, ')');
+            }
+
+            // If we have specific loader filters, try to respect them
+            if (currentSelectedLoaders && currentSelectedLoaders.length > 0) {
+              const filteredLoader = currentSelectedLoaders.find(l =>
+                versionLoaders.includes(l.toLowerCase())
+              );
+              if (filteredLoader) {
+                loader = filteredLoader.toLowerCase();
+                console.log('🔧 Using filtered loader:', loader);
+              }
+            }
+          } else {
+            loader = 'fabric'; // Fallback
+            console.log('⚠️ No loaders found in version, using fallback:', loader);
+          }
+
+          console.log('📦 Final selection - MC version:', gameVersion, 'with loader:', loader, 'for mod:', project.title, 'using version:', versionToInstall.version_number);
         }
 
         // Verwende die Store-Methode createProfile
@@ -2043,75 +2233,160 @@ export function ModrinthSearchV2({
         });
       }
 
-      const primaryFile = version.files.find((f) => f.primary) || version.files[0];
-      if (!primaryFile) {
-        throw new Error("No primary file found for the selected version.");
-      }
-
-      const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
-      if (!mappedContentType) {
-        throw new Error(`Unsupported project type for installation: ${project.project_type}`);
-      }
-
-      // Safeguard: Modpacks should not be installed as content here.
-      // mapModrinthProjectTypeToNrContentType handles toast, but this ensures error propagation for toast.promise
-      if (project.project_type === 'modpack') {
-        throw new Error("Modpacks should be installed as new profiles, not as content to an existing one.");
-      }
-
-      const payload: InstallContentPayload = {
-        profile_id: newProfileId,
-        project_id: project.project_id,
-        version_id: version.id,
-        file_name: primaryFile.filename,
-        download_url: primaryFile.url,
-        file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-        content_name: project.title,
-        version_number: version.version_number,
-        content_type: mappedContentType,
-        loaders: version.loaders,
-        game_versions: version.game_versions,
-      };
-
-      await installContentToProfile(payload);
-      
-      // The actual installation success of the content is handled by installContentToProfile.
-      // This promise now mainly returns details for the toast message about profile creation/copying.
-      return { successMessageDetail, projectTitle: project.title, versionNumber: version.version_number };
-    };
-
-    try {
-      const loadingMessage = sourceProfileIdToCopy
-        ? `Copying profile '${profileName}' and installing ${project.title} (${version.version_number})...` 
-        : `Creating profile '${profileName}' and installing ${project.title} (${version.version_number})...`;
-
-      await toast.promise(
-        installationPromise(),
-        {
-          loading: loadingMessage,
-          success: (data) => `${data.successMessageDetail} and installed ${data.projectTitle} v${data.versionNumber}!`,
-          error: (err) => `Operation failed: ${err.message || 'Unknown error'}`,
-        },
-        {
-          // success: { duration: 6000 }, 
+      // Handle installation based on whether version is available
+      if (version) {
+        // Version is available - install the specific version
+        versionToInstall = version; // Set the version to install
+        const primaryFile = version.files.find((f) => f.primary) || version.files[0];
+        if (!primaryFile) {
+          throw new Error("No primary file found for the selected version.");
         }
-      );
 
+        const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+        if (!mappedContentType) {
+          throw new Error(`Unsupported project type for installation: ${project.project_type}`);
+        }
+
+        // Safeguard: Modpacks should not be installed as content here.
+        // mapModrinthProjectTypeToNrContentType handles toast, but this ensures error propagation for toast.promise
+        if (project.project_type === 'modpack') {
+          throw new Error("Modpacks should be installed as new profiles, not as content to an existing one.");
+        }
+
+        const payload: InstallContentPayload = {
+          profile_id: newProfileId,
+          project_id: project.project_id,
+          version_id: version.id,
+          file_name: primaryFile.filename,
+          download_url: primaryFile.url,
+          file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
+          content_name: project.title,
+          version_number: version.version_number,
+          content_type: mappedContentType,
+          loaders: version.loaders,
+          game_versions: version.game_versions,
+        };
+
+        // Use toast.promise for installation
+        const versionInfo = ` (${version.version_number})`;
+        const loadingMessage = sourceProfileIdToCopy
+          ? `Copying profile '${profileName}' and installing ${project.title}${versionInfo}...`
+          : `Creating profile '${profileName}' and installing ${project.title}${versionInfo}...`;
+
+        await toast.promise(
+          installContentToProfile(payload),
+          {
+            loading: loadingMessage,
+            success: () => `${successMessageDetail} and installed ${project.title} v${version.version_number}!`,
+            error: (err) => `Failed to install: ${err.message || 'Unknown error'}`,
+          }
+        );
+      } else {
+        // No specific version - get the latest version and install it
+        console.log('🔍 Getting latest version for:', project.title);
+
+        // Get all versions for this project
+        const versions = await ModrinthService.getModVersions(project.project_id);
+
+        if (versions.length === 0) {
+          throw new Error(`No versions found for ${project.title}`);
+        }
+
+        console.log('📦 Installing version:', versionToInstall?.version_number || 'unknown', 'for MC', gameVersion);
+        console.log('🔍 Version data:', JSON.stringify(versionToInstall, null, 2));
+
+        // Safety check before installation
+        if (!versionToInstall) {
+          throw new Error(`No version selected for ${project.title}`);
+        }
+
+        // Handle different possible file structures
+        let primaryFile = null;
+
+        if (versionToInstall.files && Array.isArray(versionToInstall.files) && versionToInstall.files.length > 0) {
+          // Standard case: files array is available
+          primaryFile = versionToInstall.files.find((f) => f.primary) || versionToInstall.files[0];
+        } else {
+          // Fallback: try to find another version that has files
+          console.warn('⚠️ No files array found for selected version, looking for alternative version');
+
+          // Get fresh versions data to find one with files
+          const allVersions = await ModrinthService.getModVersions(project.project_id);
+          const versionWithFiles = allVersions.find(v =>
+            v.files && Array.isArray(v.files) && v.files.length > 0
+          );
+
+          if (versionWithFiles) {
+            console.log('✅ Found alternative version with files:', versionWithFiles.version_number);
+            versionToInstall = versionWithFiles;
+            primaryFile = versionToInstall.files.find((f) => f.primary) || versionToInstall.files[0];
+          } else {
+            throw new Error(`No downloadable versions found for ${project.title}. This may be a temporary API issue.`);
+          }
+        }
+
+        if (!primaryFile) {
+          console.error('❌ No primary file found. Available files:', versionToInstall.files);
+          throw new Error(`No suitable download file found for ${project.title} version ${versionToInstall.version_number}`);
+        }
+
+        console.log('✅ Using file:', primaryFile.filename, 'from URL:', primaryFile.url);
+
+        const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+        if (!mappedContentType) {
+          throw new Error(`Unsupported project type for installation: ${project.project_type}`);
+        }
+
+        // Safeguard: Modpacks should not be installed as content here.
+        if (project.project_type === 'modpack') {
+          throw new Error("Modpacks should be installed as new profiles, not as content to an existing one.");
+        }
+
+        const payload = {
+          profile_id: newProfileId,
+          project_id: project.project_id,
+          version_id: versionToInstall.id,
+          download_url: primaryFile.url,
+          file_name: primaryFile.filename,
+          version_number: versionToInstall.version_number,
+          content_type: mappedContentType,
+          loaders: versionToInstall.loaders,
+          game_versions: versionToInstall.game_versions,
+        };
+
+        // Use toast.promise for installation
+        const versionInfo = ` (${versionToInstall.version_number})`;
+        const loadingMessage = sourceProfileIdToCopy
+          ? `Copying profile '${profileName}' and installing ${project.title}${versionInfo}...`
+          : `Creating profile '${profileName}' and installing ${project.title}${versionInfo}...`;
+
+        await toast.promise(
+          installContentToProfile(payload),
+          {
+            loading: loadingMessage,
+            success: () => `${successMessageDetail} and installed ${project.title} v${versionToInstall.version_number}!`,
+            error: (err) => `Failed to install: ${err.message || 'Unknown error'}`,
+          }
+        );
+      }
+
+      // Refresh profiles list
       const refreshed = await ProfileService.getAllProfilesAndLastPlayed();
       setInternalProfiles(refreshed.all_profiles);
-      
+
+      // Navigate to the newly created profile
+      console.log('🚀 Navigating to new profile:', newProfileId);
+      navigate(`/profilesv2/${newProfileId}`);
+
       // Call onInstallSuccess if it exists and the installed content was not a modpack
-      // (Modpack specific installations as new profiles might have their own success handlers or flows)
       if (project.project_type !== 'modpack' && onInstallSuccess) {
-        justInstalledOrToggledRef.current = true; // Set flag (also here for consistency if onInstallSuccess runs)
+        justInstalledOrToggledRef.current = true;
         onInstallSuccess();
       }
 
-    } catch (err: any) {
-      // This catch is for errors not caught by toast.promise or re-thrown
-      console.error("Failed to create/copy profile and install content:", err);
-      // toast.promise already shows an error, so re-throwing might not be necessary unless specific handling is needed here.
-      // throw err; 
+    } catch (error) {
+      console.error("Error in handleInstallToNewProfile:", error);
+      toast.error(`Failed to create profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

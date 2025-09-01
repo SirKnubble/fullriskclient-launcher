@@ -71,21 +71,20 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
         isLoading && "opacity-70 pointer-events-none",
       )}
     >
-      <div className="text-center">
+      <div>
         <h3 className="text-xl sm:text-2xl font-semibold text-gray-100 font-minecraft-ten normal-case">
           {isActuallyCopying
-            ? "Copy existing profile and install "
-            : "Install "}
+            ? `Copy existing profile and install `
+            : `Install `}
           <span style={{ color: accentColor.value }}>{projectTitle}</span>
           {versionNumber && (
             <span className="text-gray-400"> v{versionNumber}</span>
           )}
-          <br />
-          {isActuallyCopying ? "to new profile" : "as new profile"}
+          {isActuallyCopying ? ` to new profile` : ` as new profile`}
         </h3>
       </div>
 
-      <p className="text-xs font-minecraft-ten sm:text-sm text-gray-400 text-center">
+      <p className="text-xs font-minecraft-ten sm:text-sm text-gray-400">
         {isActuallyCopying
           ? `Copying settings from '${storeProfiles.find((p) => p.id === selectedSourceProfileId)?.name || "selected profile"}'. Enter a name for the new copy.`
           : "Enter a name for the new profile. Optionally, copy settings from an existing profile."}

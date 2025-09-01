@@ -9,6 +9,8 @@ import { ProfileIconV2 } from '../../profiles/ProfileIconV2';
 import { useThemeStore } from '../../../store/useThemeStore';
 import { SearchWithFilters } from '../../ui/SearchWithFilters';
 import type { DropdownOption } from '../../ui/CustomDropdown';
+import { ModrinthQuickProfile } from './ModrinthQuickProfile';
+import { ActionButton } from '../../ui/ActionButton';
 
 /**
  * Universal Profiles Modal for Modrinth Installation
@@ -52,6 +54,12 @@ interface ModrinthQuickInstallProfilesModalProps {
   // New format for specific version install (compatible with ModrinthInstallModalV2)
   onInstallToProfile?: (profileId: string) => void;
   onUninstallClick?: (profileId: string, project: ModrinthSearchHit, version: ModrinthVersion) => Promise<void>;
+  onInstallToNewProfile?: (
+    profileName: string,
+    project: ModrinthSearchHit,
+    version: ModrinthVersion,
+    sourceProfileIdToCopy?: string | null
+  ) => Promise<void>;
   onProfileClick?: (profile: Profile) => void;
   onClose: () => void;
   installingProfiles?: Record<string, boolean>;
@@ -67,6 +75,7 @@ export function ModrinthQuickInstallProfilesModal({
   onProfileSelect,
   onInstallToProfile,
   onUninstallClick,
+  onInstallToNewProfile,
   onProfileClick,
   onClose,
   installingProfiles = {},
@@ -77,6 +86,12 @@ export function ModrinthQuickInstallProfilesModal({
   const { profilesTabSortBy, setProfilesTabSortBy, accentColor } = useThemeStore();
   const [searchValue, setSearchValue] = useState('');
   const [sortValue, setSortValue] = useState(profilesTabSortBy);
+
+  // States for profile creation view
+  const [showQuickProfileView, setShowQuickProfileView] = useState(false);
+  const [quickProfileName, setQuickProfileName] = useState('');
+  const [quickProfileError, setQuickProfileError] = useState<string | null>(null);
+  const [selectedSourceProfileId, setSelectedSourceProfileId] = useState<string | null>(null);
 
   // Debug logging
   console.log('🎯 Modal rendered with:', {
@@ -110,6 +125,40 @@ export function ModrinthQuickInstallProfilesModal({
   const handleUninstallClick = async (profile: Profile) => {
     if (onUninstallClick && version) {
       await onUninstallClick(profile.id, project, version);
+    }
+  };
+
+  // Navigation functions
+  const switchToQuickProfileView = () => {
+    setQuickProfileName(''); // Set to empty string
+    setQuickProfileError(null);
+    setSelectedSourceProfileId(null);
+    setShowQuickProfileView(true);
+  };
+
+  const switchToProfileListView = () => {
+    setShowQuickProfileView(false);
+    setQuickProfileName('');
+    setQuickProfileError(null);
+    setSelectedSourceProfileId(null);
+  };
+
+  // Handle profile creation
+  const handleCreateAndInstallProfile = async () => {
+    if (!quickProfileName.trim()) {
+      setQuickProfileError("Profile name cannot be empty.");
+      return;
+    }
+    setQuickProfileError(null);
+
+    try {
+      await onInstallToNewProfile!(quickProfileName.trim(), project, version, selectedSourceProfileId);
+      console.log('✅ New profile created successfully');
+      // Close the modal after successful profile creation
+      onClose();
+    } catch (error) {
+      console.error('❌ Failed to create new profile:', error);
+      setQuickProfileError(error instanceof Error ? error.message : 'Failed to create profile');
     }
   };
 
@@ -232,34 +281,103 @@ export function ModrinthQuickInstallProfilesModal({
     return `${Math.floor(diffInDays / 365)}y ago`;
   };
 
+  const isActuallyCopying = selectedSourceProfileId !== null;
+
   return (
     <Modal
-      title={`Install ${project.title}${version ? ` (v${version.version_number})` : ''}`}
+      title={
+        showQuickProfileView
+          ? (isActuallyCopying ? `Copy & Install: ${project.title}` : `New Profile for: ${project.title}`)
+          : `Install ${project.title}${version ? ` (v${version.version_number})` : ''}`
+      }
       onClose={onClose}
       width="md"
       variant="3d"
     >
       <div className="p-6">
-        {/* Version info (placed above search) */}
-        {version && (
-          <p className="text-gray-400 text-xs text-center font-minecraft-ten mb-4 -mt-2">
-            This will install version {version.version_number} of {project.title}.
-          </p>
-        )}
+        {showQuickProfileView ? (
+          // Quick Profile Creation View
+          <div>
+            <ModrinthQuickProfile
+              accentColor={accentColor}
+              projectTitle={project.title}
+              versionNumber={version?.version_number}
+              profileName={quickProfileName}
+              onProfileNameChange={(name) => {
+                setQuickProfileName(name);
+                if (quickProfileError && name.trim()) setQuickProfileError(null);
+              }}
+              error={quickProfileError}
+              selectedSourceProfileId={selectedSourceProfileId}
+              onSourceProfileChange={setSelectedSourceProfileId}
+            />
 
-        {/* Search and Filters */}
-        <div className="mb-6">
-          <SearchWithFilters
-            placeholder="Search profiles..."
-            searchValue={searchValue}
-            onSearchChange={handleSearchChange}
-            sortOptions={sortOptions}
-            sortValue={sortValue}
-            onSortChange={handleSortChange}
-            showFilter={false}
-            className="w-full"
-          />
-        </div>
+            {/* Footer buttons for quick profile view */}
+            <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10">
+              <button
+                onClick={() => {
+                  console.log('⬅️ Switching back to profile list view');
+                  switchToProfileListView();
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-white/70 hover:text-white transition-colors duration-200 text-2xl lowercase font-minecraft"
+              >
+                <Icon icon="solar:arrow-left-linear" className="w-4 h-4" />
+                <span>Back to Profiles</span>
+              </button>
+
+              <ActionButton
+                icon="solar:play-bold-duotone"
+                label="Create & Install"
+                variant="primary"
+                size="md"
+                className="py-[0.29em]"
+                disabled={!quickProfileName.trim()}
+                onClick={() => {
+                  console.log('✅ Creating profile and installing');
+                  handleCreateAndInstallProfile();
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Version info (placed above search) */}
+            {version && (
+              <p className="text-gray-400 text-xs text-center font-minecraft-ten mb-4 -mt-2">
+                This will install version {version.version_number} of {project.title}.
+              </p>
+            )}
+
+            {/* Search and Filters */}
+            <div className="mb-6">
+              <div className="flex gap-3 items-start">
+                <div className="flex-1">
+                  <SearchWithFilters
+                    placeholder="Search profiles..."
+                    searchValue={searchValue}
+                    onSearchChange={handleSearchChange}
+                    sortOptions={sortOptions}
+                    sortValue={sortValue}
+                    onSortChange={handleSortChange}
+                    showFilter={false}
+                    className="w-full"
+                  />
+                </div>
+                {onInstallToNewProfile && (
+                  <ActionButton
+                    icon="solar:add-folder-line-duotone"
+                    label="New Profile"
+                    variant="primary"
+                    size="md"
+                    className="py-[0.29em]"
+                    onClick={() => {
+                      console.log('🆕 Switching to quick profile creation view');
+                      switchToQuickProfileView();
+                    }}
+                  />
+                )}
+              </div>
+            </div>
 
         {processedProfiles.length === 0 ? (
           <div className="text-center py-8 min-h-[400px] flex flex-col justify-center">
@@ -441,6 +559,21 @@ export function ModrinthQuickInstallProfilesModal({
             ))}
             </div>
           </div>
+            )}
+
+            {/* Footer buttons for profile list view */}
+            <div className="flex justify-end items-center mt-6 pt-4 border-t border-white/10">
+              <button
+                onClick={() => {
+                  console.log('❌ Closing modal');
+                  onClose();
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-white/70 hover:text-white transition-colors duration-200 text-sm font-minecraft"
+              >
+                <span>Close</span>
+              </button>
+            </div>
+          </>
         )}
       </div>
     </Modal>
