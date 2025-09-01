@@ -17,6 +17,8 @@ import * as ProfileService from "../../services/profile-service";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { useThemeStore } from "../../store/useThemeStore";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { ExportProfileModal } from "../profiles/ExportProfileModal";
 import { Icon } from "@iconify/react";
 
 export function ProfilesTabV2() {
@@ -29,6 +31,9 @@ export function ProfilesTabV2() {
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
   const { openModal: openWizard } = useProfileWizardStore();
+
+  // Global modal system
+  const { showModal, hideModal } = useGlobalModal();
   
   // Persistent filters from theme store
   const {

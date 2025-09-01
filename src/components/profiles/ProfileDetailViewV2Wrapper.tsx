@@ -7,12 +7,16 @@ import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
 import { ProfileDetailViewV2 } from "./ProfileDetailViewV2";
 import type { Profile } from "../../types/profile";
+import { useProfileSettingsStore } from "../../store/profile-settings-store";
 
 export function ProfileDetailViewV2Wrapper() {
   const { profileId } = useParams<{ profileId: string }>();
   const navigate = useNavigate();
   const { profiles, loading, fetchProfiles } = useProfileStore();
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  // Profile settings store for edit modal
+  const { openModal } = useProfileSettingsStore();
 
   useEffect(() => {
     if (!profiles.length && !loading) {
@@ -32,8 +36,9 @@ export function ProfileDetailViewV2Wrapper() {
   };
 
   const handleEdit = () => {
-    // TODO: Implement edit functionality - could open settings modal or navigate to settings
-    console.log("Edit profile:", profile?.name);
+    if (profile) {
+      openModal(profile);
+    }
   };
 
   if (loading) {

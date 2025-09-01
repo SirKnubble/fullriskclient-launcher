@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import type React from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { toast } from "react-hot-toast";
 import type { Profile } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -12,6 +14,13 @@ import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { ActionButton as SingleActionButton } from "../ui/ActionButton";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
+import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
+import { ConfirmDeleteDialog } from "../modals/ConfirmDeleteDialog";
+import { ExportProfileModal } from "./ExportProfileModal";
+import { useProfileStore } from "../../store/profile-store";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import * as ProfileService from "../../services/profile-service";
+import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
@@ -38,6 +47,67 @@ export function ProfileDetailViewV2({
   const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
 
+  // Context menu state
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+  const contextMenuId = `profile-detail-${profile.id}`;
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Delete modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Global modal system
+  const { showModal, hideModal } = useGlobalModal();
+
+  // Get theme store functions
+  const { openContextMenuId, setOpenContextMenuId } = useThemeStore();
+
+  // Profile store
+  const { fetchProfiles } = useProfileStore();
+
+
+
+  // Profile duplicate store
+  const { openModal: openDuplicateModal } = useProfileDuplicateStore();
+
+  // Settings context menu items
+  const contextMenuItems: ContextMenuItem[] = [
+    {
+      id: "edit",
+      label: "Edit Profile",
+      icon: "solar:settings-bold",
+      onClick: () => onEdit(),
+    },
+    {
+      id: "duplicate",
+      label: "Duplicate",
+      icon: "solar:copy-bold",
+      onClick: () => handleDuplicateProfile(),
+    },
+    {
+      id: "export",
+      label: "Export",
+      icon: "solar:download-bold",
+      onClick: () => handleOpenExportModal(),
+    },
+    {
+      id: "open-folder",
+      label: "Open Folder",
+      icon: "solar:folder-bold",
+      onClick: () => handleOpenFolder(),
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      icon: "solar:trash-bin-trash-bold",
+      destructive: true,
+      separator: true, // Trennstrich vor Delete
+      disabled: currentProfile.is_standard_version,
+      onClick: () => handleDeleteProfile(),
+    },
+  ];
+
   // Memoized callback for getDisplayFileName
   const getGenericDisplayFileName = useCallback((item: LocalContentItem) => item.filename, []);
 
@@ -54,10 +124,98 @@ export function ProfileDetailViewV2({
     navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
   }, [navigate, profile.id]);
 
+  // Handler for deleting profile
+  const handleDeleteProfile = useCallback(() => {
+    console.log("[ProfileDetailViewV2] handleDeleteProfile called for:", currentProfile.id, currentProfile.name);
+
+    // Check if it's a standard version
+    if (currentProfile.is_standard_version) {
+      toast.error("Standard profiles cannot be deleted.");
+      return;
+    }
+
+    // Open delete confirmation modal
+    setIsDeleteModalOpen(true);
+  }, [currentProfile]);
+
+  // Handler for confirming profile deletion
+  const handleConfirmDelete = useCallback(async () => {
+    setIsDeleting(true);
+
+    try {
+      const deletePromise = useProfileStore.getState().deleteProfile(currentProfile.id);
+      await toast.promise(deletePromise, {
+        loading: `Deleting profile '${currentProfile.name}'...`,
+        success: () => {
+          fetchProfiles();
+          navigate("/profiles");
+          setIsDeleteModalOpen(false);
+          return `Profile '${currentProfile.name}' deleted successfully!`;
+        },
+        error: (err) =>
+          `Failed to delete profile: ${err instanceof Error ? err.message : String(err.message)}`,
+      });
+    } catch (error) {
+      console.error("Delete failed:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [currentProfile, fetchProfiles, navigate]);
+
+  // Handler for canceling delete
+  const handleCancelDelete = useCallback(() => {
+    setIsDeleteModalOpen(false);
+  }, []);
+
+
+
+    // Handler for opening export modal
+  const handleOpenExportModal = useCallback(() => {
+    showModal(`export-profile-${currentProfile.id}`, (
+      <ExportProfileModal
+        profile={currentProfile}
+        isOpen={true}
+        onClose={() => hideModal(`export-profile-${currentProfile.id}`)}
+      />
+    ));
+  }, [currentProfile, showModal, hideModal]);
+
+  // Handler for opening profile folder
+  const handleOpenFolder = useCallback(async () => {
+    console.log("[ProfileDetailViewV2] handleOpenFolder called for:", currentProfile.name);
+    const openPromise = ProfileService.openProfileFolder(currentProfile.id);
+    toast.promise(openPromise, {
+      loading: `Opening folder for '${currentProfile.name}'...`,
+      success: `Successfully opened folder for '${currentProfile.name}'!`,
+      error: (err) => {
+        const message = err instanceof Error ? err.message : String(err.message);
+        console.error(`Failed to open folder for ${currentProfile.name}:`, err);
+        return `Failed to open folder: ${message}`;
+      },
+    });
+  }, [currentProfile, profile.id]);
+
+  // Handler for duplicating profile
+  const handleDuplicateProfile = useCallback(() => {
+    console.log("[ProfileDetailViewV2] handleDuplicateProfile called for:", currentProfile.name);
+    openDuplicateModal(currentProfile);
+  }, [currentProfile, openDuplicateModal]);
+
   // Effect to synchronize the internal currentProfile state with the profile prop
   useEffect(() => {
     setCurrentProfile(profile);
   }, [profile]);
+
+
+
+  // Close this menu if another context menu opens globally
+  useEffect(() => {
+    if (openContextMenuId && openContextMenuId !== contextMenuId && isContextMenuOpen) {
+      setIsContextMenuOpen(false);
+    }
+  }, [openContextMenuId, contextMenuId, isContextMenuOpen]);
+
+
 
   // Get mod loader icon
   const getModLoaderIcon = () => {
@@ -110,6 +268,39 @@ export function ProfileDetailViewV2({
       icon: "solar:settings-bold",
       tooltip: profile.is_standard_version ? "Java Settings" : "Edit profile",
       onClick: () => onEdit(),
+    },
+    {
+      id: "more",
+      label: null,
+      icon: "solar:menu-dots-bold",
+      tooltip: "More options",
+            onClick: (event?: React.MouseEvent<HTMLButtonElement>) => {
+        event?.preventDefault();
+        event?.stopPropagation();
+
+        // Close any other open context menus first
+        if (openContextMenuId && openContextMenuId !== contextMenuId) {
+          setOpenContextMenuId(null);
+        }
+
+        // Simple toggle like CustomDropdown
+        const newState = !isContextMenuOpen;
+        setIsContextMenuOpen(newState);
+        setOpenContextMenuId(newState ? contextMenuId : null);
+
+        // Calculate position when opening
+        if (!isContextMenuOpen && event?.currentTarget) {
+          const buttonRect = event.currentTarget.getBoundingClientRect();
+          const containerRect = event.currentTarget.closest('.relative')?.getBoundingClientRect();
+
+          if (containerRect) {
+            setContextMenuPosition({
+              x: buttonRect.right - containerRect.left - 200, // Position menu to the left of the button
+              y: buttonRect.bottom - containerRect.top + 4,   // Position below the button
+            });
+          }
+        }
+      },
     },
   ];
 
@@ -186,8 +377,44 @@ export function ProfileDetailViewV2({
             </div>
 
             {/* Action Buttons - Right side of the header row */}
-            <div className="flex items-center gap-3">
-              <ActionButtons actions={actionButtons.filter(btn => btn.id !== 'back')} />
+            <div className="flex items-center gap-3 relative">
+              <ActionButtons
+                actions={actionButtons.filter(btn => btn.id !== 'back')}
+                buttonRefs={{ more: moreButtonRef }}
+              />
+
+              {/* Settings Context Menu - Inside the header section */}
+              <SettingsContextMenu
+                profile={currentProfile}
+                isOpen={isContextMenuOpen}
+                position={contextMenuPosition}
+                items={contextMenuItems}
+                onClose={() => {
+                  setIsContextMenuOpen(false);
+                  setOpenContextMenuId(null);
+                }}
+                triggerButtonRef={moreButtonRef}
+              />
+
+              {/* Delete Confirmation Modal */}
+              <ConfirmDeleteDialog
+                isOpen={isDeleteModalOpen}
+                itemName={currentProfile.name}
+                onClose={handleCancelDelete}
+                onConfirm={handleConfirmDelete}
+                isDeleting={isDeleting}
+                title="Delete Profile"
+                message={
+                  <p className="text-white/80 font-minecraft-ten">
+                    Are you sure you want to permanently delete the profile{" "}
+                    <strong className="text-white">"{currentProfile.name}"</strong>?
+                    <br />
+                    This action cannot be undone.
+                  </p>
+                }
+              />
+
+
             </div>
           </div>
 

@@ -13,6 +13,8 @@ import { useProfileSettingsStore } from "../../store/profile-settings-store";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useLaunchStateStore } from "../../store/launch-state-store";
 import { useThemeStore } from "../../store/useThemeStore";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { ExportProfileModal } from "./ExportProfileModal";
 import * as ProcessService from "../../services/process-service";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
 import { EventPayload as FrontendEventPayload, EventType as FrontendEventType } from "../../types/events";
@@ -54,7 +56,10 @@ export function ProfileCardV2({
   
   // Profile duplicate store
   const { openModal: openDuplicateModal } = useProfileDuplicateStore();
-  
+
+  // Global modal system
+  const { showModal, hideModal } = useGlobalModal();
+
   // Resolved loader version state
   const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
 
@@ -83,8 +88,13 @@ export function ProfileCardV2({
       label: "Export",
       icon: "solar:download-bold",
       onClick: (profile) => {
-        toast.success(`📤 Exporting ${profile.name}!`);
-        console.log("Exporting profile:", profile.name);
+        showModal(`export-profile-${profile.id}`, (
+          <ExportProfileModal
+            profile={profile}
+            isOpen={true}
+            onClose={() => hideModal(`export-profile-${profile.id}`)}
+          />
+        ));
       },
     },
     {
