@@ -149,14 +149,9 @@ pub struct NoriskInformation {
     pub is_experimental: bool,
     #[serde(default = "default_true")]
     pub copy_initial_mc_data: bool,
-    #[serde(default)]
-    pub startup_helper: Option<StartUpHelper>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct StartUpHelper {
-    pub additional_paths: Vec<String>,
-}
+
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Deserialize, Serialize, Hash)]
 #[serde(rename_all = "lowercase")]

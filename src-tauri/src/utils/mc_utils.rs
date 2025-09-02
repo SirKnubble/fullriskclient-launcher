@@ -620,6 +620,7 @@ async fn emit_copy_progress(
 pub async fn copy_startup_helper_data(
     profile: &crate::state::profile_state::Profile,
     profile_dir: &PathBuf,
+    norisk_pack: Option<&crate::integrations::norisk_packs::NoriskPackDefinition>,
 ) -> Result<()> {
     let profile_id = profile.id;
     info!(
@@ -646,7 +647,7 @@ pub async fn copy_startup_helper_data(
     );
 
     // Copy StartUpHelper files
-    if let Err(e) = copy_startup_helper_files(profile, profile_dir).await {
+    if let Err(e) = copy_startup_helper_files(profile, profile_dir, norisk_pack).await {
         warn!("Failed to copy StartUpHelper files: {}", e);
         // Don't fail the entire process if StartUpHelper copy fails
     }
@@ -862,20 +863,21 @@ pub async fn copy_initial_data_from_default_minecraft(
 pub async fn copy_startup_helper_files(
     profile: &crate::state::profile_state::Profile,
     profile_dir: &PathBuf,
+    norisk_pack: Option<&crate::integrations::norisk_packs::NoriskPackDefinition>,
 ) -> Result<()> {
     let profile_id = profile.id;
 
-    // Check if StartUpHelper is configured
-    let startup_helper = match profile.norisk_information.as_ref() {
-        Some(info) => match info.startup_helper.as_ref() {
+    // Check if StartUpHelper is configured in NoriskPack
+    let startup_helper = match norisk_pack {
+        Some(pack) => match pack.startup_helper.as_ref() {
             Some(helper) => helper,
             None => {
-                debug!("[{}] No StartUpHelper configured, skipping.", profile_id);
+                debug!("[{}] No StartUpHelper configured in pack, skipping.", profile_id);
                 return Ok(());
             }
         },
         None => {
-            debug!("[{}] No NoriskInformation configured, skipping StartUpHelper.", profile_id);
+            debug!("[{}] No NoriskPack selected, skipping StartUpHelper.", profile_id);
             return Ok(());
         }
     };

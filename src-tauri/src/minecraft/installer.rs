@@ -255,7 +255,16 @@ pub async fn install_minecraft_version(
 
     // --- NEW: Copy StartUpHelper data FIRST ---
     info!("\nChecking for StartUpHelper data to import...");
-    if let Err(e) = mc_utils::copy_startup_helper_data(profile, &game_directory).await {
+
+    // Load NoriskPackDefinition if a pack is selected
+    let norisk_pack = if let Some(pack_id) = &profile.selected_norisk_pack_id {
+        let config = state.norisk_pack_manager.get_config().await;
+        config.get_resolved_pack_definition(pack_id).ok()
+    } else {
+        None
+    };
+
+    if let Err(e) = mc_utils::copy_startup_helper_data(profile, &game_directory, norisk_pack.as_ref()).await {
         // We will only log a warning because this is not a critical step for launching the game.
         // The installation can proceed even if this fails.
         warn!("Failed to import StartUpHelper data (non-critical error): {}", e);
