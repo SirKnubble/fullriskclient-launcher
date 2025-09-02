@@ -52,7 +52,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     version,
     project,
     versionStatus,
-    isInstalling = false,
+    isInstalling: externalIsInstalling = false,
     isInstallingModpackVersion = false,
     accentColor,
     isHovered,
@@ -67,7 +67,48 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     const isModpack = project.project_type === "modpack";
     const cardRef = useRef<HTMLDivElement>(null);
     const [isCardHovered, setIsCardHovered] = useState(false);
+    const [localIsInstalling, setLocalIsInstalling] = useState(false);
+    const [installationStartTime, setInstallationStartTime] = useState<number | null>(null);
     const isFirstRender = useIsFirstRender();
+
+    // Use local state or external state
+    const isInstalling = localIsInstalling || externalIsInstalling;
+
+    // If external state becomes true and we don't have local state, synchronize
+    useEffect(() => {
+      if (externalIsInstalling && !localIsInstalling && !installationStartTime) {
+        console.log('External state became true, synchronizing local state');
+        setLocalIsInstalling(true);
+        setInstallationStartTime(Date.now());
+      }
+    }, [externalIsInstalling, localIsInstalling, installationStartTime]);
+
+    // Keep local state active for at least 3 seconds after installation starts
+    useEffect(() => {
+      if (localIsInstalling && installationStartTime) {
+        const timer = setTimeout(() => {
+          console.log('Minimum display time (3s) passed, resetting local state');
+          setLocalIsInstalling(false);
+          setInstallationStartTime(null);
+        }, 3000); // 3 seconds minimum display time
+
+        return () => clearTimeout(timer);
+      }
+    }, [localIsInstalling, installationStartTime]); // Remove externalIsInstalling from dependencies
+
+    // Reset local state when version changes
+    useEffect(() => {
+      setLocalIsInstalling(false);
+      setInstallationStartTime(null);
+    }, [version.id]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        setLocalIsInstalling(false);
+        setInstallationStartTime(null);
+      };
+    }, []);
 
     const handleMouseEnterLocal = () => {
       onMouseEnter(version.id);
@@ -105,19 +146,26 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     }, [isCardHovered, accentColor, isFirstRender]);
 
     const handleButtonClick = () => {
-      if (isInstalling) return;
+    console.log('Button clicked, localIsInstalling:', localIsInstalling, 'externalIsInstalling:', externalIsInstalling);
+    if (isInstalling) return;
 
-      if (isModpack && onInstallModpackVersionAsProfileClick) {
-        onInstallModpackVersionAsProfileClick(project, version);
-      } else if (!isModpack) {
-        onInstallClick(project, version);
-      } else {
-        console.warn(
-          "onInstallModpackVersionAsProfileClick is not defined for modpack version item",
-        );
-        onInstallClick(project, version);
-      }
-    };
+    // Set local installing state immediately for instant UI feedback
+    setLocalIsInstalling(true);
+    setInstallationStartTime(Date.now());
+
+    console.log('Started installation at:', Date.now());
+
+    if (isModpack && onInstallModpackVersionAsProfileClick) {
+      onInstallModpackVersionAsProfileClick(project, version);
+    } else if (!isModpack) {
+      onInstallClick(project, version);
+    } else {
+      console.warn(
+        "onInstallModpackVersionAsProfileClick is not defined for modpack version item",
+      );
+      onInstallClick(project, version);
+    }
+  };
 
     const handleDeleteButtonClick = () => {
       if (onDeleteClick && !isModpack && selectedProfileId) {
@@ -359,6 +407,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                     disabled={buttonDisabled || isInstalling}
                     className="min-w-[80px]"
                     icon={isInstalling || isInstallingModpackVersion ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
+                    iconClassName={(isInstalling || isInstallingModpackVersion) ? "animate-spin-slow" : ""}
                     label={buttonText}
                   />
                 )}

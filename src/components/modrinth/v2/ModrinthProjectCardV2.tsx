@@ -366,6 +366,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
             <ActionButton
               label={isInstallingModpackAsProfile ? "Installing..." : "Install"}
               icon={isInstallingModpackAsProfile ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
+              iconClassName={isInstallingModpackAsProfile ? "animate-spin-slow" : ""}
               variant={isInstallingModpackAsProfile ? "secondary" : "primary"}
               disabled={isInstallingModpackAsProfile || isQuickInstalling || (!!installStatus?.is_installed && !!selectedProfile)}
               onClick={(e) => {
@@ -385,6 +386,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
             <ActionButton
               label={isQuickInstalling ? "Installing..." : "Install"}
               icon={isQuickInstalling ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
+              iconClassName={isQuickInstalling ? "animate-spin-slow" : ""}
               variant={isQuickInstalling ? "secondary" : "primary"}
               disabled={isQuickInstalling || (!!installStatus?.is_installed && !!selectedProfile)}
               onClick={(e) => {
@@ -402,6 +404,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
                   ? "solar:alt-arrow-up-bold"
                   : "solar:alt-arrow-down-bold"
             }
+            iconClassName={isLoadingVersions ? "animate-spin-fast" : ""}
             variant="icon-only"
             disabled={isLoadingVersions}
             tooltip={isExpanded ? "Hide Versions" : "Show Versions"}

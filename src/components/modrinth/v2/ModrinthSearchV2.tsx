@@ -1365,6 +1365,112 @@ export function ModrinthSearchV2({
     );
   };
 
+  // Function to handle direct quick install for BrowseTab context - no modal
+  const handleDirectQuickInstall = async (project: ModrinthSearchHit) => {
+    console.log('🚀 Direct quick install for:', project.title);
+
+    if (!selectedProfile) {
+      console.error('❌ No selected profile for direct install');
+      toast.error('No profile selected for installation');
+      return;
+    }
+
+    // Set loading state for the project
+    setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: true }));
+
+    try {
+      // Fetch versions for this project
+      const versions = await ModrinthService.getModVersions(project.project_id);
+      if (!versions || versions.length === 0) {
+        toast.error(`No versions found for ${project.title}`);
+        setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+        return;
+      }
+
+      // Find best version for selected profile
+      const sortedVersions = versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
+      const bestVersion = findBestVersionForProfile(selectedProfile, sortedVersions);
+
+      if (!bestVersion) {
+        toast.error(`No compatible version of ${project.title} for profile '${selectedProfile.name}'`);
+        setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+        return;
+      }
+
+      // Get primary file
+      const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
+      if (!primaryFile) {
+        toast.error(`No primary file found for ${project.title}`);
+        setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+        return;
+      }
+
+      // Check content type
+      const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+      if (!mappedContentType) {
+        setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+        return;
+      }
+
+      // Special handling for modpacks
+      if (project.project_type === 'modpack') {
+        toast.error("Modpacks must be installed as new profiles.");
+        setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+        return;
+      }
+
+      // Proceed with installation using the same logic as handleProfileSelectionForQuickInstall
+      const payload: InstallContentPayload = {
+        profile_id: selectedProfile.id,
+        project_id: project.project_id,
+        version_id: bestVersion.id,
+        file_name: primaryFile.filename,
+        download_url: primaryFile.url,
+        file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
+        content_name: project.title,
+        version_number: bestVersion.version_number,
+        content_type: mappedContentType,
+        loaders: bestVersion.loaders,
+        game_versions: bestVersion.game_versions,
+      };
+
+      await toast.promise(
+        installContentToProfile(payload),
+        {
+          loading: `Installing ${project.title} (${bestVersion.version_number}) to ${selectedProfile.name}...`,
+          success: `Successfully installed ${project.title} (${bestVersion.version_number}) to ${selectedProfile.name}`,
+          error: (err) => `Failed to install: ${err.message || String(err)}`,
+        }
+      );
+
+      // Update installation status
+      setInstalledProjects(prev => ({
+        ...prev,
+        [project.project_id]: getStatusForNewInstall(prev[project.project_id])
+      }));
+
+      setInstalledVersions(prev => {
+        const newState = { ...prev };
+        if (!newState[selectedProfile.id]) newState[selectedProfile.id] = {};
+        newState[selectedProfile.id][bestVersion.id] = getStatusForNewInstall(
+          newState[selectedProfile.id][bestVersion.id]
+        );
+        return newState;
+      });
+
+      justInstalledOrToggledRef.current = true;
+
+      if (onInstallSuccess) onInstallSuccess();
+
+    } catch (error) {
+      console.error(`Quick install failed for ${project.title}:`, error);
+      toast.error(`Failed to install ${project.title}`);
+    } finally {
+      // Reset loading state for the project
+      setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
+    }
+  };
+
   // Check installation status for all profiles when opening modal
   const checkInstallationStatusForModal = async (project: ModrinthSearchHit, profiles: Profile[]) => {
     console.log('🔍 Checking installation status for modal:', project.title, profiles.length, 'profiles');
@@ -2826,7 +2932,7 @@ export function ModrinthSearchV2({
                       isInstallingModpackAsProfile={installingModpackAsProfile[hit.project_id] || false}
                       installingVersionStates={installingVersion}
                       installingModpackVersionStates={installingModpackVersion}
-                      onQuickInstallClick={quickInstall}
+                      onQuickInstallClick={overrideDisplayContext === "detail" ? handleDirectQuickInstall : quickInstall}
                       onInstallModpackAsProfileClick={handleInstallModpackAsProfile}
                       onInstallModpackVersionAsProfileClick={handleInstallModpackVersionAsProfile}
                       onToggleVersionsClick={toggleProjectVersions}
@@ -2908,7 +3014,7 @@ export function ModrinthSearchV2({
                       isInstallingModpackAsProfile={installingModpackAsProfile[hit.project_id] || false}
                       installingVersionStates={installingVersion}
                       installingModpackVersionStates={installingModpackVersion}
-                      onQuickInstallClick={quickInstall}
+                      onQuickInstallClick={overrideDisplayContext === "detail" ? handleDirectQuickInstall : quickInstall}
                       onInstallModpackAsProfileClick={handleInstallModpackAsProfile}
                       onInstallModpackVersionAsProfileClick={handleInstallModpackVersionAsProfile}
                       onToggleVersionsClick={toggleProjectVersions}
