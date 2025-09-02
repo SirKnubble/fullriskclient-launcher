@@ -176,15 +176,12 @@ export function Modal({
           </div>
         </div>        <div className="flex-1 overflow-y-auto custom-scrollbar">
           {children}
-        </div>{footer && (
-          <div
-            className="px-6 py-4 border-t-2 flex-shrink-0"
-            style={{
-              borderColor: `${accentColor.value}60`,
-              backgroundColor: `${accentColor.value}15`,
-            }}
-          >
-            {footer}
+        </div>        {footer && (
+          <div className="flex-shrink-0">
+            <div className="border-t border-white/10 mx-6 mt-4 mb-4"></div>
+            <div className="px-6 pb-4">
+              {footer}
+            </div>
           </div>
         )}
       </div>

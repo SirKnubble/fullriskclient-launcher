@@ -124,7 +124,7 @@ pub struct Profile {
     #[serde(default)]
     pub group: Option<String>,
     /// Whether this profile should use a shared Minecraft folder
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub use_shared_minecraft_folder: bool,
     /// True if this is a standard profile template, false if it's a user profile.
     #[serde(default)] // Defaults to false for existing user profiles
@@ -251,12 +251,10 @@ impl Profile {
             if ProfileManager::is_isolated_group(group) {
                 return false;
             }
-            // Profile has a group and it's not isolated, so use shared folder
-            return true;
         }
         
         // Profile has no group, don't use shared folder (use original path logic)
-        false
+        self.use_shared_minecraft_folder
     }
 }
 
@@ -386,32 +384,36 @@ impl ProfileManager {
         Ok(())
     }
 
-    /// Helper function to check if any other profile uses the same instance path
+    /// Helper function to check if any other profile uses the same path
     /// This is used before deleting a profile directory to ensure we don't delete
     /// files that are still needed by other profiles
-    async fn has_other_profile_with_same_path(&self, exclude_id: Uuid, target_path: &PathBuf) -> bool {
+    async fn has_other_profile_with_same_path<F>(&self, exclude_id: Uuid, target_path: &PathBuf, path_calculator: F) -> bool
+    where
+        F: Fn(&Profile) -> PathBuf,
+    {
         let profiles = self.profiles.read().await;
-        
+
         for (&profile_id, profile) in profiles.iter() {
             // Skip the profile we're about to delete
             if profile_id == exclude_id {
                 continue;
             }
-            
+
             // Calculate the path for this profile and compare
-            if let Ok(other_path) = self.calculate_instance_path_for_profile(profile) {
-                if other_path == *target_path {
-                    info!(
-                        "Found another profile '{}' (ID: {}) using the same path: {:?}",
-                        profile.name, profile_id, target_path
-                    );
-                    return true;
-                }
+            let other_path = path_calculator(profile);
+            if other_path == *target_path {
+                info!(
+                    "Found another profile '{}' (ID: {}) using the same path: {:?}",
+                    profile.name, profile_id, target_path
+                );
+                return true;
             }
         }
-        
+
         false
     }
+
+
 
     pub async fn delete_profile(&self, id: Uuid) -> Result<()> {
         let profile_to_delete: Option<Profile>;
@@ -450,7 +452,9 @@ impl ProfileManager {
 
         // Check if other profiles use the same path before attempting directory deletion
         let should_delete_directory = if let Some(path) = &profile_dir_path {
-            if self.has_other_profile_with_same_path(id, path).await {
+            if self.has_other_profile_with_same_path(id, path, |profile| {
+                self.calculate_instance_path_for_profile(profile).unwrap_or_default()
+            }).await {
                 info!(
                     "Another profile is using the same directory path {:?}. Skipping directory deletion.",
                     path
@@ -492,24 +496,43 @@ impl ProfileManager {
         // This covers cases where the profile might have files in both group and individual directories
         if let Some(profile) = &profile_to_delete {
             let individual_path = Self::build_path_from_profile_path(profile);
-            
+
             // Only delete if it's different from the main path
             if Some(&individual_path) != profile_dir_path.as_ref() {
-                if individual_path.exists() {
-                    info!("Moving individual profile directory to trash: {:?}", individual_path);
-                    match crate::utils::trash_utils::move_path_to_trash(&individual_path, Some("profiles")).await {
-                        Ok(wrapper) => info!("Individual profile directory moved to trash wrapper: {:?}", wrapper),
-                        Err(e) => {
-                            error!("Failed to move individual profile directory {:?} to trash: {}", individual_path, e);
-                            // Don't return error here, as the main profile deletion was successful
-                            warn!("Continuing despite individual path deletion failure.");
-                        }
-                    }
-                } else {
+                // Check if other profiles use the same individual path before attempting deletion
+                let should_delete_individual_directory = if self.has_other_profile_with_same_path(id, &individual_path, |profile| {
+                    Self::build_path_from_profile_path(profile)
+                }).await {
                     info!(
-                        "Individual profile directory {:?} does not exist. Skipping deletion.",
+                        "Another profile is using the same individual directory path {:?}. Skipping individual directory deletion.",
                         individual_path
                     );
+                    false
+                } else {
+                    info!(
+                        "No other profile uses the individual directory path {:?}. Safe to delete.",
+                        individual_path
+                    );
+                    true
+                };
+
+                if should_delete_individual_directory {
+                    if individual_path.exists() {
+                        info!("Moving individual profile directory to trash: {:?}", individual_path);
+                        match crate::utils::trash_utils::move_path_to_trash(&individual_path, Some("profiles")).await {
+                            Ok(wrapper) => info!("Individual profile directory moved to trash wrapper: {:?}", wrapper),
+                            Err(e) => {
+                                error!("Failed to move individual profile directory {:?} to trash: {}", individual_path, e);
+                                // Don't return error here, as the main profile deletion was successful
+                                warn!("Continuing despite individual path deletion failure.");
+                            }
+                        }
+                    } else {
+                        info!(
+                            "Individual profile directory {:?} does not exist. Skipping deletion.",
+                            individual_path
+                        );
+                    }
                 }
             } else {
                 info!("Individual path is the same as main path, skipping separate deletion.");
@@ -1417,29 +1440,33 @@ impl ProfileManager {
         );
 
         // Determine final path based on shared folder logic and group
-        let final_path = if !profile.should_use_shared_minecraft_folder() {
-            // Profile should NOT use shared folder (isolated groups or no group) - use original logic with profile.path
-            log::trace!("Profile '{}' should not use shared Minecraft folder, using original path logic", profile.name);
-            Self::build_path_from_profile_path(profile)
-        } else if let Some(group) = &profile.group {
-            if Self::is_norisk_client_group(group) {
-                // NoRisk Client groups go to "noriskclient/legacy" for MC < 1.13, "noriskclient/new" otherwise
-                if mc_utils::is_legacy_minecraft_version(&profile.game_version) {
-                    log::trace!("Profile '{}' belongs to NoRisk Client group with legacy MC version {}, using noriskclient/legacy path", profile.name, profile.game_version);
-                    default_profile_path().join("noriskclient").join("legacy")
+        let final_path = if profile.should_use_shared_minecraft_folder() {
+            // Profile should use shared folder - check group logic
+            log::trace!("Profile '{}' should use shared Minecraft folder, checking group logic", profile.name);
+            if let Some(group) = &profile.group {
+                if Self::is_norisk_client_group(group) {
+                    // NoRisk Client groups go to "noriskclient/legacy" for MC < 1.13, "noriskclient/new" otherwise
+                    if mc_utils::is_legacy_minecraft_version(&profile.game_version) {
+                        log::trace!("Profile '{}' belongs to NoRisk Client group with legacy MC version {}, using noriskclient/legacy path", profile.name, profile.game_version);
+                        default_profile_path().join("noriskclient").join("legacy")
+                    } else {
+                        log::trace!("Profile '{}' belongs to NoRisk Client group with modern MC version {}, using noriskclient/new path", profile.name, profile.game_version);
+                        default_profile_path().join("noriskclient").join("new")
+                    }
                 } else {
-                    log::trace!("Profile '{}' belongs to NoRisk Client group with modern MC version {}, using noriskclient/new path", profile.name, profile.game_version);
-                    default_profile_path().join("noriskclient").join("new")
+                    // Other custom groups go to "groups/{sanitized_group_name}"
+                    let sanitized_group = Self::sanitize_group_name(group);
+                    log::trace!("Profile '{}' belongs to custom group '{}', using groups/{} path", profile.name, group, sanitized_group);
+                    default_profile_path().join("groups").join(sanitized_group)
                 }
             } else {
-                // Other custom groups go to "groups/{sanitized_group_name}"
-                let sanitized_group = Self::sanitize_group_name(group);
-                log::trace!("Profile '{}' belongs to custom group '{}', using groups/{} path", profile.name, group, sanitized_group);
-                default_profile_path().join("groups").join(sanitized_group)
+                // No group but should use shared folder, use the original logic with profile.path
+                log::trace!("Profile '{}' has no group but uses shared folder, using original path logic", profile.name);
+                Self::build_path_from_profile_path(profile)
             }
         } else {
-            // No group but should use shared folder, use the original logic with profile.path
-            log::trace!("Profile '{}' has no group but uses shared folder, using original path logic", profile.name);
+            // Profile should NOT use shared folder (isolated) - use original logic with profile.path
+            log::trace!("Profile '{}' should not use shared Minecraft folder, using isolated path logic", profile.name);
             Self::build_path_from_profile_path(profile)
         };
 

@@ -242,7 +242,7 @@ export function ProfileWizardV2Step2({
   };
 
   const renderFooter = () => (
-    <div className="flex justify-between">
+    <div className="flex justify-between items-center">
       <Button
         variant="secondary"
         onClick={onBack}
@@ -254,7 +254,7 @@ export function ProfileWizardV2Step2({
       >
         back
       </Button>
-      
+
       <Button
         variant="default"
         onClick={handleNext}

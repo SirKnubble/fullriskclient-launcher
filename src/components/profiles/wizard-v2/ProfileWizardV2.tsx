@@ -10,7 +10,7 @@ import { Button } from "../../ui/buttons/Button";
 import { StatusMessage } from "../../ui/StatusMessage";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { Card } from "../../ui/Card";
-import { SearchInput } from "../../ui/SearchInput";
+import { SearchWithFilters } from "../../ui/SearchWithFilters";
 import { ProfileWizardV2Step2 } from "./ProfileWizardV2Step2";
 import { ProfileWizardV2Step3 } from "./ProfileWizardV2Step3";
 import { useProfileStore } from "../../../store/profile-store";
@@ -110,6 +110,7 @@ export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizard
     loaderVersion: string | null;
     memoryMaxMb: number;
     selectedNoriskPackId: string | null;
+    use_shared_minecraft_folder?: boolean;
   }) => {
     const { createProfile } = useProfileStore.getState();
 
@@ -119,6 +120,7 @@ export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizard
       loader: profileData.loader,
       loader_version: profileData.loaderVersion || undefined,
       selected_norisk_pack_id: profileData.selectedNoriskPackId || undefined,
+      use_shared_minecraft_folder: profileData.use_shared_minecraft_folder,
     };
 
     const creationPromise = async () => {
@@ -179,16 +181,17 @@ export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizard
 
     return (
       <div className="space-y-6">
-        {/* Filters */}
-        <div className="flex gap-4">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
+        {/* Search and Filters */}
+        <div className="flex gap-4 items-center">
+          <SearchWithFilters
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
             placeholder="Search versions..."
+            showSort={false}
+            showFilter={false}
             className="flex-1"
-            size="sm"
           />
-          
+
           <div className="flex gap-2">
             {[
               { key: "release", label: "Release", icon: "solar:star-bold" },
@@ -246,7 +249,7 @@ export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizard
   };
 
   const renderFooter = () => (
-    <div className="flex justify-end">
+    <div className="flex justify-end items-center">
       <Button
         variant="default"
         onClick={handleStep1Next}

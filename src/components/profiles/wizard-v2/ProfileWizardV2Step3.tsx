@@ -7,10 +7,11 @@ import { Modal } from "../../ui/Modal";
 import { Button } from "../../ui/buttons/Button";
 import { StatusMessage } from "../../ui/StatusMessage";
 import { useThemeStore } from "../../../store/useThemeStore";
-import { Input } from "../../ui/Input";
+import { SearchStyleInput } from "../../ui/Input";
 import { RangeSlider } from "../../ui/RangeSlider";
 import { Select } from "../../ui/Select";
 import { Card } from "../../ui/Card";
+import { Checkbox } from "../../ui/Checkbox";
 import { invoke } from "@tauri-apps/api/core";
 import { NoriskModEntryDefinition, NoriskModpacksConfig } from "../../../types/noriskPacks";
 
@@ -31,6 +32,7 @@ interface ProfileWizardV2Step3Props {
         loaderVersion: string | null;
         memoryMaxMb: number;
         selectedNoriskPackId: string | null;
+        use_shared_minecraft_folder?: boolean;
     }) => void;
     selectedMinecraftVersion: string;
     selectedLoader: ModLoader;
@@ -57,6 +59,9 @@ export function ProfileWizardV2Step3({
     const [loadingPacks, setLoadingPacks] = useState(false);
     const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<string | null>(null);
     const [showYellowWarning, setShowYellowWarning] = useState(false);
+    const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+    const [useSharedMinecraftFolder, setUseSharedMinecraftFolder] = useState(true); // Default to true for most users
+    const [showAllVersions, setShowAllVersions] = useState(false); // Default to false to show only curated versions
 
     // Update profile group when defaultGroup changes
     useEffect(() => {
@@ -110,12 +115,16 @@ export function ProfileWizardV2Step3({
         setMemoryMaxMb(value);
     };
 
-    const noriskPackOptions = Object.entries(noriskPacks).map(
-        ([packId, packDef]) => ({
+    const noriskPackOptions = Object.entries(noriskPacks)
+        .filter(([packId]) => {
+            if (showAllVersions) return true; // Show all versions when checkbox is checked
+            // Show only curated versions when checkbox is unchecked
+            return packId === "norisk-prod" || packId === "norisk-bughunter" || packId === "";
+        })
+        .map(([packId, packDef]) => ({
             value: packId,
             label: `${packDef.displayName} ${packDef.isExperimental ? "(experimental)" : ""}`,
-        }),
-    );
+        }));
 
     // Check pack compatibility when selection changes
     useEffect(() => {
@@ -210,7 +219,8 @@ export function ProfileWizardV2Step3({
                 loader: selectedLoader,
                 loaderVersion: selectedLoaderVersion,
                 memoryMaxMb: memoryMaxMb,
-                selectedNoriskPackId: selectedNoriskPackId
+                selectedNoriskPackId: selectedNoriskPackId,
+                use_shared_minecraft_folder: useSharedMinecraftFolder
             });
         } catch (err) {
             console.error("Failed to create profile:", err);
@@ -231,24 +241,45 @@ export function ProfileWizardV2Step3({
             <div className="space-y-8">
                 {/* Profile Details */}
                 <div className="grid grid-cols-2 gap-4">
-                    <Input
-                        label="Profile Name"
-                        value={profileName}
-                        onChange={(e) => setProfileName(e.target.value)}
-                        placeholder="Enter profile name..."
-                        size="md"
-                        className="w-full"
-                        required
-                    />
+                    <div className="space-y-2">
+                        <label className="block text-base font-minecraft-ten text-white/50">
+                            Profile Name
+                        </label>
+                        <SearchStyleInput
+                            value={profileName}
+                            onChange={(e) => setProfileName(e.target.value)}
+                            placeholder="Enter profile name..."
+                            required
+                        />
+                    </div>
 
-                    <Input
-                        label="Group (Optional)"
-                        value={profileGroup}
-                        onChange={(e) => setProfileGroup(e.target.value)}
-                        placeholder="Enter group name..."
-                        size="md"
-                        className="w-full"
-                    />
+                    <div className="space-y-2">
+                        <label className="block text-base font-minecraft-ten text-white/50">
+                            Group (Optional)
+                        </label>
+                        <SearchStyleInput
+                            value={profileGroup}
+                            onChange={(e) => setProfileGroup(e.target.value)}
+                            placeholder="Enter group name..."
+                        />
+                    </div>
+                </div>
+
+                {/* Checkbox Options */}
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-1">
+                        <Checkbox
+                            label="Use shared Minecraft folder"
+                            checked={useSharedMinecraftFolder}
+                            onChange={(event) => setUseSharedMinecraftFolder(event.target.checked)}
+                            description="When enabled, a shared Minecraft folder will be used based on the group. Your settings, worlds, configs and resource packs will remain the same between profiles."
+                            descriptionClassName="font-minecraft-ten text-sm"
+                            size="lg"
+                        />
+                        <p className="text-xs text-white/50 font-minecraft-ten ml-10 -mt-1">
+                            (you can change this anytime)
+                        </p>
+                    </div>
                 </div>
 
                 {/* RAM Settings */}
@@ -267,84 +298,126 @@ export function ProfileWizardV2Step3({
                     />
                 </div>
 
-                {/* NoRisk Pack Selection */}
+                {/* Advanced Settings */}
                 <div className="space-y-3">
-                    <label className="block text-base font-minecraft-ten text-white/50">
-                        NoRisk Client Pack
-                    </label>
-                    {loadingPacks ? (
-                        <div className="flex items-center gap-2 text-white/70">
-                            <Icon
-                                icon="solar:refresh-bold"
-                                className="w-4 h-4 animate-spin"
-                            />
-                            <span className="text-sm font-minecraft-ten">
-                                Loading NoRisk packs...
-                            </span>
-                        </div>
-                    ) : (
-                        <>
-                            <Select
-                                value={selectedNoriskPackId || ""}
-                                onChange={(value) => setSelectedNoriskPackId(value === "" ? null : value)}
-                                options={[
-                                    { value: "", label: "None (Optional)" },
-                                    ...noriskPackOptions,
-                                ]}
-                                placeholder="Select a NoRisk pack..."
-                                size="md"
-                                className="w-full"
-                            />
-                            {/* Show either warning or description, but not both */}
-                            {showYellowWarning ? (
-                                <div className="text-center">
-                                    <p className="text-base text-yellow-400 font-minecraft-ten">
-                                        NoRiskClient is not currently compatible with this loader or version!<br />
-                                        You can still create it, but you won't have the features.<br />
-                                        This may change in the future.
-                                    </p>
-                                </div>
-                            ) : (
-                                selectedNoriskPackId && noriskPacks[selectedNoriskPackId] && (
-                                    <div className="text-center">
-                                        <p className="text-sm text-white/70 font-minecraft-ten">
-                                            {noriskPacks[selectedNoriskPackId].description}
-                                        </p>
-                                    </div>
-                                )
-                            )}
+                    <button
+                        onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                        className="flex items-center justify-between w-full p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                    >
+                        <span className="text-base font-minecraft-ten text-white/80">
+                            Advanced Settings
+                        </span>
+                        <Icon
+                            icon={showAdvancedSettings ? "solar:chevron-up-bold" : "solar:chevron-down-bold"}
+                            className="w-5 h-5 text-white/60"
+                        />
+                    </button>
 
-                            {/* Compatibility Checking */}
-                            {checkingCompatibility && (
-                                <div className="flex items-center gap-2 text-white/70">
-                                    <Icon
-                                        icon="solar:refresh-bold"
-                                        className="w-4 h-4 animate-spin"
-                                    />
-                                    <span className="text-sm font-minecraft-ten">
-                                        Checking compatibility...
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Compatibility Warning */}
-                            {packCompatibilityWarning && (
-                                <Card
-                                    variant="flat"
-                                    className="p-3 bg-red-900/20 border border-red-500/30"
-                                >
-                                    <div className="flex items-start gap-2">
+                    {showAdvancedSettings && (
+                        <div className="space-y-4 p-4 bg-white/5 border border-white/10 rounded-lg">
+                            {/* NoRisk Pack Selection */}
+                            <div className="space-y-3">
+                                <label className="block text-base font-minecraft-ten text-white/50">
+                                    NoRisk Client Pack
+                                </label>
+                                <p className="text-sm text-white/60 font-minecraft-ten">
+                                    NoRiskClient packs are predefined mod collections from NoRiskClient, including performance mods like Sodium, Fabric API, ImmediatelyFast, and mods for seamless NoRiskClient experience. You can disable this to start without NoRiskClient features.
+                                </p>
+                                {loadingPacks ? (
+                                    <div className="flex items-center gap-2 text-white/70">
                                         <Icon
-                                            icon="solar:danger-triangle-bold"
-                                            className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"
+                                            icon="solar:refresh-bold"
+                                            className="w-4 h-4 animate-spin"
                                         />
-                                        <p className="text-xs text-red-300 font-minecraft-ten">
-                                            {packCompatibilityWarning}
-                                        </p>
+                                        <span className="text-sm font-minecraft-ten">
+                                            Loading NoRisk packs...
+                                        </span>
                                     </div>
-                                </Card>
-                            )}
-                        </>
+                                ) : (
+                                    <>
+                                        <div className="flex gap-3">
+                                            <div className="flex-1">
+                                                <Select
+                                                    value={selectedNoriskPackId || ""}
+                                                    onChange={(value) => setSelectedNoriskPackId(value === "" ? null : value)}
+                                                    options={[
+                                                        { value: "", label: "None (Optional)" },
+                                                        ...noriskPackOptions,
+                                                    ]}
+                                                    placeholder="Select a NoRisk pack..."
+                                                    size="md"
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                            <div className="flex items-center">
+                                                <Checkbox
+                                                    checked={showAllVersions}
+                                                    onChange={(event) => setShowAllVersions(event.target.checked)}
+                                                    label="Show all versions"
+                                                    size="sm"
+                                                    className="text-white/70"
+                                                />
+                                            </div>
+                                        </div>
+                                        {/* Show either warning, none hint, or description */}
+                                        {showYellowWarning ? (
+                                            <div className="text-center">
+                                                <p className="text-base text-yellow-400 font-minecraft-ten">
+                                                    NoRiskClient is not currently compatible with this loader or version!<br />
+                                                    You can still create it, but you won't have the features.<br />
+                                                    This may change in the future.
+                                                </p>
+                                            </div>
+                                        ) : selectedNoriskPackId === null || selectedNoriskPackId === "" ? (
+                                            <div className="text-center">
+                                                <p className="text-sm text-amber-400 font-minecraft-ten">
+                                                    You won't have any NoRiskClient features with this selection.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            selectedNoriskPackId && noriskPacks[selectedNoriskPackId] && (
+                                                <div className="text-center">
+                                                    <p className="text-sm text-white/70 font-minecraft-ten">
+                                                        {noriskPacks[selectedNoriskPackId].description}
+                                                    </p>
+                                                </div>
+                                            )
+                                        )}
+
+                                        {/* Compatibility Checking */}
+                                        {checkingCompatibility && (
+                                            <div className="flex items-center gap-2 text-white/70">
+                                                <Icon
+                                                    icon="solar:refresh-bold"
+                                                    className="w-4 h-4 animate-spin"
+                                                />
+                                                <span className="text-sm font-minecraft-ten">
+                                                    Checking compatibility...
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Compatibility Warning */}
+                                        {packCompatibilityWarning && (
+                                            <Card
+                                                variant="flat"
+                                                className="p-3 bg-red-900/20 border border-red-500/30"
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    <Icon
+                                                        icon="solar:danger-triangle-bold"
+                                                        className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"
+                                                    />
+                                                    <p className="text-xs text-red-300 font-minecraft-ten">
+                                                        {packCompatibilityWarning}
+                                                    </p>
+                                                </div>
+                                            </Card>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
@@ -352,7 +425,7 @@ export function ProfileWizardV2Step3({
     };
 
     const renderFooter = () => (
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
             <Button
                 variant="secondary"
                 onClick={onBack}

@@ -9,6 +9,7 @@ import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "react-hot-toast";
 import { useProfileStore } from "../../store/profile-store";
+import { copyProfile } from "../../services/profile-service";
 
 export function ProfileDuplicateModal() {
   const { isModalOpen, sourceProfile, closeModal } = useProfileDuplicateStore();
@@ -29,12 +30,10 @@ export function ProfileDuplicateModal() {
     try {
       setIsLoading(true);
 
-      await invoke("copy_profile", {
-        params: {
-          source_profile_id: sourceProfile.id,
-          new_profile_name: newProfileName.trim(),
-          include_files: undefined,
-        },
+      await copyProfile({
+        source_profile_id: sourceProfile.id,
+        new_profile_name: newProfileName.trim(),
+        include_files: undefined,
       });
 
       toast.success(`Profile '${newProfileName.trim()}' created successfully!`);

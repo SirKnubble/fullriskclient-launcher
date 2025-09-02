@@ -45,6 +45,7 @@ pub struct CreateProfileParams {
     loader: String,
     loader_version: Option<String>,
     selected_norisk_pack_id: Option<String>,
+    use_shared_minecraft_folder: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -67,6 +68,7 @@ pub struct UpdateProfileParams {
 pub struct CopyProfileParams {
     source_profile_id: Uuid,
     new_profile_name: String,
+    use_shared_minecraft_folder: Option<bool>,
     // Option um nur bestimmte Dateien zu kopieren
     include_files: Option<Vec<PathBuf>>,
 }
@@ -140,7 +142,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
-        use_shared_minecraft_folder: true,
+        use_shared_minecraft_folder: params.use_shared_minecraft_folder.unwrap_or(false),
         group: None,
         description: None,
         banner: None,
@@ -1476,7 +1478,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
         group: source_profile.group.clone(),
-        use_shared_minecraft_folder: source_profile.should_use_shared_minecraft_folder(),
+        use_shared_minecraft_folder: params.use_shared_minecraft_folder.unwrap_or(source_profile.should_use_shared_minecraft_folder()),
         is_standard_version: false,
         description: source_profile.description.clone(),
         norisk_information: source_profile.norisk_information.clone(),

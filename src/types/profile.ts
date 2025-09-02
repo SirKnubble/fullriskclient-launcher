@@ -192,6 +192,7 @@ export interface CreateProfileParams {
   loader: string;
   loader_version?: string;
   selected_norisk_pack_id?: string;
+  use_shared_minecraft_folder?: boolean;
 }
 
 export interface UpdateProfileParams {
@@ -214,6 +215,7 @@ export interface UpdateProfileParams {
 export interface CopyProfileParams {
   source_profile_id: string;
   new_profile_name: string;
+  use_shared_minecraft_folder?: boolean;
   include_files?: string[];
 }
 
