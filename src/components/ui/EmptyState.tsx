@@ -132,8 +132,8 @@ export function EmptyState({
         )}
 
         {action && isDelayedContentVisible && (
-          <div 
-            className="mt-4"
+          <div
+            className="mt-2"
             style={{
               opacity: isDelayedContentVisible ? 1 : 0,
               transition: "opacity 0.5s ease-in-out 0.1s"

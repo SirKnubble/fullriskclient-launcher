@@ -97,13 +97,23 @@ export function GenericList<T>({
           icon={emptyStateIcon}
           message={emptyStateMessage}
           description={emptyStateDescription}
+          action={emptyStateAction}
         />
       );
     }
   }  if (error && errorComponent) {
     return <>{errorComponent(error)}</>;
   }
-  if (error) {
+  if (error && showEmptyState) {
+    return (
+      <EmptyState
+        icon={emptyStateIcon || GENERIC_LIST_DEFAULT_ICONS[0]}
+        message={emptyStateMessage || ""}
+        description={emptyStateDescription || error}
+        action={emptyStateAction}
+      />
+    );
+  } else if (error) {
     return (
       <div
         className="p-3 flex items-center gap-2 mb-4 rounded-lg border"
@@ -111,7 +121,8 @@ export function GenericList<T>({
           backgroundColor: `rgba(220, 38, 38, 0.1)`,
           borderColor: `rgba(220, 38, 38, 0.3)`,
         }}
-      >        <Icon
+      >
+        <Icon
           icon={GENERIC_LIST_DEFAULT_ICONS[0]}
           className="w-5 h-5 text-red-400"
         />
@@ -126,8 +137,8 @@ export function GenericList<T>({
     return (
       <EmptyState
         icon={emptyStateIcon}
-        message={searchQuery ? emptyStateMessage : "no items found"}
-        description={searchQuery ? "Try a different search term." : emptyStateDescription}
+        message={emptyStateMessage || ""}
+        description={emptyStateDescription || (searchQuery ? "Try a different search term." : "")}
         action={emptyStateAction}
       />
     );

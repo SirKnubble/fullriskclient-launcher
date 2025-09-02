@@ -68,8 +68,8 @@ export function GeneralSettingsTab({
   return (
     <div ref={tabRef} className="space-y-6 select-none">
       <div ref={formRef} className="space-y-6">
-        <div className="grid grid-cols-2 gap-6">
-          <div>
+        <div className="flex gap-6">
+          <div className="flex-1 flex flex-col">
             <label className="block text-3xl font-minecraft text-white mb-2 lowercase">
               profile name
             </label>
@@ -100,17 +100,19 @@ export function GeneralSettingsTab({
             </div>
           </div>
 
-          <div>
+          <div className="flex-1 flex flex-col">
             <label className="block text-3xl font-minecraft text-white mb-2 lowercase">
               group
             </label>
-            <SearchStyleInput
-              value={editedProfile.group || ""}
-              onChange={(e) => updateProfile({ group: e.target.value || null })}
-              placeholder="e.g. modpacks, vanilla+"
-              className="text-xl"
-              disabled={profile.is_standard_version ? true : false}
-            />
+            <div className="flex items-center">
+              <SearchStyleInput
+                value={editedProfile.group || ""}
+                onChange={(e) => updateProfile({ group: e.target.value || null })}
+                placeholder="e.g. modpacks, vanilla+"
+                className="text-xl w-full"
+                disabled={profile.is_standard_version ? true : false}
+              />
+            </div>
           </div>
         </div>
 

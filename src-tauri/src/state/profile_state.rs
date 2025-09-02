@@ -890,51 +890,50 @@ impl ProfileManager {
         game_versions: Option<Vec<String>>,
         add_dependencies: bool, // Allow caller to decide
     ) -> Result<()> {
-           // If profile is a standard version, download directly into its mods folder
-           let profile = self.get_profile(profile_id).await?;
-           if profile.is_standard_version {
-               let mods_dir = self.get_profile_mods_path(&profile)?;
-               tokio::fs::create_dir_all(&mods_dir).await?;
-   
-               let target_path = mods_dir.join(&file_name);
-               let tmp_path = target_path.with_extension("jar.nrc_tmp");
-   
-               let mut config = crate::utils::download_utils::DownloadConfig::new().with_streaming(true);
-               if let Some(sha1) = &file_hash_sha1 { config = config.with_sha1(sha1); }
-               crate::utils::download_utils::DownloadUtils::download_file(
-                   &download_url,
-                   &tmp_path,
-                   config,
-               ).await?;
-               // Atomic move
-               tokio::fs::rename(&tmp_path, &target_path).await?;
-   
-               // Optionally install required dependencies if requested
-               if add_dependencies {
-                   // Fetch version details to read dependencies
-                   if let Ok(ver_details) = modrinth::get_version_details(version_id.clone()).await {
-                       for dep in ver_details.dependencies.iter().filter(|d| d.dependency_type == ModrinthDependencyType::Required) {
-                           if let Some(dep_project_id) = &dep.project_id {
-                               // Find a compatible version by loader/profile game version
-                               if let Ok(dep_versions) = modrinth::get_mod_versions(dep_project_id.clone(), Some(vec![profile.loader.as_str().to_string()]), Some(vec![profile.game_version.clone()])).await {
-                                   if let Some(best) = dep_versions.iter().max_by_key(|v| &v.date_published) {
-                                       if let Some(primary) = best.files.iter().find(|f| f.primary) {
-                                           let dep_tmp = mods_dir.join(&primary.filename).with_extension("jar.nrc_tmp");
-                                           let dep_target = mods_dir.join(&primary.filename);
-                                           let mut cfg = crate::utils::download_utils::DownloadConfig::new().with_streaming(true);
-                                           if let Some(s) = &primary.hashes.sha1 { cfg = cfg.with_sha1(s); }
-                                           let _ = crate::utils::download_utils::DownloadUtils::download_file(&primary.url, &dep_tmp, cfg).await;
-                                           let _ = tokio::fs::rename(&dep_tmp, &dep_target).await;
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               }
-               Ok(())
-           } else {
-               // Non-standard: keep existing behavior (add to profile mods + optional deps)
+           // Always use the same behavior for all profiles (add to profile mods + optional deps)
+           // if profile.is_standard_version {
+           //     let mods_dir = self.get_profile_mods_path(&profile)?;
+           //     tokio::fs::create_dir_all(&mods_dir).await?;
+           //
+           //     let target_path = mods_dir.join(&file_name);
+           //     let tmp_path = target_path.with_extension("jar.nrc_tmp");
+           //
+           //     let mut config = crate::utils::download_utils::DownloadConfig::new().with_streaming(true);
+           //     if let Some(sha1) = &file_hash_sha1 { config = config.with_sha1(sha1); }
+           //     crate::utils::download_utils::DownloadUtils::download_file(
+           //         &download_url,
+           //         &tmp_path,
+           //         config,
+           //     ).await?;
+           //     // Atomic move
+           //     tokio::fs::rename(&tmp_path, &target_path).await?;
+           //
+           //     // Optionally install required dependencies if requested
+           //     if add_dependencies {
+           //         // Fetch version details to read dependencies
+           //         if let Ok(ver_details) = modrinth::get_version_details(version_id.clone()).await {
+           //             for dep in ver_details.dependencies.iter().filter(|d| d.dependency_type == ModrinthDependencyType::Required) {
+           //                 if let Some(dep_project_id) = &dep.project_id {
+           //                     // Find a compatible version by loader/profile game version
+           //                     if let Ok(dep_versions) = modrinth::get_mod_versions(dep_project_id.clone(), Some(vec![profile.loader.as_str().to_string()]), Some(vec![profile.game_version.clone()])).await {
+           //                         if let Some(best) = dep_versions.iter().max_by_key(|v| &v.date_published) {
+           //                             if let Some(primary) = best.files.iter().find(|f| f.primary) {
+           //                                 let dep_tmp = mods_dir.join(&primary.filename).with_extension("jar.nrc_tmp");
+           //                                 let dep_target = mods_dir.join(&primary.filename);
+           //                                 let mut cfg = crate::utils::download_utils::DownloadConfig::new().with_streaming(true);
+           //                                 if let Some(s) = &primary.hashes.sha1 { cfg = cfg.with_sha1(s); }
+           //                                 let _ = crate::utils::download_utils::DownloadUtils::download_file(&primary.url, &dep_tmp, cfg).await;
+           //                                 let _ = tokio::fs::rename(&dep_tmp, &dep_target).await;
+           //                             }
+           //                         }
+           //                     }
+           //                 }
+           //             }
+           //         }
+           //     }
+           //     Ok(())
+           // } else {
+               // Use the same behavior for all profiles (add to profile mods + optional deps)
                self.add_modrinth_mod_internal(
                    profile_id,
                    project_id,
@@ -950,7 +949,7 @@ impl ProfileManager {
                    HashSet::new(),
                )
                .await
-           }
+           // }
     }
 
     // Set the enabled status of a specific mod within a profile
@@ -2127,6 +2126,13 @@ impl ProfileManager {
             if copy.is_standard_version != standard_profile.is_standard_version {
                 info!("Updating is_standard_version for copy {}: {} -> {}", copy_id, copy.is_standard_version, standard_profile.is_standard_version);
                 copy.is_standard_version = standard_profile.is_standard_version;
+                changed = true;
+            }
+            
+            // Force update path if different
+            if copy.path != standard_profile.path {
+                info!("Updating path for copy {}: '{}' -> '{}'", copy_id, copy.path, standard_profile.path);
+                copy.path = standard_profile.path.clone();
                 changed = true;
             }
             

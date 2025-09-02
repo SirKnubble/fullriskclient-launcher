@@ -1049,7 +1049,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
           {/* Right side: Action Buttons and NoRiskPack Dropdown */}
           <div className="flex items-center gap-2">
-            {/* Batch Toggle Button - Common for all types if items are selected */}
+            {/* Batch Actions - Always visible when items are selected */}
             {selectedItemIds.size > 0 && (
               <ContentActionButtons
                 actions={[
@@ -1063,41 +1063,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                     tooltip: `Toggle enable/disable for ${selectedItemIds.size} selected items`,
                     onClick: handleBatchToggleSelected,
                   },
-                ]}
-                size="sm"
-              />
-            )}
-
-            {/* NoRisk Pack Selector - Only for NoRiskMod type */}
-            {contentType === "NoRiskMod" &&
-              noriskPacksConfig &&
-              noriskPackOptions.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={profile?.selected_norisk_pack_id || ""}
-                    onChange={(value) =>
-                      handleSelectedPackChange(value === "" ? null : value)
-                    }
-                    options={noriskPackOptions}
-                    placeholder="Select Pack..."
-                    className="!h-9 text-sm min-w-[180px] max-w-[250px] truncate"
-                    size="sm"
-                  />
-                  {profile?.selected_norisk_pack_id &&
-                    noriskPacksConfig?.packs[profile.selected_norisk_pack_id]
-                      ?.isExperimental && (
-                      <div className="text-xs text-yellow-500/80 font-minecraft">
-                        (Experimental)
-                      </div>
-                    )}
-                </div>
-              )}
-
-            {/* Delete and Update All buttons - Only for non-NoRiskMod types */}
-            {contentType !== "NoRiskMod" && (
-              <ContentActionButtons
-                actions={[
-                  ...(selectedItemIds.size > 0 ? [{
+                  ...(contentType !== "NoRiskMod" ? [{
                     id: "batch-delete",
                     label: isBatchDeleting ? "DELETING..." : `DELETE (${selectedItemIds.size})`,
                     icon: isBatchDeleting ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6],
@@ -1107,68 +1073,107 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                     tooltip: `Delete ${selectedItemIds.size} selected items`,
                     onClick: handleBatchDeleteSelected,
                   }] : []),
-                  ...(Object.keys(contentUpdates).length > 0 ? [{
-                    id: "update-all",
-                    label: isUpdatingAll ? "UPDATING ALL..." : `UPDATE ALL (${Object.keys(contentUpdates).length})`,
-                    icon: isUpdatingAll ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[14],
-                    variant: "highlight" as const,
-                    disabled: isUpdatingAll,
-                    loading: isUpdatingAll,
-                    tooltip: `Update all ${Object.keys(contentUpdates).length} available updates`,
-                    onClick: handleUpdateAllAvailableContent,
-                  }] : []),
                 ]}
                 size="sm"
               />
             )}
 
-            {/* Browse and Add buttons - only for non-NoRiskMod types */}
-            {effectiveOnAddContent && contentType !== "NoRiskMod" && profile && (
-              <ContentActionButtons
-                actions={[
-                  {
-                    id: "browse",
-                    label: `DOWNLOAD ${itemTypeNamePlural.toUpperCase()}`,
-                    icon: "solar:add-circle-bold",
-                    variant: "highlight" as const,
-                    tooltip: `Browse and download ${itemTypeNamePlural} online`,
-                    onClick: () => {
-                      if (profile && onBrowseContentRequest) {
-                        const browseContentType = getBrowseTabContentType(contentType);
-                        onBrowseContentRequest(browseContentType);
-                      } else if (profile) {
-                        const browseContentType = getBrowseTabContentType(contentType);
-                        navigate(`/profilesv2/${profile.id}/browse/${browseContentType}`);
-                      }
+            {/* Hide other buttons when any items are selected */}
+            {selectedItemIds.size === 0 && (
+              <>
+                {/* NoRisk Pack Selector - Only for NoRiskMod type */}
+                {contentType === "NoRiskMod" &&
+                  noriskPacksConfig &&
+                  noriskPackOptions.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={profile?.selected_norisk_pack_id || ""}
+                        onChange={(value) =>
+                          handleSelectedPackChange(value === "" ? null : value)
+                        }
+                        options={noriskPackOptions}
+                        placeholder="Select Pack..."
+                        className="!h-9 text-sm min-w-[180px] max-w-[250px] truncate"
+                        size="sm"
+                      />
+                      {profile?.selected_norisk_pack_id &&
+                        noriskPacksConfig?.packs[profile.selected_norisk_pack_id]
+                          ?.isExperimental && (
+                          <div className="text-xs text-yellow-500/80 font-minecraft">
+                            (Experimental)
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                {/* Update All buttons - Only for non-NoRiskMod types */}
+                {contentType !== "NoRiskMod" && Object.keys(contentUpdates).length > 0 && (
+                  <ContentActionButtons
+                    actions={[
+                      {
+                        id: "update-all",
+                        label: isUpdatingAll ? "UPDATING ALL..." : `UPDATE ALL (${Object.keys(contentUpdates).length})`,
+                        icon: isUpdatingAll ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[14],
+                        variant: "highlight" as const,
+                        disabled: isUpdatingAll,
+                        loading: isUpdatingAll,
+                        tooltip: `Update all ${Object.keys(contentUpdates).length} available updates`,
+                        onClick: handleUpdateAllAvailableContent,
+                      },
+                    ]}
+                    size="sm"
+                  />
+                )}
+
+                {/* Browse and Add buttons - only for non-NoRiskMod types */}
+                {effectiveOnAddContent && contentType !== "NoRiskMod" && profile && (
+                  <ContentActionButtons
+                    actions={[
+                      {
+                        id: "browse",
+                        label: `DOWNLOAD ${itemTypeNamePlural.toUpperCase()}`,
+                        icon: "solar:add-circle-bold",
+                        variant: "highlight" as const,
+                        tooltip: `Browse and download ${itemTypeNamePlural} online`,
+                        onClick: () => {
+                          if (profile && onBrowseContentRequest) {
+                            const browseContentType = getBrowseTabContentType(contentType);
+                            onBrowseContentRequest(browseContentType);
+                          } else if (profile) {
+                            const browseContentType = getBrowseTabContentType(contentType);
+                            navigate(`/profilesv2/${profile.id}/browse/${browseContentType}`);
+                          }
+                        },
+                      },
+                      {
+                        id: "add",
+                        label: "IMPORT",
+                        icon: "solar:folder-with-files-bold",
+                        variant: "text" as const,
+                        tooltip: addContentButtonText,
+                        onClick: effectiveOnAddContent,
+                      },
+                    ]}
+                    size="sm"
+                  />
+                )}
+
+                {/* Refresh button - visible when no items are selected */}
+                <ContentActionButtons
+                  actions={[
+                    {
+                      id: "refresh",
+                      label: "REFRESH",
+                      icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[13],
+                      variant: "text" as const,
+                      tooltip: "Refresh List",
+                      onClick: () => fetchData(true),
                     },
-                  },
-                  {
-                    id: "add",
-                    label: "IMPORT",
-                    icon: "solar:folder-with-files-bold",
-                    variant: "text" as const,
-                    tooltip: addContentButtonText,
-                    onClick: effectiveOnAddContent,
-                  },
-                ]}
-                size="sm"
-              />
+                  ]}
+                  size="sm"
+                />
+              </>
             )}
-
-            {/* Refresh button - always visible for all content types */}
-            <ContentActionButtons
-              actions={[
-                {
-                  id: "refresh",
-                  label: "REFRESH",
-                  icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[13],
-                  variant: "text" as const,
-                  tooltip: "Refresh List",
-                  onClick: () => fetchData(true),
-                },
-              ]}
-              size="sm"
-            />
           </div>
         </div>
       </>
@@ -1286,7 +1291,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     if (contentType === "NoRiskMod" && !profile?.selected_norisk_pack_id) {
       return "No NoRisk Pack Selected";
     } else if (error) {
-      return `Error loading ${itemTypeNamePlural}`;
+      return ""; // Remove title, show only button
     } else if ((isLoading || isFetchingPacksConfig) && items.length === 0) {
       return `Loading ${itemTypeNamePlural}...`;
     } else if (
@@ -1294,13 +1299,13 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       items.length === 0 &&
       selectedItemIds.size === 0
     ) {
-      return `No ${itemTypeNamePlural} found in this profile.`;
+      return ""; // Remove title, show only button
     } else if (
       searchQuery &&
       filteredItems.length === 0 &&
       selectedItemIds.size === 0
     ) {
-      return `No ${itemTypeNamePlural} match your search.`;
+      return ""; // Remove title, show only button
     } else {
       return `Manage your ${itemTypeNamePlural}`;
     }
@@ -1373,7 +1378,11 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         emptyStateMessage={getEmptyStateMessage()}
         emptyStateDescription={getEmptyStateDescription()}
         emptyStateAction={
-          isTrulyEmptyState ? (
+          // Show browse button for empty states (except when NoRisk pack not selected and when loading)
+          (isTrulyEmptyState ||
+           (searchQuery && filteredItems.length === 0 && selectedItemIds.size === 0) ||
+           (error && !isLoading)) &&
+          !(contentType === "NoRiskMod" && !profile?.selected_norisk_pack_id) ? (
             <ContentActionButtons
               actions={[
                 {

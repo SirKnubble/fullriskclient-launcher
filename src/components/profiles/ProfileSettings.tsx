@@ -290,72 +290,82 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   };
 
-  return (    <Modal
+  return (
+    <Modal
       title={`profile settings: ${profile.name}`}
       onClose={onClose}
       width="xl"
       footer={renderFooter()}
-    ><div className="flex flex-col h-[420px]">
-        <div className="flex flex-1 overflow-hidden">
-          <div
-            ref={sidebarRef}
-            className="w-64 flex flex-col"
-          >
-            <div className="space-y-0 flex-1">
-              {tabConfig.map((tab) => {
-                const isActive = activeTab === tab.id;
+      className="h-[650px] min-h-[550px] flex flex-col"
+    >
+      <div className="flex h-full">
+        <div
+          ref={sidebarRef}
+          className="w-64 flex flex-col"
+        >
+          <div className="space-y-0 flex-1">
+            {tabConfig.map((tab) => {
+              const isActive = activeTab === tab.id;
 
-                return (
-                  <div key={tab.id} className="w-full">
-                    <Button
-                      variant="ghost"
-                      size="lg"
-                      className={cn(
-                        "w-full text-left justify-start p-3 transition-all duration-200 rounded-none",
-                                              isActive
-                        ? `shadow-sm border-l-2 border-r-0 border-t-0 border-b-0`
-                        : "bg-transparent hover:bg-black/20 border-transparent",
-                      )}
-                      style={isActive ? {
-                        backgroundColor: `${accentColor.value}20`,
-                        borderLeftColor: accentColor.value,
-                      } : undefined}
-                      onClick={() => handleTabClick(tab.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon
-                          icon={tab.icon}
-                          className={cn(
-                            "w-6 h-6 transition-colors duration-200",
-                            isActive ? "text-accent" : "text-white/50",
-                          )}
-                        />
-                        <span className={cn(
+              return (
+                <div key={tab.id} className="w-full">
+                  <button
+                    className={cn(
+                      "w-full text-left p-3 transition-all duration-200 rounded-none relative border-0 outline-none",
+                      isActive
+                        ? "border-l-2 shadow-sm text-white"
+                        : "bg-transparent border-transparent text-white/70 hover:text-white",
+                    )}
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: `${accentColor.value}10`, // 60% opacity
+                            borderLeftColor: accentColor.value,
+                            color: "white"
+                          }
+                        : {
+                            "--hover-bg": `${accentColor.value}33` // 20% opacity for hover
+                          } as any
+                    }
+                    onClick={() => handleTabClick(tab.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon
+                        icon={tab.icon}
+                        className={cn(
+                          "w-6 h-6 transition-colors duration-200",
+                          isActive ? "" : "text-white/50",
+                        )}
+                        style={isActive ? { color: accentColor.value } : {}}
+                      />
+                      <span
+                        className={cn(
                           "font-minecraft text-3xl lowercase transition-colors duration-200",
-                          isActive ? "text-accent font-medium" : "text-white/70",
-                        )}>
-                          {tab.label}
-                        </span>
-                      </div>
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
+                          isActive ? "font-medium" : "",
+                        )}
+                        style={isActive ? { color: accentColor.value } : {}}
+                      >
+                        {tab.label}
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
           </div>
+        </div>
 
-                  {/* Vertical separator line */}
+        {/* Vertical separator line */}
         <div className="flex items-center">
           <div className="border-l border-white/10 mx-4 my-3 h-[85%]"></div>
         </div>
 
-          <div className="flex-1 flex flex-col overflow-hidden">
-                      <div
+        <div className="flex-1 flex flex-col">
+          <div
             className="flex-1 py-2 pl-0 pr-4 overflow-y-auto custom-scrollbar"
             ref={contentRef}
           >
-              {renderTabContent()}
-            </div>
+            {renderTabContent()}
           </div>
         </div>
       </div>

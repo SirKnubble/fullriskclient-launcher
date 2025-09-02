@@ -18,6 +18,7 @@ interface ModalProps {
   closeOnClickOutside?: boolean;
   headerActions?: React.ReactNode;
   variant?: "default" | "flat" | "3d";
+  className?: string;
 }
 
 export function Modal({
@@ -31,6 +32,7 @@ export function Modal({
   closeOnClickOutside = true,
   headerActions,
   variant = "default",
+  className,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -118,10 +120,11 @@ export function Modal({
     >
       <div
         className={cn(
-          "relative flex flex-col w-full rounded-lg overflow-hidden max-h-[85vh]",
+          "relative flex flex-col w-full rounded-lg overflow-hidden max-h-[90vh]",
           getBorderClasses(),
           variant === "3d" ? "shadow-2xl" : "",
           widthClasses[width],
+          className,
         )}
         style={{
           backgroundColor: `${accentColor.value}20`,
@@ -176,7 +179,7 @@ export function Modal({
 
         <div
           ref={contentRef}
-          className="flex-1 overflow-y-auto"
+          className="flex-1 overflow-y-auto custom-scrollbar"
         >
           {children}
         </div>
