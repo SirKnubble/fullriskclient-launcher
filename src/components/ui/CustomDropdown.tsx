@@ -115,7 +115,7 @@ export function CustomDropdown({
               <button
                 key={option.value}
                 onClick={() => handleOptionClick(option.value)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-lg transition-colors duration-150 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-base transition-colors duration-150 ${
                   option.value === value
                     ? 'bg-white/10 text-white'
                     : 'text-white/80 hover:bg-white/5 hover:text-white'

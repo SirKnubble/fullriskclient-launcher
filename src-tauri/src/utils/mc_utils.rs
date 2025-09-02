@@ -13,7 +13,7 @@ use log::{debug, error, info, warn};
 use serde::Deserialize;
 use serde::Serialize; // Added Serialize directly
                       // To represent NBT Compound
-use futures::future::try_join_all;
+use futures::future::{join_all, try_join_all};
 use std::env;
 use std::io::{Cursor, Read}; // Needed for reading NBT from bytes and decompression
 use std::net::SocketAddr;
@@ -612,9 +612,53 @@ async fn emit_copy_progress(
     Ok(())
 }
 
+/// Copies StartUpHelper data from the noriskclient/new directory to a new profile's directory.
+/// This runs only if the profile is a standard version and its directory is empty.
+/// This method is called BEFORE the standard Minecraft data copy.
+/// The source directory is determined relative to default_profile_path() for proper
+/// integration with custom launcher directory configurations.
+pub async fn copy_startup_helper_data(
+    profile: &crate::state::profile_state::Profile,
+    profile_dir: &PathBuf,
+) -> Result<()> {
+    let profile_id = profile.id;
+    info!(
+        "[{}] Checking if StartUpHelper data should be imported for profile '{}'...",
+        profile_id, profile.name
+    );
+
+    // Condition 2: Only copy into an empty directory.
+    // A non-existent directory is also considered empty.
+    if profile_dir.exists() {
+        let mut entries = fs::read_dir(profile_dir).await?;
+        if entries.next_entry().await?.is_some() {
+            info!(
+                "[{}] Profile directory is not empty. Skipping StartUpHelper data import.",
+                profile_id
+            );
+            return Ok(());
+        }
+    }
+
+    info!(
+        "[{}] Profile is a standard version with an empty directory. Proceeding with StartUpHelper data import.",
+        profile_id
+    );
+
+    // Copy StartUpHelper files
+    if let Err(e) = copy_startup_helper_files(profile, profile_dir).await {
+        warn!("Failed to copy StartUpHelper files: {}", e);
+        // Don't fail the entire process if StartUpHelper copy fails
+    }
+
+    info!("[{}] StartUpHelper data copy completed.", profile_id);
+    Ok(())
+}
+
 /// Copies initial user data (saves, options, etc.) from the default .minecraft directory
 /// to a new profile's directory.
 /// This runs only if the profile is a standard version and its directory is empty.
+/// This method is called AFTER the StartUpHelper data copy.
 pub async fn copy_initial_data_from_default_minecraft(
     profile: &crate::state::profile_state::Profile,
     profile_dir: &PathBuf,
@@ -804,6 +848,192 @@ pub async fn copy_initial_data_from_default_minecraft(
     info!("[{}] Initial data copy finished.", profile_id);
     if let Some(s) = &state {
         emit_copy_progress(s, profile_id, "User data import complete.", 1.0, None).await?;
+    }
+
+    Ok(())
+}
+
+/// Copies additional files specified in StartUpHelper from noriskclient/new/ directory
+/// to the profile directory. Only copies files that don't already exist.
+/// This runs BEFORE the standard Minecraft data copy to allow StartUpHelper files
+/// to be overridden by standard MC files if needed.
+/// The source directory is determined relative to default_profile_path() to ensure
+/// proper integration with custom launcher directories.
+pub async fn copy_startup_helper_files(
+    profile: &crate::state::profile_state::Profile,
+    profile_dir: &PathBuf,
+) -> Result<()> {
+    let profile_id = profile.id;
+
+    // Check if StartUpHelper is configured
+    let startup_helper = match profile.norisk_information.as_ref() {
+        Some(info) => match info.startup_helper.as_ref() {
+            Some(helper) => helper,
+            None => {
+                debug!("[{}] No StartUpHelper configured, skipping.", profile_id);
+                return Ok(());
+            }
+        },
+        None => {
+            debug!("[{}] No NoriskInformation configured, skipping StartUpHelper.", profile_id);
+            return Ok(());
+        }
+    };
+
+    // Check if additional_paths is empty
+    if startup_helper.additional_paths.is_empty() {
+        debug!("[{}] StartUpHelper has no additional paths configured, skipping.", profile_id);
+        return Ok(());
+    }
+
+    let paths_count = startup_helper.additional_paths.len();
+    info!(
+        "[{}] StartUpHelper found {} additional paths to copy.",
+        profile_id,
+        paths_count
+    );
+
+    // Get the noriskclient/new directory path
+    let default_profile_path = crate::state::profile_state::default_profile_path();
+    let norisk_dir = default_profile_path
+        .join("noriskclient")
+        .join("new");
+
+    if !norisk_dir.exists() {
+        info!(
+            "[{}] NoRiskClient new directory not found at: {}, skipping StartUpHelper.",
+            profile_id,
+            norisk_dir.display()
+        );
+        return Ok(());
+    }
+
+    info!(
+        "[{}] Found NoRiskClient new directory at: {}",
+        profile_id,
+        norisk_dir.display()
+    );
+
+    // Get state for progress reporting
+    let state = match State::get().await {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!(
+                "[{}] Couldn't get state for StartUpHelper progress: {}",
+                profile_id, e
+            );
+            None
+        }
+    };
+
+    if let Some(s) = &state {
+        emit_copy_progress(
+            s,
+            profile_id,
+            "Copying StartUpHelper files...",
+            0.95,
+            None,
+        )
+        .await?;
+    }
+
+    let semaphore = match &state {
+        Some(s) => s.io_semaphore.clone(),
+        None => {
+            // Fallback: create a semaphore with reasonable limits
+            std::sync::Arc::new(tokio::sync::Semaphore::new(10))
+        }
+    };
+
+    let mut copy_tasks = Vec::new();
+
+    for relative_path in &startup_helper.additional_paths {
+        let src_path = norisk_dir.join(relative_path);
+        let dest_path = profile_dir.join(relative_path);
+        let sem_clone = semaphore.clone();
+
+        let task = async move {
+            // Check if destination already exists
+            if fs::try_exists(&dest_path).await.unwrap_or(false) {
+                debug!(
+                    "[{}] StartUpHelper destination already exists: {}",
+                    profile_id,
+                    dest_path.display()
+                );
+                return Ok(());
+            }
+
+            // Check if source exists
+            if !fs::try_exists(&src_path).await.unwrap_or(false) {
+                debug!(
+                    "[{}] StartUpHelper source not found: {}",
+                    profile_id,
+                    src_path.display()
+                );
+                return Ok(());
+            }
+
+            // Create parent directories if needed
+            if let Some(parent) = dest_path.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent).await?;
+                }
+            }
+
+            let metadata = fs::metadata(&src_path).await?;
+            if metadata.is_dir() {
+                // Copy directory recursively - function handles its own parallelism
+                path_utils::copy_dir_recursively(&src_path, &dest_path, sem_clone).await?;
+                info!(
+                    "[{}] StartUpHelper copied directory: {} -> {}",
+                    profile_id,
+                    src_path.display(),
+                    dest_path.display()
+                );
+            } else {
+                // Copy single file
+                let _permit = sem_clone.acquire().await?;
+                fs::copy(&src_path, &dest_path).await?;
+                info!(
+                    "[{}] StartUpHelper copied file: {} -> {}",
+                    profile_id,
+                    src_path.display(),
+                    dest_path.display()
+                );
+            }
+
+            Ok::<(), AppError>(())
+        };
+
+        copy_tasks.push(task);
+    }
+
+    // Execute all copy tasks
+    let results = futures::future::join_all(copy_tasks).await;
+    let mut copied_count = 0;
+    let mut error_count = 0;
+
+    for result in results {
+        match result {
+            Ok(_) => copied_count += 1,
+            Err(e) => {
+                error!("[{}] StartUpHelper copy error: {}", profile_id, e);
+                error_count += 1;
+            }
+        }
+    }
+
+    info!(
+        "[{}] StartUpHelper copy summary: {} files copied, {} errors",
+        profile_id, copied_count, error_count
+    );
+
+    if let Some(s) = &state {
+        let message = format!(
+            "StartUpHelper files copied: {} files, {} errors",
+            copied_count, error_count
+        );
+        emit_copy_progress(s, profile_id, &message, 1.0, None).await?;
     }
 
     Ok(())
