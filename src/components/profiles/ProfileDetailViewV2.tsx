@@ -485,129 +485,169 @@ export function ProfileDetailViewV2({
         {/* Content Area */}
         <div className="flex-1 min-h-0">
           {activeMainTab === "content" && (
-            <div>
-              {/* Content Type Tabs */}
-              <div className="flex items-center gap-4 mb-4">
-                <SingleActionButton 
-                  label="MODS" 
-                  variant={activeContentTab === "mods" ? "highlight" : "text"} 
-                  icon="solar:widget-bold" 
-                  size="sm" 
-                  onClick={() => setActiveContentTab("mods")} 
-                />
-                <div className="w-px h-4 bg-white/20"></div>
-                <SingleActionButton 
-                  label="RESOURCEPACKS" 
-                  variant={activeContentTab === "resourcepacks" ? "highlight" : "text"} 
-                  icon="solar:palette-bold" 
-                  size="sm" 
-                  onClick={() => setActiveContentTab("resourcepacks")} 
-                />
-                <div className="w-px h-4 bg-white/20"></div>
-                <SingleActionButton 
-                  label="DATAPACKS" 
-                  variant={activeContentTab === "datapacks" ? "highlight" : "text"} 
-                  icon="solar:database-bold" 
-                  size="sm" 
-                  onClick={() => setActiveContentTab("datapacks")} 
-                />
-                <div className="w-px h-4 bg-white/20"></div>
-                <SingleActionButton 
-                  label="SHADERPACKS" 
-                  variant={activeContentTab === "shaderpacks" ? "highlight" : "text"} 
-                  icon="solar:sun-bold" 
-                  size="sm" 
-                  onClick={() => setActiveContentTab("shaderpacks")} 
-                />
-                <div className="w-px h-4 bg-white/20"></div>
-                <SingleActionButton 
-                  label="NRC" 
-                  variant={activeContentTab === "nrc" ? "highlight" : "text"} 
-                  icon="solar:shield-check-bold" 
-                  size="sm" 
-                  onClick={() => setActiveContentTab("nrc")} 
-                />
+            <div className="flex h-full">
+              {/* Content Display Area */}
+              <div className="flex-1 min-w-0 mr-6">
+                {activeContentTab === "mods" && (
+                  <LocalContentTabV2<LocalContentItem>
+                    profile={currentProfile}
+                    contentType="Mod"
+                    getDisplayFileName={getGenericDisplayFileName}
+                    itemTypeName="mod"
+                    itemTypeNamePlural="mods"
+                    addContentButtonText="Add Mods"
+                    emptyStateIconOverride="solar:bolt-bold-duotone"
+                    onRefreshRequired={handleRefresh}
+                    onBrowseContentRequest={handleBrowseContent}
+                  />
+                )}
+
+                {activeContentTab === "resourcepacks" && (
+                  <LocalContentTabV2<LocalContentItem>
+                    profile={currentProfile}
+                    contentType="ResourcePack"
+                    getDisplayFileName={getGenericDisplayFileName}
+                    itemTypeName="resource pack"
+                    itemTypeNamePlural="resource packs"
+                    addContentButtonText="Add Resource Packs"
+                    emptyStateIconOverride="solar:gallery-bold-duotone"
+                    onRefreshRequired={handleRefresh}
+                    onBrowseContentRequest={handleBrowseContent}
+                  />
+                )}
+
+                {activeContentTab === "datapacks" && (
+                  <LocalContentTabV2<LocalContentItem>
+                    profile={currentProfile}
+                    contentType="DataPack"
+                    getDisplayFileName={getGenericDisplayFileName}
+                    itemTypeName="data pack"
+                    itemTypeNamePlural="data packs"
+                    addContentButtonText="Add Data Packs"
+                    emptyStateIconOverride="solar:database-bold-duotone"
+                    onRefreshRequired={handleRefresh}
+                    onBrowseContentRequest={handleBrowseContent}
+                  />
+                )}
+
+                {activeContentTab === "shaderpacks" && (
+                  <LocalContentTabV2<LocalContentItem>
+                    profile={currentProfile}
+                    contentType="ShaderPack"
+                    getDisplayFileName={getGenericDisplayFileName}
+                    itemTypeName="shader pack"
+                    itemTypeNamePlural="shader packs"
+                    addContentButtonText="Add Shader Packs"
+                    emptyStateIconOverride="solar:sun-bold-duotone"
+                    onRefreshRequired={handleRefresh}
+                    onBrowseContentRequest={handleBrowseContent}
+                  />
+                )}
+
+                {activeContentTab === "nrc" && (
+                  <LocalContentTabV2<LocalContentItem>
+                    profile={currentProfile}
+                    contentType="NoRiskMod"
+                    getDisplayFileName={getGenericDisplayFileName}
+                    itemTypeName="NoRisk Mod"
+                    itemTypeNamePlural="NoRisk Mods"
+                    addContentButtonText="Add NoRisk Mods"
+                    emptyStateIconOverride="solar:shield-check-bold-duotone"
+                    onRefreshRequired={async () => {
+                      // Force refresh of profile data when NoRisk pack changes
+                      try {
+                        // Fetch the updated profile from the store
+                        await fetchProfiles();
+                        // Force re-render by creating a new object reference
+                        setCurrentProfile(prev => ({...prev}));
+                      } catch (err) {
+                        console.error("Failed to refresh profile data:", err);
+                      }
+                      handleRefresh();
+                    }}
+                    onBrowseContentRequest={handleBrowseContent}
+                  />
+                )}
               </div>
-              {activeContentTab === "mods" && (
-                <LocalContentTabV2<LocalContentItem>
-                  profile={currentProfile}
-                  contentType="Mod"
-                  getDisplayFileName={getGenericDisplayFileName}
-                  itemTypeName="mod"
-                  itemTypeNamePlural="mods"
-                  addContentButtonText="Add Mods"
-                  emptyStateIconOverride="solar:bolt-bold-duotone"
-                  onRefreshRequired={handleRefresh}
-                  onBrowseContentRequest={handleBrowseContent}
-                />
-              )}
-              
-              {activeContentTab === "resourcepacks" && (
-                <LocalContentTabV2<LocalContentItem>
-                  profile={currentProfile}
-                  contentType="ResourcePack"
-                  getDisplayFileName={getGenericDisplayFileName}
-                  itemTypeName="resource pack"
-                  itemTypeNamePlural="resource packs"
-                  addContentButtonText="Add Resource Packs"
-                  emptyStateIconOverride="solar:gallery-bold-duotone"
-                  onRefreshRequired={handleRefresh}
-                  onBrowseContentRequest={handleBrowseContent}
-                />
-              )}
-              
-              {activeContentTab === "datapacks" && (
-                <LocalContentTabV2<LocalContentItem>
-                  profile={currentProfile}
-                  contentType="DataPack"
-                  getDisplayFileName={getGenericDisplayFileName}
-                  itemTypeName="data pack"
-                  itemTypeNamePlural="data packs"
-                  addContentButtonText="Add Data Packs"
-                  emptyStateIconOverride="solar:database-bold-duotone"
-                  onRefreshRequired={handleRefresh}
-                  onBrowseContentRequest={handleBrowseContent}
-                />
-              )}
-              
-              {activeContentTab === "shaderpacks" && (
-                <LocalContentTabV2<LocalContentItem>
-                  profile={currentProfile}
-                  contentType="ShaderPack"
-                  getDisplayFileName={getGenericDisplayFileName}
-                  itemTypeName="shader pack"
-                  itemTypeNamePlural="shader packs"
-                  addContentButtonText="Add Shader Packs"
-                  emptyStateIconOverride="solar:sun-bold-duotone"
-                  onRefreshRequired={handleRefresh}
-                  onBrowseContentRequest={handleBrowseContent}
-                />
-              )}
-              
-              {activeContentTab === "nrc" && (
-                <LocalContentTabV2<LocalContentItem>
-                  profile={currentProfile}
-                  contentType="NoRiskMod"
-                  getDisplayFileName={getGenericDisplayFileName}
-                  itemTypeName="NoRisk Mod"
-                  itemTypeNamePlural="NoRisk Mods"
-                  addContentButtonText="Add NoRisk Mods"
-                  emptyStateIconOverride="solar:shield-check-bold-duotone"
-                  onRefreshRequired={async () => {
-                    // Force refresh of profile data when NoRisk pack changes
-                    try {
-                      // Fetch the updated profile from the store
-                      await fetchProfiles();
-                      // Force re-render by creating a new object reference
-                      setCurrentProfile(prev => ({...prev}));
-                    } catch (err) {
-                      console.error("Failed to refresh profile data:", err);
-                    }
-                    handleRefresh();
-                  }}
-                  onBrowseContentRequest={handleBrowseContent}
-                />
-              )}
+
+              {/* Content Type Sidebar */}
+              <div className="w-64 flex-shrink-0 border-l border-white/10 pl-4">
+                <div className="space-y-2">
+                  <div className="text-white/70 text-sm font-minecraft-ten uppercase tracking-wide mb-4">
+                    Content Types
+                  </div>
+
+                  <button
+                    onClick={() => setActiveContentTab("mods")}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "mods"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon icon="solar:widget-bold" className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-minecraft-ten text-sm uppercase tracking-wide">
+                      Mods
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveContentTab("resourcepacks")}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "resourcepacks"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon icon="solar:palette-bold" className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-minecraft-ten text-sm uppercase tracking-wide">
+                      Resource Packs
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveContentTab("datapacks")}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "datapacks"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon icon="solar:database-bold" className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-minecraft-ten text-sm uppercase tracking-wide">
+                      Data Packs
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveContentTab("shaderpacks")}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "shaderpacks"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon icon="solar:sun-bold" className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-minecraft-ten text-sm uppercase tracking-wide">
+                      Shader Packs
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveContentTab("nrc")}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "nrc"
+                        ? "bg-white/10 text-white border border-white/20"
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon icon="solar:shield-check-bold" className="w-5 h-5 flex-shrink-0" />
+                    <span className="font-minecraft-ten text-sm uppercase tracking-wide">
+                      NoRisk Client
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

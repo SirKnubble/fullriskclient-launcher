@@ -1372,7 +1372,23 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         }
         emptyStateMessage={getEmptyStateMessage()}
         emptyStateDescription={getEmptyStateDescription()}
-        emptyStateAction={undefined}
+        emptyStateAction={
+          isTrulyEmptyState ? (
+            <ContentActionButtons
+              actions={[
+                {
+                  id: "browse-empty",
+                  label: `BROWSE ${itemTypeNamePlural.toUpperCase()}`,
+                  icon: "solar:add-circle-bold",
+                  variant: "highlight" as const,
+                  tooltip: `Browse and download ${itemTypeNamePlural} online`,
+                  onClick: handleEmptyStateBrowse,
+                },
+              ]}
+              size="lg"
+            />
+          ) : undefined
+        }
         loadingItemCount={Math.min(items.length > 0 ? items.length : 5, 10)}
         showSkeletons={false}
         accentColorOverride={accentColor.value}

@@ -114,7 +114,7 @@ export function EmptyState({
         </div>        <p
           className={cn(
             "text-white lowercase text-center mb-2",
-            compact ? "text-lg" : "text-xl",
+            compact ? "text-xl" : "text-2xl",
           )}
         >
           {message}
@@ -124,7 +124,7 @@ export function EmptyState({
           <p
             className={cn(
               "text-white/70 lowercase text-center max-w-md",
-              compact ? "text-base mb-4" : "text-lg mb-6",
+              compact ? "text-2xl mb-4" : "text-2xl mb-6",
             )}
           >
             {description}
