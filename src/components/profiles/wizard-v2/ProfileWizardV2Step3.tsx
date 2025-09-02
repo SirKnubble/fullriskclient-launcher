@@ -60,7 +60,9 @@ export function ProfileWizardV2Step3({
     const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<string | null>(null);
     const [showYellowWarning, setShowYellowWarning] = useState(false);
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-    const [useSharedMinecraftFolder, setUseSharedMinecraftFolder] = useState(true); // Default to true for most users
+    const [useSharedMinecraftFolder, setUseSharedMinecraftFolder] = useState(
+        defaultGroup && defaultGroup.toLowerCase() !== "modpacks"
+    ); // Default to true when group exists and is not "modpacks"
     const [showAllVersions, setShowAllVersions] = useState(false); // Default to false to show only curated versions
 
     // Update profile group when defaultGroup changes
@@ -69,6 +71,14 @@ export function ProfileWizardV2Step3({
             setProfileGroup(defaultGroup);
         }
     }, [defaultGroup, profileGroup]);
+
+    // Update shared Minecraft folder setting when defaultGroup changes
+    useEffect(() => {
+        setUseSharedMinecraftFolder(
+            defaultGroup && defaultGroup.toLowerCase() !== "modpacks"
+        );
+    }, [defaultGroup]);
+
     const [checkingCompatibility, setCheckingCompatibility] = useState(false);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);

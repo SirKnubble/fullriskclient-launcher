@@ -118,7 +118,7 @@ export function Modal({
     >
       <div
         className={cn(
-          "relative flex flex-col w-full rounded-lg overflow-hidden",
+          "relative flex flex-col w-full rounded-lg overflow-hidden max-h-[85vh]",
           getBorderClasses(),
           variant === "3d" ? "shadow-2xl" : "",
           widthClasses[width],
@@ -176,7 +176,7 @@ export function Modal({
 
         <div
           ref={contentRef}
-          className="flex-1 overflow-hidden"
+          className="flex-1 overflow-y-auto"
         >
           {children}
         </div>

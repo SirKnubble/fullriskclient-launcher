@@ -27,9 +27,6 @@ export function GeneralSettingsTab({
   onDelete,
   isDeleting,
 }: GeneralSettingsTabProps) {
-  const [useSharedMinecraftFolder, setUseSharedMinecraftFolder] = useState(
-    editedProfile.settings?.use_shared_minecraft_folder ?? true
-  );
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
@@ -121,15 +118,11 @@ export function GeneralSettingsTab({
         <div className="space-y-1">
           <Checkbox
             label="Use shared Minecraft folder"
-            checked={useSharedMinecraftFolder}
+            checked={editedProfile.use_shared_minecraft_folder ?? false}
             onChange={(event) => {
               const newValue = event.target.checked;
-              setUseSharedMinecraftFolder(newValue);
               updateProfile({
-                settings: {
-                  ...editedProfile.settings,
-                  use_shared_minecraft_folder: newValue
-                }
+                use_shared_minecraft_folder: newValue
               });
             }}
             description="When enabled, a shared Minecraft folder will be used based on the group. Your settings, worlds, configs and resource packs will remain the same between profiles."

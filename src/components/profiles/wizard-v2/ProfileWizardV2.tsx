@@ -299,7 +299,7 @@ export function ProfileWizardV2({ onClose, onSave, defaultGroup }: ProfileWizard
       width="lg"
       footer={renderFooter()}
     >
-      <div className="min-h-[500px] p-6 overflow-hidden">
+      <div className="min-h-[500px] p-6">
         {renderContent()}
       </div>
     </Modal>
