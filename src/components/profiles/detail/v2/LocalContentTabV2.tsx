@@ -295,10 +295,18 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     async (newPackId: string | null) => {
       if (!profile || newPackId === profile.selected_norisk_pack_id) return;
       try {
+        // Update the profile on backend
         await ProfileService.updateProfile(profile.id, {
           selected_norisk_pack_id: newPackId,
           clear_selected_norisk_pack: newPackId === null,
         });
+
+        // Refresh the profile data to get the updated profile
+        if (fetchProfiles) {
+          await fetchProfiles();
+        }
+
+        // Refresh the local content manager
         if (onRefreshRequired) {
           onRefreshRequired();
         }
@@ -309,7 +317,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         );
       }
     },
-    [profile, onRefreshRequired],
+    [profile, onRefreshRequired, fetchProfiles],
   );
 
   // Update default onAddContent to use the new dialog and service call

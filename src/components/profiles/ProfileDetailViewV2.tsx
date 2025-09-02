@@ -593,7 +593,18 @@ export function ProfileDetailViewV2({
                   itemTypeNamePlural="NoRisk Mods"
                   addContentButtonText="Add NoRisk Mods"
                   emptyStateIconOverride="solar:shield-check-bold-duotone"
-                  onRefreshRequired={handleRefresh}
+                  onRefreshRequired={async () => {
+                    // Force refresh of profile data when NoRisk pack changes
+                    try {
+                      // Fetch the updated profile from the store
+                      await fetchProfiles();
+                      // Force re-render by creating a new object reference
+                      setCurrentProfile(prev => ({...prev}));
+                    } catch (err) {
+                      console.error("Failed to refresh profile data:", err);
+                    }
+                    handleRefresh();
+                  }}
                   onBrowseContentRequest={handleBrowseContent}
                 />
               )}
