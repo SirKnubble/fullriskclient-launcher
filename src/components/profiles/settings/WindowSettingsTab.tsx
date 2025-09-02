@@ -6,7 +6,6 @@ import { useThemeStore } from "../../../store/useThemeStore";
 import { Checkbox } from "../../ui/Checkbox";
 import { Label } from "../../ui/Label";
 import { Input } from "../../ui/Input";
-import { Card } from "../../ui/Card";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils";
 
@@ -109,11 +108,7 @@ export function WindowSettingsTab({
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             resolution
           </h3>
-          <Card
-            variant="flat"
-            className="p-4 border border-white/10 bg-black/20"
-          >
-            <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xl text-white/70 font-minecraft mb-2 lowercase tracking-wide select-none">
                   width
@@ -184,14 +179,13 @@ export function WindowSettingsTab({
               ))}
             </div>
 
-            <Checkbox
-              checked={editedProfile.settings?.fullscreen || false}
-              onChange={(e) => handleFullscreenChange(e.target.checked)}
-              label="fullscreen"
-              className="text-2xl"
-              variant="flat"
-            />
-          </Card>
+          <Checkbox
+            checked={editedProfile.settings?.fullscreen || false}
+            onChange={(e) => handleFullscreenChange(e.target.checked)}
+            label="fullscreen"
+            className="text-2xl"
+            variant="flat"
+          />
         </div>
       </div>
     </div>

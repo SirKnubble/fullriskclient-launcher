@@ -8,17 +8,17 @@ import { GeneralSettingsTab } from "./settings/GeneralSettingsTab";
 import { InstallationSettingsTab } from "./settings/InstallationSettingsTab";
 import { JavaSettingsTab } from "./settings/JavaSettingsTab";
 import { WindowSettingsTab } from "./settings/WindowSettingsTab";
-import { ExportSettingsTab } from "./settings/ExportSettingsTab";
+import { NRCTab } from "./settings/NRCTab";
+
 import { useProfileStore } from "../../store/profile-store";
 import * as ProfileService from "../../services/profile-service";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import { toast } from "react-hot-toast";
-import { Card } from "../ui/Card";
-import { cn } from "../../lib/utils";
 import { useFlags } from 'flagsmith/react';
 import { DesignerSettingsTab } from './settings/DesignerSettingsTab';
+import { cn } from "../../lib/utils";
 
 interface ProfileSettingsProps {
   profile: Profile;
@@ -30,7 +30,7 @@ type SettingsTab =
   | "installation"
   | "java"
   | "window"
-  | "export_options"
+  | "nrc"
   | "designer";
 
 const DESIGNER_FEATURE_FLAG_NAME = "show_keep_local_assets";
@@ -46,7 +46,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const accentColor = useThemeStore((state) => state.accentColor);
+  const { accentColor } = useThemeStore();
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
   );
@@ -161,9 +161,9 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const baseTabConfig = [
     { id: "general", label: "General", icon: "solar:settings-bold" },
     { id: "installation", label: "Installation", icon: "solar:download-bold" },
-    { id: "java", label: "Java", icon: "solar:code-bold" },
+    { id: "java", label: "JAVA & Memory", icon: "solar:code-bold" },
     { id: "window", label: "Window", icon: "solar:widget-bold" },
-    { id: "export_options", label: "Export", icon: "solar:export-bold" },
+    { id: "nrc", label: "NRC", icon: "solar:gamepad-bold" },
   ];
 
   const tabConfig = showDesignerTab
@@ -216,8 +216,16 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             updateProfile={updateProfileData}
           />
         );
-      case "export_options":
-        return <ExportSettingsTab profile={profile} onClose={onClose} />;
+      case "nrc":
+        return (
+          <NRCTab
+            profile={profile}
+            editedProfile={editedProfile}
+            updateProfile={updateProfileData}
+            onRefresh={handleRefresh}
+          />
+        );
+
       case "designer":
         if (showDesignerTab) {
           return (
@@ -286,54 +294,67 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
       onClose={onClose}
       width="xl"
       footer={renderFooter()}
-    ><div className="flex h-[500px] overflow-hidden">
-        <Card
-          ref={sidebarRef}
-          className="w-64 overflow-y-auto custom-scrollbar bg-black/20 border border-white/10 p-4"
-          variant="flat"
-        >
-          <div className="space-y-3">
-            {tabConfig.map((tab) => {
-              const isActive = activeTab === tab.id;
-
-              return (
-                <div key={tab.id} className="w-full">
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="lg"
-                    className={cn(
-                      "w-full text-left justify-start p-3 transition-all duration-200",
-                      isActive
-                        ? "bg-black/30 border-accent border-b-[3px] hover:bg-black/30"
-                        : "bg-transparent hover:bg-black/20 border-transparent",
-                    )}
-                    onClick={() => handleTabClick(tab.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon
-                        icon={tab.icon}
-                        className={cn(
-                          "w-6 h-6",
-                          isActive ? "text-accent" : "text-white/70",
-                        )}
-                      />
-                      <span className="font-minecraft text-3xl lowercase">
-                        {tab.label}
-                      </span>
-                    </div>
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <div className="flex-1 flex flex-col overflow-hidden">
+    ><div className="flex flex-col h-[420px]">
+        <div className="flex flex-1 overflow-hidden">
           <div
-            className="flex-1 p-5 overflow-y-auto custom-scrollbar"
+            ref={sidebarRef}
+            className="w-64 flex flex-col"
+          >
+            <div className="space-y-0 flex-1">
+              {tabConfig.map((tab) => {
+                const isActive = activeTab === tab.id;
+
+                return (
+                  <div key={tab.id} className="w-full">
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className={cn(
+                        "w-full text-left justify-start p-3 transition-all duration-200 rounded-none",
+                                              isActive
+                        ? `shadow-sm border-l-2 border-r-0 border-t-0 border-b-0`
+                        : "bg-transparent hover:bg-black/20 border-transparent",
+                      )}
+                      style={isActive ? {
+                        backgroundColor: `${accentColor.value}20`,
+                        borderLeftColor: accentColor.value,
+                      } : undefined}
+                      onClick={() => handleTabClick(tab.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          icon={tab.icon}
+                          className={cn(
+                            "w-6 h-6 transition-colors duration-200",
+                            isActive ? "text-accent" : "text-white/50",
+                          )}
+                        />
+                        <span className={cn(
+                          "font-minecraft text-3xl lowercase transition-colors duration-200",
+                          isActive ? "text-accent font-medium" : "text-white/70",
+                        )}>
+                          {tab.label}
+                        </span>
+                      </div>
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+                  {/* Vertical separator line */}
+        <div className="flex items-center">
+          <div className="border-l border-white/10 mx-4 my-3 h-[85%]"></div>
+        </div>
+
+          <div className="flex-1 flex flex-col overflow-hidden">
+                      <div
+            className="flex-1 py-2 pl-0 pr-4 overflow-y-auto custom-scrollbar"
             ref={contentRef}
           >
-            {renderTabContent()}
+              {renderTabContent()}
+            </div>
           </div>
         </div>
       </div>

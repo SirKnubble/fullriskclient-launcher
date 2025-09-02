@@ -16,6 +16,7 @@ interface CustomDropdownProps {
   options: DropdownOption[];
   onChange: (value: string) => void;
   className?: string;
+  variant?: 'default' | 'search';
 }
 
 export function CustomDropdown({
@@ -24,6 +25,7 @@ export function CustomDropdown({
   options,
   onChange,
   className = "",
+  variant = 'default',
 }: CustomDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -51,7 +53,7 @@ export function CustomDropdown({
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Label above (only if provided) */}
       {label && (
-        <label className="block text-white/70 font-minecraft text-xs uppercase mb-2 tracking-wide">
+        <label className="block text-white font-minecraft text-3xl lowercase mb-2">
           {label}
         </label>
       )}
@@ -59,8 +61,12 @@ export function CustomDropdown({
       {/* Dropdown Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 bg-transparent rounded-md px-2 py-1 text-white font-minecraft text-sm transition-all duration-200 focus:outline-none focus:ring-0 focus:border-transparent ${
-          label ? 'w-full justify-between border border-white/10 hover:border-white/20 bg-black/50 hover:bg-black/60 px-4 py-3' : ''
+        className={`flex items-center gap-2 transition-all duration-200 focus:outline-none focus:ring-0 focus:border-transparent ${
+          variant === 'search'
+            ? 'w-full justify-between bg-black/50 rounded-lg px-4 py-3 border border-white/10 hover:border-white/20 text-white font-minecraft-ten text-xl'
+            : label
+            ? 'w-full justify-between bg-transparent rounded-md px-2 py-1 border border-white/10 hover:border-white/20 bg-black/50 hover:bg-black/60 px-4 py-3 text-white font-minecraft-ten text-xl'
+            : 'bg-transparent rounded-md px-2 py-1 text-white font-minecraft-ten text-xl'
         }`}
         style={{
           boxShadow: isOpen ? `0 0 0 1px ${accentColor.value}40` : 'none',
@@ -70,11 +76,17 @@ export function CustomDropdown({
         onMouseEnter={(e) => {
           if (!label) {
             e.currentTarget.style.backgroundColor = `${accentColor.value}15`;
+          } else if (variant === 'search') {
+            // Search variant hover effect - border color change
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
           }
         }}
         onMouseLeave={(e) => {
           if (!label) {
             e.currentTarget.style.backgroundColor = 'transparent';
+          } else if (variant === 'search') {
+            // Reset search variant border
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
           }
         }}
         title={selectedOption?.label}
@@ -96,14 +108,14 @@ export function CustomDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div className={`absolute top-full mt-2 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden ${
-          label ? 'left-0 right-0' : 'left-0 w-56'
+          variant === 'search' ? 'left-0 right-0' : label ? 'left-0 right-0' : 'left-0 w-56'
         }`}>
           <div className="py-2">
             {options.map((option) => (
               <button
                 key={option.value}
                 onClick={() => handleOptionClick(option.value)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-sm transition-colors duration-150 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-lg transition-colors duration-150 ${
                   option.value === value
                     ? 'bg-white/10 text-white'
                     : 'text-white/80 hover:bg-white/5 hover:text-white'

@@ -117,13 +117,11 @@ export function Modal({
       onClick={handleBackdropClick}
     >
       <div
-        ref={contentRef}
         className={cn(
           "relative flex flex-col w-full rounded-lg overflow-hidden",
           getBorderClasses(),
           variant === "3d" ? "shadow-2xl" : "",
           widthClasses[width],
-          "max-h-[85vh]",
         )}
         style={{
           backgroundColor: `${accentColor.value}20`,
@@ -141,7 +139,7 @@ export function Modal({
 
         <div
           ref={headerRef}
-          className="flex items-center justify-between px-6 py-4 border-b-2"
+          className="flex items-center justify-between px-6 py-4 border-b-2 flex-shrink-0"
           style={{
             borderColor: `${accentColor.value}60`,
             backgroundColor: `${accentColor.value}30`,
@@ -174,9 +172,16 @@ export function Modal({
               aria-label="Close modal"
             />
           </div>
-        </div>        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        </div>
+
+        <div
+          ref={contentRef}
+          className="flex-1 overflow-hidden"
+        >
           {children}
-        </div>        {footer && (
+        </div>
+
+        {footer && (
           <div className="flex-shrink-0">
             <div className="border-t border-white/10 mx-6 mt-4 mb-4"></div>
             <div className="px-6 pb-4">
