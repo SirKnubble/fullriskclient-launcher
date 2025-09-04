@@ -8,6 +8,10 @@ import { LaunchState } from "../store/launch-state-store";
 import { useLaunchStateStore } from "../store/launch-state-store";
 import * as ProcessService from "../services/process-service";
 import { toast } from "react-hot-toast";
+import { useGlobalModal } from "./useGlobalModal";
+import { GroupMigrationModal } from "../components/modals/GroupMigrationModal";
+import { checkForGroupMigration } from "../services/profile-service";
+import { MigrationInfo } from "../types/profile";
 
 interface UseProfileLaunchOptions {
   profileId: string;
@@ -21,6 +25,8 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
   const { profileId, quickPlaySingleplayer, quickPlayMultiplayer, onLaunchSuccess, onLaunchError } = options;
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { showModal, hideModal } = useGlobalModal();
+
 
   const {
     getProfileState,
@@ -145,6 +151,24 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     return clearPolling;
   }, [profileId, isButtonLaunching, finalizeButtonLaunch, getProfileState, quickPlaySingleplayer, quickPlayMultiplayer]);
 
+  // Actual launch function
+  const performLaunch = async () => {
+    initiateButtonLaunch(profileId);
+
+    try {
+      await ProcessService.launch(profileId, quickPlaySingleplayer, quickPlayMultiplayer);
+    } catch (err: any) {
+      console.error("Failed to launch profile:", err);
+      const launchErrorMsg =
+        typeof err === "string"
+          ? err
+          : err.message || err.toString() || "Unknown error during launch.";
+      toast.error(`Launch failed: ${launchErrorMsg}`);
+      setLaunchError(profileId, launchErrorMsg);
+      onLaunchError?.(launchErrorMsg);
+    }
+  };
+
   // Launch handler with abort functionality
   const handleLaunch = async () => {
     const currentProfile = getProfileState(profileId);
@@ -167,19 +191,38 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
       return;
     }
 
-    initiateButtonLaunch(profileId);
-
+    // Check if migration is needed
     try {
-      await ProcessService.launch(profileId, quickPlaySingleplayer, quickPlayMultiplayer);
+      const migrationInfo: MigrationInfo = await checkForGroupMigration(profileId);
+
+      if (migrationInfo.direction === 'None') {
+        // No migration needed, launch directly
+        performLaunch();
+        return;
+      }
+
+      // Show GroupMigrationModal before launching
+      showModal(
+        `group-migration-${profileId}`,
+        <GroupMigrationModal
+          isOpen={true}
+          onClose={() => hideModal(`group-migration-${profileId}`)}
+          onCopy={() => {
+            navigator.clipboard.writeText(profileId);
+            toast.success("Profile ID copied to clipboard!");
+            hideModal(`group-migration-${profileId}`);
+          }}
+          onLaunch={() => {
+            hideModal(`group-migration-${profileId}`);
+            performLaunch();
+          }}
+          profileId={profileId}
+        />
+      );
     } catch (err: any) {
-      console.error("Failed to launch profile:", err);
-      const launchErrorMsg =
-        typeof err === "string"
-          ? err
-          : err.message || err.toString() || "Unknown error during launch.";
-      toast.error(`Launch failed: ${launchErrorMsg}`);
-      setLaunchError(profileId, launchErrorMsg);
-      onLaunchError?.(launchErrorMsg);
+      console.error("Failed to check migration status:", err);
+      // If migration check fails, proceed with normal launch
+      performLaunch();
     }
   };
 
@@ -188,16 +231,13 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     statusMessage: buttonStatusMessage,
     launchState,
     handleLaunch,
-    handleQuickPlayLaunch: (singleplayer?: string, multiplayer?: string) => {
-      const updatedOptions = { ...options, quickPlaySingleplayer: singleplayer, quickPlayMultiplayer: multiplayer };
-      const { profileId, onLaunchSuccess, onLaunchError } = updatedOptions;
-
+    handleQuickPlayLaunch: async (singleplayer?: string, multiplayer?: string) => {
       const currentProfile = getProfileState(profileId);
 
       if (currentProfile.isButtonLaunching) {
         try {
           setButtonStatusMessage(profileId, "Attempting to stop...");
-          ProcessService.abort(profileId);
+          await ProcessService.abort(profileId);
           toast.success("Launch process stopped.");
           finalizeButtonLaunch(profileId);
         } catch (err: any) {
@@ -212,19 +252,75 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
         return;
       }
 
-      initiateButtonLaunch(profileId);
-
+      // Check if migration is needed
       try {
-        ProcessService.launch(profileId, singleplayer, multiplayer);
+        const migrationInfo: MigrationInfo = await checkForGroupMigration(profileId);
+
+        if (migrationInfo.direction === 'None') {
+          // No migration needed, launch directly
+          initiateButtonLaunch(profileId);
+          try {
+            await ProcessService.launch(profileId, singleplayer, multiplayer);
+          } catch (err: any) {
+            console.error("Failed to launch profile:", err);
+            const launchErrorMsg =
+              typeof err === "string"
+                ? err
+                : err.message || err.toString() || "Unknown error during launch.";
+            toast.error(`Launch failed: ${launchErrorMsg}`);
+            setLaunchError(profileId, launchErrorMsg);
+            onLaunchError?.(launchErrorMsg);
+          }
+          return;
+        }
+
+        // Show GroupMigrationModal before launching
+        showModal(
+          `group-migration-${profileId}-quickplay`,
+          <GroupMigrationModal
+            isOpen={true}
+            onClose={() => hideModal(`group-migration-${profileId}-quickplay`)}
+            onCopy={() => {
+              navigator.clipboard.writeText(profileId);
+              toast.success("Profile ID copied to clipboard!");
+              hideModal(`group-migration-${profileId}-quickplay`);
+            }}
+            onLaunch={() => {
+              hideModal(`group-migration-${profileId}-quickplay`);
+              initiateButtonLaunch(profileId);
+
+              try {
+                ProcessService.launch(profileId, singleplayer, multiplayer);
+              } catch (err: any) {
+                console.error("Failed to launch profile:", err);
+                const launchErrorMsg =
+                  typeof err === "string"
+                    ? err
+                    : err.message || err.toString() || "Unknown error during launch.";
+                toast.error(`Launch failed: ${launchErrorMsg}`);
+                setLaunchError(profileId, launchErrorMsg);
+                onLaunchError?.(launchErrorMsg);
+              }
+            }}
+            profileId={profileId}
+          />
+        );
       } catch (err: any) {
-        console.error("Failed to launch profile:", err);
-        const launchErrorMsg =
-          typeof err === "string"
-            ? err
-            : err.message || err.toString() || "Unknown error during launch.";
-        toast.error(`Launch failed: ${launchErrorMsg}`);
-        setLaunchError(profileId, launchErrorMsg);
-        onLaunchError?.(launchErrorMsg);
+        console.error("Failed to check migration status:", err);
+        // If migration check fails, proceed with normal launch
+        initiateButtonLaunch(profileId);
+        try {
+          await ProcessService.launch(profileId, singleplayer, multiplayer);
+        } catch (err: any) {
+          console.error("Failed to launch profile:", err);
+          const launchErrorMsg =
+            typeof err === "string"
+              ? err
+              : err.message || err.toString() || "Unknown error during launch.";
+          toast.error(`Launch failed: ${launchErrorMsg}`);
+          setLaunchError(profileId, launchErrorMsg);
+          onLaunchError?.(launchErrorMsg);
+        }
       }
     },
   };

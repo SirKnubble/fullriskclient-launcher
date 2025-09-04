@@ -15,9 +15,9 @@ use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
 use crate::utils::path_utils::find_unique_profile_segment;
 use crate::utils::profile_utils::{
-    CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
+    check_for_group_migration, CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
     GenericModrinthInfo, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
-    LocalContentLoader as ProfileUtilLocalContentLoader, ScreenshotInfo,
+    LocalContentLoader as ProfileUtilLocalContentLoader, MigrationInfo, ScreenshotInfo,
 };
 use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
@@ -2154,6 +2154,18 @@ pub async fn get_local_content(
             Err(CommandError::from(e))
         }
     }
+}
+
+/// Checks if a group migration is needed for a profile
+#[tauri::command]
+pub async fn check_for_group_migration_command(profile_id: Uuid) -> Result<MigrationInfo, CommandError> {
+    info!(
+        "Executing check_for_group_migration command for profile {}",
+        profile_id
+    );
+
+    // Call the utility function
+    Ok(profile_utils::check_for_group_migration(profile_id).await?)
 }
 
 #[tauri::command]

@@ -383,3 +383,12 @@ export interface LoadItemsParams {
   calculate_hashes: boolean;
   fetch_modrinth_data: boolean;
 }
+
+// --- Migration types ---
+export type MigrationDirection = "None" | "FromGroupToInstance" | "FromInstanceToGroup";
+
+export interface MigrationInfo {
+  direction: MigrationDirection;
+  source_path?: string | null;
+  target_path?: string | null;
+}

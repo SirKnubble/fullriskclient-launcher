@@ -13,6 +13,7 @@ import type {
   BatchContentInstallStatus,
   LoadItemsParams,
   LocalContentItem,
+  MigrationInfo,
   ImageSource,
   UploadProfileIconPayload,
 } from "../types/profile";
@@ -328,6 +329,11 @@ export async function getLocalContent(
   params: LoadItemsParams,
 ): Promise<LocalContentItem[]> {
   return invoke<LocalContentItem[]>("get_local_content", { params });
+}
+
+/// Checks if a group migration is needed for a profile
+export async function checkForGroupMigration(profileId: string): Promise<MigrationInfo> {
+  return invoke<MigrationInfo>("check_for_group_migration_command", { profileId });
 }
 
 export async function importProfileByPath(filePathStr: string): Promise<string> {

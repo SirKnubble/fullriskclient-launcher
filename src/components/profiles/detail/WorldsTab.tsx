@@ -16,7 +16,7 @@ import { TagBadge } from "../../ui/TagBadge";
 import { CopyWorldDialog } from "../../modals/CopyWorldDialog";
 import { ConfirmDeleteDialog } from "../../modals/ConfirmDeleteDialog";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
-import { useProfileLaunch } from "../../../hooks/useProfileLaunch";
+import { useProfileLaunch } from "../../../hooks/useProfileLaunch.tsx";
 import { toast } from "react-hot-toast";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { LaunchButton } from "../../ui/buttons/LaunchButton";

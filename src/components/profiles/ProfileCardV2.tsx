@@ -14,7 +14,7 @@ import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "./ExportProfileModal";
-import { useProfileLaunch } from "../../hooks/useProfileLaunch";
+import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
 
 interface ProfileCardV2Props {
   profile: Profile;

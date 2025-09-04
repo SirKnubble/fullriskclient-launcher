@@ -21,7 +21,7 @@ import { useProfileStore } from "../../store/profile-store";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import * as ProfileService from "../../services/profile-service";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
-import { useProfileLaunch } from "../../hooks/useProfileLaunch";
+import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
 
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";

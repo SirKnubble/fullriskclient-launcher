@@ -51,7 +51,7 @@ use commands::minecraft_command::{
 };
 use commands::profile_command::{
     abort_profile_launch, add_modrinth_content_to_profile, add_modrinth_mod_to_profile,
-    batch_check_content_installed, check_world_lock_status, copy_profile, copy_world,
+    batch_check_content_installed, check_for_group_migration_command, check_world_lock_status, copy_profile, copy_world,
     create_profile, delete_custom_mod, delete_mod_from_profile, delete_profile, delete_world,
     export_profile, get_all_profiles_and_last_played, get_custom_mods, get_local_content,
     get_local_datapacks, get_local_resourcepacks, get_local_shaderpacks, get_log_file_content,
@@ -61,8 +61,8 @@ use commands::profile_command::{
     import_profile, import_profile_from_file, is_content_installed, is_profile_launching,
     launch_profile, list_profile_screenshots, list_profiles, open_profile_folder,
     open_profile_latest_log, refresh_norisk_packs, refresh_standard_versions, repair_profile,
-    resolve_loader_version, search_profiles, set_custom_mod_enabled, set_norisk_mod_status, 
-    set_profile_mod_enabled, update_datapack_from_modrinth, update_modrinth_mod_version, 
+    resolve_loader_version, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
+    set_profile_mod_enabled, update_datapack_from_modrinth, update_modrinth_mod_version,
     update_profile, update_resourcepack_from_modrinth, update_shaderpack_from_modrinth,
 };
 
@@ -429,6 +429,7 @@ async fn main() {
             refresh_standard_versions,
             is_content_installed,
             batch_check_content_installed,
+            check_for_group_migration_command,
             open_profile_latest_log,
             get_profile_latest_log_content,
             detect_java_installations_command,

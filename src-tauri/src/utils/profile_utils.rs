@@ -914,6 +914,90 @@ pub async fn list_log_files(profile_id: Uuid) -> Result<Vec<PathBuf>> {
     Ok(log_files)
 }
 
+/// Represents the type of migration needed with paths
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MigrationInfo {
+    pub direction: MigrationDirection,
+    pub source_path: Option<String>,
+    pub target_path: Option<String>,
+}
+
+/// Represents the migration direction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MigrationDirection {
+    None,
+    FromGroupToInstance,
+    FromInstanceToGroup,
+}
+
+/// Checks if a group migration is needed and returns detailed migration info
+pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo> {
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+
+    // If profile has no group, no migration needed
+    if profile.group.is_none() {
+        return Ok(MigrationInfo {
+            direction: MigrationDirection::None,
+            source_path: None,
+            target_path: None,
+        });
+    }
+
+    // Get single instance directory
+    let single_instance_dir = crate::state::profile_state::ProfileManager::build_path_from_profile_path(&profile);
+
+    // Get shared/group directory
+    let group_dir = state
+        .profile_manager
+        .calculate_instance_path_for_profile(&profile)?;
+
+    // Check if directories exist and are empty
+    let group_exists = group_dir.exists();
+    let single_exists = single_instance_dir.exists();
+
+    let group_empty = if group_exists {
+        match fs::read_dir(&group_dir).await {
+            Ok(mut entries) => entries.next_entry().await.map(|entry| entry.is_none()).unwrap_or(true),
+            Err(_) => true
+        }
+    } else {
+        true
+    };
+
+    let single_empty = if single_exists {
+        match fs::read_dir(&single_instance_dir).await {
+            Ok(mut entries) => entries.next_entry().await.map(|entry| entry.is_none()).unwrap_or(true),
+            Err(_) => true
+        }
+    } else {
+        true
+    };
+
+    // Determine migration direction and paths
+    let (direction, source_path, target_path) = if group_empty && !single_empty {
+        (
+            MigrationDirection::FromInstanceToGroup,
+            Some(single_instance_dir.to_string_lossy().to_string()),
+            Some(group_dir.to_string_lossy().to_string()),
+        )
+    } else if !group_empty && single_empty {
+        (
+            MigrationDirection::FromGroupToInstance,
+            Some(group_dir.to_string_lossy().to_string()),
+            Some(single_instance_dir.to_string_lossy().to_string()),
+        )
+    } else {
+        (MigrationDirection::None, None, None)
+    };
+
+    Ok(MigrationInfo {
+        direction,
+        source_path,
+        target_path,
+    })
+}
+
 /// Exports a profile to a `.noriskpack` file
 ///
 /// This creates a zip archive with the .noriskpack extension that contains:

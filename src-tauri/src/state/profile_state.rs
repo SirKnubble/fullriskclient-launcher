@@ -1417,7 +1417,7 @@ impl ProfileManager {
     }
 
     /// Builds the default path using profile.path segments
-    fn build_path_from_profile_path(profile: &Profile) -> PathBuf {
+    pub fn build_path_from_profile_path(profile: &Profile) -> PathBuf {
         let mut path = default_profile_path();
         
         // Explicitly split profile.path by '/' and push each segment
