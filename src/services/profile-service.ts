@@ -336,6 +336,11 @@ export async function checkForGroupMigration(profileId: string): Promise<Migrati
   return invoke<MigrationInfo>("check_for_group_migration_command", { profileId });
 }
 
+/// Executes a group migration based on migration info
+export async function executeGroupMigration(migrationInfo: MigrationInfo): Promise<void> {
+  return invoke<void>("execute_group_migration", { migrationInfo });
+}
+
 export async function importProfileByPath(filePathStr: string): Promise<string> {
   return invoke<string>("import_profile", { filePathStr });
 }

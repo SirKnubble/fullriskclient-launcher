@@ -6,29 +6,28 @@ import { Button } from "../ui/buttons/Button";
 interface GroupMigrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCopy: () => void;
   onLaunch: () => void;
+  onMigrate?: () => void;
   profileId?: string;
 }
 
 export function GroupMigrationModal({
   isOpen,
   onClose,
-  onCopy,
   onLaunch,
+  onMigrate,
   profileId
 }: GroupMigrationModalProps) {
   if (!isOpen) return null;
 
-  const handleCopy = () => {
-    if (profileId) {
-      navigator.clipboard.writeText(profileId);
-    }
-    onCopy();
-  };
-
   const handleLaunch = () => {
     onLaunch();
+  };
+
+  const handleMigrate = () => {
+    if (onMigrate) {
+      onMigrate();
+    }
   };
 
   return (
@@ -43,16 +42,18 @@ export function GroupMigrationModal({
         </p>
 
         <div className="flex gap-4 justify-center mt-8">
-          <Button
-            onClick={handleCopy}
-            variant="flat-secondary"
-            size="md"
-          >
-            copy files
-          </Button>
+          {onMigrate && (
+            <Button
+              onClick={handleMigrate}
+              variant="default"
+              size="md"
+            >
+              copy files
+            </Button>
+          )}
           <Button
             onClick={handleLaunch}
-            variant="default"
+            variant="flat-secondary"
             size="md"
           >
             skip & launch

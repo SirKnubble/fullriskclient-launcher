@@ -930,13 +930,57 @@ pub enum MigrationDirection {
     FromInstanceToGroup,
 }
 
+/// Checks if a directory is effectively empty, ignoring hidden files (starting with '.')
+/// Returns true if the directory contains no non-hidden files or doesn't exist
+async fn is_directory_effectively_empty(dir_path: &std::path::Path) -> Result<bool> {
+    if !dir_path.exists() {
+        log::debug!("Directory doesn't exist, considering empty: {:?}", dir_path);
+        return Ok(true);
+    }
+
+    match fs::read_dir(dir_path).await {
+        Ok(mut entries) => {
+            let mut found_non_hidden = false;
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy();
+
+                // Ignore hidden files (starting with .)
+                if !file_name_str.starts_with('.') {
+                    log::debug!("Directory NOT empty - found non-hidden entry: {:?}", entry.path());
+                    found_non_hidden = true;
+                    break;
+                } else {
+                    log::debug!("Ignoring hidden file in directory check: {:?}", entry.path());
+                }
+            }
+
+            if found_non_hidden {
+                Ok(false)
+            } else {
+                log::debug!("Directory is effectively empty (only hidden files or no files): {:?}", dir_path);
+                Ok(true)
+            }
+        },
+        Err(e) => {
+            log::debug!("Error reading directory {:?}: {}", dir_path, e);
+            Ok(true) // Consider it empty if we can't read it
+        }
+    }
+}
+
 /// Checks if a group migration is needed and returns detailed migration info
 pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo> {
+    log::debug!("Starting group migration check for profile {}", profile_id);
+
     let state = State::get().await?;
     let profile = state.profile_manager.get_profile(profile_id).await?;
 
+    log::debug!("Profile '{}' - Group: {:?}, Version: {}, Path: {}", profile.name, profile.group, profile.game_version, profile.path);
+
     // If profile has no group, no migration needed
     if profile.group.is_none() {
+        log::debug!("Profile '{}' has no group, no migration needed", profile.name);
         return Ok(MigrationInfo {
             direction: MigrationDirection::None,
             source_path: None,
@@ -946,56 +990,48 @@ pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo
 
     // Get single instance directory
     let single_instance_dir = crate::state::profile_state::ProfileManager::build_path_from_profile_path(&profile);
+    log::debug!("Single instance directory: {:?}", single_instance_dir);
 
     // Get shared/group directory
     let group_dir = state
         .profile_manager
-        .calculate_instance_path_for_profile(&profile)?;
+        .calculate_group_directory(&profile)?;
+    log::debug!("Group directory: {:?}", group_dir);
 
-    // Check if directories exist and are empty
-    let group_exists = group_dir.exists();
-    let single_exists = single_instance_dir.exists();
-
-    let group_empty = if group_exists {
-        match fs::read_dir(&group_dir).await {
-            Ok(mut entries) => entries.next_entry().await.map(|entry| entry.is_none()).unwrap_or(true),
-            Err(_) => true
-        }
-    } else {
-        true
-    };
-
-    let single_empty = if single_exists {
-        match fs::read_dir(&single_instance_dir).await {
-            Ok(mut entries) => entries.next_entry().await.map(|entry| entry.is_none()).unwrap_or(true),
-            Err(_) => true
-        }
-    } else {
-        true
-    };
+    // Check if directories are effectively empty (ignoring hidden files)
+    let group_empty = is_directory_effectively_empty(&group_dir).await?;
+    let single_empty = is_directory_effectively_empty(&single_instance_dir).await?;
 
     // Determine migration direction and paths
+    log::debug!("Migration analysis - Group empty: {}, Single empty: {}", group_empty, single_empty);
+
     let (direction, source_path, target_path) = if group_empty && !single_empty {
+        log::debug!("Migration needed: FromInstanceToGroup");
         (
             MigrationDirection::FromInstanceToGroup,
             Some(single_instance_dir.to_string_lossy().to_string()),
             Some(group_dir.to_string_lossy().to_string()),
         )
     } else if !group_empty && single_empty {
+        log::debug!("Migration needed: FromGroupToInstance");
         (
             MigrationDirection::FromGroupToInstance,
             Some(group_dir.to_string_lossy().to_string()),
             Some(single_instance_dir.to_string_lossy().to_string()),
         )
     } else {
+        log::debug!("No migration needed - directories are in sync");
         (MigrationDirection::None, None, None)
     };
 
-    Ok(MigrationInfo {
+    let result = MigrationInfo {
         direction,
         source_path,
         target_path,
-    })
+    };
+
+    log::debug!("Final migration result: {:?}", result);
+    Ok(result)
 }
 
 /// Exports a profile to a `.noriskpack` file

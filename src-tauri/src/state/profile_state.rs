@@ -1429,6 +1429,28 @@ impl ProfileManager {
         path
     }
 
+    /// Calculates the group directory for a profile when using shared folder logic.
+    /// Returns the directory path based on the profile's group and Minecraft version.
+    pub fn calculate_group_directory(&self, profile: &Profile) -> Result<PathBuf> {
+        if let Some(group) = &profile.group {
+            if Self::is_norisk_client_group(group) {
+                // NoRisk Client groups go to "noriskclient/legacy" for MC < 1.13, "noriskclient/new" otherwise
+                if mc_utils::is_legacy_minecraft_version(&profile.game_version) {
+                    Ok(default_profile_path().join("noriskclient").join("legacy"))
+                } else {
+                    Ok(default_profile_path().join("noriskclient").join("new"))
+                }
+            } else {
+                // Other custom groups go to "groups/{sanitized_group_name}"
+                let sanitized_group = Self::sanitize_group_name(group);
+                Ok(default_profile_path().join("groups").join(sanitized_group))
+            }
+        } else {
+            // No group, use the original logic with profile.path
+            Ok(Self::build_path_from_profile_path(profile))
+        }
+    }
+
     /// Calculates the instance path for a given Profile object based on its properties.
     /// This method does NOT check if the profile exists in the manager.
     pub fn calculate_instance_path_for_profile(&self, profile: &Profile) -> Result<PathBuf> {
@@ -1442,29 +1464,9 @@ impl ProfileManager {
 
         // Determine final path based on shared folder logic and group
         let final_path = if profile.should_use_shared_minecraft_folder() {
-            // Profile should use shared folder - check group logic
-            log::trace!("Profile '{}' should use shared Minecraft folder, checking group logic", profile.name);
-            if let Some(group) = &profile.group {
-                if Self::is_norisk_client_group(group) {
-                    // NoRisk Client groups go to "noriskclient/legacy" for MC < 1.13, "noriskclient/new" otherwise
-                    if mc_utils::is_legacy_minecraft_version(&profile.game_version) {
-                        log::trace!("Profile '{}' belongs to NoRisk Client group with legacy MC version {}, using noriskclient/legacy path", profile.name, profile.game_version);
-                        default_profile_path().join("noriskclient").join("legacy")
-                    } else {
-                        log::trace!("Profile '{}' belongs to NoRisk Client group with modern MC version {}, using noriskclient/new path", profile.name, profile.game_version);
-                        default_profile_path().join("noriskclient").join("new")
-                    }
-                } else {
-                    // Other custom groups go to "groups/{sanitized_group_name}"
-                    let sanitized_group = Self::sanitize_group_name(group);
-                    log::trace!("Profile '{}' belongs to custom group '{}', using groups/{} path", profile.name, group, sanitized_group);
-                    default_profile_path().join("groups").join(sanitized_group)
-                }
-            } else {
-                // No group but should use shared folder, use the original logic with profile.path
-                log::trace!("Profile '{}' has no group but uses shared folder, using original path logic", profile.name);
-                Self::build_path_from_profile_path(profile)
-            }
+            // Profile should use shared folder - use group directory logic
+            log::trace!("Profile '{}' should use shared Minecraft folder, using group directory", profile.name);
+            self.calculate_group_directory(profile)?
         } else {
             // Profile should NOT use shared folder (isolated) - use original logic with profile.path
             log::trace!("Profile '{}' should not use shared Minecraft folder, using isolated path logic", profile.name);

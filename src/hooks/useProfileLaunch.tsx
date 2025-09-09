@@ -10,7 +10,7 @@ import * as ProcessService from "../services/process-service";
 import { toast } from "react-hot-toast";
 import { useGlobalModal } from "./useGlobalModal";
 import { GroupMigrationModal } from "../components/modals/GroupMigrationModal";
-import { checkForGroupMigration } from "../services/profile-service";
+import { checkForGroupMigration, executeGroupMigration } from "../services/profile-service";
 import { MigrationInfo } from "../types/profile";
 
 interface UseProfileLaunchOptions {
@@ -169,6 +169,36 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     }
   };
 
+  // Migration handler with promise toast
+  const handleMigration = async (migrationInfo: MigrationInfo) => {
+    console.log(`[useProfileLaunch] Starting migration for profile ${profileId}`, migrationInfo);
+
+    // Close modal immediately
+    hideModal(`group-migration-${profileId}`);
+
+    // Create promise toast for migration
+    const migrationPromise = executeGroupMigration(migrationInfo);
+
+    toast.promise(migrationPromise, {
+      loading: 'Migrating files...',
+      success: (data) => {
+        console.log(`[useProfileLaunch] Migration completed for profile ${profileId}`);
+        // Launch the profile after successful migration
+        performLaunch();
+        return 'Migration completed successfully!';
+      },
+      error: (err: any) => {
+        console.error("Failed to execute migration:", err);
+        const migrationErrorMsg =
+          typeof err === "string"
+            ? err
+            : err.message || err.toString() || "Error during migration.";
+        setLaunchError(profileId, migrationErrorMsg);
+        return `Migration failed: ${migrationErrorMsg}`;
+      },
+    });
+  };
+
   // Launch handler with abort functionality
   const handleLaunch = async () => {
     const currentProfile = getProfileState(profileId);
@@ -207,15 +237,11 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
         <GroupMigrationModal
           isOpen={true}
           onClose={() => hideModal(`group-migration-${profileId}`)}
-          onCopy={() => {
-            navigator.clipboard.writeText(profileId);
-            toast.success("Profile ID copied to clipboard!");
-            hideModal(`group-migration-${profileId}`);
-          }}
           onLaunch={() => {
             hideModal(`group-migration-${profileId}`);
             performLaunch();
           }}
+          onMigrate={() => handleMigration(migrationInfo)}
           profileId={profileId}
         />
       );
@@ -280,11 +306,6 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
           <GroupMigrationModal
             isOpen={true}
             onClose={() => hideModal(`group-migration-${profileId}-quickplay`)}
-            onCopy={() => {
-              navigator.clipboard.writeText(profileId);
-              toast.success("Profile ID copied to clipboard!");
-              hideModal(`group-migration-${profileId}-quickplay`);
-            }}
             onLaunch={() => {
               hideModal(`group-migration-${profileId}-quickplay`);
               initiateButtonLaunch(profileId);
@@ -301,6 +322,38 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
                 setLaunchError(profileId, launchErrorMsg);
                 onLaunchError?.(launchErrorMsg);
               }
+            }}
+            onMigrate={() => {
+              console.log(`[useProfileLaunch] Starting migration for quickplay ${profileId}`, migrationInfo);
+
+              // Close modal immediately
+              hideModal(`group-migration-${profileId}-quickplay`);
+
+              // Create promise toast for migration
+              const migrationPromise = executeGroupMigration(migrationInfo);
+
+              toast.promise(migrationPromise, {
+                loading: 'Migrating files...',
+                success: (data) => {
+                  console.log(`[useProfileLaunch] Migration completed for quickplay ${profileId}`);
+                  // Launch the profile after successful migration
+                  const performQuickPlayLaunch = async () => {
+                    initiateButtonLaunch(profileId);
+                    await ProcessService.launch(profileId, singleplayer, multiplayer);
+                  };
+                  performQuickPlayLaunch();
+                  return 'Migration completed successfully!';
+                },
+                error: (err: any) => {
+                  console.error("Failed to execute migration:", err);
+                  const migrationErrorMsg =
+                    typeof err === "string"
+                      ? err
+                      : err.message || err.toString() || "Error during migration.";
+                  setLaunchError(profileId, migrationErrorMsg);
+                  return `Migration failed: ${migrationErrorMsg}`;
+                },
+              });
             }}
             profileId={profileId}
           />
