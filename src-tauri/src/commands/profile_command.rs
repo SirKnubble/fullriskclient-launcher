@@ -1656,6 +1656,12 @@ pub async fn refresh_standard_versions() -> Result<(), CommandError> {
     {
         Ok(_) => {
             info!("Successfully refreshed standard versions via command.");
+
+            // Sync standard profiles after successful refresh
+            if let Err(e) = state.profile_manager.sync_standard_profiles().await {
+                warn!("Failed to sync standard profiles after refresh: {}", e);
+            }
+
             Ok(())
         }
         Err(e) => {
