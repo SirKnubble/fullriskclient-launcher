@@ -29,15 +29,20 @@ import { IconButton } from "../ui/buttons/IconButton";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { SearchWithFilters } from "../ui/SearchWithFilters";
 import { useThemeStore } from "../../store/useThemeStore";
+import { useCapeFavoritesStore } from "../../store/useCapeFavoritesStore";
 import { preloadIcons } from "../../lib/icon-utils";
 
-export function CapeBrowser() {
-  const [capesData, setCapesData] = useState<CosmeticCape[]>([]);
-  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
+export function CapeBrowser(): JSX.Element {
+  // Separate state for ALL capes and MY CAPES
+  const [allCapes, setAllCapes] = useState<CosmeticCape[]>([]);
+  const [myCapes, setMyCapes] = useState<CosmeticCape[]>([]);
+  const [allPagination, setAllPagination] = useState<PaginationInfo | null>(null);
+  const [myPagination, setMyPagination] = useState<PaginationInfo | null>(null);
+  // Separate loading states for ALL and MY CAPES
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+  const [isLoadingMy, setIsLoadingMy] = useState(false);
+  const [isFetchingMoreAll, setIsFetchingMoreAll] = useState(false);
+  const [isFetchingMoreMy, setIsFetchingMoreMy] = useState(false);
   const [isEquippingCapeId, setIsEquippingCapeId] = useState<string | null>(
     null,
   );
@@ -48,10 +53,35 @@ export function CapeBrowser() {
     sortBy: "",
     timeFrame: "",
     showOwnedOnly: false,
+    showFavoritesOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
 
+  // Helper functions to get correct setters based on current filter
+  const getCapesSetter = (showOwnedOnly: boolean) =>
+    showOwnedOnly ? setMyCapes : setAllCapes;
+  const getPaginationSetter = (showOwnedOnly: boolean) =>
+    showOwnedOnly ? setMyPagination : setAllPagination;
+
+  // Computed loading states based on current filter
+  const isLoading = filters.showOwnedOnly ? isLoadingMy : isLoadingAll;
+  const isFetchingMore = filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
+
   const accentColor = useThemeStore((state) => state.accentColor);
+  const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
+
+  // Computed current data based on filter
+  const capesData = useMemo(() => {
+    // For favorites, let CapeList handle the filtering - just provide all available capes
+    return filters.showOwnedOnly ? myCapes : allCapes;
+  }, [filters.showOwnedOnly, myCapes, allCapes, favoriteCapeIds]); // Add favoriteCapeIds to trigger re-render when favorites change
+
+  const paginationInfo = useMemo(() => {
+    if (filters.showFavoritesOnly) {
+      return null; // Favorites don't need pagination
+    }
+    return filters.showOwnedOnly ? myPagination : allPagination;
+  }, [filters.showOwnedOnly, filters.showFavoritesOnly, myPagination, allPagination]);
 
   // Filter options for SearchWithFilters
   const sortOptions = [
@@ -99,13 +129,59 @@ export function CapeBrowser() {
     preloadIcons(["solar:add-square-bold-duotone"]);
   }, []);
 
-  // Initial load - only if no data exists
+  // Initial load for ALL capes
   useEffect(() => {
-    if (capesData.length === 0 && !isLoadingRef.current) {
-      setIsLoading(true);
-      fetchCapesData(0, filters, searchQuery, false);
-    }
+    const loadAllCapes = async () => {
+      if (allCapes.length > 0 || isLoadingAll) return;
+
+      try {
+        setIsLoadingAll(true);
+        const browseOptions: BrowseCapesOptions = {
+          page: 0,
+          page_size: 20,
+          sort_by: undefined,
+          time_frame: undefined,
+        };
+        const response = await browseCapes(browseOptions);
+        setAllCapes(response.capes);
+        setAllPagination(response.pagination);
+      } catch (error) {
+        console.error("Failed to load ALL capes:", error);
+      } finally {
+        setIsLoadingAll(false);
+      }
+    };
+
+    loadAllCapes();
   }, []); // Only run once on mount
+
+  // Load MY capes when account becomes available
+  useEffect(() => {
+    const loadMyCapes = async () => {
+      if (!activeAccount || myCapes.length > 0 || isLoadingMy) return;
+
+      try {
+        setIsLoadingMy(true);
+        const playerCapesOptions: GetPlayerCapesPayloadOptions = {
+          player_identifier: activeAccount.id,
+        };
+        const response = await getPlayerCapes(playerCapesOptions);
+        setMyCapes(response);
+        setMyPagination({
+          currentPage: 0,
+          pageSize: response.length,
+          totalItems: response.length,
+          totalPages: 1,
+        });
+      } catch (error) {
+        console.error("Failed to load MY capes:", error);
+      } finally {
+        setIsLoadingMy(false);
+      }
+    };
+
+    loadMyCapes();
+  }, [activeAccount]); // Run when activeAccount changes
 
   const hasMoreItems = paginationInfo
     ? paginationInfo.currentPage < paginationInfo.totalPages - 1
@@ -126,9 +202,17 @@ export function CapeBrowser() {
       isLoadingRef.current = true;
 
       if (append) {
-        setIsFetchingMore(true);
+        if (currentFilters.showOwnedOnly) {
+          setIsFetchingMoreMy(true);
+        } else {
+          setIsFetchingMoreAll(true);
+        }
       } else {
-        setIsLoading(true);
+        if (currentFilters.showOwnedOnly) {
+          setIsLoadingMy(true);
+        } else {
+          setIsLoadingAll(true);
+        }
       }
 
       try {
@@ -140,8 +224,10 @@ export function CapeBrowser() {
             player_identifier: currentActiveAccount.id,
           };
           response = await getPlayerCapes(playerCapesOptions);
-          setCapesData(response);
-          setPaginationInfo({
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+          setCapes(response);
+          setPagination({
             currentPage: 0,
             pageSize: response.length,
             totalItems: response.length,
@@ -152,8 +238,10 @@ export function CapeBrowser() {
             player_identifier: currentSearchQuery.trim(),
           };
           response = await getPlayerCapes(playerCapesOptions);
-          setCapesData(response);
-          setPaginationInfo({
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+          setCapes(response);
+          setPagination({
             currentPage: 0,
             pageSize: response.length,
             totalItems: response.length,
@@ -172,20 +260,21 @@ export function CapeBrowser() {
           };
           response = await browseCapes(browseOptions);
 
-          // Only update data if it's actually different to prevent unnecessary re-renders
-          setCapesData((prevActualCapes) => {
-            const newCapes = append ? [...prevActualCapes, ...response.capes] : response.capes;
+          // Get the correct setters based on current filter
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
 
+          // Update data with proper state management
+          setCapes((prevActualCapes) => {
+            const newCapes = append ? [...prevActualCapes, ...response.capes] : response.capes;
             // Check if the data is actually different
             if (prevActualCapes.length === newCapes.length &&
                 prevActualCapes.every((cape, index) => cape._id === newCapes[index]._id)) {
               return prevActualCapes; // Return same reference to prevent re-render
             }
-
             return newCapes;
           });
-
-          setPaginationInfo(response.pagination);
+          setPagination(response.pagination);
         }
       } catch (err: any) {
         console.error("Error fetching capes:", err);
@@ -193,35 +282,88 @@ export function CapeBrowser() {
           err?.message || "Failed to load capes. Please try again later.";
         toast.error(errorMessage);
         if (!append) {
-          setCapesData([]);
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+          setCapes([]);
+          setPagination(null);
         }
       } finally {
         isLoadingRef.current = false;
         if (append) {
-          setIsFetchingMore(false);
+          if (currentFilters.showOwnedOnly) {
+            setIsFetchingMoreMy(false);
+          } else {
+            setIsFetchingMoreAll(false);
+          }
         } else {
-          setIsLoading(false);
+          if (currentFilters.showOwnedOnly) {
+            setIsLoadingMy(false);
+          } else {
+            setIsLoadingAll(false);
+          }
         }
       }
     },
     [], // Stable callback
   );
 
-  // Filter/Search changes - only reload if we already have data
+  // Handle filter/search changes that require reloading data
   useEffect(() => {
-    if (currentPage === 0 && capesData.length > 0 && !isLoadingRef.current) {
-      setIsLoading(true);
-      fetchCapesData(0, filters, searchQuery, false);
-    }
-  }, [filters, searchQuery, fetchCapesData, capesData.length]);
+    const handleFilterChange = async () => {
+      if (isLoadingRef.current) return;
+
+      // For sort/filter changes, reload the current view
+      if (currentPage === 0) {
+        const currentData = filters.showOwnedOnly ? myCapes : allCapes;
+        if (currentData.length > 0) {
+          if (filters.showOwnedOnly) {
+            setIsLoadingMy(true);
+          } else {
+            setIsLoadingAll(true);
+          }
+          try {
+            await fetchCapesData(0, filters, searchQuery, false);
+          } catch (error) {
+            console.error("Failed to reload data:", error);
+          } finally {
+            if (filters.showOwnedOnly) {
+              setIsLoadingMy(false);
+            } else {
+              setIsLoadingAll(false);
+            }
+          }
+        }
+      }
+    };
+
+    handleFilterChange();
+  }, [filters.sortBy, filters.timeFrame, searchQuery]); // Only trigger on actual filter changes
 
   // Pagination useEffect
   useEffect(() => {
-    if (currentPage > 0 && !isLoadingRef.current) {
-      setIsFetchingMore(true);
-      fetchCapesData(currentPage, filters, searchQuery, true);
-    }
-  }, [currentPage, fetchCapesData]);
+    const handlePagination = async () => {
+      if (currentPage > 0 && !isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsFetchingMoreMy(true);
+        } else {
+          setIsFetchingMoreAll(true);
+        }
+        try {
+          await fetchCapesData(currentPage, filters, searchQuery, true);
+        } catch (error) {
+          console.error("Failed to load more data:", error);
+        } finally {
+          if (filters.showOwnedOnly) {
+            setIsFetchingMoreMy(false);
+          } else {
+            setIsFetchingMoreAll(false);
+          }
+        }
+      }
+    };
+
+    handlePagination();
+  }, [currentPage]);
 
   const loadMoreCapes = useCallback(() => {
     if (hasMoreItems && !isFetchingMore) {
@@ -237,6 +379,16 @@ export function CapeBrowser() {
     if (hasMajorFilterChanged) {
       setSearchQuery("");
       setCurrentPage(0);
+      // Clear current view data when changing sort to prevent showing old data
+      if (filters.showOwnedOnly) {
+        setMyCapes([]);
+        setMyPagination(null);
+      } else if (filters.showFavoritesOnly) {
+        // Favorites don't need clearing as they're static
+      } else {
+        setAllCapes([]);
+        setAllPagination(null);
+      }
     } else if (currentPage !== 0) {
       setCurrentPage(0);
     }
@@ -250,6 +402,16 @@ export function CapeBrowser() {
     if (hasMajorFilterChanged) {
       setSearchQuery("");
       setCurrentPage(0);
+      // Clear current view data when changing time frame to prevent showing old data
+      if (filters.showOwnedOnly) {
+        setMyCapes([]);
+        setMyPagination(null);
+      } else if (filters.showFavoritesOnly) {
+        // Favorites don't need clearing as they're static
+      } else {
+        setAllCapes([]);
+        setAllPagination(null);
+      }
     } else if (currentPage !== 0) {
       setCurrentPage(0);
     }
@@ -258,16 +420,34 @@ export function CapeBrowser() {
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     setCurrentPage(0);
+    // Clear current view data when starting a new search to prevent showing old results
+    if (value.trim() !== "") {
+      if (filters.showOwnedOnly) {
+        setMyCapes([]);
+        setMyPagination(null);
+      } else if (filters.showFavoritesOnly) {
+        // Favorites don't need clearing as they're static
+      } else {
+        setAllCapes([]);
+        setAllPagination(null);
+      }
+    }
   };
 
 
   const refreshCurrentView = () => {
     console.log("[CapeBrowser] Refreshing current view...");
-    if (currentPage === 0) {
-      fetchCapesData(0, filters, searchQuery, false);
+    // Clear current view data and reload
+    if (filters.showOwnedOnly) {
+      setMyCapes([]);
+      setMyPagination(null);
+    } else if (filters.showFavoritesOnly) {
+      // Favorites don't need clearing as they're static
     } else {
-      setCurrentPage(0);
+      setAllCapes([]);
+      setAllPagination(null);
     }
+    setCurrentPage(0);
   };
 
   const handleEquipCape = async (capeHash: string) => {
@@ -415,19 +595,19 @@ export function CapeBrowser() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => {
-                const newFilters = { ...filters, showOwnedOnly: false };
+                const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false };
                 setFilters(newFilters);
                 setSearchQuery("");
                 setCurrentPage(0);
               }}
               className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                !filters.showOwnedOnly
+                !filters.showOwnedOnly && !filters.showFavoritesOnly
                   ? 'text-white'
                   : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
               }`}
               style={{
-                backgroundColor: !filters.showOwnedOnly ? `${accentColor.value}20` : undefined,
-                borderColor: !filters.showOwnedOnly ? accentColor.value : undefined,
+                backgroundColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly) ? `${accentColor.value}20` : undefined,
+                borderColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly) ? accentColor.value : undefined,
               }}
             >
               <span className="lowercase">all</span>
@@ -436,24 +616,44 @@ export function CapeBrowser() {
             <button
               onClick={() => {
                 if (!activeAccount) return;
-                const newFilters = { ...filters, showOwnedOnly: true };
+                const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false };
                 setFilters(newFilters);
                 setSearchQuery("");
                 setCurrentPage(0);
               }}
               disabled={!activeAccount}
               className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                filters.showOwnedOnly
+                filters.showOwnedOnly && !filters.showFavoritesOnly
                   ? 'text-white'
                   : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
               } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{
-                backgroundColor: filters.showOwnedOnly ? `${accentColor.value}20` : undefined,
-                borderColor: filters.showOwnedOnly ? accentColor.value : undefined,
+                backgroundColor: (filters.showOwnedOnly && !filters.showFavoritesOnly) ? `${accentColor.value}20` : undefined,
+                borderColor: (filters.showOwnedOnly && !filters.showFavoritesOnly) ? accentColor.value : undefined,
               }}
               title={!activeAccount ? "No active Minecraft account" : undefined}
             >
               <span className="lowercase">my capes</span>
+            </button>
+
+            <button
+              onClick={() => {
+                const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: true };
+                setFilters(newFilters);
+                setSearchQuery("");
+                setCurrentPage(0);
+              }}
+              className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                filters.showFavoritesOnly
+                  ? 'text-white'
+                  : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+              }`}
+              style={{
+                backgroundColor: filters.showFavoritesOnly ? `${accentColor.value}20` : undefined,
+                borderColor: filters.showFavoritesOnly ? accentColor.value : undefined,
+              }}
+            >
+              <span className="lowercase">favorites</span>
             </button>
           </div>
         </div>
@@ -520,7 +720,8 @@ export function CapeBrowser() {
           isFetchingMore={isFetchingMore}
           onTriggerUpload={activeAccount ? handleUploadClick : undefined}
           onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
-          groupFavoritesInHeader={!filters.showOwnedOnly}
+          groupFavoritesInHeader={filters.showFavoritesOnly}
+          showFavoritesOnly={filters.showFavoritesOnly}
         />
       </div>
 

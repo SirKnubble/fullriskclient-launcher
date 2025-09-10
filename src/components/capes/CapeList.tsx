@@ -261,6 +261,7 @@ export interface CapeListProps {
   onTriggerUpload?: () => void;
   onDownloadTemplate?: () => void;
   groupFavoritesInHeader?: boolean;
+  showFavoritesOnly?: boolean;
 }
 
 export function CapeList({
@@ -277,6 +278,7 @@ export function CapeList({
   onTriggerUpload,
   onDownloadTemplate,
   groupFavoritesInHeader = true,
+  showFavoritesOnly = false,
 }: CapeListProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
@@ -297,38 +299,28 @@ export function CapeList({
   const [favoriteCapesFetched, setFavoriteCapesFetched] = useState<Map<string, CosmeticCape>>(new Map());
 
   const favoriteCapes = useMemo(() => {
-    // Create maps for faster lookups - independent of main capes array
-    const capesMap = new Map(capes.map(cape => [cape._id, cape]));
-    const fetchedMap = favoriteCapesFetched;
+    // Simple approach: Filter available capes that are marked as favorites
+    const result = capes.filter(cape => favoriteCapeIds.includes(cape._id));
 
-    // Build result by checking both sources
-    const result: CosmeticCape[] = [];
-    for (const id of favoriteCapeIds) {
-      // First try main capes list
-      let cape = capesMap.get(id);
+    // Also include any fetched favorites that aren't in the main capes list
+    const fetchedFavorites = Array.from(favoriteCapesFetched.values()).filter(
+      cape => !capes.some(c => c._id === cape._id)
+    );
 
-      // Then try fetched favorites
-      if (!cape) {
-        cape = fetchedMap.get(id);
-      }
-
-      if (cape) {
-        result.push(cape);
-      }
-    }
-
-    return result;
+    const finalResult = [...result, ...fetchedFavorites];
+    return finalResult;
   }, [favoriteCapeIds, favoriteCapesFetched, capes]); // Keep capes dependency but optimize the calculation
 
+
   const missingFavoriteIds = useMemo(() => {
-    if (!groupFavoritesInHeader) return [] as string[];
-    const presentIds = new Set(favoriteCapes.map((c) => c._id));
+    // Always fetch missing favorites, regardless of groupFavoritesInHeader
+    // Don't include placeholders in the check
+    const presentIds = new Set(capes.map((c) => c._id));
     const fetchedIds = new Set(favoriteCapesFetched.keys());
     return favoriteCapeIds.filter((id) => !presentIds.has(id) && !fetchedIds.has(id));
-  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched, groupFavoritesInHeader]);
+  }, [favoriteCapeIds, capes, favoriteCapesFetched]);
 
   useEffect(() => {
-    if (!groupFavoritesInHeader) return;
     const idsToFetch = missingFavoriteIds.filter((id) => !favoriteCapesFetched.has(id));
     if (idsToFetch.length === 0) return;
     const chunk = idsToFetch.slice(0, 100);
@@ -343,26 +335,22 @@ export function CapeList({
       .catch((e) => {
         console.warn("[CapeList] Failed to fetch favorite capes by hashes:", e);
       });
-  }, [missingFavoriteIds, favoriteCapesFetched, groupFavoritesInHeader]);
+  }, [missingFavoriteIds, favoriteCapesFetched]);
 
   // Separate state for stable favorites display - completely independent of capes loading
   const [stableFavoriteCapes, setStableFavoriteCapes] = useState<CosmeticCape[]>([]);
 
   // Update stable favorites only when favorite data actually changes, not when main capes change
   useEffect(() => {
-    if (!groupFavoritesInHeader) {
-      setStableFavoriteCapes([]);
-      return;
-    }
-
     if (favoriteCapeIds.length === 0) {
       setStableFavoriteCapes([]);
       return;
     }
 
     // Use favoriteCapes directly since it already contains the correct data from both sources
-    // Only create placeholders for missing capes that are still being fetched
+    // If we don't have all favorites yet, they will be fetched and added to favoriteCapesFetched
     const result: CosmeticCape[] = [];
+
     for (const id of favoriteCapeIds) {
       let cape = favoriteCapes.find(c => c._id === id);
 
@@ -385,24 +373,42 @@ export function CapeList({
     }
 
     setStableFavoriteCapes(result);
-  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched, groupFavoritesInHeader]); // Only essential dependencies
+  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched]); // Always update favorites
+
 
   // Track if we've ever loaded capes successfully (for EmptyState logic)
   useEffect(() => {
-    if (!isLoading && capes.length > 0 && !hasInitiallyLoaded) {
-      setHasInitiallyLoaded(true);
+    if (!isLoading && !hasInitiallyLoaded) {
+      // For favorites mode, only consider it loaded if we actually have capes available to filter from
+      const hasContent = showFavoritesOnly
+        ? capes.length > 0 // Only loaded if we have capes to filter favorites from
+        : capes.length > 0;
+
+      if (hasContent) {
+        setHasInitiallyLoaded(true);
+      }
     }
-  }, [isLoading, capes.length, hasInitiallyLoaded]);
+  }, [isLoading, capes.length, showFavoritesOnly, hasInitiallyLoaded]);
+
+  // Reset hasInitiallyLoaded when switching tabs
+  useEffect(() => {
+    setHasInitiallyLoaded(false);
+  }, [showFavoritesOnly]);
 
   // No loading spinner - capes appear immediately when available
 
   const itemsToRender = useMemo(() => {
+    // If showing favorites only, return only favorites
+    if (showFavoritesOnly) {
+      return stableFavoriteCapes;
+    }
+
     if (!groupFavoritesInHeader) return capes;
     // Since favorites are now rendered separately above Virtuoso, always filter them out
     if (stableFavoriteCapes.length === 0) return capes;
     const favoriteIdsSet = new Set(stableFavoriteCapes.map(cape => cape._id));
     return capes.filter((item) => !favoriteIdsSet.has(item._id));
-  }, [capes, stableFavoriteCapes, groupFavoritesInHeader]);
+  }, [capes, stableFavoriteCapes, groupFavoritesInHeader, showFavoritesOnly]);
 
 // Removed virtuosoComponents - using native scrolling grid instead 
 
@@ -471,13 +477,19 @@ export function CapeList({
 
 
   const noActualCapesToDisplay = itemsToRender.length === 0;
+
+  // For favorites, don't show loading state since favorites are filtered from available capes
+  // Just show the filtered results immediately
+
   if (!isLoading && noActualCapesToDisplay && hasInitiallyLoaded) {
     return (
       <div className="flex-grow flex items-center justify-center p-5">
         <EmptyState
           icon="solar:hanger-wave-line-duotone"
           message={
-            searchQuery
+            showFavoritesOnly
+              ? "Mark some capes as favorites by clicking the heart icon!"
+              : searchQuery
               ? `No capes found for "${searchQuery}"`
               : "No capes available"
           }
@@ -490,7 +502,7 @@ export function CapeList({
   const LoadMoreTrigger = () => {
     const { ref, inView } = useInView({
       threshold: 0,
-      rootMargin: '300px', // Load more when 300px from bottom
+      rootMargin: '500px', // Load more when 500px from bottom - even earlier!
     });
 
     useEffect(() => {
@@ -524,21 +536,15 @@ export function CapeList({
         onTriggerUpload ? "" : "p-4",
       )}
     >
-      {/* Render favorites separately above native grid to prevent flickering */}
-      {groupFavoritesInHeader && stableFavoriteCapes.length > 0 && (
-        <div className="mb-2">
-          <div className="flex items-center justify-between mb-2 px-4">
-            <span className="font-minecraft text-white/80 lowercase text-xl">favorites</span>
-            <span className="text-white/40 text-xs font-minecraft">{stableFavoriteCapes.length}</span>
-          </div>
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Render favorites separately above native grid to prevent flickering */}
+        {groupFavoritesInHeader && stableFavoriteCapes.length > 0 && !showFavoritesOnly && (
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
               gap: "16px",
               padding: "16px",
-              paddingTop: "8px",
-              paddingBottom: 0,
             }}
           >
             {stableFavoriteCapes.map((cape) => {
@@ -561,19 +567,16 @@ export function CapeList({
               );
             })}
           </div>
-          {/* Separator line between favorites and regular capes */}
-          <div className="h-px w-full bg-white/10 my-4" />
-        </div>
-      )}
+        )}
 
-      {/* Native scrolling grid - similar to ScreenshotsTab */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-            gap: "16px",
-            padding: "16px",
+        {/* Native scrolling grid - similar to ScreenshotsTab */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+              gap: "16px",
+              padding: "16px",
           }}
         >
           {itemsToRender.map((cape) => {
@@ -596,10 +599,12 @@ export function CapeList({
             );
           })}
 
-          {/* Load more trigger */}
-          <LoadMoreTrigger />
+          {/* Load more trigger - only for non-favorites modes */}
+          {!showFavoritesOnly && <LoadMoreTrigger />}
+          </div>
         </div>
       </div>
+
       {contextMenu && contextMenu.cape && (
         <div
           ref={menuRef}
