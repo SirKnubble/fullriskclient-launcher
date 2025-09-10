@@ -67,9 +67,22 @@ export function CapeBrowser(): JSX.Element {
   const getPaginationSetter = (showOwnedOnly: boolean) =>
     showOwnedOnly ? setMyPagination : setAllPagination;
 
-  // Computed loading states based on current filter
-  const isLoading = filters.showOwnedOnly ? isLoadingMy : isLoadingAll;
-  const isFetchingMore = filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
+  // Computed loading states based on current filter or search
+  const isLoading = useMemo(() => {
+    // When searching, always use all loading state
+    if (searchQuery && searchQuery.trim() !== "") {
+      return isLoadingAll;
+    }
+    return filters.showOwnedOnly ? isLoadingMy : isLoadingAll;
+  }, [filters.showOwnedOnly, isLoadingMy, isLoadingAll, searchQuery]);
+
+  const isFetchingMore = useMemo(() => {
+    // When searching, always use all fetching state
+    if (searchQuery && searchQuery.trim() !== "") {
+      return isFetchingMoreAll;
+    }
+    return filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
+  }, [filters.showOwnedOnly, isFetchingMoreMy, isFetchingMoreAll, searchQuery]);
 
   const accentColor = useThemeStore((state) => state.accentColor);
   const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
@@ -77,16 +90,24 @@ export function CapeBrowser(): JSX.Element {
 
   // Computed current data based on filter
   const capesData = useMemo(() => {
+    // When searching, always show search results from allCapes
+    if (searchQuery && searchQuery.trim() !== "") {
+      return allCapes;
+    }
     // For favorites, let CapeList handle the filtering - just provide all available capes
     return filters.showOwnedOnly ? myCapes : allCapes;
-  }, [filters.showOwnedOnly, myCapes, allCapes, favoriteCapeIds]); // Add favoriteCapeIds to trigger re-render when favorites change
+  }, [filters.showOwnedOnly, myCapes, allCapes, favoriteCapeIds, searchQuery]); // Add searchQuery to trigger re-render when search changes
 
   const paginationInfo = useMemo(() => {
+    // When searching, always use allPagination for search results
+    if (searchQuery && searchQuery.trim() !== "") {
+      return allPagination;
+    }
     if (filters.showFavoritesOnly) {
       return null; // Favorites don't need pagination
     }
     return filters.showOwnedOnly ? myPagination : allPagination;
-  }, [filters.showOwnedOnly, filters.showFavoritesOnly, myPagination, allPagination]);
+  }, [filters.showOwnedOnly, filters.showFavoritesOnly, myPagination, allPagination, searchQuery]);
 
   // Filter options for SearchWithFilters
   const sortOptions = [
@@ -186,9 +207,15 @@ export function CapeBrowser(): JSX.Element {
     loadMyCapes();
   }, [activeAccount]); // Run when activeAccount changes
 
-  const hasMoreItems = paginationInfo
-    ? paginationInfo.currentPage < paginationInfo.totalPages - 1
-    : false;
+  const hasMoreItems = useMemo(() => {
+    // Search results don't have pagination
+    if (searchQuery && searchQuery.trim() !== "") {
+      return false;
+    }
+    return paginationInfo
+      ? paginationInfo.currentPage < paginationInfo.totalPages - 1
+      : false;
+  }, [paginationInfo, searchQuery]);
 
   const fetchCapesData = useCallback(
     async (
@@ -222,7 +249,24 @@ export function CapeBrowser(): JSX.Element {
         let response;
         const currentActiveAccount = useMinecraftAuthStore.getState().activeAccount;
 
-        if (currentFilters.showOwnedOnly && currentActiveAccount) {
+        // Priority: Search > Owned Only > Browse All
+        if (currentSearchQuery && currentSearchQuery.trim() !== "") {
+          // Search for player capes - this should work regardless of current tab
+          const playerCapesOptions: GetPlayerCapesPayloadOptions = {
+            player_identifier: currentSearchQuery.trim(),
+          };
+          response = await getPlayerCapes(playerCapesOptions);
+
+          // Always use the "all" setters for search results since we're searching globally
+          setAllCapes(response);
+          setAllPagination({
+            currentPage: 0,
+            pageSize: response.length,
+            totalItems: response.length,
+            totalPages: 1,
+          });
+        } else if (currentFilters.showOwnedOnly && currentActiveAccount) {
+          // Load user's own capes
           const playerCapesOptions: GetPlayerCapesPayloadOptions = {
             player_identifier: currentActiveAccount.id,
           };
@@ -236,21 +280,8 @@ export function CapeBrowser(): JSX.Element {
             totalItems: response.length,
             totalPages: 1,
           });
-        } else if (currentSearchQuery && currentSearchQuery.trim() !== "") {
-          const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-            player_identifier: currentSearchQuery.trim(),
-          };
-          response = await getPlayerCapes(playerCapesOptions);
-          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
-          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
-          setCapes(response);
-          setPagination({
-            currentPage: 0,
-            pageSize: response.length,
-            totalItems: response.length,
-            totalPages: 1,
-          });
         } else {
+          // Browse all capes
           const browseOptions: BrowseCapesOptions = {
             page: pageToFetch,
             page_size: 20,
@@ -340,7 +371,7 @@ export function CapeBrowser(): JSX.Element {
     };
 
     handleFilterChange();
-  }, [filters.sortBy, filters.timeFrame, searchQuery]); // Only trigger on actual filter changes
+  }, [filters.sortBy, filters.timeFrame]); // Only trigger on actual filter changes
 
   // Pagination useEffect
   useEffect(() => {
@@ -382,15 +413,19 @@ export function CapeBrowser(): JSX.Element {
     if (hasMajorFilterChanged) {
       setSearchQuery("");
       setCurrentPage(0);
-      // Clear current view data when changing sort to prevent showing old data
-      if (filters.showOwnedOnly) {
-        setMyCapes([]);
-        setMyPagination(null);
-      } else if (filters.showFavoritesOnly) {
-        // Favorites don't need clearing as they're static
-      } else {
-        setAllCapes([]);
-        setAllPagination(null);
+      // Trigger reload with new sort filter
+      if (!isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsLoadingMy(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingMy(false);
+          });
+        } else if (!filters.showFavoritesOnly) {
+          setIsLoadingAll(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingAll(false);
+          });
+        }
       }
     } else if (currentPage !== 0) {
       setCurrentPage(0);
@@ -405,15 +440,19 @@ export function CapeBrowser(): JSX.Element {
     if (hasMajorFilterChanged) {
       setSearchQuery("");
       setCurrentPage(0);
-      // Clear current view data when changing time frame to prevent showing old data
-      if (filters.showOwnedOnly) {
-        setMyCapes([]);
-        setMyPagination(null);
-      } else if (filters.showFavoritesOnly) {
-        // Favorites don't need clearing as they're static
-      } else {
-        setAllCapes([]);
-        setAllPagination(null);
+      // Trigger reload with new time frame filter
+      if (!isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsLoadingMy(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingMy(false);
+          });
+        } else if (!filters.showFavoritesOnly) {
+          setIsLoadingAll(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingAll(false);
+          });
+        }
       }
     } else if (currentPage !== 0) {
       setCurrentPage(0);
@@ -421,19 +460,30 @@ export function CapeBrowser(): JSX.Element {
   };
 
   const handleSearchChange = (value: string) => {
+    const previousValue = searchQuery;
     setSearchQuery(value);
-    setCurrentPage(0);
-    // Clear current view data when starting a new search to prevent showing old results
-    if (value.trim() !== "") {
-      if (filters.showOwnedOnly) {
-        setMyCapes([]);
-        setMyPagination(null);
-      } else if (filters.showFavoritesOnly) {
-        // Favorites don't need clearing as they're static
-      } else {
-        setAllCapes([]);
-        setAllPagination(null);
+
+    // If search is being cleared (from non-empty to empty), immediately reload default capes
+    if (previousValue.trim() !== "" && value.trim() === "") {
+      setCurrentPage(0);
+      // Clear search results and trigger reload of default capes
+      setAllCapes([]);
+      setAllPagination(null);
+      // Force a reload by triggering search with empty value
+      if (!isLoadingRef.current) {
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingAll(false);
+        });
       }
+    }
+  };
+
+  const handleSearchEnter = (value: string) => {
+    // Immediately trigger search when Enter is pressed
+    // This bypasses the debouncing for instant search
+    if (!isLoadingRef.current) {
+      fetchCapesData(0, filters, value, false);
     }
   };
 
@@ -441,16 +491,34 @@ export function CapeBrowser(): JSX.Element {
   const refreshCurrentView = () => {
     console.log("[CapeBrowser] Refreshing current view...");
     // Clear current view data and reload
-    if (filters.showOwnedOnly) {
-      setMyCapes([]);
-      setMyPagination(null);
-    } else if (filters.showFavoritesOnly) {
-      // Favorites don't need clearing as they're static
-    } else {
-      setAllCapes([]);
-      setAllPagination(null);
-    }
     setCurrentPage(0);
+
+    if (!isLoadingRef.current) {
+      if (searchQuery && searchQuery.trim() !== "") {
+        // When searching, clear search results and reload
+        setAllCapes([]);
+        setAllPagination(null);
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, searchQuery, false).finally(() => {
+          setIsLoadingAll(false);
+        });
+      } else if (filters.showOwnedOnly) {
+        setMyCapes([]);
+        setMyPagination(null);
+        setIsLoadingMy(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingMy(false);
+        });
+      } else if (!filters.showFavoritesOnly) {
+        setAllCapes([]);
+        setAllPagination(null);
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingAll(false);
+        });
+      }
+      // Favorites don't need clearing as they're computed from existing data
+    }
   };
 
   const handleEquipCape = async (capeHash: string) => {
@@ -578,6 +646,13 @@ export function CapeBrowser(): JSX.Element {
                 setFilters(newFilters);
                 setSearchQuery("");
                 setCurrentPage(0);
+                // Trigger reload of ALL capes data
+                if (!isLoadingRef.current) {
+                  setIsLoadingAll(true);
+                  fetchCapesData(0, newFilters, "", false).finally(() => {
+                    setIsLoadingAll(false);
+                  });
+                }
               }}
               className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
                 !filters.showOwnedOnly && !filters.showFavoritesOnly
@@ -599,6 +674,13 @@ export function CapeBrowser(): JSX.Element {
                 setFilters(newFilters);
                 setSearchQuery("");
                 setCurrentPage(0);
+                // Trigger reload of MY capes data
+                if (!isLoadingRef.current && activeAccount) {
+                  setIsLoadingMy(true);
+                  fetchCapesData(0, newFilters, "", false).finally(() => {
+                    setIsLoadingMy(false);
+                  });
+                }
               }}
               disabled={!activeAccount}
               className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
@@ -621,6 +703,7 @@ export function CapeBrowser(): JSX.Element {
                 setFilters(newFilters);
                 setSearchQuery("");
                 setCurrentPage(0);
+                // Favorites are computed from existing data, no reload needed
               }}
               className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
                 filters.showFavoritesOnly
@@ -645,6 +728,7 @@ export function CapeBrowser(): JSX.Element {
                 placeholder="Search player..."
                 searchValue={searchQuery}
                 onSearchChange={handleSearchChange}
+                onSearchEnter={handleSearchEnter}
                 sortOptions={sortOptions}
                 sortValue={filters.sortBy || ""}
                 onSortChange={handleSortChange}
@@ -692,7 +776,7 @@ export function CapeBrowser(): JSX.Element {
           isLoading={isLoading}
           isEquippingCapeId={isEquippingCapeId}
           searchQuery={searchQuery}
-          canDelete={filters.showOwnedOnly && !!activeAccount}
+          canDelete={(filters.showOwnedOnly && !!activeAccount) && !(searchQuery && searchQuery.trim() !== "")}
           onDeleteCape={handleDeleteCapeClick}
           loadMoreItems={loadMoreCapes}
           hasMoreItems={hasMoreItems}

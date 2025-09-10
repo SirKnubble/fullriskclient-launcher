@@ -12,6 +12,8 @@ export interface SearchWithFiltersProps {
   searchValue?: string;
   /** Callback when search value changes */
   onSearchChange?: (value: string) => void;
+  /** Callback when Enter is pressed in search input */
+  onSearchEnter?: (value: string) => void;
   /** Sort options for the sort dropdown */
   sortOptions?: DropdownOption[];
   /** Current sort value */
@@ -38,6 +40,7 @@ export function SearchWithFilters({
   placeholder = "Search...",
   searchValue = "",
   onSearchChange,
+  onSearchEnter,
   sortOptions = [],
   sortValue = "",
   onSortChange,
@@ -53,6 +56,12 @@ export function SearchWithFilters({
     onSearchChange?.(e.target.value);
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && onSearchEnter) {
+      onSearchEnter(searchValue);
+    }
+  };
+
   return (
     <div className={`flex items-center gap-4 ${className}`}>
       {/* Search with integrated filters */}
@@ -63,6 +72,7 @@ export function SearchWithFilters({
           placeholder={placeholder}
           value={searchValue}
           onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
           className="bg-transparent text-white placeholder-white/50 font-minecraft-ten text-sm flex-1 outline-none"
         />
         
