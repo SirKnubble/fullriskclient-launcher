@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  ReactNode,
 } from "react";
 import type { CosmeticCape } from "../../types/noriskCapes";
 import { EmptyState } from "../ui/EmptyState";
@@ -23,6 +24,7 @@ import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import gsap from "gsap";
 import { IconButton } from "../ui/buttons/IconButton";
 import { useCapeFavoritesStore } from "../../store/useCapeFavoritesStore";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
 
 
 const ListComponent = React.forwardRef<
@@ -56,6 +58,9 @@ interface CapeItemDisplayProps {
   onDeleteCapeClick?: (cape: CosmeticCape, e: React.MouseEvent) => void;
   creatorNameCache: Map<string, string>;
   onContextMenu?: (e: React.MouseEvent) => void;
+  activeAccount?: any;
+  showModal?: (id: string, component: ReactNode) => void;
+  hideModal?: (id: string) => void;
 }
 
 function CapeItemDisplay({
@@ -67,9 +72,38 @@ function CapeItemDisplay({
   onDeleteCapeClick,
   creatorNameCache,
   onContextMenu,
+  activeAccount,
+  showModal,
+  hideModal,
 }: CapeItemDisplayProps) {
+  const handleCapeClick = useCallback(() => {
+    if (isCurrentlyEquipping || !showModal) return;
+
+    const userSkinUrl = activeAccount?.id
+      ? `https://crafatar.com/skins/${activeAccount.id}`
+      : undefined;
+
+    showModal(`cape-preview-${cape._id}`, (
+      <Modal
+        title="Cape Preview"
+        onClose={() => hideModal && hideModal(`cape-preview-${cape._id}`)}
+        width="md"
+        variant="flat"
+      >
+        <Cape3DPreviewWithToggle
+          skinUrl={userSkinUrl}
+          capeId={cape._id}
+          onEquipCape={() => {
+            onEquipCape(cape._id);
+            hideModal && hideModal(`cape-preview-${cape._id}`);
+          }}
+        />
+      </Modal>
+    ));
+  }, [cape._id, isCurrentlyEquipping, activeAccount, showModal, hideModal, onEquipCape]);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [creatorLoading, setCreatorLoading] = useState<boolean>(false);
+  const [isHovered, setIsHovered] = useState(false);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isFavorite = useCapeFavoritesStore((s) => s.isFavorite(cape._id));
   const toggleFavoriteOptimistic = useCapeFavoritesStore((s) => s.toggleFavoriteOptimistic);
@@ -111,170 +145,129 @@ function CapeItemDisplay({
     };
   }, [cape.firstSeen, creatorNameCache]);
 
-  const capeImageWidth = 140;
-  const capeImageHeight = Math.round(capeImageWidth * (16 / 10));
+  // Use consistent dimensions like original CapeDisplay
+  const displayWidth = 140;
+  const displayHeight = Math.round(displayWidth * (16 / 10)); // 16:10 aspect ratio for capes
 
+  // Grid layout (similar to ProfileCardV2 grid mode)
   return (
-    <Card
-      className="flex flex-col items-center group cursor-pointer h-full justify-between transition-all duration-300 ease-out hover:scale-105 hover:z-10"
-      onClick={() => !isCurrentlyEquipping && onEquipCape(cape._id)}
-      onContextMenu={onContextMenu}
-      variant="flat"
+    <div
+      className="relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 cursor-pointer"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        e.preventDefault();
+        handleCapeClick();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        handleCapeClick();
+      }}
     >
-      {isCurrentlyEquipping && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-md z-30">
-          <Icon
-            icon="solar:refresh-bold"
-            className="w-10 h-10 animate-spin mb-2"
-            style={{ color: accentColor.value }}
-          />
-          <span className="font-minecraft text-base text-white lowercase">
-            Equipping
-          </span>
-        </div>
-      )}
-
-      <div className={cn("absolute top-1.5 z-20 transition-opacity", canDelete ? "right-7" : "right-1.5", isFavorite ? "opacity-100" : "opacity-0 group-hover:opacity-100")}
-      >
+      {/* Action buttons - top right */}
+      <div className={`absolute top-3 right-3 z-20 flex flex-col gap-1`}>
+        {/* Favorite button */}
         <button
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             toggleFavoriteOptimistic(cape._id);
           }}
-          className="m-0"
+          className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
           title={isFavorite ? "Unfavorite" : "Favorite"}
           disabled={isCurrentlyEquipping}
         >
           <Icon
             icon={isFavorite ? "ph:heart-fill" : "ph:heart"}
-            className="w-5 h-5"
-            style={{ color: "#ef4444" }}
+            className="w-4 h-4"
+            style={{ color: isFavorite ? "#ef4444" : undefined }}
           />
         </button>
-      </div>
 
-      <p
-        className="font-minecraft-ten text-white lowercase truncate text-sm w-full text-center h-6 flex items-center justify-center mb-1 transition-transform duration-300 ease-out group-hover:scale-110"
-        style={{ minHeight: "24px" }}
-        title={creatorName || cape.firstSeen}
-      >
-        {creatorLoading ? "Loading..." : creatorName || "-"}
-      </p>
-
-      <div
-        className="relative transition-transform duration-300 ease-out group-hover:scale-105"
-        style={{ width: `${capeImageWidth}px`, height: `${capeImageHeight}px` }}
-      >
-        <CapeImage
-          imageUrl={imageUrl}
-          part="front"
-          width={capeImageWidth}
-          className="rounded-sm block"
-        />
-      </div>
-
-      <p
-        className="font-minecraft-ten text-white/70 text-xs w-full text-center mt-1 h-5 flex items-center justify-center transition-transform duration-300 ease-out group-hover:scale-110"
-        title={`Used ${cape.uses.toLocaleString()} times`}
-      >
-        <Icon
-          icon="solar:download-minimalistic-outline"
-          className="w-3 h-3 mr-1 text-white/50"
-        />
-        {cape.uses.toLocaleString()}
-      </p>
-
-      {canDelete && onDeleteCapeClick && (
-        <button
-          onClick={(e) => onDeleteCapeClick(cape, e)}
-          className="absolute top-1.5 right-1.5 p-0.5 bg-black/60 hover:bg-red-700/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-20 m-0"
-          title="Delete Cape"
-          disabled={isCurrentlyEquipping}
-        >
-          <Icon
-            icon="solar:close-circle-bold"
-            className="w-4 h-4 text-white/80 hover:text-white"
-          />
-        </button>
-      )}
-    </Card>
-  );
-}
-
-interface AddCapeCardProps {
-  onClick: () => void;
-  onDownloadTemplate?: () => void;
-}
-
-function AddCapeCard({ onClick, onDownloadTemplate }: AddCapeCardProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const accentColor = useThemeStore((state) => state.accentColor);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 50); 
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest(".download-template-button")) {
-      return;
-    }
-    onClick();
-  };
-
-  return (
-    <Card
-      className="flex flex-col items-center justify-between group cursor-pointer h-full border-dashed relative min-h-[300px] transition-all duration-300 ease-out hover:scale-105 hover:z-10"
-      onClick={handleCardClick}
-      variant="flat"
-    >
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center flex-grow transition-opacity duration-300 ease-in-out p-3",
-          isVisible ? "opacity-100" : "opacity-0",
-        )}
-      >
-        <Icon
-          icon="solar:add-square-bold-duotone"
-          className="w-16 h-16 opacity-70 group-hover:opacity-100 transition-opacity"
-          style={{ color: accentColor.value }}
-        />
-        <p className="font-minecraft lowercase text-2xl text-white/70 mt-2 transition-transform duration-300 ease-out group-hover:scale-110">
-          Add Cape
-        </p>
-      </div>
-      {onDownloadTemplate && (
-        <Button
-          onClick={(e) => {
-            e.stopPropagation(); 
-            onDownloadTemplate();
-          }}
-          className="download-template-button w-full mt-2 cursor-pointer rounded-md transition-colors duration-150 group/template-btn"
-          variant="ghost"
-          size="md"
-        >
-          <div className="flex items-center justify-center gap-2">
+        {/* Delete button (only if canDelete) */}
+        {canDelete && onDeleteCapeClick && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDeleteCapeClick(cape, e);
+            }}
+            className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-red-700/80 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
+            title="Delete Cape"
+            disabled={isCurrentlyEquipping}
+          >
             <Icon
-              icon="solar:download-minimalistic-bold"
-              className="w-4 h-4 transition-colors duration-150"
-              style={{ color: accentColor.value }}
+              icon="solar:close-circle-bold"
+              className="w-4 h-4"
             />
-            <span className="font-minecraft text-xl transition-colors duration-150 lowercase">
-              TEMPLATE
-            </span>
+          </button>
+        )}
+      </div>
+
+      {/* Cape content */}
+      <div className="flex flex-col items-center gap-3 relative z-10 w-full">
+        {/* Cape Image */}
+        <div
+          className="relative flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border-2 transition-all duration-300 ease-out"
+          style={{
+            width: `${displayWidth}px`,
+            height: `${displayHeight}px`,
+            backgroundColor: isHovered ? `${accentColor.value}20` : 'transparent',
+            borderColor: isHovered ? `${accentColor.value}60` : 'transparent',
+          }}
+        >
+          <CapeImage
+            imageUrl={imageUrl}
+            part="front"
+            width={displayWidth}
+            className="rounded-sm block"
+          />
+
+          {/* Equipping overlay */}
+          {isCurrentlyEquipping && (
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg">
+              <Icon
+                icon="solar:refresh-bold"
+                className="w-8 h-8 animate-spin mb-1"
+                style={{ color: accentColor.value }}
+              />
+              <span className="font-minecraft text-xs text-white lowercase">
+                Equipping
+              </span>
+            </div>
+          )}
+
+        </div>
+
+        {/* Cape Info */}
+        <div className="flex-grow min-w-0 w-full text-center">
+          {/* Creator Name */}
+          <h3
+            className="font-minecraft-ten text-white text-base whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case mb-1"
+            title={creatorName || cape.firstSeen}
+          >
+            {creatorLoading ? "Loading..." : creatorName || "Unknown"}
+          </h3>
+
+          {/* Usage Stats */}
+          <div className="flex items-center justify-center gap-2 text-xs font-minecraft-ten">
+            <div className="text-white/60 flex items-center gap-1">
+              <Icon
+                icon="solar:download-minimalistic-outline"
+                className="w-3 h-3 text-white/50"
+              />
+              <span>{cape.uses.toLocaleString()} uses</span>
+            </div>
           </div>
-        </Button>
-      )}
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
-export const ADD_CAPE_PLACEHOLDER_ID = "__ADD_CAPE_PLACEHOLDER__";
 
 export interface CapeListProps {
-  capes: (CosmeticCape | { _id: typeof ADD_CAPE_PLACEHOLDER_ID })[];
+  capes: CosmeticCape[];
   onEquipCape: (capeHash: string) => void;
   isLoading?: boolean;
   isEquippingCapeId?: string | null;
@@ -306,19 +299,14 @@ export function CapeList({
 }: CapeListProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
+  const { showModal, hideModal } = useGlobalModal();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     cape: CosmeticCape | null;
   } | null>(null);
-  const [show3DPreview, setShow3DPreview] = useState<{
-    cape: CosmeticCape;
-  } | null>(null);
   const authStore = useMinecraftAuthStore();
   const activeAccount = authStore.activeAccount;
-  const userSkinUrl = activeAccount?.id
-    ? `https://crafatar.com/skins/${activeAccount.id}`
-    : undefined;
 
   const [isDebouncedLoading, setIsDebouncedLoading] = useState(false);
   const debouncedLoadingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -328,10 +316,7 @@ export function CapeList({
   const favoriteCapeIds = useCapeFavoritesStore((s) => s.favoriteCapeIds);
   const favoriteCapes = useMemo(() => {
     const setIds = new Set(favoriteCapeIds);
-    return capes
-      .filter((c) => c._id !== ADD_CAPE_PLACEHOLDER_ID)
-      .map((c) => c as CosmeticCape)
-      .filter((c) => setIds.has(c._id));
+    return capes.filter((c) => setIds.has(c._id));
   }, [capes, favoriteCapeIds]);
 
   const [favoriteCapesFetched, setFavoriteCapesFetched] = useState<Map<string, CosmeticCape>>(new Map());
@@ -377,9 +362,7 @@ export function CapeList({
 
   useEffect(() => {
 
-    const actualCapesCount = capes.filter(
-      (c) => c._id !== ADD_CAPE_PLACEHOLDER_ID,
-    ).length;
+    const actualCapesCount = capes.length;
     const showLoadingSkeleton =
       isLoading && actualCapesCount === 0 && !searchQuery;
 
@@ -415,13 +398,10 @@ export function CapeList({
   );
 
   const itemsToRender = useMemo(() => {
+    if (!groupFavoritesInHeader) return capes;
     const favoriteIdsSet = new Set(favoriteCapeIds);
-    return capes.filter((item) => {
-      if (item._id === ADD_CAPE_PLACEHOLDER_ID) return !groupFavoritesInHeader || favoriteCapes.length === 0;
-      if (!groupFavoritesInHeader) return true;
-      return !favoriteIdsSet.has((item as CosmeticCape)._id);
-    });
-  }, [capes, favoriteCapeIds, favoriteCapes.length, groupFavoritesInHeader]);
+    return capes.filter((item) => !favoriteIdsSet.has(item._id));
+  }, [capes, favoriteCapeIds, groupFavoritesInHeader]);
 
   const virtuosoComponents = useMemo(
     () => ({
@@ -450,12 +430,6 @@ export function CapeList({
                 paddingBottom: 0,
               }}
             >
-              {onTriggerUpload && (
-                <AddCapeCard
-                  onClick={onTriggerUpload}
-                  onDownloadTemplate={onDownloadTemplate}
-                />
-              )}
               {allFavoriteCapesForHeader.map((cape) => {
                 const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
                 return (
@@ -469,6 +443,9 @@ export function CapeList({
                     onDeleteCapeClick={handleDeleteClickInternal}
                     creatorNameCache={creatorNameCacheRef.current}
                     onContextMenu={(e) => handleCapeContextMenu(cape, e)}
+                    activeAccount={activeAccount}
+                    showModal={(id, component) => showModal(id, component)}
+                    hideModal={(id) => hideModal(id)}
                   />
                 );
               })}
@@ -541,11 +518,9 @@ export function CapeList({
   );
 
   const handlePreview3D = useCallback(() => {
-    if (contextMenu?.cape) {
-      setShow3DPreview({ cape: contextMenu.cape });
-      setContextMenu(null);
-    }
-  }, [contextMenu]);
+    // Preview is now handled by direct click, this function is kept for potential future use
+    setContextMenu(null);
+  }, []);
 
   if (isDebouncedLoading) {
     return (
@@ -566,18 +541,8 @@ export function CapeList({
   }
 
 
-  const noActualCapesToDisplay =
-    itemsToRender.filter((item) => item._id !== ADD_CAPE_PLACEHOLDER_ID)
-      .length === 0;
-  const addCapeCardIsPresent = itemsToRender.some(
-    (item) => item._id === ADD_CAPE_PLACEHOLDER_ID,
-  );
-
-  if (
-    !isLoading &&
-    noActualCapesToDisplay &&
-    !(addCapeCardIsPresent && onTriggerUpload)
-  ) {
+  const noActualCapesToDisplay = itemsToRender.length === 0;
+  if (!isLoading && noActualCapesToDisplay) {
     return (
       <div className="flex-grow flex items-center justify-center p-5">
         <EmptyState
@@ -615,15 +580,6 @@ export function CapeList({
         overscan={200}
         components={virtuosoComponents}
         itemContent={(index, item) => {
-          if (item._id === ADD_CAPE_PLACEHOLDER_ID) {
-            if (!onTriggerUpload) return null;
-            return (
-              <AddCapeCard
-                onClick={onTriggerUpload}
-                onDownloadTemplate={onDownloadTemplate}
-              />
-            );
-          }
           const cape = item as CosmeticCape;
           const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
           return (
@@ -637,6 +593,9 @@ export function CapeList({
               onDeleteCapeClick={handleDeleteClickInternal}
               creatorNameCache={creatorNameCacheRef.current}
               onContextMenu={(e) => handleCapeContextMenu(cape, e)}
+              activeAccount={activeAccount}
+              showModal={(id, component) => showModal(id, component)}
+              hideModal={(id) => hideModal(id)}
             />
           );
         }}
@@ -675,52 +634,61 @@ export function CapeList({
           </ul>
         </div>
       )}
-      {show3DPreview && (
-        <Modal
-          title="3D Skin Preview"
-          onClose={() => setShow3DPreview(null)}
-          width="lg"
-          variant="flat"
-        >
-          <Cape3DPreviewWithToggle
-            skinUrl={userSkinUrl}
-            capeId={show3DPreview.cape._id}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
 
-function Cape3DPreviewWithToggle({ skinUrl, capeId }: { skinUrl?: string; capeId: string }) {
+function Cape3DPreviewWithToggle({
+  skinUrl,
+  capeId,
+  onEquipCape
+}: {
+  skinUrl?: string;
+  capeId: string;
+  onEquipCape: () => void;
+}) {
   const [showElytra, setShowElytra] = useState(false);
+
   return (
-    <div style={{ width: 300, height: 380, margin: "0 auto", position: "relative" }}>
-      <IconButton
-        onClick={() => setShowElytra((v) => !v)}
-        variant="ghost"
-        size="sm"
-        className="absolute top-2 right-2 z-10"
-        icon={
-          <Icon
-            icon={showElytra ? "ph:airplane-tilt-fill" : "ph:airplane-tilt-duotone"}
-            className="w-5 h-5"
-          />
-        }
-        title={showElytra ? "Show as Cape" : "Show as Elytra"}
-        aria-label={showElytra ? "Show as Cape" : "Show as Elytra"}
-      />
-      <SkinView3DWrapper
-        skinUrl={skinUrl}
-        capeUrl={`https://cdn.norisk.gg/capes/prod/${capeId}.png`}
-        enableAutoRotate={true}
-        autoRotateSpeed={0.5}
-        startFromBack={true}
-        zoom={0.9}
-        displayAsElytra={showElytra}
-        width={300}
-        height={380}
-      />
+    <div className="p-4">
+      <div style={{ width: 300, height: 380, margin: "0 auto", position: "relative" }}>
+        <IconButton
+          onClick={() => setShowElytra((v) => !v)}
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 z-10"
+          icon={
+            <Icon
+              icon={showElytra ? "ph:airplane-tilt-fill" : "ph:airplane-tilt-duotone"}
+              className="w-5 h-5"
+            />
+          }
+          title={showElytra ? "Show as Cape" : "Show as Elytra"}
+          aria-label={showElytra ? "Show as Cape" : "Show as Elytra"}
+        />
+        <SkinView3DWrapper
+          skinUrl={skinUrl}
+          capeUrl={`https://cdn.norisk.gg/capes/prod/${capeId}.png`}
+          enableAutoRotate={true}
+          autoRotateSpeed={0.5}
+          startFromBack={true}
+          zoom={0.9}
+          displayAsElytra={showElytra}
+          width={300}
+          height={380}
+        />
+      </div>
+
+      <div className="flex justify-center mt-4">
+        <Button
+          onClick={onEquipCape}
+          variant="flat"
+          size="lg"
+          className="px-8"
+        >
+          SELECT CAPE
+        </Button>
+      </div>
     </div>
   );
 }

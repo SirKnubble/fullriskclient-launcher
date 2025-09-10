@@ -17,8 +17,8 @@ import type {
   GetPlayerCapesPayloadOptions,
   PaginationInfo,
 } from "../../types/noriskCapes";
-import { ADD_CAPE_PLACEHOLDER_ID, CapeList } from "./CapeList";
-import { CapeFilters, type CapeFiltersData } from "./CapeFilters";
+import { CapeList } from "./CapeList";
+import type { CapeFiltersData } from "./CapeFilters";
 import { Icon } from "@iconify/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -27,7 +27,8 @@ import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
 import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
-import { TabLayout } from "../ui/TabLayout";
+import { SearchWithFilters } from "../ui/SearchWithFilters";
+import { useThemeStore } from "../../store/useThemeStore";
 import { preloadIcons } from "../../lib/icon-utils";
 
 export function CapeBrowser() {
@@ -49,6 +50,21 @@ export function CapeBrowser() {
     showOwnedOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const accentColor = useThemeStore((state) => state.accentColor);
+
+  // Filter options for SearchWithFilters
+  const sortOptions = [
+    { value: "", label: "Newest", icon: "solar:sort-by-time-linear" },
+    { value: "oldest", label: "Oldest", icon: "mdi:arrow-up-bold-circle-outline" },
+    { value: "mostUsed", label: "Most Used", icon: "solar:heart-bold" },
+  ];
+
+  const filterOptions = [
+    { value: "", label: "All Time", icon: "solar:calendar-mark-linear" },
+    { value: "weekly", label: "Weekly", icon: "mdi:calendar-week-outline" },
+    { value: "monthly", label: "Monthly", icon: "solar:calendar-date-linear" },
+  ];
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewImagePath, setPreviewImagePath] = useState<string | null>(null);
@@ -201,11 +217,9 @@ export function CapeBrowser() {
     }
   }, [hasMoreItems, isFetchingMore, paginationInfo, currentPage]);
 
-  const handleFilterChange = (newFilters: CapeFiltersData) => {
-    const hasMajorFilterChanged =
-      newFilters.sortBy !== filters.sortBy ||
-      newFilters.timeFrame !== filters.timeFrame ||
-      newFilters.showOwnedOnly !== filters.showOwnedOnly;
+  const handleSortChange = (value: string) => {
+    const newFilters = { ...filters, sortBy: value || undefined };
+    const hasMajorFilterChanged = newFilters.sortBy !== filters.sortBy;
 
     setFilters(newFilters);
     if (hasMajorFilterChanged) {
@@ -216,11 +230,24 @@ export function CapeBrowser() {
     }
   };
 
-  const handleSearchSubmit = (term: string) => {
-    const newSearchQuery = term.trim();
-    setSearchQuery(newSearchQuery);
+  const handleFilterChange = (value: string) => {
+    const newFilters = { ...filters, timeFrame: value || undefined };
+    const hasMajorFilterChanged = newFilters.timeFrame !== filters.timeFrame;
+
+    setFilters(newFilters);
+    if (hasMajorFilterChanged) {
+      setSearchQuery("");
+      setCurrentPage(0);
+    } else if (currentPage !== 0) {
+      setCurrentPage(0);
+    }
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
     setCurrentPage(0);
   };
+
 
   const refreshCurrentView = () => {
     console.log("[CapeBrowser] Refreshing current view...");
@@ -365,44 +392,126 @@ export function CapeBrowser() {
   };
 
   const capesForList = useMemo(() => {
-    const items: (CosmeticCape | { _id: typeof ADD_CAPE_PLACEHOLDER_ID })[] = [
-      ...capesData,
-    ];
-    if (activeAccount) {
-      items.unshift({ _id: ADD_CAPE_PLACEHOLDER_ID });
-    }
-    return items;
-  }, [capesData, activeAccount]);
-
-  const actionButtons = (
-    <CapeFilters
-      onFilterChange={handleFilterChange}
-      currentFilters={filters}
-      onSearchSubmit={handleSearchSubmit}
-    />
-  );
+    return [...capesData];
+  }, [capesData]);
 
   return (
-    <TabLayout
-      title="Capes"
-      icon="ph:paint-roller-bold"
-      actions={actionButtons}
-    >
-      <CapeList
-        capes={capesForList}
-        onEquipCape={handleEquipCape}
-        isLoading={isLoading}
-        isEquippingCapeId={isEquippingCapeId}
-        searchQuery={searchQuery}
-        canDelete={filters.showOwnedOnly && !!activeAccount}
-        onDeleteCape={handleDeleteCapeClick}
-        loadMoreItems={loadMoreCapes}
-        hasMoreItems={hasMoreItems}
-        isFetchingMore={isFetchingMore}
-        onTriggerUpload={activeAccount ? handleUploadClick : undefined}
-        onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
-        groupFavoritesInHeader={!filters.showOwnedOnly}
-      />
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Group Tabs */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                const newFilters = { ...filters, showOwnedOnly: false };
+                setFilters(newFilters);
+                setSearchQuery("");
+                setCurrentPage(0);
+              }}
+              className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                !filters.showOwnedOnly
+                  ? 'text-white'
+                  : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+              }`}
+              style={{
+                backgroundColor: !filters.showOwnedOnly ? `${accentColor.value}20` : undefined,
+                borderColor: !filters.showOwnedOnly ? accentColor.value : undefined,
+              }}
+            >
+              <span className="lowercase">all</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!activeAccount) return;
+                const newFilters = { ...filters, showOwnedOnly: true };
+                setFilters(newFilters);
+                setSearchQuery("");
+                setCurrentPage(0);
+              }}
+              disabled={!activeAccount}
+              className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                filters.showOwnedOnly
+                  ? 'text-white'
+                  : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+              } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
+              style={{
+                backgroundColor: filters.showOwnedOnly ? `${accentColor.value}20` : undefined,
+                borderColor: filters.showOwnedOnly ? accentColor.value : undefined,
+              }}
+              title={!activeAccount ? "No active Minecraft account" : undefined}
+            >
+              <Icon icon="solar:user-id-broken" className="w-4 h-4" />
+              <span className="lowercase">my capes</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Filters */}
+        <div className="mb-6 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <SearchWithFilters
+                placeholder="Search player..."
+                searchValue={searchQuery}
+                onSearchChange={handleSearchChange}
+                sortOptions={sortOptions}
+                sortValue={filters.sortBy || ""}
+                onSortChange={handleSortChange}
+                filterOptions={filterOptions}
+                filterValue={filters.timeFrame || ""}
+                onFilterChange={handleFilterChange}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              {activeAccount && (
+                <>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                    title="Download Cape Template"
+                  >
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <Icon icon="solar:download-bold" className="w-4 h-4" />
+                    </div>
+                    <span>template</span>
+                  </button>
+
+                  <button
+                    onClick={handleUploadClick}
+                    className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                    title="Upload Cape"
+                  >
+                    <div className="w-4 h-4 flex items-center justify-center">
+                      <Icon icon="solar:upload-bold" className="w-4 h-4" />
+                    </div>
+                    <span>upload</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cape List */}
+        <CapeList
+          capes={capesForList}
+          onEquipCape={handleEquipCape}
+          isLoading={isLoading}
+          isEquippingCapeId={isEquippingCapeId}
+          searchQuery={searchQuery}
+          canDelete={filters.showOwnedOnly && !!activeAccount}
+          onDeleteCape={handleDeleteCapeClick}
+          loadMoreItems={loadMoreCapes}
+          hasMoreItems={hasMoreItems}
+          isFetchingMore={isFetchingMore}
+          onTriggerUpload={activeAccount ? handleUploadClick : undefined}
+          onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
+          groupFavoritesInHeader={!filters.showOwnedOnly}
+        />
+      </div>
 
       {previewImageUrl && previewImagePath && showPreviewModal && (
         <Modal
@@ -514,6 +623,6 @@ export function CapeBrowser() {
           </div>
         </Modal>
       )}
-    </TabLayout>
+    </div>
   );
 }
