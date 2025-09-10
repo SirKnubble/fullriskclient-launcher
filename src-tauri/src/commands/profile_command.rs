@@ -160,12 +160,14 @@ pub async fn launch_profile(
     id: Uuid,
     quick_play_singleplayer: Option<String>,
     quick_play_multiplayer: Option<String>,
+    migration_info: Option<profile_utils::MigrationInfo>,
 ) -> Result<(), CommandError> {
     log::info!(
-        "[Command] launch_profile called for ID: {}. QuickPlay Single: {:?}, QuickPlay Multi: {:?}",
+        "[Command] launch_profile called for ID: {}. QuickPlay Single: {:?}, QuickPlay Multi: {:?}, Migration: {:?}",
         id,
         quick_play_singleplayer,
-        quick_play_multiplayer
+        quick_play_multiplayer,
+        migration_info.is_some()
     );
 
     let state = State::get().await?;
@@ -277,6 +279,7 @@ pub async fn launch_profile(
     // Clone Quick Play parameters for the spawned task
     let quick_play_sp_clone = final_quick_play_sp.clone();
     let quick_play_mp_clone = final_quick_play_mp.clone();
+    let migration_info_clone = migration_info.clone();
 
     // Log if Quick Play is being used
     if final_quick_play_sp.is_some() {
@@ -302,6 +305,7 @@ pub async fn launch_profile(
             credentials,
             quick_play_sp_clone,
             quick_play_mp_clone,
+            migration_info_clone,
         )
         .await;
 
@@ -2176,46 +2180,6 @@ pub async fn check_for_group_migration_command(profile_id: Uuid) -> Result<Migra
     Ok(migration_info)
 }
 
-/// Executes a group migration based on migration info
-#[tauri::command]
-pub async fn execute_group_migration(migration_info: profile_utils::MigrationInfo) -> Result<(), CommandError> {
-    use crate::utils::path_utils;
-
-    info!("Executing group migration: {:?}", migration_info);
-
-    match migration_info.direction {
-        profile_utils::MigrationDirection::None => {
-            info!("No migration needed");
-            Ok(())
-        },
-        profile_utils::MigrationDirection::FromInstanceToGroup | profile_utils::MigrationDirection::FromGroupToInstance => {
-            let source_path = migration_info.source_path.ok_or_else(|| CommandError::from(AppError::Other("Missing source path".to_string())))?;
-            let target_path = migration_info.target_path.ok_or_else(|| CommandError::from(AppError::Other("Missing target path".to_string())))?;
-
-            let source = std::path::Path::new(&source_path);
-            let target = std::path::Path::new(&target_path);
-
-            if !source.exists() {
-                return Err(CommandError::from(AppError::Other(format!("Source path does not exist: {}", source_path))));
-            }
-
-            // Add 10 second delay to show the toast longer
-            info!("Waiting 10 seconds before starting migration...");
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-            info!("Starting migration after delay");
-
-            // Get semaphore from global state for parallel copying
-            let state = crate::state::State::get().await?;
-            let semaphore = state.io_semaphore.clone();
-
-            // Copy directory recursively using the optimized path_utils function
-            path_utils::copy_dir_recursively(source, target, semaphore).await?;
-            info!("Successfully migrated from {} to {}", source_path, target_path);
-
-            Ok(())
-        }
-    }
-}
 
 #[tauri::command]
 pub async fn purge_trash(max_age_seconds: Option<u64>) -> Result<u64, CommandError> {

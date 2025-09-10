@@ -592,7 +592,7 @@ async fn emit_reuse_progress(
 }
 
 /// Helper function to emit progress events for the initial data copy
-async fn emit_copy_progress(
+pub async fn emit_copy_progress(
     state: &State,
     profile_id: Uuid,
     message: &str,

@@ -38,6 +38,9 @@ pub enum EventType {
     Error,
     LaunchSuccessful,
     CrashReportContentAvailable,
+    MigrationStarted,
+    MigrationCompleted,
+    MigrationFailed,
 }
 
 #[derive(Serialize, Clone)]

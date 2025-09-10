@@ -1,6 +1,7 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result}; // Dein Result- und Fehlertyp
 use crate::integrations::norisk_packs::{get_norisk_pack_mod_filename, NoriskModEntryDefinition};
+use crate::state::State;
 use futures::future::try_join_all; // Added for joining futures
 use log::{error, info, warn};
 use std::path::{Path, PathBuf};
@@ -778,4 +779,77 @@ pub async fn copy_dir_recursively(src: &Path, dst: &Path, semaphore: Arc<Semapho
     );
 
     Ok(())
+}
+
+/// Counts files recursively in a directory
+pub async fn count_files_recursively(dir_path: &Path) -> Result<usize> {
+    let mut count = 0;
+    let mut dirs_to_check = vec![dir_path.to_path_buf()];
+
+    while let Some(current_dir) = dirs_to_check.pop() {
+        let mut entries = fs::read_dir(&current_dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let file_type = entry.file_type().await?;
+            if file_type.is_file() {
+                count += 1;
+            } else if file_type.is_dir() {
+                dirs_to_check.push(entry.path());
+            }
+        }
+    }
+
+    Ok(count)
+}
+
+/// Copies directory with progress events for each file
+pub async fn copy_dir_with_progress(
+    source: &Path,
+    target: &Path,
+    semaphore: Arc<Semaphore>,
+    progress_counter: Arc<tokio::sync::Mutex<usize>>,
+    state: &State,
+    profile_id: Uuid,
+    total_files: usize,
+) -> Result<()> {
+    use crate::utils::mc_utils::emit_copy_progress;
+
+    async fn copy_recursive(
+        src: &Path,
+        dst: &Path,
+        semaphore: Arc<Semaphore>,
+        progress_counter: Arc<tokio::sync::Mutex<usize>>,
+        state: &State,
+        profile_id: Uuid,
+        total_files: usize,
+    ) -> Result<()> {
+        // Create destination directory
+        fs::create_dir_all(dst).await?;
+
+        let mut entries = fs::read_dir(src).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let entry_path = entry.path();
+            let dest_path = dst.join(entry.file_name());
+
+            if entry.file_type().await?.is_dir() {
+                // Recursively copy directory (boxed to avoid recursion issues)
+                Box::pin(copy_recursive(&entry_path, &dest_path, semaphore.clone(), progress_counter.clone(), state, profile_id, total_files)).await?;
+            } else {
+                // Copy file with progress update
+                let _permit = semaphore.acquire().await?;
+                fs::copy(&entry_path, &dest_path).await?;
+
+                // Update progress
+                let mut counter = progress_counter.lock().await;
+                *counter += 1;
+                let progress = 0.2 + (*counter as f64 / total_files as f64) * 0.8;
+                let message = format!("({}/{}) {}", *counter, total_files, entry.file_name().to_string_lossy());
+
+                // Send progress event for this file
+                emit_copy_progress(state, profile_id, &message, progress, None).await?;
+            }
+        }
+        Ok(())
+    }
+
+    copy_recursive(source, target, semaphore, progress_counter, state, profile_id, total_files).await
 }

@@ -1034,6 +1034,64 @@ pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo
     Ok(result)
 }
 
+/// Executes a group migration based on migration info
+pub async fn execute_group_migration(migration_info: MigrationInfo, profile_id: Option<Uuid>) -> Result<()> {
+    use crate::utils::mc_utils::emit_copy_progress;
+    use crate::utils::path_utils::{count_files_recursively, copy_dir_with_progress};
+    use std::sync::Arc;
+
+    info!("Executing group migration: {:?}", migration_info);
+
+    match migration_info.direction {
+        MigrationDirection::None => {
+            info!("No migration needed");
+            Ok(())
+        },
+        MigrationDirection::FromInstanceToGroup | MigrationDirection::FromGroupToInstance => {
+            let source_path = migration_info.source_path.ok_or_else(|| AppError::Other("Missing source path".to_string()))?;
+            let target_path = migration_info.target_path.ok_or_else(|| AppError::Other("Missing target path".to_string()))?;
+
+            let source = std::path::Path::new(&source_path);
+            let target = std::path::Path::new(&target_path);
+
+            if !source.exists() {
+                return Err(AppError::Other(format!("Source path does not exist: {}", source_path)));
+            }
+
+            // Get semaphore from global state for parallel copying
+            let state = State::get().await?;
+            let semaphore = state.io_semaphore.clone();
+
+            // Send progress event: Starting migration
+            let effective_profile_id = profile_id.unwrap_or(Uuid::nil());
+            emit_copy_progress(&state, effective_profile_id, "Preparing migration...", 0.1, None).await?;
+
+            // Add 10 second delay to show the toast longer
+            //info!("Waiting 10 seconds before starting migration...");
+            //tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+            // Count total files for progress tracking
+            let total_files = count_files_recursively(source).await?;
+            info!("Migration will copy {} files", total_files);
+
+            emit_copy_progress(&state, effective_profile_id, &format!("Copying {} files...", total_files), 0.2, None).await?;
+
+            // Copy with progress tracking
+            let progress_counter = Arc::new(tokio::sync::Mutex::new(0));
+            copy_dir_with_progress(source, target, semaphore, progress_counter.clone(), &state, effective_profile_id, total_files).await?;
+
+            //tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+            // Send progress event: Migration complete
+            emit_copy_progress(&state, effective_profile_id, "Migration completed!", 1.0, None).await?;
+
+            info!("Successfully migrated from {} to {}", source_path, target_path);
+
+            Ok(())
+        }
+    }
+}
+
 /// Exports a profile to a `.noriskpack` file
 ///
 /// This creates a zip archive with the .noriskpack extension that contains:

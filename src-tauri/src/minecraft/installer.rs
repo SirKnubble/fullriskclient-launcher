@@ -53,6 +53,7 @@ pub async fn install_minecraft_version(
     credentials: Option<Credentials>,
     quick_play_singleplayer: Option<String>,
     quick_play_multiplayer: Option<String>,
+    migration_info: Option<crate::utils::profile_utils::MigrationInfo>,
 ) -> Result<()> {
     // Convert string modloader to ModLoader enum
     let modloader_enum = match modloader_str {
@@ -102,6 +103,38 @@ pub async fn install_minecraft_version(
         info!("[InstallTest] Randomly decided NOT to throw test error. Proceeding normally.");
     }
     // <--- END HARDCODED TEST ERROR --- >
+
+    // Execute migration if provided
+    if let Some(migration) = &migration_info {
+        info!("[Launch] Executing migration before installation: {:?}", migration);
+
+        // Execute the migration (detailed progress events are sent from within execute_group_migration)
+        match crate::utils::profile_utils::execute_group_migration(migration.clone(), Some(profile.id)).await {
+            Ok(_) => {
+                info!("[Launch] Migration completed successfully");
+            }
+            Err(e) => {
+                error!("[Launch] Migration failed: {:?}", e);
+
+                // Send migration failed event
+                let migration_failed_payload = crate::state::event_state::EventPayload {
+                    event_id: uuid::Uuid::new_v4(),
+                    event_type: crate::state::event_state::EventType::MigrationFailed,
+                    target_id: Some(profile.id),
+                    message: format!("Migration failed: {:?}", e),
+                    progress: Some(0.0),
+                    error: Some(format!("{:?}", e)),
+                };
+
+                if let Err(e) = state.event_state.emit(migration_failed_payload).await {
+                    warn!("[Launch] Failed to emit migration failed event: {}", e);
+                }
+
+                // Return the error to stop the launch process
+                return Err(e);
+            }
+        }
+    }
 
     if let Some(world) = &quick_play_singleplayer {
         info!(

@@ -6,6 +6,7 @@ export enum EventType {
   ExtractingNatives = "extracting_natives",
   DownloadingAssets = "downloading_assets",
   ReusingMinecraftAssets = "reusing_minecraft_assets",
+  CopyingInitialData = "copying_initial_data",
   CopyingNoRiskClientAssets = "copying_norisk_client_assets",
   DownloadingNoRiskClientAssets = "downloading_norisk_client_assets",
   DownloadingClient = "downloading_client",
@@ -27,6 +28,9 @@ export enum EventType {
   Error = "error",
   LaunchSuccessful = "launch_successful",
   CrashReportContentAvailable = "crash_report_content_available",
+  MigrationStarted = "migration_started",
+  MigrationCompleted = "migration_completed",
+  MigrationFailed = "migration_failed",
 }
 
 export interface EventPayload {
