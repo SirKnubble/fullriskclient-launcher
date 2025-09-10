@@ -8,12 +8,13 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+import { useInView } from "react-intersection-observer";
 import type { CosmeticCape } from "../../types/noriskCapes";
 import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "@iconify/react";
 import { CapeImage } from "./CapeImage";
 import { getPlayerProfileByUuidOrName, getCapesByHashes } from "../../services/cape-service";
-import { VirtuosoGrid } from "react-virtuoso";
+// Removed VirtuosoGrid import - using native scrolling instead
 import { useThemeStore } from "../../store/useThemeStore";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/buttons/Button";
@@ -27,27 +28,7 @@ import { useCapeFavoritesStore } from "../../store/useCapeFavoritesStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 
 
-const ListComponent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ style, children, ...props }, ref) => {
-  return (
-    <div
-      ref={ref}
-      {...props}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-        gap: "16px",
-        padding: "16px",
-        ...style, 
-      }}
-    >
-      {children}
-    </div>
-  );
-});
-ListComponent.displayName = "VirtuosoGridList";
+// Removed ListComponent - using native grid layout instead
 
 interface CapeItemDisplayProps {
   cape: CosmeticCape;
@@ -308,24 +289,43 @@ export function CapeList({
   const authStore = useMinecraftAuthStore();
   const activeAccount = authStore.activeAccount;
 
-  const [isDebouncedLoading, setIsDebouncedLoading] = useState(false);
-  const debouncedLoadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const favoriteCapeIds = useCapeFavoritesStore((s) => s.favoriteCapeIds);
-  const favoriteCapes = useMemo(() => {
-    const setIds = new Set(favoriteCapeIds);
-    return capes.filter((c) => setIds.has(c._id));
-  }, [capes, favoriteCapeIds]);
-
   const [favoriteCapesFetched, setFavoriteCapesFetched] = useState<Map<string, CosmeticCape>>(new Map());
+
+  const favoriteCapes = useMemo(() => {
+    // Create maps for faster lookups - independent of main capes array
+    const capesMap = new Map(capes.map(cape => [cape._id, cape]));
+    const fetchedMap = favoriteCapesFetched;
+
+    // Build result by checking both sources
+    const result: CosmeticCape[] = [];
+    for (const id of favoriteCapeIds) {
+      // First try main capes list
+      let cape = capesMap.get(id);
+
+      // Then try fetched favorites
+      if (!cape) {
+        cape = fetchedMap.get(id);
+      }
+
+      if (cape) {
+        result.push(cape);
+      }
+    }
+
+    return result;
+  }, [favoriteCapeIds, favoriteCapesFetched, capes]); // Keep capes dependency but optimize the calculation
 
   const missingFavoriteIds = useMemo(() => {
     if (!groupFavoritesInHeader) return [] as string[];
     const presentIds = new Set(favoriteCapes.map((c) => c._id));
-    return favoriteCapeIds.filter((id) => !presentIds.has(id));
-  }, [favoriteCapeIds, favoriteCapes, groupFavoritesInHeader]);
+    const fetchedIds = new Set(favoriteCapesFetched.keys());
+    return favoriteCapeIds.filter((id) => !presentIds.has(id) && !fetchedIds.has(id));
+  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched, groupFavoritesInHeader]);
 
   useEffect(() => {
     if (!groupFavoritesInHeader) return;
@@ -345,131 +345,66 @@ export function CapeList({
       });
   }, [missingFavoriteIds, favoriteCapesFetched, groupFavoritesInHeader]);
 
-  const allFavoriteCapesForHeader = useMemo(() => {
-    if (!groupFavoritesInHeader) return [] as CosmeticCape[];
-    const present = favoriteCapes;
-    const presentIds = new Set(present.map((c) => c._id));
-    const missing = favoriteCapeIds
-      .filter((id) => !presentIds.has(id))
-      .map((id) => ({
-        _id: id,
-        uses: 0,
-        firstSeen: "",
-        elytra: false,
-      } as unknown as CosmeticCape));
-    return [...present, ...missing];
-  }, [favoriteCapes, favoriteCapeIds, groupFavoritesInHeader]);
+  // Separate state for stable favorites display - completely independent of capes loading
+  const [stableFavoriteCapes, setStableFavoriteCapes] = useState<CosmeticCape[]>([]);
 
+  // Update stable favorites only when favorite data actually changes, not when main capes change
   useEffect(() => {
-
-    const actualCapesCount = capes.length;
-    const showLoadingSkeleton =
-      isLoading && actualCapesCount === 0 && !searchQuery;
-
-    if (showLoadingSkeleton) {
-      if (debouncedLoadingTimerRef.current) {
-        clearTimeout(debouncedLoadingTimerRef.current);
-      }
-      debouncedLoadingTimerRef.current = setTimeout(() => {
-        setIsDebouncedLoading(true);
-      }, 300);
-    } else {
-      if (debouncedLoadingTimerRef.current) {
-        clearTimeout(debouncedLoadingTimerRef.current);
-      }
-      setIsDebouncedLoading(false);
+    if (!groupFavoritesInHeader) {
+      setStableFavoriteCapes([]);
+      return;
     }
 
-    return () => {
-      if (debouncedLoadingTimerRef.current) {
-        clearTimeout(debouncedLoadingTimerRef.current);
-      }
-    };
-  }, [isLoading, capes, searchQuery]);
+    if (favoriteCapeIds.length === 0) {
+      setStableFavoriteCapes([]);
+      return;
+    }
 
-  const handleDeleteClickInternal = useCallback(
-    (cape: CosmeticCape, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (onDeleteCape) {
-        onDeleteCape(cape);
+    // Use favoriteCapes directly since it already contains the correct data from both sources
+    // Only create placeholders for missing capes that are still being fetched
+    const result: CosmeticCape[] = [];
+    for (const id of favoriteCapeIds) {
+      let cape = favoriteCapes.find(c => c._id === id);
+
+      // If not in favoriteCapes but in fetched map, use that
+      if (!cape) {
+        cape = favoriteCapesFetched.get(id);
       }
-    },
-    [onDeleteCape],
-  );
+
+      // If still not found, create placeholder (will be replaced when fetched)
+      if (!cape) {
+        cape = {
+          _id: id,
+          uses: 0,
+          firstSeen: "",
+          elytra: false,
+        } as CosmeticCape;
+      }
+
+      result.push(cape);
+    }
+
+    setStableFavoriteCapes(result);
+  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched, groupFavoritesInHeader]); // Only essential dependencies
+
+  // Track if we've ever loaded capes successfully (for EmptyState logic)
+  useEffect(() => {
+    if (!isLoading && capes.length > 0 && !hasInitiallyLoaded) {
+      setHasInitiallyLoaded(true);
+    }
+  }, [isLoading, capes.length, hasInitiallyLoaded]);
+
+  // No loading spinner - capes appear immediately when available
 
   const itemsToRender = useMemo(() => {
     if (!groupFavoritesInHeader) return capes;
-    const favoriteIdsSet = new Set(favoriteCapeIds);
+    // Since favorites are now rendered separately above Virtuoso, always filter them out
+    if (stableFavoriteCapes.length === 0) return capes;
+    const favoriteIdsSet = new Set(stableFavoriteCapes.map(cape => cape._id));
     return capes.filter((item) => !favoriteIdsSet.has(item._id));
-  }, [capes, favoriteCapeIds, groupFavoritesInHeader]);
+  }, [capes, stableFavoriteCapes, groupFavoritesInHeader]);
 
-  const virtuosoComponents = useMemo(
-    () => ({
-      Header: () => {
-        const present = favoriteCapes;
-        if (!groupFavoritesInHeader) return null;
-        const presentIds = new Set(present.map((c) => c._id));
-        const missing = favoriteCapeIds
-          .filter((id) => !presentIds.has(id))
-          .map((id) => favoriteCapesFetched.get(id) ?? ({ _id: id, uses: 0, firstSeen: "", elytra: false } as unknown as CosmeticCape));
-        const allFavoriteCapesForHeader = [...present, ...missing];
-        if (allFavoriteCapesForHeader.length === 0) return null;
-        return (
-          <div className="mb-2">
-            <div className="flex items-center justify-between mb-2 px-4">
-              <span className="font-minecraft text-white/80 lowercase text-xl">favorites</span>
-              <span className="text-white/40 text-xs font-minecraft">{allFavoriteCapesForHeader.length}</span>
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
-                gap: "16px",
-                padding: "16px",
-                paddingTop: "8px",
-                paddingBottom: 0,
-              }}
-            >
-              {allFavoriteCapesForHeader.map((cape) => {
-                const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
-                return (
-                  <CapeItemDisplay
-                    key={`fav-${cape._id}`}
-                    cape={cape}
-                    imageUrl={imageUrl}
-                    isCurrentlyEquipping={isEquippingCapeId === cape._id}
-                    onEquipCape={onEquipCape}
-                    canDelete={canDelete}
-                    onDeleteCapeClick={handleDeleteClickInternal}
-                    creatorNameCache={creatorNameCacheRef.current}
-                    onContextMenu={(e) => handleCapeContextMenu(cape, e)}
-                    activeAccount={activeAccount}
-                    showModal={(id, component) => showModal(id, component)}
-                    hideModal={(id) => hideModal(id)}
-                  />
-                );
-              })}
-            </div>
-            <div className="h-px w-full bg-white/10 my-4" />
-          </div>
-        );
-      },
-      Footer: () => {
-        if (!isFetchingMore) return null;
-        return (
-          <div className="flex justify-center items-center p-4">
-            <Icon
-              icon="eos-icons:loading"
-              className="w-8 h-8"
-              style={{ color: accentColor.value }}
-            />
-          </div>
-        );
-      },
-      List: ListComponent, 
-    }),
-    [isFetchingMore, accentColor, favoriteCapes, favoriteCapeIds, favoriteCapesFetched, isEquippingCapeId, onEquipCape, canDelete, onTriggerUpload, onDownloadTemplate, groupFavoritesInHeader],
-  ); 
+// Removed virtuosoComponents - using native scrolling grid instead 
 
   function calculateMenuPosition(x: number, y: number, menuWidth: number, menuHeight: number) {
     const viewport = { width: window.innerWidth, height: window.innerHeight };
@@ -517,32 +452,26 @@ export function CapeList({
     []
   );
 
+  const handleDeleteClickInternal = useCallback(
+    (cape: CosmeticCape, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onDeleteCape) {
+        onDeleteCape(cape);
+      }
+    },
+    [onDeleteCape],
+  );
+
   const handlePreview3D = useCallback(() => {
     // Preview is now handled by direct click, this function is kept for potential future use
     setContextMenu(null);
   }, []);
 
-  if (isDebouncedLoading) {
-    return (
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center h-[calc(100vh-200px)] text-white/70 transition-opacity duration-500",
-          isDebouncedLoading ? "opacity-100" : "opacity-0",
-        )}
-      >
-        <Icon
-          icon="solar:hourglass-bold-duotone"
-          className="w-16 h-16 mb-4 animate-pulse"
-          style={{ color: accentColor.value }}
-        />
-        <p className="font-minecraft text-2xl lowercase">Loading Capes...</p>
-      </div>
-    );
-  }
+  // No loading spinner - capes appear immediately when available
 
 
   const noActualCapesToDisplay = itemsToRender.length === 0;
-  if (!isLoading && noActualCapesToDisplay) {
+  if (!isLoading && noActualCapesToDisplay && hasInitiallyLoaded) {
     return (
       <div className="flex-grow flex items-center justify-center p-5">
         <EmptyState
@@ -557,13 +486,35 @@ export function CapeList({
     );
   }
 
-  const handleEndReached = () => {
-    if (hasMoreItems && !isFetchingMore && loadMoreItems) {
-      console.log("[CapeList] Reached end, loading more items...");
-      loadMoreItems();
-    } else if (!hasMoreItems) {
-      console.log("[CapeList] Reached end, no more items to load.");
-    }
+  // Load more trigger component for intersection observer
+  const LoadMoreTrigger = () => {
+    const { ref, inView } = useInView({
+      threshold: 0,
+      rootMargin: '300px', // Load more when 300px from bottom
+    });
+
+    useEffect(() => {
+      if (inView && hasMoreItems && !isFetchingMore && loadMoreItems) {
+        console.log("[CapeList] Load more trigger activated, loading more items...");
+        loadMoreItems();
+      }
+    }, [inView, hasMoreItems, isFetchingMore, loadMoreItems]);
+
+    if (!hasMoreItems) return null;
+
+    return (
+      <div ref={ref} className="flex justify-center items-center p-8">
+        {isFetchingMore ? (
+          <Icon
+            icon="eos-icons:loading"
+            className="w-8 h-8 animate-spin"
+            style={{ color: accentColor.value }}
+          />
+        ) : (
+          <div className="w-full h-4" /> // Invisible trigger area
+        )}
+      </div>
+    );
   };
 
   return (
@@ -573,34 +524,82 @@ export function CapeList({
         onTriggerUpload ? "" : "p-4",
       )}
     >
-      <VirtuosoGrid
-        style={{ height: "100%" }}
-        data={itemsToRender}
-        endReached={handleEndReached}
-        overscan={200}
-        components={virtuosoComponents}
-        itemContent={(index, item) => {
-          const cape = item as CosmeticCape;
-          const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
-          return (
-            <CapeItemDisplay
-              key={cape._id}
-              cape={cape}
-              imageUrl={imageUrl}
-              isCurrentlyEquipping={isEquippingCapeId === cape._id}
-              onEquipCape={onEquipCape}
-              canDelete={canDelete}
-              onDeleteCapeClick={handleDeleteClickInternal}
-              creatorNameCache={creatorNameCacheRef.current}
-              onContextMenu={(e) => handleCapeContextMenu(cape, e)}
-              activeAccount={activeAccount}
-              showModal={(id, component) => showModal(id, component)}
-              hideModal={(id) => hideModal(id)}
-            />
-          );
-        }}
-        className="custom-scrollbar"
-      />
+      {/* Render favorites separately above native grid to prevent flickering */}
+      {groupFavoritesInHeader && stableFavoriteCapes.length > 0 && (
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-2 px-4">
+            <span className="font-minecraft text-white/80 lowercase text-xl">favorites</span>
+            <span className="text-white/40 text-xs font-minecraft">{stableFavoriteCapes.length}</span>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+              gap: "16px",
+              padding: "16px",
+              paddingTop: "8px",
+              paddingBottom: 0,
+            }}
+          >
+            {stableFavoriteCapes.map((cape) => {
+              const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
+              return (
+                <CapeItemDisplay
+                  key={`fav-${cape._id}`}
+                  cape={cape}
+                  imageUrl={imageUrl}
+                  isCurrentlyEquipping={isEquippingCapeId === cape._id}
+                  onEquipCape={onEquipCape}
+                  canDelete={canDelete}
+                  onDeleteCapeClick={handleDeleteClickInternal}
+                  creatorNameCache={creatorNameCacheRef.current}
+                  onContextMenu={(e) => handleCapeContextMenu(cape, e)}
+                  activeAccount={activeAccount}
+                  showModal={(id, component) => showModal(id, component)}
+                  hideModal={(id) => hideModal(id)}
+                />
+              );
+            })}
+          </div>
+          {/* Separator line between favorites and regular capes */}
+          <div className="h-px w-full bg-white/10 my-4" />
+        </div>
+      )}
+
+      {/* Native scrolling grid - similar to ScreenshotsTab */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))",
+            gap: "16px",
+            padding: "16px",
+          }}
+        >
+          {itemsToRender.map((cape) => {
+            const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
+            return (
+              <CapeItemDisplay
+                key={cape._id}
+                cape={cape}
+                imageUrl={imageUrl}
+                isCurrentlyEquipping={isEquippingCapeId === cape._id}
+                onEquipCape={onEquipCape}
+                canDelete={canDelete}
+                onDeleteCapeClick={handleDeleteClickInternal}
+                creatorNameCache={creatorNameCacheRef.current}
+                onContextMenu={(e) => handleCapeContextMenu(cape, e)}
+                activeAccount={activeAccount}
+                showModal={(id, component) => showModal(id, component)}
+                hideModal={(id) => hideModal(id)}
+              />
+            );
+          })}
+
+          {/* Load more trigger */}
+          <LoadMoreTrigger />
+        </div>
+      </div>
       {contextMenu && contextMenu.cape && (
         <div
           ref={menuRef}

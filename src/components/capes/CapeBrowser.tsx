@@ -36,7 +36,7 @@ export function CapeBrowser() {
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
     null,
   );
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [isEquippingCapeId, setIsEquippingCapeId] = useState<string | null>(
     null,
@@ -92,11 +92,20 @@ export function CapeBrowser() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoadingRef = useRef(false);
   const { activeAccount } = useMinecraftAuthStore();
 
   useEffect(() => {
     preloadIcons(["solar:add-square-bold-duotone"]);
   }, []);
+
+  // Initial load - only if no data exists
+  useEffect(() => {
+    if (capesData.length === 0 && !isLoadingRef.current) {
+      setIsLoading(true);
+      fetchCapesData(0, filters, searchQuery, false);
+    }
+  }, []); // Only run once on mount
 
   const hasMoreItems = paginationInfo
     ? paginationInfo.currentPage < paginationInfo.totalPages - 1
@@ -109,12 +118,13 @@ export function CapeBrowser() {
       currentSearchQuery: string,
       append = false,
     ) => {
-      console.log("[CapeBrowser] fetchCapesData called with:", {
-        pageToFetch,
-        currentFilters,
-        currentSearchQuery,
-        append,
-      });
+      // Prevent concurrent requests
+      if (isLoadingRef.current) {
+        return;
+      }
+
+      isLoadingRef.current = true;
+
       if (append) {
         setIsFetchingMore(true);
       } else {
@@ -123,13 +133,11 @@ export function CapeBrowser() {
 
       try {
         let response;
-        if (currentFilters.showOwnedOnly && activeAccount) {
-          console.log(
-            "[CapeBrowser] Fetching capes for active account:",
-            activeAccount.username,
-          );
+        const currentActiveAccount = useMinecraftAuthStore.getState().activeAccount;
+
+        if (currentFilters.showOwnedOnly && currentActiveAccount) {
           const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-            player_identifier: activeAccount.id,
+            player_identifier: currentActiveAccount.id,
           };
           response = await getPlayerCapes(playerCapesOptions);
           setCapesData(response);
@@ -163,9 +171,20 @@ export function CapeBrowser() {
                 : currentFilters.timeFrame,
           };
           response = await browseCapes(browseOptions);
-          setCapesData((prevActualCapes) =>
-            append ? [...prevActualCapes, ...response.capes] : response.capes,
-          );
+
+          // Only update data if it's actually different to prevent unnecessary re-renders
+          setCapesData((prevActualCapes) => {
+            const newCapes = append ? [...prevActualCapes, ...response.capes] : response.capes;
+
+            // Check if the data is actually different
+            if (prevActualCapes.length === newCapes.length &&
+                prevActualCapes.every((cape, index) => cape._id === newCapes[index]._id)) {
+              return prevActualCapes; // Return same reference to prevent re-render
+            }
+
+            return newCapes;
+          });
+
           setPaginationInfo(response.pagination);
         }
       } catch (err: any) {
@@ -177,6 +196,7 @@ export function CapeBrowser() {
           setCapesData([]);
         }
       } finally {
+        isLoadingRef.current = false;
         if (append) {
           setIsFetchingMore(false);
         } else {
@@ -184,35 +204,27 @@ export function CapeBrowser() {
         }
       }
     },
-    [activeAccount],
+    [], // Stable callback
   );
 
+  // Filter/Search changes - only reload if we already have data
   useEffect(() => {
-    console.log(
-      "[CapeBrowser] Filter/Search useEffect. CurrentPage will be reset to 0 by handlers.",
-    );
-    if (currentPage === 0) {
+    if (currentPage === 0 && capesData.length > 0 && !isLoadingRef.current) {
+      setIsLoading(true);
       fetchCapesData(0, filters, searchQuery, false);
     }
-  }, [filters, searchQuery, fetchCapesData]);
+  }, [filters, searchQuery, fetchCapesData, capesData.length]);
 
+  // Pagination useEffect
   useEffect(() => {
-    if (currentPage > 0) {
-      console.log(
-        `[CapeBrowser] CurrentPage changed to ${currentPage}, fetching more items.`,
-      );
+    if (currentPage > 0 && !isLoadingRef.current) {
+      setIsFetchingMore(true);
       fetchCapesData(currentPage, filters, searchQuery, true);
     }
   }, [currentPage, fetchCapesData]);
 
   const loadMoreCapes = useCallback(() => {
     if (hasMoreItems && !isFetchingMore) {
-      console.log(
-        "[CapeBrowser] loadMoreCapes called. Current page:",
-        currentPage,
-        "Pagination:",
-        paginationInfo,
-      );
       setCurrentPage((prevPage) => prevPage + 1);
     }
   }, [hasMoreItems, isFetchingMore, paginationInfo, currentPage]);
@@ -392,7 +404,7 @@ export function CapeBrowser() {
   };
 
   const capesForList = useMemo(() => {
-    return [...capesData];
+    return capesData; // Return the same reference if data hasn't changed
   }, [capesData]);
 
   return (
@@ -441,7 +453,6 @@ export function CapeBrowser() {
               }}
               title={!activeAccount ? "No active Minecraft account" : undefined}
             >
-              <Icon icon="solar:user-id-broken" className="w-4 h-4" />
               <span className="lowercase">my capes</span>
             </button>
           </div>
