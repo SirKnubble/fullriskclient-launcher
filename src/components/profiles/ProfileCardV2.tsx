@@ -15,6 +15,29 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "./ExportProfileModal";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
+import { Tooltip } from "../ui/Tooltip";
+
+// Custom JSX component for tooltip content
+function StandardVersionTooltipContent() {
+  return (
+    <div className="space-y-3">
+      {/* Main explanation */}
+      <div className="text-left">
+        <div className="text-sm leading-relaxed text-white">
+          This version is provided and updated by NRC.
+        </div>
+      </div>
+
+      {/* Tip section */}
+      <div className="flex items-start gap-2">
+        <Icon icon="solar:lightbulb-bold" className="text-yellow-400 text-base flex-shrink-0" />
+        <div className="text-gray-300 text-xs leading-snug italic">
+          <span className="text-yellow-300 font-medium">Tip:</span> Create your own profiles for full customization.
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface ProfileCardV2Props {
   profile: Profile;
@@ -304,6 +327,17 @@ export function ProfileCardV2({
           }
         }}
       >
+        {/* Standard version badge */}
+        {profile.is_standard_version && (
+          <div className={`absolute ${isCompact ? 'top-2 left-2' : 'top-3 left-3'} z-20`}>
+            <Tooltip content={<StandardVersionTooltipContent />}>
+              <div className="flex items-center justify-center w-6 h-6 rounded-full ">
+                <Icon icon="solar:star-bold" className="w-4 h-4 text-yellow-400" />
+              </div>
+            </Tooltip>
+          </div>
+        )}
+
         {/* Action buttons - top right */}
         <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
           {/* Settings button */}
@@ -500,7 +534,18 @@ export function ProfileCardV2({
       }}
     >
       {/* Profile Icon */}
-      <ProfileIconV2 profile={profile} size="md" />
+      <div className="relative">
+        <ProfileIconV2 profile={profile} size="md" />
+        {profile.is_standard_version && (
+          <div className="absolute -top-1 -right-1 z-10">
+            <Tooltip content={<StandardVersionTooltipContent />}>
+              <div className="flex items-center justify-center w-6 h-6 rounded-full ">
+                <Icon icon="solar:star-bold" className="w-4 h-4 text-yellow-400" />
+              </div>
+            </Tooltip>
+          </div>
+        )}
+      </div>
 
       {/* Profile Info */}
       <div className="flex-1 min-w-0">
