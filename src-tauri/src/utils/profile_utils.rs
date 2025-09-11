@@ -945,13 +945,13 @@ async fn is_directory_effectively_empty(dir_path: &std::path::Path) -> Result<bo
                 let file_name = entry.file_name();
                 let file_name_str = file_name.to_string_lossy();
 
-                // Ignore hidden files (starting with .)
-                if !file_name_str.starts_with('.') {
+                // Ignore hidden files (starting with .) and mods folder
+                if !file_name_str.starts_with('.') && file_name_str != "mods" {
                     log::debug!("Directory NOT empty - found non-hidden entry: {:?}", entry.path());
                     found_non_hidden = true;
                     break;
                 } else {
-                    log::debug!("Ignoring hidden file in directory check: {:?}", entry.path());
+                    log::debug!("Ignoring hidden file or mods folder in directory check: {:?}", entry.path());
                 }
             }
 
@@ -1002,25 +1002,36 @@ pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo
     let group_empty = is_directory_effectively_empty(&group_dir).await?;
     let single_empty = is_directory_effectively_empty(&single_instance_dir).await?;
 
+    // Check if profile should use shared minecraft folder
+    let use_shared = profile.should_use_shared_minecraft_folder();
+    log::debug!("Profile '{}' - Use shared minecraft folder: {}", profile.name, use_shared);
+
     // Determine migration direction and paths
     log::debug!("Migration analysis - Group empty: {}, Single empty: {}", group_empty, single_empty);
 
-    let (direction, source_path, target_path) = if group_empty && !single_empty {
-        log::debug!("Migration needed: FromInstanceToGroup");
+    let (direction, source_path, target_path) = if group_empty && !single_empty && use_shared {
+        // Only migrate from instance to group if profile uses shared folder
+        log::debug!("Migration needed: FromInstanceToGroup (profile uses shared folder)");
         (
             MigrationDirection::FromInstanceToGroup,
             Some(single_instance_dir.to_string_lossy().to_string()),
             Some(group_dir.to_string_lossy().to_string()),
         )
-    } else if !group_empty && single_empty {
-        log::debug!("Migration needed: FromGroupToInstance");
+    } else if !group_empty && single_empty && !use_shared {
+        // Only migrate from group to instance if profile doesn't use shared folder
+        log::debug!("Migration needed: FromGroupToInstance (profile doesn't use shared folder)");
         (
             MigrationDirection::FromGroupToInstance,
             Some(group_dir.to_string_lossy().to_string()),
             Some(single_instance_dir.to_string_lossy().to_string()),
         )
     } else {
-        log::debug!("No migration needed - directories are in sync");
+        // No migration needed in all other cases:
+        // - group_empty && !single_empty && !use_shared: Profile doesn't use shared, data already in correct location
+        // - !group_empty && single_empty && use_shared: Profile uses shared, data already in correct location
+        // - group_empty && single_empty: Both directories empty, nothing to migrate
+        // - !group_empty && !single_empty: Both directories have data, likely already in sync
+        log::debug!("No migration needed - profile configuration matches current state");
         (MigrationDirection::None, None, None)
     };
 
