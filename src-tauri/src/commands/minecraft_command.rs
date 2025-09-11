@@ -603,18 +603,20 @@ pub async fn add_skin_locally(
     // Handle special cases for Profile and FilePath sources where we need additional metadata
     match &payload.source {
         SkinSource::Profile(profile_data) => {
-            // For profile sources, we need to extract the profile name and variant
+            // For profile sources, we need to extract the profile name
+            // But we keep the user's chosen variant instead of overwriting it
             let api_service = MinecraftApiService::new();
             let profile = api_service
                 .get_profile_by_name_or_uuid(&profile_data.query)
                 .await?;
 
-            let (_, source_variant, profile_name) = extract_skin_info_from_profile(&profile)?;
+            let (_, _, profile_name) = extract_skin_info_from_profile(&profile)?;
 
             if final_skin_name.is_empty() {
                 final_skin_name = profile_name;
             }
-            final_skin_variant = source_variant;
+            // NOTE: We keep the user's chosen final_skin_variant
+            // instead of overwriting it with source_variant
         }
         SkinSource::FilePath(filepath_data) => {
             // For file path sources, we need to extract the filename if no name is provided

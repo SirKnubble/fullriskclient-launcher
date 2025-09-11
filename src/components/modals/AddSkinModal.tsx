@@ -9,11 +9,12 @@ import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
 import { Input } from "../ui/Input";
-import { RadioButton } from "../ui/RadioButton";
+import { Checkbox } from "../ui/Checkbox";
 import { toast } from "react-hot-toast";
 import { open } from "@tauri-apps/plugin-dialog";
 import { MinecraftSkinService } from "../../services/minecraft-skin-service";
 import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
+import { SearchStyleInput } from "../ui/Input";
 
 interface AddSkinModalProps {
   skin?: MinecraftSkin;
@@ -30,18 +31,31 @@ interface AddSkinModalProps {
 export const AddSkinModal = memo(
   ({ skin, onSave, onAdd, isLoading }: AddSkinModalProps) => {
     const [name, setName] = useState<string>(skin?.name ?? "");
-    const [variant, setVariant] = useState<SkinVariant>(
-      skin?.variant ?? "classic",
+    const [isSlimVariant, setIsSlimVariant] = useState<boolean>(
+      skin?.variant === "slim",
     );
-    const [skinInput, setSkinInput] = useState<string>("");
-    const [isPreviewMode, setIsPreviewMode] = useState<boolean>(false);
-    const [previewBase64Url, setPreviewBase64Url] = useState<string | null>(null);
+
+    // Initialize states for existing skin editing
+    const [skinInput, setSkinInput] = useState<string>(skin ? skin.name : "");
+    const [isPreviewMode, setIsPreviewMode] = useState<boolean>(!!skin); // Auto-preview for existing skins
+    const [previewBase64Url, setPreviewBase64Url] = useState<string | null>(
+      skin ? `data:image/png;base64,${skin.base64_data}` : null
+    );
     const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(false);
+    const [previewSkinName, setPreviewSkinName] = useState<string>(skin?.name ?? "");
+
+    const variant: SkinVariant = isSlimVariant ? "slim" : "classic";
+    console.log("[State] Current variant:", variant, "isSlimVariant:", isSlimVariant);
     const accentColor = useThemeStore((state) => state.accentColor);
     const { hideModal } = useGlobalModal();
 
     const handleClose = () => {
       hideModal('add-skin-modal');
+      // Reset states when closing
+      setIsPreviewMode(!!skin);
+      setPreviewBase64Url(skin ? `data:image/png;base64,${skin.base64_data}` : null);
+      setPreviewSkinName(skin?.name ?? "");
+      setIsSlimVariant(skin?.variant === "slim");
     };
 
     const handlePreview = async () => {
@@ -54,6 +68,8 @@ export const AddSkinModal = memo(
       setIsPreviewLoading(true);
 
       try {
+        console.log("[Preview] Starting preview for input:", trimmedInput);
+
         // Create SkinSourceDetails based on input type (similar to addSkinLocally logic)
         let sourceDetails: any;
 
@@ -97,19 +113,85 @@ export const AddSkinModal = memo(
           }
         }
 
+        console.log("[Preview] Created source details:", sourceDetails);
+
         // Get base64 data from the source
+        console.log("[Preview] Calling getBase64FromSkinSource...");
         const base64Data = await MinecraftSkinService.getBase64FromSkinSource(sourceDetails);
+        console.log("[Preview] Got base64 data, length:", base64Data?.length);
+
+        // Generate target name for the preview (same logic as in handleSave)
+        let targetName = "";
+        const looksLikeHttpUrl = /^(https?):\/\//i.test(trimmedInput);
+        const isLikelyFilePath = (input: string): boolean => {
+          if (input.startsWith("file://")) return true;
+          const hasPathSeparators = /[\\/]/.test(input);
+          const isHttp = /^(https?):\/\//i.test(input);
+          return hasPathSeparators && !isHttp;
+        };
+
+        if (looksLikeHttpUrl) {
+          try {
+            const url = new URL(trimmedInput);
+            const pathnameParts = url.pathname
+              .split("/")
+              .filter((part) => part.length > 0);
+            targetName = pathnameParts.pop() || url.hostname || "Web_Skin";
+            if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
+              targetName = targetName.substring(0, targetName.lastIndexOf("."));
+            }
+          } catch (e) {
+            targetName = "Invalid_Web_Skin_Url";
+            console.error("Error parsing HTTP URL for name:", e);
+          }
+        } else if (isLikelyFilePath(trimmedInput)) {
+          let pathForNameExtraction = trimmedInput;
+          if (trimmedInput.startsWith("file://")) {
+            try {
+              const tempUrl = new URL(trimmedInput);
+              pathForNameExtraction = decodeURIComponent(tempUrl.pathname);
+            } catch (e) {
+              console.error(
+                "Error parsing file:// URL for name extraction:",
+                e,
+              );
+            }
+          }
+          const pathParts = pathForNameExtraction.split(/[\\/]/);
+          targetName = pathParts.pop() || "File_Skin";
+          if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
+            targetName = targetName.substring(0, targetName.lastIndexOf("."));
+          }
+        } else {
+          targetName = trimmedInput;
+        }
+
+        if (!targetName.trim()) {
+          targetName = "Unnamed_Skin";
+          console.warn(
+            "Derived target name was empty, falling back to Unnamed_Skin for input:",
+            trimmedInput,
+          );
+        }
 
         // Create data URL for the skin viewer
         const base64Url = `data:image/png;base64,${base64Data}`;
+        console.log("[Preview] Created base64 URL:", base64Url.substring(0, 100) + "...");
+        console.log("[Preview] Generated target name:", targetName);
 
         setPreviewBase64Url(base64Url);
+        setPreviewSkinName(targetName);
         setIsPreviewMode(true);
         toast.success("Skin preview loaded successfully!");
 
       } catch (error) {
         console.error("Error loading skin preview:", error);
-        toast.error("Failed to load skin preview. Please check your input.");
+        console.error("Error details:", {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          input: trimmedInput
+        });
+        toast.error(`Failed to load skin preview: ${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setIsPreviewLoading(false);
       }
@@ -153,7 +235,7 @@ export const AddSkinModal = memo(
       if (skin) {
         await onSave({
           ...skin,
-          name,
+          name: previewSkinName || skin.name,
           variant,
         });
       } else {
@@ -211,6 +293,11 @@ export const AddSkinModal = memo(
           targetName = trimmedInput;
         }
 
+        // Use previewSkinName if available (when in preview mode)
+        if (previewSkinName.trim()) {
+          targetName = previewSkinName.trim();
+        }
+
         if (!targetName.trim()) {
           targetName = "Unnamed_Skin";
           console.warn(
@@ -219,6 +306,7 @@ export const AddSkinModal = memo(
           );
         }
 
+        console.log("[Save] Saving with variant:", variant, "isSlimVariant:", isSlimVariant);
         await onAdd(trimmedInput, targetName, variant, null);
         toast.success("Skin saved successfully!");
       }
@@ -226,30 +314,20 @@ export const AddSkinModal = memo(
 
     return (
       <Modal
-        title={isPreviewMode ? "Skin Preview" : (skin ? "Edit Skin Properties" : "Add Skin")}
+        title={skin ? "Edit Skin Properties" : (isPreviewMode ? "Add Skin - Preview" : "Add Skin")}
         onClose={handleClose}
         variant="flat"
         footer={
           <div className="flex gap-3 justify-center">
             {isPreviewMode ? (
-              <>
-                <Button
-                  variant="flat"
-                  onClick={handleSave}
-                  disabled={isLoading}
-                  size="sm"
-                >
-                  {isLoading ? "Saving..." : "Save Skin"}
-                </Button>
-                <Button
-                  variant="flat-secondary"
-                  onClick={handleBackToEdit}
-                  disabled={isLoading}
-                  size="sm"
-                >
-                  Back to Edit
-                </Button>
-              </>
+              <Button
+                variant="flat"
+                onClick={handleSave}
+                disabled={isLoading}
+                size="sm"
+              >
+                {isLoading ? "Saving..." : (skin ? "Save Changes" : "Save Skin")}
+              </Button>
             ) : (
               <>
                 {!skin && (
@@ -287,37 +365,115 @@ export const AddSkinModal = memo(
       >
         {isPreviewMode ? (
           <div className="p-4">
+            {/* Skin Name Input - Above Preview */}
+            <div className="flex justify-center mb-4">
+              <div className="w-full max-w-md">
+                <SearchStyleInput
+                  value={previewSkinName}
+                  onChange={(e) => setPreviewSkinName(e.target.value)}
+                  placeholder="Enter skin name..."
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+
             <div className="flex justify-center">
               <div className="w-64 h-80">
                 <SkinView3DWrapper
                   skinUrl={previewBase64Url || undefined}
+                  skinVariant={variant}
                   enableAutoRotate={true}
                   autoRotateSpeed={0.2}
                   zoom={0.9}
                 />
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <p className="font-minecraft text-2xl text-white/60 lowercase">
-                Skin Variant: {variant === "classic" ? "Classic (Steve)" : "Slim (Alex)"}
-              </p>
+
+            <div className="mt-4">
+              <div className="flex justify-center gap-6">
+                <Checkbox
+                  checked={!isSlimVariant}
+                  onChange={(e) => {
+                    console.log("[Checkbox] Setting to Classic (Steve), checked:", e.target.checked);
+                    setIsSlimVariant(false);
+                  }}
+                  disabled={isLoading}
+                  label="Classic (Steve)"
+                  size="md"
+                />
+                <Checkbox
+                  checked={isSlimVariant}
+                  onChange={(e) => {
+                    console.log("[Checkbox] Setting to Slim (Alex), checked:", e.target.checked);
+                    setIsSlimVariant(true);
+                  }}
+                  disabled={isLoading}
+                  label="Slim (Alex)"
+                  size="md"
+                />
+              </div>
             </div>
           </div>
         ) : (
           <div className="p-4 space-y-4">
             {skin && (
-              <div>
-                <label className="block font-minecraft text-3xl text-white/80 lowercase mb-2">
-                  Skin Name
-                </label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter skin name"
-                  disabled={isLoading}
-                  size="md"
-                  variant="flat"
-                />
+              <div className="space-y-4">
+                {/* 3D Skin Preview for editing */}
+                <div className="flex justify-center">
+                  <div className="w-48 h-64">
+                    <SkinView3DWrapper
+                      skinUrl={previewBase64Url || undefined}
+                      skinVariant={variant}
+                      enableAutoRotate={true}
+                      autoRotateSpeed={0.3}
+                      zoom={0.8}
+                    />
+                  </div>
+                </div>
+
+                {/* Skin Name Input */}
+                <div>
+                  <label className="block font-minecraft text-3xl text-white/80 lowercase mb-2">
+                    Skin Name
+                  </label>
+                  <SearchStyleInput
+                    value={previewSkinName}
+                    onChange={(e) => setPreviewSkinName(e.target.value)}
+                    placeholder="Enter skin name..."
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* Skin Variant Selection */}
+                <div>
+                  <p className="font-minecraft text-3xl text-white/80 lowercase mb-4">
+                    Skin Variant
+                  </p>
+                  <div className="flex justify-center gap-6">
+                    <Checkbox
+                      checked={!isSlimVariant}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setIsSlimVariant(false);
+                        }
+                      }}
+                      disabled={isLoading}
+                      label="Classic (Steve)"
+                      size="md"
+                    />
+                    <Checkbox
+                      checked={isSlimVariant}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setIsSlimVariant(true);
+                        }
+                      }}
+                      disabled={isLoading}
+                      label="Slim (Alex)"
+                      size="md"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -349,33 +505,6 @@ export const AddSkinModal = memo(
               </div>
             )}
 
-            <div className="pt-2">
-              <p className="font-minecraft text-3xl text-white/80 lowercase mb-4">
-                Skin Variant
-              </p>
-              <div className="flex flex-col space-y-3">
-                <RadioButton
-                  name="editSkinVariant"
-                  value="classic"
-                  checked={variant === "classic"}
-                  onChange={() => setVariant("classic")}
-                  disabled={isLoading}
-                  label="Classic (Steve)"
-                  size="md"
-                  shadowDepth="none"
-                />
-                <RadioButton
-                  name="editSkinVariant"
-                  value="slim"
-                  checked={variant === "slim"}
-                  onChange={() => setVariant("slim")}
-                  disabled={isLoading}
-                  label="Slim (Alex)"
-                  size="md"
-                  shadowDepth="none"
-                />
-              </div>
-            </div>
           </div>
         )}
       </Modal>
