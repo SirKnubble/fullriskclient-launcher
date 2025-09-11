@@ -31,6 +31,7 @@ use commands::minecraft_auth_command::{
 };
 use commands::minecraft_command::{
     add_skin,
+    add_skin_locally,
     apply_skin_from_base64,
     // Local skin database commands
     get_all_skins,
@@ -459,6 +460,7 @@ async fn main() {
             install_content_to_profile,
             commands::minecraft_command::get_profile_by_name_or_uuid,
             commands::minecraft_command::add_skin_locally,
+            commands::minecraft_command::get_base64_from_skin_source_command,
             commands::file_command::get_image_preview,
             download_template_and_open_explorer,
             get_all_profiles_and_last_played,

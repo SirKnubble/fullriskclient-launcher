@@ -21,9 +21,9 @@ use uuid::Uuid;
 
 // --- New Imports for add_skin_locally ---
 use crate::minecraft::dto::skin_payloads::{
-    AddLocalSkinCommandPayload, SkinModelVariant, SkinSource,
+    AddLocalSkinCommandPayload, SkinSource,
 };
-use crate::utils::mc_utils::{extract_skin_info_from_profile, fetch_image_as_base64};
+use crate::utils::mc_utils::{extract_skin_info_from_profile, get_base64_from_skin_source};
 use chrono::Utc;
 // --- End New Imports ---
 
@@ -594,80 +594,51 @@ pub async fn add_skin_locally(
         payload.target_skin_name, payload.target_skin_variant, payload.source
     );
 
-    let base64_data: String;
     let mut final_skin_name = payload.target_skin_name.clone();
     let mut final_skin_variant = payload.target_skin_variant.clone();
 
-    match payload.source {
+    // Extract base64 data using the reusable function
+    let base64_data = get_base64_from_skin_source(&payload.source).await?;
+
+    // Handle special cases for Profile and FilePath sources where we need additional metadata
+    match &payload.source {
         SkinSource::Profile(profile_data) => {
-            debug!(
-                "[CMD] add_skin_locally: Processing Profile source for query: {}",
-                profile_data.query
-            );
+            // For profile sources, we need to extract the profile name and variant
             let api_service = MinecraftApiService::new();
             let profile = api_service
                 .get_profile_by_name_or_uuid(&profile_data.query)
                 .await?;
 
-            let (skin_url, source_variant, profile_name) =
-                extract_skin_info_from_profile(&profile)?;
+            let (_, source_variant, profile_name) = extract_skin_info_from_profile(&profile)?;
 
             if final_skin_name.is_empty() {
                 final_skin_name = profile_name;
             }
             final_skin_variant = source_variant;
-
-            base64_data = fetch_image_as_base64(&skin_url).await?;
-        }
-        SkinSource::Url(url_data) => {
-            debug!(
-                "[CMD] add_skin_locally: Processing URL source: {}",
-                url_data.url
-            );
-            base64_data = fetch_image_as_base64(&url_data.url).await?;
         }
         SkinSource::FilePath(filepath_data) => {
-            debug!(
-                "[CMD] add_skin_locally: Processing FilePath source (original): {}",
-                filepath_data.path
-            );
-
-            let mut corrected_path_string = filepath_data.path.clone();
-            if cfg!(windows) {
-                // Example: /C:/Users/username -> C:/Users/username
-                if corrected_path_string.starts_with("/")
-                    && corrected_path_string.len() > 2
-                    && corrected_path_string.chars().nth(2) == Some(':')
-                {
-                    corrected_path_string.remove(0);
-                }
-            }
-            let corrected_path = PathBuf::from(corrected_path_string);
-            debug!(
-                "[CMD] add_skin_locally: Using corrected path for reading: {:?}",
-                corrected_path
-            );
-
-            let file_content = tokio::fs::read(&corrected_path).await.map_err(|e| {
-                error!(
-                    "[CMD] add_skin_locally: Failed to read skin file from path {:?}: {}",
-                    corrected_path, e
-                );
-                AppError::Io(e)
-            })?;
-            base64_data = base64::encode(&file_content);
-
+            // For file path sources, we need to extract the filename if no name is provided
             if final_skin_name.is_empty() {
-                final_skin_name = corrected_path // Use corrected_path here too
+                let mut corrected_path_string = filepath_data.path.clone();
+                if cfg!(windows) {
+                    // Example: /C:/Users/username -> C:/Users/username
+                    if corrected_path_string.starts_with("/")
+                        && corrected_path_string.len() > 2
+                        && corrected_path_string.chars().nth(2) == Some(':')
+                    {
+                        corrected_path_string.remove(0);
+                    }
+                }
+                let corrected_path = PathBuf::from(corrected_path_string);
+                final_skin_name = corrected_path
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("skin_from_file")
                     .to_string();
             }
         }
-        SkinSource::Base64(base64_content_data) => {
-            debug!("[CMD] add_skin_locally: Processing Base64 source");
-            base64_data = base64_content_data.base64_content;
+        _ => {
+            // For Url and Base64 sources, we don't need any special handling
         }
     }
 
@@ -705,6 +676,25 @@ pub async fn add_skin_locally(
         skin_to_add.name, skin_to_add.id
     );
     Ok(skin_to_add)
+}
+
+#[tauri::command]
+pub async fn get_base64_from_skin_source_command(
+    source: SkinSource,
+) -> Result<String, CommandError> {
+    debug!(
+        "[CMD] get_base64_from_skin_source_command: Processing source type: {:?}",
+        source
+    );
+
+    let base64_data = get_base64_from_skin_source(&source).await?;
+
+    debug!(
+        "[CMD] get_base64_from_skin_source_command: Successfully extracted base64 data ({} characters)",
+        base64_data.len()
+    );
+
+    Ok(base64_data)
 }
 
 #[tauri::command]

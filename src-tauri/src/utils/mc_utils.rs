@@ -30,12 +30,13 @@ use uuid::Uuid;
 
 // --- New Helper Imports for Skin Fetching ---
 use crate::minecraft::dto::minecraft_profile::{
-    MinecraftProfile, TextureInfo, TextureMetadata, TexturesData, TexturesDictionary,
+    MinecraftProfile, TexturesData,
 }; // Assuming these are public
-use crate::minecraft::dto::skin_payloads::SkinModelVariant; // Added import for new Enum
+use crate::minecraft::dto::skin_payloads::{
+    SkinModelVariant, SkinSource,
+}; // Added imports for SkinSource and related types
 use crate::utils::path_utils;
 use base64::{decode as base64_decode_str, encode as base64_encode_bytes};
-use std::path::Path;
 
 // --- End New Helper Imports ---
 
@@ -1752,4 +1753,75 @@ pub fn extract_skin_info_from_profile(
         profile.name, skin_url, skin_variant, profile_name
     );
     Ok((skin_url, skin_variant, profile_name))
+}
+
+/// Extracts base64 encoded image data from various SkinSource types.
+/// This function handles all the logic for fetching and encoding skin data from different sources.
+///
+/// # Arguments
+/// * `source` - The SkinSource containing the data source information
+///
+/// # Returns
+/// Returns a Result containing the base64 encoded image data or an AppError
+pub async fn get_base64_from_skin_source(source: &SkinSource) -> Result<String> {
+    match source {
+        SkinSource::Profile(profile_data) => {
+            debug!(
+                "[MC Utils] Processing Profile source for query: {}",
+                profile_data.query
+            );
+            // Import the MinecraftApiService here to avoid circular dependencies
+            use crate::minecraft::api::mc_api::MinecraftApiService;
+
+            let api_service = MinecraftApiService::new();
+            let profile = api_service
+                .get_profile_by_name_or_uuid(&profile_data.query)
+                .await?;
+
+            let (skin_url, _, _) = extract_skin_info_from_profile(&profile)?;
+            fetch_image_as_base64(&skin_url).await
+        }
+        SkinSource::Url(url_data) => {
+            debug!(
+                "[MC Utils] Processing URL source: {}",
+                url_data.url
+            );
+            fetch_image_as_base64(&url_data.url).await
+        }
+        SkinSource::FilePath(filepath_data) => {
+            debug!(
+                "[MC Utils] Processing FilePath source: {}",
+                filepath_data.path
+            );
+
+            let mut corrected_path_string = filepath_data.path.clone();
+            if cfg!(windows) {
+                // Example: /C:/Users/username -> C:/Users/username
+                if corrected_path_string.starts_with("/")
+                    && corrected_path_string.len() > 2
+                    && corrected_path_string.chars().nth(2) == Some(':')
+                {
+                    corrected_path_string.remove(0);
+                }
+            }
+            let corrected_path = PathBuf::from(corrected_path_string);
+            debug!(
+                "[MC Utils] Using corrected path for reading: {:?}",
+                corrected_path
+            );
+
+            let file_content = tokio::fs::read(&corrected_path).await.map_err(|e| {
+                error!(
+                    "[MC Utils] Failed to read skin file from path {:?}: {}",
+                    corrected_path, e
+                );
+                AppError::Io(e)
+            })?;
+            Ok(base64_encode_bytes(&file_content))
+        }
+        SkinSource::Base64(base64_content_data) => {
+            debug!("[MC Utils] Processing Base64 source");
+            Ok(base64_content_data.base64_content.clone())
+        }
+    }
 }
