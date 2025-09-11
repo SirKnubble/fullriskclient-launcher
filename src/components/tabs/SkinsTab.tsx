@@ -435,7 +435,7 @@ export function SkinsTab() {
       }
     } catch (err) {
       console.error("Error loading skin data:", err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err.message));
     } finally {
       setLoading(false);
     }
@@ -509,7 +509,6 @@ export function SkinsTab() {
       );
 
       if (updatedSkin) {
-        toast.success(`Successfully updated skin: ${updatedSkin.name}`);
         setLocalSkins((prevSkins) =>
           prevSkins.map((s) => (s.id === updatedSkin.id ? updatedSkin : s)),
         );
@@ -522,7 +521,7 @@ export function SkinsTab() {
       }
     } catch (err) {
       console.error("Error updating skin properties:", err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err.message));
     }
   };
 
@@ -539,7 +538,6 @@ export function SkinsTab() {
         targetVariant,
         description,
       );
-      toast.success(`Successfully added skin: ${newSkin.name}`);
       setLocalSkins((prevSkins) =>
         [...prevSkins, newSkin].sort((a, b) => a.name.localeCompare(b.name)),
       );
@@ -617,7 +615,7 @@ export function SkinsTab() {
       await loadSkinData();
     } catch (err) {
       console.error("Error applying local skin:", err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err.message));
     } finally {
       setLoading(false);
     }

@@ -45,7 +45,6 @@ export const AddSkinModal = memo(
     const [previewSkinName, setPreviewSkinName] = useState<string>(skin?.name ?? "");
 
     const variant: SkinVariant = isSlimVariant ? "slim" : "classic";
-    console.log("[State] Current variant:", variant, "isSlimVariant:", isSlimVariant);
     const accentColor = useThemeStore((state) => state.accentColor);
     const { hideModal } = useGlobalModal();
 
@@ -68,7 +67,6 @@ export const AddSkinModal = memo(
       setIsPreviewLoading(true);
 
       try {
-        console.log("[Preview] Starting preview for input:", trimmedInput);
 
         // Create SkinSourceDetails based on input type (similar to addSkinLocally logic)
         let sourceDetails: any;
@@ -113,12 +111,8 @@ export const AddSkinModal = memo(
           }
         }
 
-        console.log("[Preview] Created source details:", sourceDetails);
-
         // Get base64 data from the source
-        console.log("[Preview] Calling getBase64FromSkinSource...");
         const base64Data = await MinecraftSkinService.getBase64FromSkinSource(sourceDetails);
-        console.log("[Preview] Got base64 data, length:", base64Data?.length);
 
         // Generate target name for the preview (same logic as in handleSave)
         let targetName = "";
@@ -176,8 +170,6 @@ export const AddSkinModal = memo(
 
         // Create data URL for the skin viewer
         const base64Url = `data:image/png;base64,${base64Data}`;
-        console.log("[Preview] Created base64 URL:", base64Url.substring(0, 100) + "...");
-        console.log("[Preview] Generated target name:", targetName);
 
         setPreviewBase64Url(base64Url);
         setPreviewSkinName(targetName);
@@ -232,84 +224,94 @@ export const AddSkinModal = memo(
     };
 
     const handleSave = async () => {
-      if (skin) {
-        await onSave({
-          ...skin,
-          name: previewSkinName || skin.name,
-          variant,
-        });
-      } else {
-        const trimmedInput = skinInput.trim();
-        if (!trimmedInput) {
-          toast.error(
-            "Skin source (Username, UUID, URL, or File Path) cannot be empty.",
-          );
-          return;
-        }
+      const saveOperation = async () => {
+        if (skin) {
+          return await onSave({
+            ...skin,
+            name: previewSkinName || skin.name,
+            variant,
+          });
+        } else {
+          const trimmedInput = skinInput.trim();
+          if (!trimmedInput) {
+            throw new Error("Skin source (Username, UUID, URL, or File Path) cannot be empty.");
+          }
 
-        // Use the same name generation logic as in the original code
-        let targetName = "";
-        const looksLikeHttpUrl = /^(https?):\/\//i.test(trimmedInput);
-        const isLikelyFilePath = (input: string): boolean => {
-          if (input.startsWith("file://")) return true;
-          const hasPathSeparators = /[\\/]/.test(input);
-          const isHttp = /^(https?):\/\//i.test(input);
-          return hasPathSeparators && !isHttp;
-        };
+          // Use the same name generation logic as in the original code
+          let targetName = "";
+          const looksLikeHttpUrl = /^(https?):\/\//i.test(trimmedInput);
+          const isLikelyFilePath = (input: string): boolean => {
+            if (input.startsWith("file://")) return true;
+            const hasPathSeparators = /[\\/]/.test(input);
+            const isHttp = /^(https?):\/\//i.test(input);
+            return hasPathSeparators && !isHttp;
+          };
 
-        if (looksLikeHttpUrl) {
-          try {
-            const url = new URL(trimmedInput);
-            const pathnameParts = url.pathname
-              .split("/")
-              .filter((part) => part.length > 0);
-            targetName = pathnameParts.pop() || url.hostname || "Web_Skin";
+          if (looksLikeHttpUrl) {
+            try {
+              const url = new URL(trimmedInput);
+              const pathnameParts = url.pathname
+                .split("/")
+                .filter((part) => part.length > 0);
+              targetName = pathnameParts.pop() || url.hostname || "Web_Skin";
+              if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
+                targetName = targetName.substring(0, targetName.lastIndexOf("."));
+              }
+            } catch (e) {
+              targetName = "Invalid_Web_Skin_Url";
+              console.error("Error parsing HTTP URL for name:", e);
+            }
+          } else if (isLikelyFilePath(trimmedInput)) {
+            let pathForNameExtraction = trimmedInput;
+            if (trimmedInput.startsWith("file://")) {
+              try {
+                const tempUrl = new URL(trimmedInput);
+                pathForNameExtraction = decodeURIComponent(tempUrl.pathname);
+              } catch (e) {
+                console.error(
+                  "Error parsing file:// URL for name extraction:",
+                  e,
+                );
+              }
+            }
+            const pathParts = pathForNameExtraction.split(/[\\/]/);
+            targetName = pathParts.pop() || "File_Skin";
             if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
               targetName = targetName.substring(0, targetName.lastIndexOf("."));
             }
-          } catch (e) {
-            targetName = "Invalid_Web_Skin_Url";
-            console.error("Error parsing HTTP URL for name:", e);
+          } else {
+            targetName = trimmedInput;
           }
-        } else if (isLikelyFilePath(trimmedInput)) {
-          let pathForNameExtraction = trimmedInput;
-          if (trimmedInput.startsWith("file://")) {
-            try {
-              const tempUrl = new URL(trimmedInput);
-              pathForNameExtraction = decodeURIComponent(tempUrl.pathname);
-            } catch (e) {
-              console.error(
-                "Error parsing file:// URL for name extraction:",
-                e,
-              );
-            }
+
+          // Use previewSkinName if available (when in preview mode)
+          if (previewSkinName.trim()) {
+            targetName = previewSkinName.trim();
           }
-          const pathParts = pathForNameExtraction.split(/[\\/]/);
-          targetName = pathParts.pop() || "File_Skin";
-          if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
-            targetName = targetName.substring(0, targetName.lastIndexOf("."));
+
+          if (!targetName.trim()) {
+            targetName = "Unnamed_Skin";
+            console.warn(
+              "Derived target name was empty, falling back to Unnamed_Skin for input:",
+              trimmedInput,
+            );
           }
-        } else {
-          targetName = trimmedInput;
-        }
 
-        // Use previewSkinName if available (when in preview mode)
-        if (previewSkinName.trim()) {
-          targetName = previewSkinName.trim();
+        return await onAdd(trimmedInput, targetName, variant, null);
         }
+      };
 
-        if (!targetName.trim()) {
-          targetName = "Unnamed_Skin";
-          console.warn(
-            "Derived target name was empty, falling back to Unnamed_Skin for input:",
-            trimmedInput,
-          );
-        }
-
-        console.log("[Save] Saving with variant:", variant, "isSlimVariant:", isSlimVariant);
-        await onAdd(trimmedInput, targetName, variant, null);
-        toast.success("Skin saved successfully!");
-      }
+      // Use Promise Toast for better UX
+      toast.promise(saveOperation(), {
+        loading: skin ? "Updating skin..." : "Adding skin...",
+        success: (result) => {
+          const skinName = skin ? (previewSkinName || skin.name) : previewSkinName;
+          return `Skin "${skinName}" ${skin ? "updated" : "added"} successfully!`;
+        },
+        error: (err) => {
+          console.error("Save error:", err);
+          return err instanceof Error ? err.message : "Failed to save skin";
+        },
+      });
     };
 
     return (
@@ -393,20 +395,14 @@ export const AddSkinModal = memo(
               <div className="flex justify-center gap-6">
                 <Checkbox
                   checked={!isSlimVariant}
-                  onChange={(e) => {
-                    console.log("[Checkbox] Setting to Classic (Steve), checked:", e.target.checked);
-                    setIsSlimVariant(false);
-                  }}
+                  onChange={(e) => setIsSlimVariant(false)}
                   disabled={isLoading}
                   label="Classic (Steve)"
                   size="md"
                 />
                 <Checkbox
                   checked={isSlimVariant}
-                  onChange={(e) => {
-                    console.log("[Checkbox] Setting to Slim (Alex), checked:", e.target.checked);
-                    setIsSlimVariant(true);
-                  }}
+                  onChange={(e) => setIsSlimVariant(true)}
                   disabled={isLoading}
                   label="Slim (Alex)"
                   size="md"
