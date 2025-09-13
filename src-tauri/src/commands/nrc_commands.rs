@@ -9,6 +9,7 @@ use log::info;
 use log::{debug, error};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, Url, UserAttentionType, WebviewUrl, WebviewWindowBuilder};
+use crate::utils::updater_utils;
 
 /// Fetches news and changelog posts from the WordPress API.
 ///
@@ -287,4 +288,16 @@ pub async fn reset_mobile_app_token() -> Result<String, CommandError> {
     );
 
     Ok(NoRiskApi::reset_mcreal_app_token(&token, &account_id_str, is_experimental).await?)
+}
+
+#[tauri::command]
+pub async fn check_update_available_command(app: AppHandle) -> Result<Option<crate::utils::updater_utils::UpdateInfo>, CommandError> {
+    debug!("Executing check_update_available_command");
+
+    let state = State::get().await?;
+    let config = state.config_manager.get_config().await;
+    let is_beta_channel = config.check_beta_channel;
+
+    debug!("Using beta channel setting from config: {}", is_beta_channel);
+    Ok(updater_utils::check_update_available(&app, is_beta_channel).await?)
 }

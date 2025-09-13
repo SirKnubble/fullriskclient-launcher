@@ -24,6 +24,103 @@ pub fn is_flatpak() -> bool {
     is_flatpak
 }
 
+/// Checks if an update is available without downloading or installing it.
+///
+/// This function performs the same update check logic as `check_for_updates` but only
+/// returns information about available updates without triggering any downloads.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<Option<UpdateInfo>>` - Information about the available update, or None if up to date.
+pub async fn check_update_available(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<Option<UpdateInfo>> {
+    let current_version = app_handle.package_info().version.to_string();
+    let channel = if is_beta_channel { "Beta" } else { "Stable" };
+
+    info!(
+        "Checking for available updates (Current: {}). Channel: {}",
+        current_version, channel
+    );
+
+    // Determine the base part of the URL and the platform-specific segment template
+    let base_repo_url = if is_beta_channel {
+        "https://api-staging.norisk.gg/api/v1/launcher/releases-v2"
+    } else {
+        "https://api.norisk.gg/api/v1/launcher/releases-v2"
+    };
+
+    let mut platform_specific_target = "{{target}}".to_string(); // Default: Tauri replaces {{target}}
+
+    if cfg!(target_os = "linux") {
+        if std::env::var("APPIMAGE").is_ok() {
+            info!("Linux AppImage detected. Updater will use default target for manifest URL.");
+            // platform_specific_target remains "{{target}}" for AppImage
+        } else {
+            // Not an AppImage, assume .deb or similar package manager context.
+            let deb_target_identifier = "debian";
+            info!(
+                "Linux non-AppImage (e.g., .deb) detected. Modifying manifest URL to use target: {}",
+                deb_target_identifier
+            );
+            platform_specific_target = deb_target_identifier.to_string();
+        }
+    }
+
+    // Construct the final update URL string
+    let update_url_str = format!(
+        "{}/{}/{{{{arch}}}}/{{{{current_version}}}}",
+        base_repo_url, platform_specific_target
+    );
+
+    info!("Using update endpoint template: {}", update_url_str);
+
+    let update_url = update_url_str.parse()
+        .map_err(|e| AppError::Other(format!("Failed to parse update URL '{}': {}", update_url_str, e)))?;
+
+    let updater_result = app_handle.updater_builder().endpoints(vec![update_url]);
+
+    let updater = updater_result
+        .map_err(|e| AppError::Other(format!("Failed to set updater endpoints: {}", e)))?
+        .build()
+        .map_err(|e| AppError::Other(format!("Failed to build updater: {}", e)))?;
+
+    info!("Updater built successfully. Checking for updates...");
+
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let update_info = UpdateInfo {
+                version: update.version.clone(),
+                date: update.date.map(|d| format!("{}", d)),
+                body: update.body.clone(),
+                download_url: None, // TODO: Convert update.download_url to String
+            };
+
+            info!(
+                "Update available: Version {}, Released: {:?}",
+                update.version,
+                update.date
+            );
+
+            Ok(Some(update_info))
+        }
+        Ok(None) => {
+            info!("No update available for the {} channel.", channel);
+            Ok(None)
+        }
+        Err(e) => {
+            error!("Error during update check for {} channel: {}", channel, e);
+            Err(AppError::Other(format!("Update check error: {}", e)))
+        }
+    }
+}
+
 // Define the payload structure for updater status events
 #[derive(Clone, Serialize)] // Add derive macros
 struct UpdaterStatusPayload {
@@ -32,6 +129,15 @@ struct UpdaterStatusPayload {
     progress: Option<u64>,
     total: Option<u64>,
     chunk: Option<u64>,
+}
+
+// Structure to hold available update information
+#[derive(Clone, Debug, Serialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub date: Option<String>,
+    pub body: Option<String>,
+    pub download_url: Option<String>,
 }
 
 // Helper function to emit status updates

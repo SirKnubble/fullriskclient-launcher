@@ -97,7 +97,7 @@ use commands::cape_command::{
 };
 
 // Import NRC commands
-use commands::nrc_commands::get_news_and_changelogs_command;
+use commands::nrc_commands::{check_update_available_command, get_news_and_changelogs_command};
 
 // Import Content commands
 use commands::content_command::{
@@ -454,6 +454,7 @@ async fn main() {
             read_file_bytes,
             get_app_version,
             get_news_and_changelogs_command,
+            check_update_available_command,
             get_modrinth_categories_command,
             get_modrinth_loaders_command,
             get_modrinth_game_versions_command,
