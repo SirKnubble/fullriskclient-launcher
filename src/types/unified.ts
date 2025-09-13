@@ -3,6 +3,28 @@ export enum ModSource {
   CurseForge = "CurseForge",
 }
 
+export enum UnifiedProjectType {
+  Mod = "Mod",
+  Modpack = "Modpack",
+  ResourcePack = "ResourcePack",
+  Shader = "Shader",
+  Datapack = "Datapack",
+}
+
+export enum UnifiedSortType {
+  Relevance = "Relevance",
+  Downloads = "Downloads",
+  Follows = "Follows",
+  Newest = "Newest",
+  Updated = "Updated",
+  Name = "Name",
+  Author = "Author",
+  Featured = "Featured",
+  Popularity = "Popularity",
+  Category = "Category",
+  GameVersion = "GameVersion",
+}
+
 export interface UnifiedModSearchResult {
   project_id: string; // ID field used in UI
   source: ModSource;
@@ -33,10 +55,13 @@ export interface UnifiedModSearchResponse {
 export interface UnifiedModSearchParams {
   query: string;
   source: ModSource;
+  project_type: UnifiedProjectType;
   game_version?: string;
   categories?: string[];
   mod_loader?: string;
   limit?: number;
   offset?: number;
-  sort?: string; // "downloads", "newest", "updated", "relevance", "follows", "name"
+  sort?: UnifiedSortType;
+  client_side_filter?: string;
+  server_side_filter?: string;
 }

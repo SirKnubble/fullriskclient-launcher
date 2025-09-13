@@ -8,6 +8,112 @@ pub enum ModSource {
     CurseForge,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum UnifiedProjectType {
+    Mod,
+    Modpack,
+    ResourcePack,
+    Shader,
+    Datapack,
+}
+
+impl UnifiedProjectType {
+    pub fn to_string(&self) -> String {
+        match self {
+            UnifiedProjectType::Mod => "mod".to_string(),
+            UnifiedProjectType::Modpack => "modpack".to_string(),
+            UnifiedProjectType::ResourcePack => "resourcepack".to_string(),
+            UnifiedProjectType::Shader => "shader".to_string(),
+            UnifiedProjectType::Datapack => "datapack".to_string(),
+        }
+    }
+
+    pub fn to_curseforge_class_id(&self) -> Option<u32> {
+        match self {
+            UnifiedProjectType::Mod => Some(6), // Minecraft Mods
+            UnifiedProjectType::Modpack => Some(4471), // Minecraft Modpacks
+            UnifiedProjectType::ResourcePack => Some(12), // Minecraft Resource Packs
+            UnifiedProjectType::Shader => Some(6552), // Minecraft Shaders
+            UnifiedProjectType::Datapack => Some(119), // Minecraft Data Packs
+        }
+    }
+
+    pub fn to_modrinth_project_type(&self) -> modrinth::ModrinthProjectType {
+        match self {
+            UnifiedProjectType::Mod => modrinth::ModrinthProjectType::Mod,
+            UnifiedProjectType::Modpack => modrinth::ModrinthProjectType::Modpack,
+            UnifiedProjectType::ResourcePack => modrinth::ModrinthProjectType::ResourcePack,
+            UnifiedProjectType::Shader => modrinth::ModrinthProjectType::Shader,
+            UnifiedProjectType::Datapack => modrinth::ModrinthProjectType::Datapack,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum UnifiedSortType {
+    Relevance,
+    Downloads,
+    Follows,
+    Newest,
+    Updated,
+    Name,
+    Author,
+    Featured,
+    Popularity,
+    Category,
+    GameVersion,
+}
+
+impl UnifiedSortType {
+    pub fn to_string(&self) -> String {
+        match self {
+            UnifiedSortType::Relevance => "relevance".to_string(),
+            UnifiedSortType::Downloads => "downloads".to_string(),
+            UnifiedSortType::Follows => "follows".to_string(),
+            UnifiedSortType::Newest => "newest".to_string(),
+            UnifiedSortType::Updated => "updated".to_string(),
+            UnifiedSortType::Name => "name".to_string(),
+            UnifiedSortType::Author => "author".to_string(),
+            UnifiedSortType::Featured => "featured".to_string(),
+            UnifiedSortType::Popularity => "popularity".to_string(),
+            UnifiedSortType::Category => "category".to_string(),
+            UnifiedSortType::GameVersion => "game_version".to_string(),
+        }
+    }
+
+    pub fn to_modrinth_sort_type(&self) -> Option<modrinth::ModrinthSortType> {
+        match self {
+            UnifiedSortType::Relevance => Some(modrinth::ModrinthSortType::Relevance),
+            UnifiedSortType::Downloads => Some(modrinth::ModrinthSortType::Downloads),
+            UnifiedSortType::Follows => Some(modrinth::ModrinthSortType::Follows),
+            UnifiedSortType::Newest => Some(modrinth::ModrinthSortType::Newest),
+            UnifiedSortType::Updated => Some(modrinth::ModrinthSortType::Updated),
+            // These don't have direct Modrinth equivalents, so use Relevance as fallback
+            UnifiedSortType::Name | UnifiedSortType::Author | UnifiedSortType::Featured |
+            UnifiedSortType::Popularity | UnifiedSortType::Category | UnifiedSortType::GameVersion => {
+                Some(modrinth::ModrinthSortType::Relevance)
+            }
+        }
+    }
+
+    pub fn to_curseforge_sort_field_and_order(&self) -> (Option<curseforge::CurseForgeModSearchSortField>, Option<curseforge::CurseForgeSortOrder>) {
+        match self {
+            UnifiedSortType::Relevance => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Downloads => (Some(curseforge::CurseForgeModSearchSortField::TotalDownloads), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Newest => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Updated => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Name => (Some(curseforge::CurseForgeModSearchSortField::Name), Some(curseforge::CurseForgeSortOrder::Asc)),
+            UnifiedSortType::Author => (Some(curseforge::CurseForgeModSearchSortField::Author), Some(curseforge::CurseForgeSortOrder::Asc)),
+            UnifiedSortType::Featured => (Some(curseforge::CurseForgeModSearchSortField::Featured), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Popularity => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Category => (Some(curseforge::CurseForgeModSearchSortField::Category), Some(curseforge::CurseForgeSortOrder::Asc)),
+            UnifiedSortType::GameVersion => (Some(curseforge::CurseForgeModSearchSortField::GameVersion), Some(curseforge::CurseForgeSortOrder::Desc)),
+            // Follows doesn't have a direct CurseForge equivalent, use Popularity as fallback
+            UnifiedSortType::Follows => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UnifiedModSearchResult {
     pub project_id: String, // ID field used in UI
@@ -30,6 +136,21 @@ pub struct UnifiedPagination {
     pub page_size: u32,
     pub result_count: u32,
     pub total_count: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedModSearchParams {
+    pub query: String,
+    pub source: ModSource,
+    pub project_type: UnifiedProjectType,
+    pub game_version: Option<String>,
+    pub categories: Option<Vec<String>>,
+    pub mod_loader: Option<String>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+    pub sort: Option<UnifiedSortType>,
+    pub client_side_filter: Option<String>,
+    pub server_side_filter: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,49 +204,40 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
             follows: None, // CurseForge doesn't provide this
             icon_url: mod_info.logo.map(|logo| logo.url),
             project_url: mod_info.links.websiteUrl,
-            project_type: None, // Would need to map classId to type
+            project_type: None, // CurseForge classId mapping would require additional logic
         }
     }
 }
 
 pub async fn search_mods_unified(
-    query: String,
-    source: ModSource,
-    game_version: Option<String>,
-    categories: Option<Vec<String>>,
-    mod_loader: Option<String>,
-    limit: Option<u32>,
-    offset: Option<u32>,
-    sort: Option<String>, // "downloads", "newest", "updated", "relevance" etc.
+    params: UnifiedModSearchParams,
 ) -> Result<UnifiedModSearchResponse, crate::error::AppError> {
     let mut all_results = Vec::new();
     let mut total_count = 0u64;
 
     // Execute search based on source
-    match source {
+    match params.source {
         ModSource::CurseForge => {
             // Convert unified sort to CurseForge sort parameters
-            let (sort_field, sort_order) = match sort.as_deref() {
-                Some("downloads") => (Some(curseforge::CurseForgeModSearchSortField::TotalDownloads), Some(curseforge::CurseForgeSortOrder::Desc)),
-                Some("newest") => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
-                Some("updated") => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
-                Some("relevance") => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
-                Some("name") => (Some(curseforge::CurseForgeModSearchSortField::Name), Some(curseforge::CurseForgeSortOrder::Asc)),
-                _ => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)), // default
+            let (sort_field, sort_order) = if let Some(unified_sort) = params.sort {
+                unified_sort.to_curseforge_sort_field_and_order()
+            } else {
+                // Default fallback
+                (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc))
             };
 
             match curseforge::search_mods(
                 432, // Minecraft game ID
-                Some(query.clone()),
-                None, // class_id (could map mod_loader)
+                Some(params.query.clone()),
+                params.project_type.to_curseforge_class_id(), // class_id based on project type
                 None, // category_id
-                game_version.clone(),
+                params.game_version.clone(),
                 sort_field,
                 sort_order,
                 None, // mod_loader_type
                 None, // game_version_type_id
-                offset, // index for pagination
-                limit, // page_size
+                params.offset, // index for pagination
+                params.limit, // page_size
             ).await {
                 Ok(response) => {
                     log::info!("CurseForge search successful: {} mods", response.data.len());
@@ -144,26 +256,24 @@ pub async fn search_mods_unified(
         }
         ModSource::Modrinth => {
             // Convert unified sort to Modrinth sort
-            let modrinth_sort = match sort.as_deref() {
-                Some("downloads") => Some(modrinth::ModrinthSortType::Downloads),
-                Some("newest") => Some(modrinth::ModrinthSortType::Newest),
-                Some("updated") => Some(modrinth::ModrinthSortType::Updated),
-                Some("relevance") => Some(modrinth::ModrinthSortType::Relevance),
-                Some("follows") => Some(modrinth::ModrinthSortType::Follows),
-                _ => Some(modrinth::ModrinthSortType::Relevance), // default
+            let modrinth_sort = if let Some(unified_sort) = params.sort {
+                unified_sort.to_modrinth_sort_type()
+            } else {
+                // Default fallback
+                Some(modrinth::ModrinthSortType::Relevance)
             };
 
             match modrinth::search_projects(
-                query,
-                modrinth::ModrinthProjectType::Mod,
-                game_version,
-                mod_loader,
-                limit,
-                offset,
+                params.query,
+                params.project_type.to_modrinth_project_type(),
+                params.game_version,
+                params.mod_loader,
+                params.limit,
+                params.offset,
                 modrinth_sort,
-                categories.map(|cats| cats.into_iter().map(|c| c.to_lowercase()).collect()),
-                None, // client_side_filter
-                None, // server_side_filter
+                params.categories.as_ref().map(|cats| cats.into_iter().map(|c| c.to_lowercase()).collect()),
+                params.client_side_filter,
+                params.server_side_filter,
             ).await {
                 Ok(response) => {
                     log::info!("Modrinth search successful: {} mods", response.hits.len());
@@ -187,8 +297,8 @@ pub async fn search_mods_unified(
     Ok(UnifiedModSearchResponse {
         results: all_results,
         pagination: UnifiedPagination {
-            index: offset.unwrap_or(0),
-            page_size: limit.unwrap_or(20),
+            index: params.offset.unwrap_or(0),
+            page_size: params.limit.unwrap_or(20),
             result_count,
             total_count,
         },

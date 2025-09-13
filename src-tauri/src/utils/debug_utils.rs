@@ -1,3 +1,4 @@
+use crate::integrations::unified_mod::{search_mods_unified, ModSource, UnifiedProjectType, UnifiedSortType, UnifiedModSearchParams};
 use crate::state::state_manager::State;
 use crate::utils::mc_utils;
 use log::{error, info};
@@ -211,4 +212,61 @@ pub async fn debug_print_news_and_changelogs() {
             error!("--- [DEBUG] Error fetching news/changelogs: {} ---", e);
         }
     }
+}
+
+/// Debug function to test unified mod search for both Modrinth and CurseForge.
+/// This should only be called temporarily during development.
+pub async fn debug_unified_mod_search() {
+    info!("--- [DEBUG] Starting Unified Mod Search Test ---");
+
+    // Base parameters for testing
+    let base_params = UnifiedModSearchParams {
+        query: "".to_string(),
+        source: ModSource::Modrinth, // Default, will be overridden
+        project_type: UnifiedProjectType::Mod,
+        game_version: None,
+        categories: None,
+        mod_loader: None,
+        limit: Some(5),
+        offset: Some(0),
+        sort: Some(UnifiedSortType::Relevance),
+        client_side_filter: None,
+        server_side_filter: None,
+    };
+
+    // Test Modrinth search
+    info!("--- [DEBUG] Testing Modrinth search ---");
+    let mut modrinth_params = base_params.clone();
+    modrinth_params.source = ModSource::Modrinth;
+
+    match search_mods_unified(modrinth_params).await {
+        Ok(response) => {
+            info!("Modrinth search successful: {} results", response.results.len());
+            for result in &response.results {
+                info!("  - {} ({:?}) - {} downloads", result.title, result.source, result.downloads);
+            }
+        }
+        Err(e) => {
+            error!("Modrinth search failed: {}", e);
+        }
+    }
+
+    // Test CurseForge search
+    info!("--- [DEBUG] Testing CurseForge search ---");
+    let mut curseforge_params = base_params.clone();
+    curseforge_params.source = ModSource::CurseForge;
+
+    match search_mods_unified(curseforge_params).await {
+        Ok(response) => {
+            info!("CurseForge search successful: {} results", response.results.len());
+            for result in &response.results {
+                info!("  - {} ({:?}) - {} downloads", result.title, result.source, result.downloads);
+            }
+        }
+        Err(e) => {
+            error!("CurseForge search failed: {}", e);
+        }
+    }
+
+    info!("--- [DEBUG] Finished Unified Mod Search Test ---");
 }

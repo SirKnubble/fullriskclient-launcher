@@ -6,7 +6,7 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
-use crate::integrations::unified_mod;
+use crate::integrations::unified_mod::{search_mods_unified, UnifiedModSearchParams, UnifiedModSearchResponse, ModSource, UnifiedProjectType, UnifiedSortType};
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -336,47 +336,30 @@ pub async fn get_modrinth_versions_by_hashes(
     Ok(versions_map)
 }
 
+/// Unified mod search across both Modrinth and CurseForge platforms.
+/// This provides a single API endpoint for searching mods from multiple sources.
 #[tauri::command]
-pub async fn search_mods_unified(
-    query: String,
-    source: unified_mod::ModSource,
-    game_version: Option<String>,
-    categories: Option<Vec<String>>,
-    mod_loader: Option<String>,
-    limit: Option<u32>,
-    offset: Option<u32>,
-    sort: Option<String>,
-) -> Result<unified_mod::UnifiedModSearchResponse, CommandError> {
+pub async fn search_mods_unified_command(
+    params: UnifiedModSearchParams,
+) -> Result<UnifiedModSearchResponse, CommandError> {
     log::debug!(
-        "Received search_mods_unified command: query={}, source={:?}, version={}, categories={:?}, loader={}, limit={:?}, offset={:?}, sort={:?}",
-        query,
-        source,
-        game_version.as_deref().unwrap_or("None"),
-        categories,
-        mod_loader.as_deref().unwrap_or("None"),
-        limit,
-        offset,
-        sort
+        "Received search_mods_unified command: query={}, source={:?}, project_type={:?}, version={}, loader={}, limit={:?}, offset={:?}, sort={:?}, client_side={:?}, server_side={:?}",
+        params.query,
+        params.source,
+        params.project_type,
+        params.game_version.as_deref().unwrap_or("None"),
+        params.mod_loader.as_deref().unwrap_or("None"),
+        params.limit,
+        params.offset,
+        params.sort,
+        params.client_side_filter,
+        params.server_side_filter
     );
 
-    let result = unified_mod::search_mods_unified(
-        query,
-        source,
-        game_version,
-        categories,
-        mod_loader,
-        limit,
-        offset,
-        sort,
-    )
-    .await
-    .map_err(CommandError::from)?;
+    let result = search_mods_unified(params)
+        .await
+        .map_err(CommandError::from)?;
 
-    log::info!(
-        "Unified search returned {} results (total: {})",
-        result.results.len(),
-        result.pagination.total_count
-    );
-
+    log::info!("Unified search completed: {} results found", result.results.len());
     Ok(result)
 }
