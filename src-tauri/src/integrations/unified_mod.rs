@@ -1,6 +1,7 @@
 use crate::integrations::curseforge;
 use crate::integrations::modrinth;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ModPlatform {
@@ -163,9 +164,61 @@ pub struct UnifiedModSearchParams {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedModVersionsParams {
+    pub source: ModPlatform,
+    pub project_id: String,
+    pub loaders: Option<Vec<String>>,
+    pub game_versions: Option<Vec<String>>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UnifiedModSearchResponse {
     pub results: Vec<UnifiedModSearchResult>,
     pub pagination: UnifiedPagination,
+}
+
+// Unified version/file structure for both platforms
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedVersion {
+    pub id: String,
+    pub project_id: String,
+    pub source: ModPlatform,
+    pub name: String,
+    pub version_number: String,
+    pub changelog: Option<String>,
+    pub game_versions: Vec<String>,
+    pub loaders: Vec<String>,
+    pub files: Vec<UnifiedVersionFile>,
+    pub date_published: String,
+    pub downloads: u64,
+    pub release_type: UnifiedVersionType,
+    pub url: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedVersionFile {
+    pub filename: String,
+    pub url: String,
+    pub size: u64,
+    pub hashes: HashMap<String, String>,
+    pub primary: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum UnifiedVersionType {
+    Release,
+    Beta,
+    Alpha,
+}
+
+// Response structure for unified version requests
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedVersionResponse {
+    pub versions: Vec<UnifiedVersion>,
+    pub total_count: u64,
 }
 
 impl From<modrinth::ModrinthSearchHit> for UnifiedModSearchResult {
@@ -232,6 +285,105 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
             license: None, // CurseForge doesn't provide this
             gallery: vec![], // CurseForge doesn't provide this
             versions: None, // CurseForge doesn't provide this
+        }
+    }
+}
+
+impl From<modrinth::ModrinthVersion> for UnifiedVersion {
+    fn from(version: modrinth::ModrinthVersion) -> Self {
+        let unified_files: Vec<UnifiedVersionFile> = version.files
+            .into_iter()
+            .map(|file| {
+                let mut hashes_map = HashMap::new();
+                if let Some(sha1) = &file.hashes.sha1 {
+                    hashes_map.insert("sha1".to_string(), sha1.clone());
+                }
+                if let Some(sha512) = &file.hashes.sha512 {
+                    hashes_map.insert("sha512".to_string(), sha512.clone());
+                }
+
+                UnifiedVersionFile {
+                    filename: file.filename,
+                    url: file.url,
+                    size: file.size,
+                    hashes: hashes_map,
+                    primary: file.primary,
+                }
+            })
+            .collect();
+
+        let project_id_clone = version.project_id.clone();
+        let id_clone = version.id.clone();
+
+        UnifiedVersion {
+            id: version.id,
+            project_id: version.project_id,
+            source: ModPlatform::Modrinth,
+            name: version.name,
+            version_number: version.version_number,
+            changelog: version.changelog,
+            game_versions: version.game_versions,
+            loaders: version.loaders,
+            files: unified_files,
+            date_published: version.date_published,
+            downloads: version.downloads,
+            release_type: match version.version_type {
+                modrinth::ModrinthVersionType::Release => UnifiedVersionType::Release,
+                modrinth::ModrinthVersionType::Beta => UnifiedVersionType::Beta,
+                modrinth::ModrinthVersionType::Alpha => UnifiedVersionType::Alpha,
+            },
+            url: format!("https://modrinth.com/mod/{}/version/{}", project_id_clone, id_clone),
+        }
+    }
+}
+
+impl From<curseforge::CurseForgeFile> for UnifiedVersion {
+    fn from(file: curseforge::CurseForgeFile) -> Self {
+        let mut hashes_map = HashMap::new();
+        for hash in &file.hashes {
+            if let Some(algo) = curseforge::CurseForgeHashAlgo::from_u32(hash.algo) {
+                hashes_map.insert(algo.to_string(), hash.value.clone());
+            } else {
+                hashes_map.insert("unknown".to_string(), hash.value.clone());
+            }
+        }
+
+        // Create unified file for this CurseForge file
+        let unified_file = UnifiedVersionFile {
+            filename: file.fileName.clone(),
+            url: file.downloadUrl.clone(),
+            size: file.fileLength,
+            hashes: hashes_map,
+            primary: true, // CurseForge doesn't have primary flag, assume single file is primary
+        };
+
+        let unified_files = vec![unified_file];
+
+        // Convert release type from CurseForge (1=Release, 2=Beta, 3=Alpha)
+        let release_type = match file.releaseType {
+            1 => UnifiedVersionType::Release,
+            2 => UnifiedVersionType::Beta,
+            3 => UnifiedVersionType::Alpha,
+            _ => UnifiedVersionType::Release,
+        };
+
+        let display_name_clone = file.displayName.clone();
+        let download_url_clone = file.downloadUrl.clone();
+
+        UnifiedVersion {
+            id: file.id.to_string(),
+            project_id: file.modId.to_string(),
+            source: ModPlatform::CurseForge,
+            name: file.displayName,
+            version_number: display_name_clone, // CurseForge uses displayName as version
+            changelog: None, // CurseForge doesn't provide changelog
+            game_versions: file.gameVersions,
+            loaders: vec![], // CurseForge doesn't provide loader info in files endpoint
+            files: unified_files,
+            date_published: file.fileDate,
+            downloads: file.downloadCount,
+            release_type,
+            url: download_url_clone,
         }
     }
 }
@@ -329,5 +481,107 @@ pub async fn search_mods_unified(
             result_count,
             total_count,
         },
+    })
+}
+
+// Function to get versions/files for a specific mod from unified platforms
+pub async fn get_mod_versions_unified(
+    params: UnifiedModVersionsParams,
+) -> Result<UnifiedVersionResponse, crate::error::AppError> {
+    let mut all_versions = Vec::new();
+    let mut total_count = 0u64;
+
+    match params.source {
+        ModPlatform::Modrinth => {
+            // Convert string loaders to Modrinth loaders if needed
+            let modrinth_loaders = params.loaders.as_ref().map(|loaders_vec| {
+                loaders_vec.into_iter().map(|l| l.to_lowercase()).collect()
+            });
+
+            match modrinth::get_mod_versions(
+                params.project_id.clone(),
+                modrinth_loaders,
+                params.game_versions.clone(),
+            ).await {
+                Ok(versions) => {
+                    log::info!("Modrinth versions successful: {} versions", versions.len());
+                    total_count += versions.len() as u64;
+                    let unified_versions: Vec<UnifiedVersion> = versions
+                        .into_iter()
+                        .map(|version| version.into())
+                        .collect();
+                    all_versions.extend(unified_versions);
+                }
+                Err(e) => {
+                    log::error!("Modrinth versions failed: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        ModPlatform::CurseForge => {
+            // Parse project_id as u32 for CurseForge
+            let mod_id = match params.project_id.parse::<u32>() {
+                Ok(id) => id,
+                Err(_) => {
+                    return Err(crate::error::AppError::Other(format!(
+                        "Invalid CurseForge project ID: {}", params.project_id
+                    )));
+                }
+            };
+
+            // Convert string loaders to CurseForge loader types
+            let curseforge_loader = if let Some(ref loaders_vec) = &params.loaders {
+                if loaders_vec.is_empty() {
+                    None
+                } else {
+                    // Try to match the first loader to CurseForge enum
+                    match loaders_vec[0].to_lowercase().as_str() {
+                        "forge" => Some(curseforge::CurseForgeModLoaderType::Forge),
+                        "fabric" => Some(curseforge::CurseForgeModLoaderType::Fabric),
+                        "quilt" => Some(curseforge::CurseForgeModLoaderType::Quilt),
+                        "neoforge" => Some(curseforge::CurseForgeModLoaderType::NeoForge),
+                        "liteloader" => Some(curseforge::CurseForgeModLoaderType::LiteLoader),
+                        "cauldron" => Some(curseforge::CurseForgeModLoaderType::Cauldron),
+                        _ => None, // Default to Any if no match
+                    }
+                }
+            } else {
+                None
+            };
+
+            // Use first game version if provided
+            let game_version = params.game_versions
+                .as_ref()
+                .and_then(|versions| versions.first())
+                .cloned();
+
+            match curseforge::get_mod_files(
+                mod_id,
+                game_version,
+                curseforge_loader,
+                None, // game_version_type_id - not used in unified interface for now
+                params.offset,
+                params.limit,
+            ).await {
+                Ok(response) => {
+                    log::info!("CurseForge files successful: {} files", response.data.len());
+                    let unified_versions: Vec<UnifiedVersion> = response.data
+                        .into_iter()
+                        .map(|file| file.into())
+                        .collect();
+                    all_versions.extend(unified_versions);
+                    total_count += response.pagination.totalCount as u64;
+                }
+                Err(e) => {
+                    log::error!("CurseForge files failed: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    Ok(UnifiedVersionResponse {
+        versions: all_versions,
+        total_count,
     })
 }

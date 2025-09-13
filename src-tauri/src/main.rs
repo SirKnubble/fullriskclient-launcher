@@ -74,7 +74,7 @@ use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
     get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
-    search_modrinth_projects, search_mods_unified_command
+    search_modrinth_projects, search_mods_unified_command, get_mod_versions_unified_command
 };
 
 use commands::file_command::{
@@ -306,6 +306,9 @@ async fn main() {
 
                 // --- Test Unified Mod Search ---
                 debug_utils::debug_unified_mod_search().await;
+
+                // --- Test Unified Mod Versions ---
+                debug_utils::debug_unified_mod_versions().await;
             });
 
             // --- Register Focus Event Listener for Discord RPC --- 
@@ -366,6 +369,7 @@ async fn main() {
             search_modrinth_mods,
             search_modrinth_projects,
             search_mods_unified_command,
+            get_mod_versions_unified_command,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             add_modrinth_content_to_profile,

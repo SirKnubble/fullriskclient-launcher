@@ -74,3 +74,47 @@ export interface UnifiedModSearchParams {
   client_side_filter?: string;
   server_side_filter?: string;
 }
+
+export interface UnifiedVersion {
+  id: string;
+  project_id: string;
+  source: ModPlatform;
+  name: string;
+  version_number: string;
+  changelog?: string;
+  game_versions: string[];
+  loaders: string[];
+  files: UnifiedVersionFile[];
+  date_published: string;
+  downloads: number;
+  release_type: UnifiedVersionType;
+  url: string;
+}
+
+export interface UnifiedVersionFile {
+  filename: string;
+  url: string;
+  size: number;
+  hashes: Record<string, string>;
+  primary: boolean;
+}
+
+export enum UnifiedVersionType {
+  Release = "release",
+  Beta = "beta",
+  Alpha = "alpha",
+}
+
+export interface UnifiedVersionResponse {
+  versions: UnifiedVersion[];
+  total_count: number;
+}
+
+export interface UnifiedModVersionsParams {
+  source: ModPlatform;
+  project_id: string;
+  loaders?: string[];
+  game_versions?: string[];
+  limit?: number;
+  offset?: number;
+}

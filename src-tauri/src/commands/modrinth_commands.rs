@@ -6,7 +6,7 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
-use crate::integrations::unified_mod::{search_mods_unified, UnifiedModSearchParams, UnifiedModSearchResponse, ModPlatform, UnifiedProjectType, UnifiedSortType};
+use crate::integrations::unified_mod::{search_mods_unified, get_mod_versions_unified, UnifiedModVersionsParams, UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedVersionResponse, ModPlatform, UnifiedProjectType, UnifiedSortType};
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -361,5 +361,29 @@ pub async fn search_mods_unified_command(
         .map_err(CommandError::from)?;
 
     log::info!("Unified search completed: {} results found", result.results.len());
+    Ok(result)
+}
+
+/// Unified command to get versions/files for a specific mod from either Modrinth or CurseForge.
+/// This provides a single API endpoint for getting mod versions from multiple sources.
+#[tauri::command]
+pub async fn get_mod_versions_unified_command(
+    params: UnifiedModVersionsParams,
+) -> Result<UnifiedVersionResponse, CommandError> {
+    log::debug!(
+        "Received get_mod_versions_unified command: source={:?}, project_id={}, loaders={:?}, game_versions={:?}, limit={:?}, offset={:?}",
+        params.source,
+        params.project_id,
+        params.loaders,
+        params.game_versions,
+        params.limit,
+        params.offset
+    );
+
+    let result = get_mod_versions_unified(params)
+    .await
+    .map_err(CommandError::from)?;
+
+    log::info!("Unified versions fetch completed: {} versions found", result.versions.len());
     Ok(result)
 }

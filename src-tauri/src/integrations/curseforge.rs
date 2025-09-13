@@ -371,3 +371,158 @@ pub enum CurseForgeModLoaderType {
     Quilt = 5,
     NeoForge = 6,
 }
+
+// Enum for hash algorithms used in CurseForge file hashes
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum CurseForgeHashAlgo {
+    Sha1 = 1,
+    Md5 = 2,
+}
+
+impl CurseForgeHashAlgo {
+    pub fn to_string(&self) -> String {
+        match self {
+            CurseForgeHashAlgo::Sha1 => "sha1".to_string(),
+            CurseForgeHashAlgo::Md5 => "md5".to_string(),
+        }
+    }
+
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            1 => Some(CurseForgeHashAlgo::Sha1),
+            2 => Some(CurseForgeHashAlgo::Md5),
+            _ => None,
+        }
+    }
+}
+
+// Structure for CurseForge mod files response
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFilesResponse {
+    pub data: Vec<CurseForgeFile>,
+    pub pagination: CurseForgePagination,
+}
+
+// Function to get files/versions for a specific CurseForge mod
+// Based on CurseForge API: GET /v1/mods/{modId}/files
+pub async fn get_mod_files(
+    mod_id: u32,
+    game_version: Option<String>,
+    mod_loader_type: Option<CurseForgeModLoaderType>,
+    game_version_type_id: Option<u32>, // Added: Filter by game version type ID
+    index: Option<u32>,
+    page_size: Option<u32>,
+) -> Result<CurseForgeFilesResponse> {
+    let url = format!("{}/mods/{}/files", CURSEFORGE_API_BASE_URL, mod_id);
+
+    let mut query_params: Vec<(String, String)> = Vec::new();
+
+    // Add optional gameVersion
+    if let Some(version) = game_version {
+        query_params.push(("gameVersion".to_string(), version.clone()));
+        log::debug!("CurseForge files - Game version: {}", version);
+    }
+
+    // Add optional modLoaderType
+    if let Some(loader) = mod_loader_type {
+        query_params.push(("modLoaderType".to_string(), (loader.clone() as u32).to_string()));
+        log::debug!("CurseForge files - Mod loader type: {:?}", loader);
+    }
+
+    // Add optional gameVersionTypeId
+    if let Some(version_type_id) = game_version_type_id {
+        query_params.push(("gameVersionTypeId".to_string(), version_type_id.to_string()));
+        log::debug!("CurseForge files - Game version type ID: {}", version_type_id);
+    }
+
+    // Add optional index for pagination
+    if let Some(idx) = index {
+        query_params.push(("index".to_string(), idx.to_string()));
+        log::debug!("CurseForge files - Index: {}", idx);
+    }
+
+    // Add optional pageSize (default/maximum is 50 according to API docs)
+    if let Some(size) = page_size {
+        let clamped_size = size.min(50); // Ensure we don't exceed the maximum
+        query_params.push(("pageSize".to_string(), clamped_size.to_string()));
+        log::debug!("CurseForge files - Page size: {} (clamped to max 50)", clamped_size);
+    }
+
+    // Build the final URL with query parameters
+    let final_url = reqwest::Url::parse_with_params(&url, &query_params)
+        .map_err(|e| AppError::Other(format!("Failed to build CurseForge files URL: {}", e)))?;
+
+    log::info!("Getting CurseForge files: {}", final_url);
+
+    let response = HTTP_CLIENT
+        .get(final_url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("CurseForge API request failed: {}", e)))?;
+
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .map(|ct| ct.to_str().unwrap_or("unknown"))
+        .unwrap_or("missing");
+
+    log::debug!("CurseForge files API response - Status: {}, Content-Type: {}", status, content_type);
+
+    // Always read the response body as text first for better error handling
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge files response body: {}", e)))?;
+
+    // Log response body for debugging (truncated if too long)
+    const MAX_BODY_LOG_LENGTH: usize = 2000;
+    let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
+        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+    } else {
+        response_text.clone()
+    };
+    log::debug!("CurseForge files API response body: {}", logged_body);
+
+    // Check for HTTP errors
+    if !status.is_success() {
+        log::error!("CurseForge files API HTTP error ({}): {}", status, response_text);
+        return Err(AppError::Other(format!(
+            "CurseForge API returned HTTP error {}: {}",
+            status, response_text
+        )));
+    }
+
+    // Try to parse the JSON response
+    let files_response: CurseForgeFilesResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "CurseForge files JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
+                parse_err,
+                &response_text[..response_text.len().min(500)]
+            );
+
+            // Try to parse as error response
+            if let Ok(error_response) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                log::error!("Parsed response as generic JSON: {}", error_response);
+            }
+
+            return Err(AppError::Other(format!(
+                "Failed to parse CurseForge files JSON response: {}. Response starts with: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            )));
+        }
+    };
+
+    log::info!(
+        "Found {} files out of {} total for mod {}",
+        files_response.data.len(),
+        files_response.pagination.totalCount,
+        mod_id
+    );
+
+    Ok(files_response)
+}
