@@ -13,7 +13,15 @@ use tokio::time::{sleep, Duration};
 ///
 /// * `bool` - `true` if running in Flatpak, `false` otherwise.
 pub fn is_flatpak() -> bool {
-    std::env::var("FLATPAK_ID").is_ok()
+    let is_flatpak = std::env::var("FLATPAK_ID").is_ok();
+
+    if is_flatpak {
+        info!("Flatpak environment detected (FLATPAK_ID environment variable is set).");
+    } else {
+        info!("Not running in Flatpak environment (FLATPAK_ID environment variable not found).");
+    }
+
+    is_flatpak
 }
 
 // Define the payload structure for updater status events
