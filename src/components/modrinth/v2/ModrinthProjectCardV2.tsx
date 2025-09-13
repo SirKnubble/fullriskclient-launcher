@@ -7,7 +7,7 @@ import type {
 } from "../../../types/modrinth";
 import type { UnifiedModSearchResult } from "../../../types/unified";
 
-// Temporary type alias for compatibility
+// Unified project card supporting both Modrinth and CurseForge
 type CompatibleProject = UnifiedModSearchResult;
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
@@ -276,13 +276,11 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
         <div className="flex-1 min-w-0">
           <div className="flex flex-row items-baseline space-x-1.5 mb-1">
             <a
-              href={`https://modrinth.com/${hit.project_type}/${hit.slug}`}
+              href={hit.project_url}
               onClick={async (e) => {
                 e.preventDefault();
                 try {
-                  await openExternalUrl(
-                    `https://modrinth.com/${hit.project_type}/${hit.slug}`,
-                  );
+                  await openExternalUrl(hit.project_url);
                 } catch (error) {
                   console.error("Failed to open external URL:", error);
                   toast.error("Could not open link in browser.");
@@ -291,18 +289,24 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
               target="_blank"
               rel="noopener noreferrer"
               className="text-white font-minecraft-ten text-lg whitespace-nowrap overflow-hidden text-ellipsis normal-case hover:underline cursor-pointer"
-              title={`Open ${hit.title} on Modrinth`}
+              title={`Open ${hit.title} on ${hit.source === 'Modrinth' ? 'Modrinth' : 'CurseForge'}`}
             >
               {hit.title}
             </a>
             {hit.author && (
               <a
-                href={`https://modrinth.com/user/${hit.author}`}
+                href={
+                  hit.source === 'Modrinth'
+                    ? `https://modrinth.com/user/${hit.author}`
+                    : `https://www.curseforge.com/members/${hit.author}/projects`
+                }
                 onClick={async (e) => {
                   e.preventDefault();
                   try {
                     await openExternalUrl(
-                      `https://modrinth.com/user/${hit.author}`,
+                      hit.source === 'Modrinth'
+                        ? `https://modrinth.com/user/${hit.author}`
+                        : `https://www.curseforge.com/members/${hit.author}/projects`
                     );
                   } catch (error) {
                     console.error("Failed to open external URL:", error);
@@ -312,7 +316,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-gray-400 truncate font-minecraft-ten flex-shrink min-w-0 hover:text-gray-200 hover:underline cursor-pointer"
-                title={`Open ${hit.author}'s profile on Modrinth`}
+                title={`Open ${hit.author}'s profile on ${hit.source === 'Modrinth' ? 'Modrinth' : 'CurseForge'}`}
               >
                 by {hit.author}
               </a>

@@ -221,7 +221,7 @@ pub async fn search_mods(
 
     // Add optional sortOrder
     if let Some(order) = sort_order {
-        query_params.push(("sortOrder".to_string(), (order.clone() as u32).to_string()));
+        query_params.push(("sortOrder".to_string(), order.to_string()));
         log::debug!("CurseForge search - Sort order: {:?}", order);
     }
 
@@ -338,6 +338,10 @@ pub enum CurseForgeModSearchSortField {
     TotalDownloads = 6,
     Category = 7,
     GameVersion = 8,
+    EarlyAccess = 9,
+    FeaturedReleased = 10,
+    ReleasedDate = 11,
+    Rating = 12,
 }
 
 // Enum for sort order
@@ -345,6 +349,15 @@ pub enum CurseForgeModSearchSortField {
 pub enum CurseForgeSortOrder {
     Asc = 1,
     Desc = 2,
+}
+
+impl CurseForgeSortOrder {
+    pub fn to_string(&self) -> String {
+        match self {
+            CurseForgeSortOrder::Asc => "asc".to_string(),
+            CurseForgeSortOrder::Desc => "desc".to_string(),
+        }
+    }
 }
 
 // Enum for mod loader types
