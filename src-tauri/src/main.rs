@@ -12,6 +12,38 @@ mod logging;
 mod minecraft;
 mod state;
 mod utils;
+
+// Test function for CurseForge integration
+async fn test_curseforge_search() {
+    info!("Testing CurseForge search...");
+
+    match integrations::curseforge::search_mods(
+        432, // Minecraft game ID
+        None, // Search for "nichts"
+        None, // class_id
+        None, // category_id
+        None, // game_version
+        None, // sort_field
+        None, // sort_order
+        None, // mod_loader_type
+        None, // game_version_type_id
+        None, // index
+        Some(10), // page_size: limit to 10 results
+    ).await {
+        Ok(response) => {
+            info!("CurseForge search successful! Found {} mods out of {} total",
+                  response.data.len(), response.pagination.totalCount);
+
+            // Log first few results
+            for (i, mod_info) in response.data.iter().enumerate().take(3) {
+                info!("Mod {}: {} (ID: {})", i + 1, mod_info.name, mod_info.id);
+            }
+        }
+        Err(e) => {
+            error!("CurseForge search failed: {}", e);
+        }
+    }
+}
 use crate::integrations::norisk_packs;
 use crate::integrations::norisk_versions;
 use log::{debug, error, info};
@@ -73,7 +105,7 @@ use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
     get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
-    search_modrinth_projects,
+    search_modrinth_projects, search_mods_unified,
 };
 
 use commands::file_command::{
@@ -225,7 +257,7 @@ async fn main() {
             // --- End .noriskpack handling on startup ---
 
             // Task for State Init and Updater Window
-            let state_init_app_handle = app_handle.clone(); 
+            let state_init_app_handle = app_handle.clone();
             tauri::async_runtime::spawn(async move {
                 // --- Create Updater Window (but keep hidden initially) ---
                 let updater_window = match updater_utils::create_updater_window(&state_init_app_handle).await {
@@ -302,6 +334,9 @@ async fn main() {
                 } else {
                     error!("Could not get main window handle to show it after update check!");
                 }
+
+                // --- Test CurseForge Integration (at the end) ---
+                test_curseforge_search().await;
             });
 
             // --- Register Focus Event Listener for Discord RPC --- 
@@ -361,6 +396,7 @@ async fn main() {
             get_accounts,
             search_modrinth_mods,
             search_modrinth_projects,
+            search_mods_unified,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             add_modrinth_content_to_profile,

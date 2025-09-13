@@ -6,6 +6,7 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
+use crate::integrations::unified_mod;
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -333,4 +334,49 @@ pub async fn get_modrinth_versions_by_hashes(
         versions_map.len()
     );
     Ok(versions_map)
+}
+
+#[tauri::command]
+pub async fn search_mods_unified(
+    query: String,
+    source: unified_mod::ModSource,
+    game_version: Option<String>,
+    categories: Option<Vec<String>>,
+    mod_loader: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+    sort: Option<String>,
+) -> Result<unified_mod::UnifiedModSearchResponse, CommandError> {
+    log::debug!(
+        "Received search_mods_unified command: query={}, source={:?}, version={}, categories={:?}, loader={}, limit={:?}, offset={:?}, sort={:?}",
+        query,
+        source,
+        game_version.as_deref().unwrap_or("None"),
+        categories,
+        mod_loader.as_deref().unwrap_or("None"),
+        limit,
+        offset,
+        sort
+    );
+
+    let result = unified_mod::search_mods_unified(
+        query,
+        source,
+        game_version,
+        categories,
+        mod_loader,
+        limit,
+        offset,
+        sort,
+    )
+    .await
+    .map_err(CommandError::from)?;
+
+    log::info!(
+        "Unified search returned {} results (total: {})",
+        result.results.len(),
+        result.pagination.total_count
+    );
+
+    Ok(result)
 }

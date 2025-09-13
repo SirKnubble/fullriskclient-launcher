@@ -29,3 +29,14 @@ export interface UnifiedModSearchResponse {
   results: UnifiedModSearchResult[];
   pagination: UnifiedPagination;
 }
+
+export interface UnifiedModSearchParams {
+  query: string;
+  source: ModSource;
+  game_version?: string;
+  categories?: string[];
+  mod_loader?: string;
+  limit?: number;
+  offset?: number;
+  sort?: string; // "downloads", "newest", "updated", "relevance", "follows", "name"
+}

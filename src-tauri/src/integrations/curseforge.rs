@@ -42,7 +42,7 @@ pub struct CurseForgeMod {
     pub isFeatured: bool,
     pub primaryCategoryId: u32,
     pub categories: Vec<CurseForgeCategory>,
-    pub classId: u32,
+    pub classId: Option<u32>,
     pub authors: Vec<CurseForgeAuthor>,
     pub logo: Option<CurseForgeAttachment>,
     pub screenshots: Vec<CurseForgeAttachment>,
@@ -57,7 +57,7 @@ pub struct CurseForgeMod {
     pub gamePopularityRank: u32,
     pub isAvailable: bool,
     pub thumbsUpCount: u32,
-    pub rating: u32,
+    pub rating: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
