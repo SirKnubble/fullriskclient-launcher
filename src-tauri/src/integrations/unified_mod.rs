@@ -3,7 +3,7 @@ use crate::integrations::modrinth;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum ModSource {
+pub enum ModPlatform {
     Modrinth,
     CurseForge,
 }
@@ -117,7 +117,7 @@ impl UnifiedSortType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UnifiedModSearchResult {
     pub project_id: String, // ID field used in UI
-    pub source: ModSource,
+    pub source: ModPlatform,
     pub title: String, // Name field used in UI
     pub slug: String,
     pub description: String,
@@ -150,7 +150,7 @@ pub struct UnifiedPagination {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UnifiedModSearchParams {
     pub query: String,
-    pub source: ModSource,
+    pub source: ModPlatform,
     pub project_type: UnifiedProjectType,
     pub game_version: Option<String>,
     pub categories: Option<Vec<String>>,
@@ -175,7 +175,7 @@ impl From<modrinth::ModrinthSearchHit> for UnifiedModSearchResult {
 
         UnifiedModSearchResult {
             project_id: hit.project_id,
-            source: ModSource::Modrinth,
+            source: ModPlatform::Modrinth,
             title: hit.title,
             slug: hit.slug,
             description: hit.description,
@@ -212,7 +212,7 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
 
         UnifiedModSearchResult {
             project_id: mod_info.id.to_string(),
-            source: ModSource::CurseForge,
+            source: ModPlatform::CurseForge,
             title: mod_info.name,
             slug: mod_info.slug,
             description: mod_info.summary,
@@ -244,7 +244,7 @@ pub async fn search_mods_unified(
 
     // Execute search based on source
     match params.source {
-        ModSource::CurseForge => {
+        ModPlatform::CurseForge => {
             // Convert unified sort to CurseForge sort parameters
             let (sort_field, sort_order) = if let Some(unified_sort) = params.sort {
                 unified_sort.to_curseforge_sort_field_and_order()
@@ -281,7 +281,7 @@ pub async fn search_mods_unified(
                 }
             }
         }
-        ModSource::Modrinth => {
+        ModPlatform::Modrinth => {
             // Convert unified sort to Modrinth sort
             let modrinth_sort = if let Some(unified_sort) = params.sort {
                 unified_sort.to_modrinth_sort_type()

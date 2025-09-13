@@ -67,15 +67,15 @@ export async function installContentToProfile(
   try {
     await invoke<void>('install_content_to_profile', { payload });
     console.log(
-      `Successfully requested content installation for profile ${payload.profile_id}, type: ${payload.content_type}, name: ${payload.content_name || payload.file_name} with criteria:`, 
+      `Successfully requested content installation for profile ${payload.profile_id}, type: ${payload.content_type}, source: ${payload.source}, name: ${payload.content_name || payload.file_name} with criteria:`,
       payload
     );
     // Consider toast: toast.success("Content installation initiated.");
   } catch (error) {
     console.error(
-      `Error installing content for profile ${payload.profile_id}, type: ${payload.content_type}, name: ${payload.content_name || payload.file_name} with criteria:`, 
-      payload, 
-      '\nError:', 
+      `Error installing content for profile ${payload.profile_id}, type: ${payload.content_type}, source: ${payload.source}, name: ${payload.content_name || payload.file_name} with criteria:`,
+      payload,
+      '\nError:',
       error
     );
     // Consider toast: toast.error(`Failed to install content: ${error}`);

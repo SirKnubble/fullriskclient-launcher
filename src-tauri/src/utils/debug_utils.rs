@@ -1,4 +1,4 @@
-use crate::integrations::unified_mod::{search_mods_unified, ModSource, UnifiedProjectType, UnifiedSortType, UnifiedModSearchParams};
+use crate::integrations::unified_mod::{search_mods_unified, ModPlatform, UnifiedProjectType, UnifiedSortType, UnifiedModSearchParams};
 use crate::state::state_manager::State;
 use crate::utils::mc_utils;
 use log::{error, info};
@@ -222,7 +222,7 @@ pub async fn debug_unified_mod_search() {
     // Base parameters for testing
     let base_params = UnifiedModSearchParams {
         query: "".to_string(),
-        source: ModSource::Modrinth, // Default, will be overridden
+        source: ModPlatform::Modrinth, // Default, will be overridden
         project_type: UnifiedProjectType::Mod,
         game_version: None,
         categories: None,
@@ -237,7 +237,7 @@ pub async fn debug_unified_mod_search() {
     // Test Modrinth search
     info!("--- [DEBUG] Testing Modrinth search ---");
     let mut modrinth_params = base_params.clone();
-    modrinth_params.source = ModSource::Modrinth;
+    modrinth_params.source = ModPlatform::Modrinth;
 
     match search_mods_unified(modrinth_params).await {
         Ok(response) => {
@@ -254,7 +254,7 @@ pub async fn debug_unified_mod_search() {
     // Test CurseForge search
     info!("--- [DEBUG] Testing CurseForge search ---");
     let mut curseforge_params = base_params.clone();
-    curseforge_params.source = ModSource::CurseForge;
+    curseforge_params.source = ModPlatform::CurseForge;
 
     match search_mods_unified(curseforge_params).await {
         Ok(response) => {

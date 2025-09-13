@@ -1,5 +1,6 @@
 import { NoriskModIdentifier, type LocalContentItem as ProfileLocalContentItem } from "./profile";
 import type { ModrinthVersion } from "./modrinth";
+import { ModPlatform } from "./unified";
 
 /**
  * Payload for uninstalling content from a profile.
@@ -59,6 +60,7 @@ export interface InstallContentPayload {
   content_type: ContentType; // Using the ContentType enum
   loaders?: string[];
   game_versions?: string[];
+  source: ModPlatform; // Added source to distinguish Modrinth/CurseForge
 }
 
 /**

@@ -7,7 +7,7 @@ import type {
   UnifiedModSearchResult,
   UnifiedModSearchResponse
 } from '../../../types/unified';
-import { ModSource, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
+import { ModPlatform, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
 import type {
   ModrinthProjectType,
   ModrinthSearchResponse,
@@ -200,6 +200,9 @@ export function ModrinthSearchV2({
   // Add state for currently selected profile
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
+  // New state for mod source selection (defaults to CurseForge)
+  const [modSource, setModSource] = useState<ModPlatform>(ModPlatform.CurseForge);
+
   // New state for tracking which projects are installed in the selected profile
   const [installedProjects, setInstalledProjects] = useState<Record<string, ContentInstallStatus | null>>({}); // Updated type
 
@@ -333,7 +336,7 @@ export function ModrinthSearchV2({
     try {
       const response: UnifiedModSearchResponse = await UnifiedService.searchMods({
         query: searchTerm,
-        source: ModSource.CurseForge,
+        source: modSource,
         project_type: convertToUnifiedProjectType(projectType),
         game_version: selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined,
         mod_loader: currentSelectedLoaders.length > 0 ? currentSelectedLoaders[0] : undefined,
@@ -370,8 +373,8 @@ export function ModrinthSearchV2({
       }
     }
   }, [
-    searchTerm, projectType, offset, limit, sortOrder,
-    currentSelectedCategories, selectedGameVersions, currentSelectedLoaders, 
+    searchTerm, projectType, offset, limit, sortOrder, modSource,
+    currentSelectedCategories, selectedGameVersions, currentSelectedLoaders,
     filterClientRequired, filterServerRequired,
     allCategoriesData, allLoadersData, gameVersionsData
   ]);
@@ -380,24 +383,25 @@ export function ModrinthSearchV2({
     console.log('[ModrinthSearchV2] useEffect for search triggered. Calling performSearch(true). Params:', {
       searchTerm,
       projectType,
+      modSource,
       categories: currentSelectedCategories,
       gameVersions: selectedGameVersions,
       loaders: currentSelectedLoaders
     });
-    
+
     // Scroll to top when filters/search term changes
     if (searchResultsAreaRef.current) {
       searchResultsAreaRef.current.scrollTop = 0;
     }
-    
+
     // Reset expanded versions when filter changes
     setExpandedVersions({});
     setNumDisplayedVersions({});
     setVersionFilters({});
-    
+
     performSearch(true);
   }, [
-    searchTerm, projectType, sortOrder,
+    searchTerm, projectType, sortOrder, modSource,
     currentSelectedCategories, selectedGameVersions, currentSelectedLoaders,
     filterClientRequired, filterServerRequired
   ]);
@@ -1098,6 +1102,7 @@ export function ModrinthSearchV2({
         content_type: mappedContentType,
         loaders: targetVersion.loaders,
         game_versions: targetVersion.game_versions,
+        source: targetProject.source,
       };
 
       await installContentToProfile(payload);
@@ -1450,6 +1455,7 @@ export function ModrinthSearchV2({
         content_type: mappedContentType,
         loaders: bestVersion.loaders,
         game_versions: bestVersion.game_versions,
+        source: project.source,
       };
 
       await toast.promise(
@@ -1634,6 +1640,7 @@ export function ModrinthSearchV2({
         content_type: mappedContentType,
         loaders: bestVersion.loaders,
         game_versions: bestVersion.game_versions,
+        source: project.source,
       };
 
       await toast.promise(
@@ -1738,6 +1745,7 @@ export function ModrinthSearchV2({
         content_type: mappedContentType,
         loaders: bestVersion.loaders,
         game_versions: bestVersion.game_versions,
+        source: quickInstallProject.source,
       };
 
       await installContentToProfile(payload);
@@ -2898,6 +2906,8 @@ export function ModrinthSearchV2({
               setSelectedProfile(profile);
             }
           }}
+          modSource={modSource}
+          onModSourceChange={setModSource}
           sortOrder={sortOrder}
           onSortOrderChange={setSortOrder}
           sortOptions={sortOptions}

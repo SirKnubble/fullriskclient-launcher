@@ -1,4 +1,4 @@
-export enum ModSource {
+export enum ModPlatform {
   Modrinth = "Modrinth",
   CurseForge = "CurseForge",
 }
@@ -27,7 +27,7 @@ export enum UnifiedSortType {
 
 export interface UnifiedModSearchResult {
   project_id: string; // ID field used in UI
-  source: ModSource;
+  source: ModPlatform;
   title: string; // Name field used in UI
   slug: string;
   description: string;
@@ -63,7 +63,7 @@ export interface UnifiedModSearchResponse {
 
 export interface UnifiedModSearchParams {
   query: string;
-  source: ModSource;
+  source: ModPlatform;
   project_type: UnifiedProjectType;
   game_version?: string;
   categories?: string[];

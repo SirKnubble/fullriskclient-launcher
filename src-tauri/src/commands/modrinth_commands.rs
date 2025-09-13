@@ -6,7 +6,7 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
-use crate::integrations::unified_mod::{search_mods_unified, UnifiedModSearchParams, UnifiedModSearchResponse, ModSource, UnifiedProjectType, UnifiedSortType};
+use crate::integrations::unified_mod::{search_mods_unified, UnifiedModSearchParams, UnifiedModSearchResponse, ModPlatform, UnifiedProjectType, UnifiedSortType};
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;

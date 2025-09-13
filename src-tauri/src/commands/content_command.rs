@@ -2,6 +2,7 @@ use crate::commands::file_command; // Added import for file_command
 use crate::error::{AppError, CommandError};
 use crate::integrations::modrinth::ModrinthVersion; // Added for new payload
 use crate::state::profile_state::ModSource;
+use crate::integrations::unified_mod::ModPlatform; // Import unified ModPlatform
 use crate::state::state_manager::State as AppStateManager;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::hash_utils; // For calculate_sha1
@@ -31,6 +32,7 @@ pub struct InstallContentPayload {
     content_type: profile_utils::ContentType, // Use ContentType from profile_utils
     loaders: Option<Vec<String>>,             // Added loaders
     game_versions: Option<Vec<String>>,       // Added game_versions
+    source: ModPlatform,                      // Added source to distinguish Modrinth/CurseForge
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -130,7 +132,7 @@ async fn uninstall_content_by_sha1_internal(
                     };
                 }
 
-                for (dir_name, asset_dir_path) in dirs_to_scan {
+                for (_dir_name, asset_dir_path) in dirs_to_scan {
                     if asset_dir_path.exists() && asset_dir_path.is_dir() {
                         match fs::read_dir(&asset_dir_path).await {
                             Ok(mut entries) => {
@@ -720,75 +722,132 @@ pub async fn install_content_to_profile(
     payload: InstallContentPayload,
 ) -> Result<(), CommandError> {
     log::info!(
-        "Executing install_content_to_profile for profile {} with content type {:?}",
+        "Executing install_content_to_profile for profile {} with content type {:?} from source {:?}",
         payload.profile_id,
-        payload.content_type
+        payload.content_type,
+        payload.source
     );
 
     match payload.content_type {
         profile_utils::ContentType::Mod => {
-            log::info!(
-                "Attempting to install mod using profile_command::add_modrinth_mod_to_profile"
-            );
-            crate::commands::profile_command::add_modrinth_mod_to_profile(
-                payload.profile_id,
-                payload.project_id,
-                payload.version_id,
-                payload.file_name,
-                payload.download_url,
-                payload.file_hash_sha1,
-                payload.content_name, // Maps to mod_name
-                payload.version_number,
-                payload.loaders,       // Pass loaders
-                payload.game_versions, // Pass game_versions
-            )
-            .await
+            match payload.source {
+                ModPlatform::Modrinth => {
+                    log::info!(
+                        "Attempting to install mod from Modrinth using profile_command::add_modrinth_mod_to_profile"
+                    );
+                    crate::commands::profile_command::add_modrinth_mod_to_profile(
+                        payload.profile_id,
+                        payload.project_id,
+                        payload.version_id,
+                        payload.file_name,
+                        payload.download_url,
+                        payload.file_hash_sha1,
+                        payload.content_name, // Maps to mod_name
+                        payload.version_number,
+                        payload.loaders,       // Pass loaders
+                        payload.game_versions, // Pass game_versions
+                    )
+                    .await
+                }
+                ModPlatform::CurseForge => {
+                    log::info!(
+                        "Attempting to install mod from CurseForge using profile_command::add_curseforge_mod_to_profile"
+                    );
+                    // TODO: Implement CurseForge installation command
+                    // For now, return an error indicating it's not implemented yet
+                    Err(CommandError::from(AppError::Other(
+                        "CurseForge mod installation not yet implemented".to_string(),
+                    )))
+                }
+            }
         }
-        profile_utils::ContentType::ResourcePack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::ResourcePack,
-        )
-        .await
-        .map_err(CommandError::from),
-        profile_utils::ContentType::ShaderPack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::ShaderPack,
-        )
-        .await
-        .map_err(CommandError::from),
-        profile_utils::ContentType::DataPack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::DataPack,
-        )
-        .await
-        .map_err(CommandError::from),
-        _ => {
-            log::error!("Unsupported content type: {:?}", payload.content_type);
+        profile_utils::ContentType::NoRiskMod => {
+            log::info!("NoRiskMod installation is not supported via this unified command");
             Err(CommandError::from(AppError::Other(
-                "Unsupported content type".to_string(),
+                "NoRiskMod installation not supported via this command".to_string(),
             )))
-        } // No default needed as ContentType from profile_utils is an enum and all variants are handled
+        }
+        profile_utils::ContentType::ResourcePack => {
+            match payload.source {
+                ModPlatform::Modrinth => {
+                    log::info!("Installing ResourcePack from Modrinth");
+                    profile_utils::add_modrinth_content_to_profile(
+                        payload.profile_id,
+                        payload.project_id,
+                        payload.version_id,
+                        payload.file_name,
+                        payload.download_url,
+                        payload.file_hash_sha1,
+                        payload.content_name,
+                        payload.version_number,
+                        profile_utils::ContentType::ResourcePack,
+                    )
+                    .await
+                    .map_err(CommandError::from)
+                }
+                ModPlatform::CurseForge => {
+                    log::info!("Installing ResourcePack from CurseForge");
+                    // TODO: Implement CurseForge ResourcePack installation
+                    Err(CommandError::from(AppError::Other(
+                        "CurseForge ResourcePack installation not yet implemented".to_string(),
+                    )))
+                }
+            }
+        }
+        profile_utils::ContentType::ShaderPack => {
+            match payload.source {
+                ModPlatform::Modrinth => {
+                    log::info!("Installing ShaderPack from Modrinth");
+                    profile_utils::add_modrinth_content_to_profile(
+                        payload.profile_id,
+                        payload.project_id,
+                        payload.version_id,
+                        payload.file_name,
+                        payload.download_url,
+                        payload.file_hash_sha1,
+                        payload.content_name,
+                        payload.version_number,
+                        profile_utils::ContentType::ShaderPack,
+                    )
+                    .await
+                    .map_err(CommandError::from)
+                }
+                ModPlatform::CurseForge => {
+                    log::info!("Installing ShaderPack from CurseForge");
+                    // TODO: Implement CurseForge ShaderPack installation
+                    Err(CommandError::from(AppError::Other(
+                        "CurseForge ShaderPack installation not yet implemented".to_string(),
+                    )))
+                }
+            }
+        }
+        profile_utils::ContentType::DataPack => {
+            match payload.source {
+                ModPlatform::Modrinth => {
+                    log::info!("Installing DataPack from Modrinth");
+                    profile_utils::add_modrinth_content_to_profile(
+                        payload.profile_id,
+                        payload.project_id,
+                        payload.version_id,
+                        payload.file_name,
+                        payload.download_url,
+                        payload.file_hash_sha1,
+                        payload.content_name,
+                        payload.version_number,
+                        profile_utils::ContentType::DataPack,
+                    )
+                    .await
+                    .map_err(CommandError::from)
+                }
+                ModPlatform::CurseForge => {
+                    log::info!("Installing DataPack from CurseForge");
+                    // TODO: Implement CurseForge DataPack installation
+                    Err(CommandError::from(AppError::Other(
+                        "CurseForge DataPack installation not yet implemented".to_string(),
+                    )))
+                }
+            }
+        }
     }
 }
 
