@@ -123,11 +123,20 @@ pub struct UnifiedModSearchResult {
     pub description: String,
     pub author: String,
     pub categories: Vec<String>,
+    pub display_categories: Vec<String>,
+    pub client_side: Option<String>,
+    pub server_side: Option<String>,
     pub downloads: u64,
     pub follows: Option<u64>,
     pub icon_url: Option<String>,
     pub project_url: String,
     pub project_type: Option<String>, // "mod", "modpack", etc.
+    pub latest_version: Option<String>,
+    pub date_created: Option<String>,
+    pub date_modified: Option<String>,
+    pub license: Option<String>,
+    pub gallery: Vec<String>,
+    pub versions: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -172,11 +181,20 @@ impl From<modrinth::ModrinthSearchHit> for UnifiedModSearchResult {
             description: hit.description,
             author: hit.author.unwrap_or_else(|| "Unknown".to_string()),
             categories: hit.categories,
+            display_categories: hit.display_categories,
+            client_side: Some(hit.client_side),
+            server_side: Some(hit.server_side),
             downloads: hit.downloads,
             follows: Some(hit.follows),
             icon_url: hit.icon_url,
             project_url: format!("https://modrinth.com/{}/{}", project_type, slug),
             project_type: Some(hit.project_type),
+            latest_version: hit.latest_version,
+            date_created: Some(hit.date_created),
+            date_modified: Some(hit.date_modified),
+            license: Some(hit.license),
+            gallery: hit.gallery,
+            versions: None, // ModrinthSearchHit doesn't provide versions in search results
         }
     }
 }
@@ -199,12 +217,21 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
             slug: mod_info.slug,
             description: mod_info.summary,
             author,
-            categories,
+            categories: categories.clone(),
+            display_categories: categories, // Use same as categories for CurseForge
+            client_side: None, // CurseForge doesn't provide this
+            server_side: None, // CurseForge doesn't provide this
             downloads: mod_info.downloadCount,
             follows: None, // CurseForge doesn't provide this
             icon_url: mod_info.logo.map(|logo| logo.url),
             project_url: mod_info.links.websiteUrl,
             project_type: None, // CurseForge classId mapping would require additional logic
+            latest_version: None, // CurseForge doesn't provide this
+            date_created: None, // CurseForge doesn't provide this
+            date_modified: None, // CurseForge doesn't provide this
+            license: None, // CurseForge doesn't provide this
+            gallery: vec![], // CurseForge doesn't provide this
+            versions: None, // CurseForge doesn't provide this
         }
     }
 }

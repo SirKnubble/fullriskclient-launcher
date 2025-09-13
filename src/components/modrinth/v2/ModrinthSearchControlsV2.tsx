@@ -3,8 +3,8 @@
 import React, { useRef } from "react";
 import type {
   ModrinthProjectType,
-  ModrinthSortType,
 } from "../../../types/modrinth";
+import { UnifiedSortType } from "../../../types/unified";
 // Profile type will be defined locally
 import { SearchWithFilters } from "../../ui/SearchWithFilters";
 import { GroupTabs, type GroupTab } from "../../ui/GroupTabs";
@@ -20,7 +20,7 @@ type Profile = any;
 
 export // Define SelectOption type locally
 interface SelectOption {
-  value: string;
+  value: UnifiedSortType;
   label: string;
   icon?: string;
 }
@@ -34,8 +34,8 @@ interface ModrinthSearchControlsV2Props {
   profiles: Profile[];
   selectedProfile: Profile | null;
   onSelectedProfileChange: (profile: Profile | null) => void;
-  sortOrder: ModrinthSortType;
-  onSortOrderChange: (sort: ModrinthSortType) => void;
+  sortOrder: UnifiedSortType;
+  onSortOrderChange: (sort: UnifiedSortType) => void;
   sortOptions: SelectOption[];
   isSidebarVisible: boolean;
   onToggleSidebar: () => void;
@@ -132,7 +132,7 @@ export const ModrinthSearchControlsV2: React.FC<
               onSearchChange={onSearchTermChange}
               sortOptions={sortOptions}
               sortValue={sortOrder}
-              onSortChange={(value) => onSortOrderChange(value as ModrinthSortType)}
+              onSortChange={(value) => onSortOrderChange(value as UnifiedSortType)}
             />
             
             <button

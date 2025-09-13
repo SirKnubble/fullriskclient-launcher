@@ -33,11 +33,20 @@ export interface UnifiedModSearchResult {
   description: string;
   author: string;
   categories: string[];
+  display_categories: string[];
+  client_side?: string;
+  server_side?: string;
   downloads: number;
   follows: number | null;
   icon_url: string | null;
   project_url: string;
   project_type: string | null; // "mod", "modpack", etc.
+  latest_version?: string | null;
+  date_created?: string;
+  date_modified?: string;
+  license?: string;
+  gallery: string[];
+  versions?: string[] | null;
 }
 
 export interface UnifiedPagination {

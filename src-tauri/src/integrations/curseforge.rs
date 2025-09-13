@@ -115,8 +115,8 @@ pub struct CurseForgeFile {
     pub fileDate: String,
     pub fileLength: u64,
     pub downloadCount: u64,
-    pub fileSizeOnDisk: u64,
-    pub downloadUrl: Option<String>,
+    pub fileSizeOnDisk: Option<u64>, // Made optional as per API docs
+    pub downloadUrl: String, // Not optional per API docs
     pub gameVersions: Vec<String>,
     pub sortableGameVersions: Vec<CurseForgeSortableGameVersion>,
     pub dependencies: Vec<CurseForgeDependency>,

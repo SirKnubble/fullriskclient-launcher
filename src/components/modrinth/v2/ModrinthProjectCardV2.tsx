@@ -3,9 +3,12 @@
 import React, { useEffect } from "react";
 import type {
   ModrinthGameVersion,
-  ModrinthSearchHit,
   ModrinthVersion,
 } from "../../../types/modrinth";
+import type { UnifiedModSearchResult } from "../../../types/unified";
+
+// Temporary type alias for compatibility
+type CompatibleProject = UnifiedModSearchResult;
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
 import { ActionButton } from "../../ui/ActionButton";
@@ -60,19 +63,19 @@ interface VersionListPassthroughProps {
   onCloseAllVersionDropdowns: (projectId: string) => void;
   onLoadMoreVersions: (projectId: string) => void;
   onInstallVersionClick: (
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
   ) => void;
   onHoverVersion: (versionId: string | null) => void;
   selectedProfileId?: string | null;
   onDeleteVersionClick?: (
     profileId: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
     newEnabledState: boolean,
     sha1Hash: string,
@@ -82,17 +85,17 @@ interface VersionListPassthroughProps {
 
 export interface ModrinthProjectCardV2Props
   extends VersionListPassthroughProps {
-  hit: ModrinthSearchHit;
+  hit: UnifiedModSearchResult | any; // Temporary for compatibility
   accentColor: AccentColor;
   installStatus: ContentInstallStatus | null;
   isQuickInstalling?: boolean;
   isInstallingModpackAsProfile?: boolean;
   installingVersionStates?: Record<string, boolean>;
   installingModpackVersionStates?: Record<string, boolean>;
-  onQuickInstallClick: (project: ModrinthSearchHit) => void;
-  onInstallModpackAsProfileClick?: (project: ModrinthSearchHit) => void;
+  onQuickInstallClick: (project: UnifiedModSearchResult | any) => void;
+  onInstallModpackAsProfileClick?: (project: UnifiedModSearchResult) => void;
   onInstallModpackVersionAsProfileClick?: (
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
   ) => void;
   onToggleVersionsClick: (projectId: string) => void;
@@ -132,19 +135,19 @@ export interface ModrinthProjectCardV2Props
   onCloseAllVersionDropdowns: (projectId: string) => void;
   onLoadMoreVersions: (projectId: string) => void;
   onInstallVersionClick: (
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
   ) => void;
   onHoverVersion: (versionId: string | null) => void;
   selectedProfileId?: string | null;
   onDeleteVersionClick?: (
     profileId: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
     newEnabledState: boolean,
     sha1Hash: string,
@@ -244,7 +247,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
                 clipRule="evenodd"
               />
             </svg>
-            <span>{hit.follows.toLocaleString()}</span>
+            <span>{hit.follows ? hit.follows.toLocaleString() : 'N/A'}</span>
           </div>
         </div>
 

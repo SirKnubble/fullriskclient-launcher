@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { UnifiedService } from '../../../services/unified-service';
 import { ModrinthService } from '../../../services/modrinth-service';
 import type {
-  ModrinthSearchHit,
+  UnifiedModSearchResult,
+  UnifiedModSearchResponse
+} from '../../../types/unified';
+import { ModSource, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
+import type {
   ModrinthProjectType,
   ModrinthSearchResponse,
   ModrinthCategory,
@@ -12,6 +17,18 @@ import type {
   ModrinthSortType,
   ModrinthVersion
 } from '../../../types/modrinth';
+
+// Helper function to convert ModrinthProjectType to UnifiedProjectType
+const convertToUnifiedProjectType = (modrinthType: ModrinthProjectType): UnifiedProjectType => {
+  switch (modrinthType) {
+    case 'mod': return UnifiedProjectType.Mod;
+    case 'modpack': return UnifiedProjectType.Modpack;
+    case 'resourcepack': return UnifiedProjectType.ResourcePack;
+    case 'shader': return UnifiedProjectType.Shader;
+    case 'datapack': return UnifiedProjectType.Datapack;
+    default: return UnifiedProjectType.Mod; // fallback
+  }
+};
 import * as ProfileService from '../../../services/profile-service';
 import { toast } from 'react-hot-toast';
 import { Button } from '../../ui/buttons/Button';
@@ -106,7 +123,7 @@ export function ModrinthSearchV2({
     }
     return effectiveAllowedTypes[0] || 'mod'; // Default to first allowed type or 'mod'
   });
-  const [searchResults, setSearchResults] = useState<ModrinthSearchHit[]>([]);
+  const [searchResults, setSearchResults] = useState<UnifiedModSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
@@ -117,15 +134,15 @@ export function ModrinthSearchV2({
   const [showNoResultsMessage, setShowNoResultsMessage] = useState(false);
   const noResultsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // New state for Sort Order, now with ModrinthSortType
-  const [sortOrder, setSortOrder] = useState<ModrinthSortType>('relevance');
+  // New state for Sort Order, now with UnifiedSortType
+  const [sortOrder, setSortOrder] = useState<UnifiedSortType>(UnifiedSortType.Relevance);
   
-  const sortOptions: { value: ModrinthSortType; label: string; icon?: string }[] = [
-    { value: 'relevance', label: 'Relevance', icon: 'solar:sort-bold' },
-    { value: 'downloads', label: 'Downloads', icon: 'solar:download-bold' },
-    { value: 'follows', label: 'Follows', icon: 'solar:heart-bold' },
-    { value: 'newest', label: 'Newest', icon: 'solar:calendar-mark-bold' },
-    { value: 'updated', label: 'Updated', icon: 'solar:refresh-bold' },
+  const sortOptions: { value: UnifiedSortType; label: string; icon?: string }[] = [
+    { value: UnifiedSortType.Relevance, label: 'Relevance', icon: 'solar:sort-bold' },
+    { value: UnifiedSortType.Downloads, label: 'Downloads', icon: 'solar:download-bold' },
+    { value: UnifiedSortType.Follows, label: 'Follows', icon: 'solar:heart-bold' },
+    { value: UnifiedSortType.Newest, label: 'Newest', icon: 'solar:calendar-mark-bold' },
+    { value: UnifiedSortType.Updated, label: 'Updated', icon: 'solar:refresh-bold' },
   ];
 
   const [allCategoriesData, setAllCategoriesData] = useState<ModrinthCategory[]>([]);
@@ -165,10 +182,10 @@ export function ModrinthSearchV2({
   // State for installation modal
   // Removed installModalOpen state - now using global modal system
   const [selectedVersion, setSelectedVersion] = useState<ModrinthVersion | null>(null);
-  const [selectedProject, setSelectedProject] = useState<ModrinthSearchHit | null>(null);
+  const [selectedProject, setSelectedProject] = useState<UnifiedModSearchResult | null>(null);
 
   // State to track the currently opened install modal
-  const [currentInstallProject, setCurrentInstallProject] = useState<ModrinthSearchHit | null>(null);
+  const [currentInstallProject, setCurrentInstallProject] = useState<UnifiedModSearchResult | any | null>(null);
   const [currentInstallVersion, setCurrentInstallVersion] = useState<ModrinthVersion | null>(null);
   const [installing, setInstalling] = useState<Record<string, boolean>>({});
   const [uninstalling, setUninstalling] = useState<Record<string, boolean>>({});
@@ -314,24 +331,25 @@ export function ModrinthSearchV2({
     setError(null);
 
     try {
-      const response: ModrinthSearchResponse = await ModrinthService.searchProjects(
-        searchTerm,
-        projectType,
-        selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined, 
-        currentSelectedLoaders.length > 0 ? currentSelectedLoaders[0] : undefined, 
+      const response: UnifiedModSearchResponse = await UnifiedService.searchMods({
+        query: searchTerm,
+        source: ModSource.CurseForge,
+        project_type: convertToUnifiedProjectType(projectType),
+        game_version: selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined,
+        mod_loader: currentSelectedLoaders.length > 0 ? currentSelectedLoaders[0] : undefined,
         limit,
-        newSearch ? 0 : offset,
-        sortOrder,
-        currentSelectedCategories.length > 0 ? currentSelectedCategories : undefined,
-        filterClientRequired ? "required" : undefined,
-        filterServerRequired ? "required" : undefined
-      );
-      setSearchResults(prevResults => newSearch ? response.hits : [...prevResults, ...response.hits]);
-      setTotalHits(response.total_hits);
+        offset: newSearch ? 0 : offset,
+        sort: sortOrder as UnifiedSortType,
+        categories: currentSelectedCategories.length > 0 ? currentSelectedCategories : undefined,
+        client_side_filter: filterClientRequired ? "required" : undefined,
+        server_side_filter: filterServerRequired ? "required" : undefined
+      });
+      setSearchResults(prevResults => newSearch ? response.results : [...prevResults, ...response.results]);
+      setTotalHits(response.pagination.total_count);
       if (!newSearch) {
-        setOffset(prevOffset => prevOffset + response.hits.length);
+        setOffset(prevOffset => prevOffset + response.results.length);
       } else {
-        setOffset(response.hits.length);
+        setOffset(response.results.length);
       }
     } catch (err) {
       console.error("Failed to search Modrinth projects:", err);
@@ -840,7 +858,7 @@ export function ModrinthSearchV2({
   };
 
   // Open install modal using global modal system
-  const openInstallModal = async (project: ModrinthSearchHit, version: ModrinthVersion) => {
+  const openInstallModal = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
     console.log('🚀 Opening install modal for:', project.title, version.version_number);
     setSelectedVersion(version);
     setSelectedProject(project);
@@ -1034,7 +1052,7 @@ export function ModrinthSearchV2({
   // Removed closeInstallModal - now handled by global modal system
 
   // Install mod to selected profile
-  const installToProfile = async (profileId: string, project?: ModrinthSearchHit, version?: ModrinthVersion) => {
+  const installToProfile = async (profileId: string, project?: UnifiedModSearchResult | any, version?: ModrinthVersion) => {
     // Use provided parameters or fall back to global state
     const targetProject = project || selectedProject;
     const targetVersion = version || selectedVersion;
@@ -1123,7 +1141,7 @@ export function ModrinthSearchV2({
   };
 
   // New function to install directly to the selected profile without opening a modal
-  const handleDirectInstall = async (project: ModrinthSearchHit, version: ModrinthVersion) => {
+  const handleDirectInstall = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
     if (!selectedProfile) {
       // Open the install modal instead of showing an error
       openInstallModal(project, version);
@@ -1269,7 +1287,7 @@ export function ModrinthSearchV2({
 
   // New state for quick install modal
   const [quickInstallModalOpen, setQuickInstallModalOpen] = useState(false);
-  const [quickInstallProject, setQuickInstallProject] = useState<ModrinthSearchHit | null>(null);
+  const [quickInstallProject, setQuickInstallProject] = useState<UnifiedModSearchResult | any | null>(null);
   const [quickInstallVersions, setQuickInstallVersions] = useState<ModrinthVersion[] | null>(null);
   const [quickInstallLoading, setQuickInstallLoading] = useState(false); // Loading for fetching versions for modal
   const [quickInstallError, setQuickInstallError] = useState<string | null>(null);
@@ -1326,10 +1344,10 @@ export function ModrinthSearchV2({
   };
 
   // State to track the currently opened quick install project
-  const [currentQuickInstallProject, setCurrentQuickInstallProject] = useState<ModrinthSearchHit | null>(null);
+  const [currentQuickInstallProject, setCurrentQuickInstallProject] = useState<UnifiedModSearchResult | any | null>(null);
 
   // Function to handle quick install - shows profile selection modal using global modal
-  const quickInstall = async (project: ModrinthSearchHit) => {
+  const quickInstall = async (project: UnifiedModSearchResult | any) => {
     const modalId = `quick-install-${project.project_id}`;
     setCurrentQuickInstallProject(project);
 
@@ -1366,7 +1384,7 @@ export function ModrinthSearchV2({
   };
 
   // Function to handle direct quick install for BrowseTab context - no modal
-  const handleDirectQuickInstall = async (project: ModrinthSearchHit) => {
+  const handleDirectQuickInstall = async (project: UnifiedModSearchResult | any) => {
     console.log('🚀 Direct quick install for:', project.title);
 
     if (!selectedProfile) {
@@ -1472,7 +1490,7 @@ export function ModrinthSearchV2({
   };
 
   // Check installation status for all profiles when opening modal
-  const checkInstallationStatusForModal = async (project: ModrinthSearchHit, profiles: Profile[]) => {
+  const checkInstallationStatusForModal = async (project: UnifiedModSearchResult | any, profiles: Profile[]) => {
     console.log('🔍 Checking installation status for modal:', project.title, profiles.length, 'profiles');
 
     if (profiles.length === 0) {
@@ -1557,7 +1575,7 @@ export function ModrinthSearchV2({
   }, [internalProfiles]);
 
   // Handle profile selection and proceed with installation
-  const handleProfileSelectionForQuickInstall = async (project: ModrinthSearchHit, profile: Profile) => {
+  const handleProfileSelectionForQuickInstall = async (project: UnifiedModSearchResult | any, profile: Profile) => {
     // Don't close the modal - let it stay open so user can install to multiple profiles
     // Set loading state for the profile being installed
     setInstalling(prev => ({ ...prev, [profile.id]: true }));
@@ -1967,7 +1985,7 @@ export function ModrinthSearchV2({
     }));
   };
 
-  const handleInstallModpackAsProfile = async (project: ModrinthSearchHit) => {
+  const handleInstallModpackAsProfile = async (project: UnifiedModSearchResult | any) => {
     if (project.project_type !== 'modpack') {
       toast.error("This handler is primarily for modpacks. For other types, behavior might differ.");
       if (onInstallSuccess) {
@@ -2047,7 +2065,7 @@ export function ModrinthSearchV2({
     }
   };
 
-  const handleInstallModpackVersionAsProfile = async (project: ModrinthSearchHit, version: ModrinthVersion) => {
+  const handleInstallModpackVersionAsProfile = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
     if (project.project_type !== 'modpack') {
       toast.error("This handler is primarily for modpack versions. For other types, behavior might differ.");
       if (onInstallSuccess) {
@@ -2116,7 +2134,7 @@ export function ModrinthSearchV2({
 
   const handleInstallToNewProfile = async (
     profileName: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion | null,
     sourceProfileIdToCopy?: string | null // Parameter for copying
   ): Promise<void> => {
@@ -2535,7 +2553,7 @@ export function ModrinthSearchV2({
   // Function to handle deleting a version from a profile
   const handleDeleteVersionFromProfile = async (
     profileId: string, // This is the definitive profile ID for this operation
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion
   ) => {
     // REMOVED: if (!selectedProfile) { ... }
@@ -2664,7 +2682,7 @@ export function ModrinthSearchV2({
   // New function to handle toggling enable/disable state of a version
   const handleToggleEnableVersion = async (
     profileId: string,
-    project: ModrinthSearchHit,
+    project: UnifiedModSearchResult | any,
     version: ModrinthVersion,
     newEnabledState: boolean,
     sha1Hash: string
