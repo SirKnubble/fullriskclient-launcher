@@ -5,6 +5,17 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use tauri_plugin_updater::UpdaterExt;
 use tokio::time::{sleep, Duration};
 
+/// Checks if the application is running inside a Flatpak environment.
+///
+/// Flatpak sets the environment variable FLATPAK_ID to the application ID of the running app.
+///
+/// # Returns
+///
+/// * `bool` - `true` if running in Flatpak, `false` otherwise.
+pub fn is_flatpak() -> bool {
+    std::env::var("FLATPAK_ID").is_ok()
+}
+
 // Define the payload structure for updater status events
 #[derive(Clone, Serialize)] // Add derive macros
 struct UpdaterStatusPayload {

@@ -255,10 +255,16 @@ async fn main() {
 
                 info!("Attempting to retrieve launcher configuration for update check...");
                 match state::state_manager::State::get().await {
-                    Ok(state_manager_instance) => { 
+                    Ok(state_manager_instance) => {
                         let config = state_manager_instance.config_manager.get_config().await;
                         let check_beta_channel = config.check_beta_channel;
-                        let auto_check_updates_enabled = config.auto_check_updates;
+                        let mut auto_check_updates_enabled = config.auto_check_updates;
+
+                        // Disable auto-updates when running in Flatpak
+                        if updater_utils::is_flatpak() {
+                            info!("Running in Flatpak environment - disabling automatic updates (Flatpak handles updates through its own mechanism).");
+                            auto_check_updates_enabled = false;
+                        }
 
                         if auto_check_updates_enabled {
                             info!("Initiating application update check (Channel determined by config: Beta={})...", check_beta_channel);
