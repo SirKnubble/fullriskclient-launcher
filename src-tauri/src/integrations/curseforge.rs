@@ -372,6 +372,21 @@ pub enum CurseForgeModLoaderType {
     NeoForge = 6,
 }
 
+impl CurseForgeModLoaderType {
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            0 => Some(CurseForgeModLoaderType::Any),
+            1 => Some(CurseForgeModLoaderType::Forge),
+            2 => Some(CurseForgeModLoaderType::Cauldron),
+            3 => Some(CurseForgeModLoaderType::LiteLoader),
+            4 => Some(CurseForgeModLoaderType::Fabric),
+            5 => Some(CurseForgeModLoaderType::Quilt),
+            6 => Some(CurseForgeModLoaderType::NeoForge),
+            _ => None,
+        }
+    }
+}
+
 // Enum for hash algorithms used in CurseForge file hashes
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum CurseForgeHashAlgo {

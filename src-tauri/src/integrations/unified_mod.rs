@@ -39,6 +39,17 @@ impl UnifiedProjectType {
         }
     }
 
+    pub fn from_curseforge_class_id(class_id: u32) -> Option<Self> {
+        match class_id {
+            6 => Some(UnifiedProjectType::Mod), // Minecraft Mods
+            4471 => Some(UnifiedProjectType::Modpack), // Minecraft Modpacks
+            12 => Some(UnifiedProjectType::ResourcePack), // Minecraft Resource Packs
+            6552 => Some(UnifiedProjectType::Shader), // Minecraft Shaders
+            119 => Some(UnifiedProjectType::Datapack), // Minecraft Data Packs
+            _ => None,
+        }
+    }
+
     pub fn to_modrinth_project_type(&self) -> modrinth::ModrinthProjectType {
         match self {
             UnifiedProjectType::Mod => modrinth::ModrinthProjectType::Mod,
@@ -263,6 +274,11 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
             .map(|cat| cat.name.clone())
             .collect();
 
+        // Map CurseForge classId to unified project type
+        let project_type = mod_info.classId
+            .and_then(|class_id| UnifiedProjectType::from_curseforge_class_id(class_id))
+            .map(|pt| pt.to_string());
+
         UnifiedModSearchResult {
             project_id: mod_info.id.to_string(),
             source: ModPlatform::CurseForge,
@@ -278,7 +294,7 @@ impl From<curseforge::CurseForgeMod> for UnifiedModSearchResult {
             follows: None, // CurseForge doesn't provide this
             icon_url: mod_info.logo.map(|logo| logo.url),
             project_url: mod_info.links.websiteUrl,
-            project_type: None, // CurseForge classId mapping would require additional logic
+            project_type, // Now properly mapped from classId
             latest_version: None, // CurseForge doesn't provide this
             date_created: None, // CurseForge doesn't provide this
             date_modified: None, // CurseForge doesn't provide this
@@ -367,6 +383,29 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
             _ => UnifiedVersionType::Release,
         };
 
+        // Extract loaders from gameVersions array (CurseForge puts loaders in gameVersions)
+        let loaders: Vec<String> = file.gameVersions
+            .iter()
+            .filter_map(|version| {
+                let version_lower = version.to_lowercase();
+                if version_lower.contains("forge") && !version_lower.contains("neoforge") {
+                    Some("forge".to_string())
+                } else if version_lower.contains("fabric") {
+                    Some("fabric".to_string())
+                } else if version_lower.contains("quilt") {
+                    Some("quilt".to_string())
+                } else if version_lower.contains("neoforge") {
+                    Some("neoforge".to_string())
+                } else if version_lower.contains("liteloader") {
+                    Some("liteloader".to_string())
+                } else if version_lower.contains("cauldron") {
+                    Some("cauldron".to_string())
+                } else {
+                    None // Not a loader, probably a game version like "1.21"
+                }
+            })
+            .collect();
+
         let display_name_clone = file.displayName.clone();
         let download_url_clone = file.downloadUrl.clone();
 
@@ -378,7 +417,7 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
             version_number: display_name_clone, // CurseForge uses displayName as version
             changelog: None, // CurseForge doesn't provide changelog
             game_versions: file.gameVersions,
-            loaders: vec![], // CurseForge doesn't provide loader info in files endpoint
+            loaders, // Now properly mapped from modLoader field
             files: unified_files,
             date_published: file.fileDate,
             downloads: file.downloadCount,

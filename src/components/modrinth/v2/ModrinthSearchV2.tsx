@@ -165,7 +165,7 @@ export function ModrinthSearchV2({
   const [filterServerRequired, setFilterServerRequired] = useState(false);
 
   // New state for expanded versions
-  const [expandedVersions, setExpandedVersions] = useState<Record<string, ModrinthVersion[] | null | 'loading'>>({});
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, any[] | null | 'loading'>>({});
 
   // New state for managing how many versions are displayed per project
   const [numDisplayedVersions, setNumDisplayedVersions] = useState<Record<string, number>>({});
@@ -554,16 +554,19 @@ export function ModrinthSearchV2({
     setExpandedVersions(prev => ({ ...prev, [projectId]: 'loading' }));
     try {
       console.log(`Fetching versions for project: ${projectId}`);
-      const versions = await ModrinthService.getModVersions(projectId);
-      const sortedVersions = versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
-      
+      const response = await UnifiedService.getModVersions({
+        source: modSource,
+        project_id: projectId
+      });
+      const sortedVersions = response.versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
+
       setExpandedVersions(prev => ({ ...prev, [projectId]: sortedVersions }));
       // Initialize the number of displayed versions for this project
       setNumDisplayedVersions(prev => ({ ...prev, [projectId]: initialDisplayCount }));
-      
+
       // Initialize version filters with main search selections
-      setVersionFilters(prev => ({ 
-        ...prev, 
+      setVersionFilters(prev => ({
+        ...prev,
         [projectId]: {
           gameVersions: [...selectedGameVersions], // Start with main search selections
           loaders: [...currentSelectedLoaders],    // Start with main search selections
@@ -579,11 +582,11 @@ export function ModrinthSearchV2({
           gameVersionSearchTerm: '',
         }
       }));
-      
+
       // No longer checking installation status for all versions here
     } catch (err) {
       console.error(`Failed to load versions for project ${projectId}:`, err);
-      setExpandedVersions(prev => ({ ...prev, [projectId]: null })); 
+      setExpandedVersions(prev => ({ ...prev, [projectId]: null }));
       setNumDisplayedVersions(prev => {
         const newState = { ...prev };
         delete newState[projectId];
@@ -1077,13 +1080,13 @@ export function ModrinthSearchV2({
         return;
       }
 
-      const mappedContentType = mapModrinthProjectTypeToNrContentType(targetProject.project_type as ModrinthProjectType);
+      const mappedContentType = mapUnifiedProjectTypeToNrContentType(targetProject.project_type);
       if (!mappedContentType) {
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
       }
       
-      // Special handling for modpacks: should not reach here if mapModrinthProjectTypeToNrContentType works correctly
+      // Special handling for modpacks: should not reach here if mapUnifiedProjectTypeToNrContentType works correctly
       if (targetProject.project_type === 'modpack') {
         toast.error("Modpacks must be installed as new profiles.");
         setInstalling(prev => ({ ...prev, [profileId]: false }));
@@ -1293,7 +1296,7 @@ export function ModrinthSearchV2({
   // New state for quick install modal
   const [quickInstallModalOpen, setQuickInstallModalOpen] = useState(false);
   const [quickInstallProject, setQuickInstallProject] = useState<UnifiedModSearchResult | any | null>(null);
-  const [quickInstallVersions, setQuickInstallVersions] = useState<ModrinthVersion[] | null>(null);
+  const [quickInstallVersions, setQuickInstallVersions] = useState<any[] | null>(null); // Changed to any[] to handle UnifiedVersion
   const [quickInstallLoading, setQuickInstallLoading] = useState(false); // Loading for fetching versions for modal
   const [quickInstallError, setQuickInstallError] = useState<string | null>(null);
   const [quickInstallingProjects, setQuickInstallingProjects] = useState<Record<string, boolean>>({}); // New state for card button loading
@@ -1301,30 +1304,35 @@ export function ModrinthSearchV2({
   const [installingVersion, setInstallingVersion] = useState<Record<string, boolean>>({}); // New state for specific version install loading
   const [installingModpackVersion, setInstallingModpackVersion] = useState<Record<string, boolean>>({}); // New state for modpack version install loading
 
-  // Helper function to map Modrinth project type to our ContentType enum
-  function mapModrinthProjectTypeToNrContentType(projectType: ModrinthProjectType): NrContentType | null {
+  // Helper function to map Unified project type to our ContentType enum
+  function mapUnifiedProjectTypeToNrContentType(projectType: string): NrContentType | null {
     switch (projectType) {
       case 'mod':
+      case UnifiedProjectType.Mod:
         return NrContentType.Mod;
       case 'resourcepack':
+      case UnifiedProjectType.ResourcePack:
         return NrContentType.ResourcePack;
       case 'shader':
+      case UnifiedProjectType.Shader:
         return NrContentType.ShaderPack;
       case 'datapack':
+      case UnifiedProjectType.Datapack:
         return NrContentType.DataPack;
-      case 'modpack': // Modpacks are handled by creating a new profile
+      case 'modpack':
+      case UnifiedProjectType.Modpack: // Modpacks are handled by creating a new profile
         toast.error("Modpacks should be installed as new profiles, not as content via this method.");
         return null;
       default:
         // Log unhandled project types if any, but avoid throwing error that breaks UI
-        console.warn(`Unsupported Modrinth project type for direct installation: ${projectType}`);
+        console.warn(`Unsupported project type for direct installation: ${projectType}`);
         toast.error(`Cannot directly install project type: ${projectType}`);
         return null;
     }
   }
 
   // Find the best version for a profile
-  const findBestVersionForProfile = (profile: Profile, versions: ModrinthVersion[]): ModrinthVersion | null => {
+  const findBestVersionForProfile = (profile: Profile, versions: any[]): any | null => {
     if (!profile || !versions || versions.length === 0) return null;
     
     // First try: find a version matching both game version and loader
@@ -1403,15 +1411,18 @@ export function ModrinthSearchV2({
 
     try {
       // Fetch versions for this project
-      const versions = await ModrinthService.getModVersions(project.project_id);
-      if (!versions || versions.length === 0) {
+      const response = await UnifiedService.getModVersions({
+        source: project.source,
+        project_id: project.project_id
+      });
+      if (!response.versions || response.versions.length === 0) {
         toast.error(`No versions found for ${project.title}`);
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
 
       // Find best version for selected profile
-      const sortedVersions = versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
+      const sortedVersions = response.versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
       const bestVersion = findBestVersionForProfile(selectedProfile, sortedVersions);
 
       if (!bestVersion) {
@@ -1429,7 +1440,7 @@ export function ModrinthSearchV2({
       }
 
       // Check content type
-      const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+      const mappedContentType = mapUnifiedProjectTypeToNrContentType(project.project_type);
       if (!mappedContentType) {
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
@@ -1457,6 +1468,7 @@ export function ModrinthSearchV2({
         game_versions: bestVersion.game_versions,
         source: project.source,
       };
+      console.log("###InstallContentPayload", payload);
 
       await toast.promise(
         installContentToProfile(payload),
@@ -1588,15 +1600,18 @@ export function ModrinthSearchV2({
 
     try {
       // Fetch versions for this project
-      const versions = await ModrinthService.getModVersions(project.project_id);
-      if (!versions || versions.length === 0) {
+      const response = await UnifiedService.getModVersions({
+        source: project.source,
+        project_id: project.project_id
+      });
+      if (!response.versions || response.versions.length === 0) {
         toast.error(`No versions found for ${project.title}`);
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
 
       // Find best version for selected profile
-      const sortedVersions = versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
+      const sortedVersions = response.versions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
       const bestVersion = findBestVersionForProfile(profile, sortedVersions);
 
       if (!bestVersion) {
@@ -1614,7 +1629,7 @@ export function ModrinthSearchV2({
       }
 
       // Check content type
-      const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+      const mappedContentType = mapUnifiedProjectTypeToNrContentType(project.project_type);
       if (!mappedContentType) {
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
@@ -1641,9 +1656,9 @@ export function ModrinthSearchV2({
         loaders: bestVersion.loaders,
         game_versions: bestVersion.game_versions,
         source: project.source,
-      };
+        };
 
-      await toast.promise(
+        await toast.promise(
         installContentToProfile(payload),
         {
           loading: `Installing ${project.title} (${bestVersion.version_number}) to ${profile.name}...`,
@@ -1721,7 +1736,7 @@ export function ModrinthSearchV2({
         return;
       }
 
-      const mappedContentType = mapModrinthProjectTypeToNrContentType(quickInstallProject.project_type as ModrinthProjectType);
+      const mappedContentType = mapUnifiedProjectTypeToNrContentType(quickInstallProject.project_type);
       if (!mappedContentType) {
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
@@ -2005,7 +2020,11 @@ export function ModrinthSearchV2({
     const toastId = toast.loading(`Fetching versions for ${project.title}...`);
 
     try {
-      const allVersions = await ModrinthService.getModVersions(project.project_id);
+      const response = await UnifiedService.getModVersions({
+        source: project.source,
+        project_id: project.project_id
+      });
+      const allVersions = response.versions;
 
       if (!allVersions || allVersions.length === 0) {
         throw new Error("No versions found for this modpack.");
@@ -2015,7 +2034,7 @@ export function ModrinthSearchV2({
       const sortedVersions = allVersions.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
 
       // Try to find the latest 'release' version
-      let latestVersion = sortedVersions.find(v => v.version_type === 'release');
+      let latestVersion = sortedVersions.find(v => v.release_type === 'release');
 
       // If no release version is found, fall back to the absolute latest version
       if (!latestVersion) {
@@ -2197,6 +2216,7 @@ export function ModrinthSearchV2({
         }
       } else {
         // Handle both cases: with version and without version
+      let versionToInstall: any = null; // Will be set below
 
         if (version) {
           // Version is available - use it
@@ -2212,7 +2232,11 @@ export function ModrinthSearchV2({
 
           // Get all versions for this project
           console.log('🔄 Fetching mod versions from API...');
-          const modVersions = await ModrinthService.getModVersions(project.project_id);
+          const response = await UnifiedService.getModVersions({
+            source: project.source,
+            project_id: project.project_id
+          });
+          const modVersions = response.versions;
           console.log('✅ Got', modVersions.length, 'versions from API');
 
           if (!modVersions || modVersions.length === 0) {
@@ -2224,7 +2248,7 @@ export function ModrinthSearchV2({
           console.log('🔍 Current filters - Game versions:', selectedGameVersions, 'Loaders:', currentSelectedLoaders);
 
           // Step 1: Apply game version filter if active
-          let filteredVersions = modVersions;
+          let filteredVersions: any[] = modVersions;
           if (selectedGameVersions && selectedGameVersions.length > 0) {
             filteredVersions = modVersions.filter(version =>
               version.game_versions.some(gv => selectedGameVersions.includes(gv))
@@ -2293,7 +2317,7 @@ export function ModrinthSearchV2({
                   return bMaxMC.localeCompare(aMaxMC, undefined, { numeric: true });
                 });
 
-                versionToInstall = sortedLoaderVersions[0];
+                versionToInstall = sortedLoaderVersions[0] as any;
                 loader = currentSelectedLoaders[0].toLowerCase(); // Use filtered loader
 
                 const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
@@ -2304,7 +2328,7 @@ export function ModrinthSearchV2({
                 console.log('🎯 FILTER MATCH: Using filtered loader', loader, 'version', versionToInstall.version_number, 'for MC', gameVersion);
               } else {
                 // No loader match, use latest from filtered
-                versionToInstall = filteredVersions[0];
+                versionToInstall = filteredVersions[0] as any;
                 loader = 'fabric'; // Default fallback
 
                 const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
@@ -2316,7 +2340,7 @@ export function ModrinthSearchV2({
               }
             } else {
               // No loader filter, use latest from filtered
-              versionToInstall = filteredVersions[0];
+              versionToInstall = filteredVersions[0] as any;
               loader = 'fabric'; // Default to fabric
 
               const sortedMCVersions = [...versionToInstall.game_versions].sort((a, b) => {
@@ -2418,13 +2442,13 @@ export function ModrinthSearchV2({
           throw new Error("No primary file found for the selected version.");
         }
 
-        const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+        const mappedContentType = mapUnifiedProjectTypeToNrContentType(project.project_type);
         if (!mappedContentType) {
           throw new Error(`Unsupported project type for installation: ${project.project_type}`);
         }
 
         // Safeguard: Modpacks should not be installed as content here.
-        // mapModrinthProjectTypeToNrContentType handles toast, but this ensures error propagation for toast.promise
+        // mapUnifiedProjectTypeToNrContentType handles toast, but this ensures error propagation for toast.promise
         if (project.project_type === 'modpack') {
           throw new Error("Modpacks should be installed as new profiles, not as content to an existing one.");
         }
@@ -2441,6 +2465,7 @@ export function ModrinthSearchV2({
           content_type: mappedContentType,
           loaders: version.loaders,
           game_versions: version.game_versions,
+          source: project.source,
         };
 
         // Install content (toast is handled by the modal)
@@ -2451,7 +2476,11 @@ export function ModrinthSearchV2({
         console.log('🔍 Getting latest version for:', project.title);
 
         // Get all versions for this project
-        const versions = await ModrinthService.getModVersions(project.project_id);
+        const response = await UnifiedService.getModVersions({
+          source: project.source,
+          project_id: project.project_id
+        });
+        const versions = response.versions;
 
         if (versions.length === 0) {
           throw new Error(`No versions found for ${project.title}`);
@@ -2465,7 +2494,7 @@ export function ModrinthSearchV2({
           console.log('⚠️ No version was selected by the complex logic, falling back to first available version');
           // Fallback: use the first version from the versions array
           if (versions && versions.length > 0) {
-            versionToInstall = versions[0];
+            versionToInstall = versions[0] as any;
             console.log('✅ Using fallback version:', versionToInstall.version_number);
           } else {
             throw new Error(`No versions available for ${project.title}`);
@@ -2483,14 +2512,18 @@ export function ModrinthSearchV2({
           console.warn('⚠️ No files array found for selected version, looking for alternative version');
 
           // Get fresh versions data to find one with files
-          const allVersions = await ModrinthService.getModVersions(project.project_id);
+          const response = await UnifiedService.getModVersions({
+            source: project.source,
+            project_id: project.project_id
+          });
+          const allVersions = response.versions;
           const versionWithFiles = allVersions.find(v =>
             v.files && Array.isArray(v.files) && v.files.length > 0
           );
 
           if (versionWithFiles) {
             console.log('✅ Found alternative version with files:', versionWithFiles.version_number);
-            versionToInstall = versionWithFiles;
+            versionToInstall = versionWithFiles as any;
             primaryFile = versionToInstall.files.find((f) => f.primary) || versionToInstall.files[0];
           } else {
             throw new Error(`No downloadable versions found for ${project.title}. This may be a temporary API issue.`);
@@ -2504,7 +2537,7 @@ export function ModrinthSearchV2({
 
         console.log('✅ Using file:', primaryFile.filename, 'from URL:', primaryFile.url);
 
-        const mappedContentType = mapModrinthProjectTypeToNrContentType(project.project_type as ModrinthProjectType);
+        const mappedContentType = mapUnifiedProjectTypeToNrContentType(project.project_type);
         if (!mappedContentType) {
           throw new Error(`Unsupported project type for installation: ${project.project_type}`);
         }
@@ -2524,6 +2557,7 @@ export function ModrinthSearchV2({
           content_type: mappedContentType,
           loaders: versionToInstall.loaders,
           game_versions: versionToInstall.game_versions,
+          source: project.source,
         };
 
         // Install content (toast is handled by the modal)
@@ -2906,8 +2940,6 @@ export function ModrinthSearchV2({
               setSelectedProfile(profile);
             }
           }}
-          modSource={modSource}
-          onModSourceChange={setModSource}
           sortOrder={sortOrder}
           onSortOrderChange={setSortOrder}
           sortOptions={sortOptions}
