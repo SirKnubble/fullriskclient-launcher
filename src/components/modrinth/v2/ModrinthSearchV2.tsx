@@ -3004,6 +3004,8 @@ export function ModrinthSearchV2({
           onRemoveServerRequiredTag={removeServerRequiredTag}
           onClearAllFilters={clearAllFilters}
           overrideDisplayContext={overrideDisplayContext} // Pass down
+          modSource={modSource}
+          onModSourceChange={setModSource}
         />
 
         {/* Search Results Area (scrollable within the left content area) */}

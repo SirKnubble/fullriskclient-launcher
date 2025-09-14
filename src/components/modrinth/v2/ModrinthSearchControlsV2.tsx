@@ -4,7 +4,7 @@ import React, { useRef } from "react";
 import type {
   ModrinthProjectType,
 } from "../../../types/modrinth";
-import { UnifiedSortType } from "../../../types/unified";
+import { UnifiedSortType, ModPlatform } from "../../../types/unified";
 // Profile type will be defined locally
 import { SearchWithFilters } from "../../ui/SearchWithFilters";
 import { GroupTabs, type GroupTab } from "../../ui/GroupTabs";
@@ -51,6 +51,8 @@ interface ModrinthSearchControlsV2Props {
   onRemoveServerRequiredTag: () => void;
   onClearAllFilters: () => void;
   overrideDisplayContext?: "detail" | "standalone";
+  modSource: ModPlatform;
+  onModSourceChange: (source: ModPlatform) => void;
 }
 
 export const ModrinthSearchControlsV2: React.FC<
@@ -81,6 +83,8 @@ export const ModrinthSearchControlsV2: React.FC<
   onRemoveServerRequiredTag,
   onClearAllFilters,
   overrideDisplayContext,
+  modSource,
+  onModSourceChange,
 }) => {
   const globalDisplayContext = useDisplayContextStore((state) => state.context);
   const effectiveDisplayContext =
@@ -134,7 +138,7 @@ export const ModrinthSearchControlsV2: React.FC<
               sortValue={sortOrder}
               onSortChange={(value) => onSortOrderChange(value as UnifiedSortType)}
             />
-            
+
             <button
               onClick={onToggleSidebar}
               className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
@@ -145,6 +149,45 @@ export const ModrinthSearchControlsV2: React.FC<
                   <path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
                 </svg>
               </div>
+            </button>
+          </div>
+
+          {/* Platform Selection Buttons - ganz rechts */}
+          <div className="flex items-center gap-1 border border-white/10 rounded-lg p-0.5">
+            <button
+              onClick={() => onModSourceChange(ModPlatform.Modrinth)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]",
+                modSource === ModPlatform.Modrinth
+                  ? "bg-green-400/40 text-white border border-green-300/30"
+                  : "bg-black/30 text-white/70 hover:text-white hover:bg-black/40 border border-transparent"
+              )}
+              title="Search Modrinth"
+            >
+              <img
+                src="https://cdn.modrinth.com/modrinth-new.png"
+                alt="Modrinth"
+                className="w-5 h-5 object-contain"
+              />
+              <span className="hidden sm:inline">Modrinth</span>
+            </button>
+
+            <button
+              onClick={() => onModSourceChange(ModPlatform.CurseForge)}
+              className={cn(
+                "flex items-center gap-1.5 px-2 py-1 rounded-md font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]",
+                modSource === ModPlatform.CurseForge
+                  ? "bg-orange-400/40 text-white border border-orange-300/30"
+                  : "bg-black/30 text-white/70 hover:text-white hover:bg-black/40 border border-transparent"
+              )}
+              title="Search CurseForge"
+            >
+              <img
+                src="https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium"
+                alt="CurseForge"
+                className="w-5 h-5 object-contain"
+              />
+              <span className="hidden sm:inline">CurseForge</span>
             </button>
           </div>
         </div>
