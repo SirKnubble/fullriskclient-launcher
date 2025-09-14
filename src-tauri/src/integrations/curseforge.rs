@@ -8,7 +8,6 @@ use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 use chrono::Utc;
 use sanitize_filename;
@@ -18,6 +17,9 @@ use futures::future::try_join_all;
 use tempfile;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use sysinfo::System;
+
+// Import for profile image upload functionality
+use crate::commands::path_commands::UploadProfileImagesPayload;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
@@ -1759,10 +1761,40 @@ pub async fn download_and_install_curseforge_modpack(
         profile_id
     );
 
-    // TODO: Handle icon_url if provided (similar to Modrinth implementation)
-    // This would require access to the profile image upload functionality
-    if icon_url.is_some() {
-        info!("Icon URL provided but not yet implemented for CurseForge modpacks");
+    // If an icon URL was provided, attempt to download and set it for the new profile
+    if let Some(url_str) = icon_url {
+        info!(
+            "Attempting to set profile icon from URL: {} for profile {}",
+            url_str,
+            profile_id
+        );
+
+        let icon_payload = UploadProfileImagesPayload {
+            path: None,
+            profile_id,
+            icon_url: Some(url_str.clone()),
+            image_type: "icon".to_string(),
+        };
+
+        match crate::commands::path_commands::upload_profile_images(icon_payload).await {
+            Ok(relative_icon_path) => {
+                info!(
+                    "Successfully set profile icon from URL for profile {}. Icon at: {}",
+                    profile_id,
+                    relative_icon_path
+                );
+            }
+            Err(e) => {
+                error!(
+                    "Failed to set profile icon from URL {} for profile {}: {:?}",
+                    url_str,
+                    profile_id,
+                    e
+                );
+                // Don't fail the entire operation if icon download fails
+                warn!("Profile created successfully, but icon could not be set");
+            }
+        }
     }
 
     // Keep the temp directory alive until we're done (will be cleaned up when it goes out of scope)
