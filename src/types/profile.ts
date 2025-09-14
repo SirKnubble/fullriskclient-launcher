@@ -368,15 +368,24 @@ export interface GenericModrinthInfo {
   download_url?: string | null; // Making it optional as in Rust struct
 }
 
+export interface GenericCurseForgeInfo {
+  project_id: string;
+  file_id: string;
+  name: string;
+  version_number: string;
+  download_url?: string | null; // Making it optional as in Rust struct
+}
+
 export interface LocalContentItem {
   filename: string;
-  path_str: string; 
+  path_str: string;
   sha1_hash?: string | null;
   file_size: number; // u64 in Rust maps to number in TS
   is_disabled: boolean;
   is_directory: boolean;
-  content_type: ContentType; 
+  content_type: ContentType;
   modrinth_info?: GenericModrinthInfo | null;
+  curseforge_info?: GenericCurseForgeInfo | null;
   source_type?: string | null; // For identifying "custom" mods
   norisk_info?: NoriskModIdentifier | null; // Identifier for NoRiskMods
   fallback_version?: string | null; // Fallback version from compatibility target

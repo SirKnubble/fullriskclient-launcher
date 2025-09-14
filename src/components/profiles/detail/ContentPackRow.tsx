@@ -33,6 +33,13 @@ interface ContentPack {
     version_number: string;
     download_url: string;
   } | null;
+  curseforge_info?: {
+    project_id: string;
+    file_id: string;
+    name: string;
+    version_number: string;
+    download_url: string;
+  } | null;
   filename?: string;
 }
 
@@ -104,6 +111,8 @@ export function ContentPackRow({
     if (contentPack.display_name) return contentPack.display_name;
 
     if (contentPack.modrinth_info?.name) return contentPack.modrinth_info.name;
+
+    if (contentPack.curseforge_info?.name) return contentPack.curseforge_info.name;
 
     return "Unknown pack";
   };

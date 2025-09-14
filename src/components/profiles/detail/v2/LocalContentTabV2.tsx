@@ -835,6 +835,12 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           text: "Modrinth",
           color: item.is_disabled ? "#6b7280" : "#22c55e"
         }] : []),
+        ...(item.curseforge_info ? [{
+          icon: "https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium",
+          text: "CurseForge",
+          color: item.is_disabled ? "#6b7280" : "#f97316",
+          iconFilter: item.is_disabled ? undefined : "brightness(0) saturate(100%) invert(59%) sepia(93%) saturate(1352%) hue-rotate(1deg) brightness(105%) contrast(101%)"
+        }] : []),
         ...(item.source_type ? [{
           text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
           color: item.is_disabled ? "#6b7280" : "#f59e0b"

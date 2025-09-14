@@ -16,6 +16,7 @@ export interface GenericDetailListItemProps {
     icon?: string;
     text: string;
     color?: string;
+    iconFilter?: string;
   }>;
   isDisabled?: boolean;
 
@@ -114,6 +115,7 @@ export function GenericDetailListItem({
                       src={item.icon}
                       alt=""
                       className={`w-3 h-3 object-contain ${isDisabled ? 'opacity-50 grayscale' : ''}`}
+                      style={item.iconFilter ? { filter: item.iconFilter } : undefined}
                     />
                   )}
                   <span>{item.text}</span>

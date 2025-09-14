@@ -2116,6 +2116,15 @@ pub struct GenericModrinthInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GenericCurseForgeInfo {
+    pub project_id: String,
+    pub file_id: String,
+    pub name: String, // Name des CurseForge-Projekts
+    pub version_number: String,
+    pub download_url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalContentItem {
     pub filename: String,
     pub path_str: String, // Pfad als String
@@ -2125,6 +2134,7 @@ pub struct LocalContentItem {
     pub is_directory: bool,        // Wichtig für Shader
     pub content_type: ContentType, // Um den Typ mitzuführen
     pub modrinth_info: Option<GenericModrinthInfo>,
+    pub curseforge_info: Option<GenericCurseForgeInfo>,
     pub source_type: Option<String>, // Zur Kennzeichnung von Custom Mods
     pub norisk_info: Option<crate::state::profile_state::NoriskModIdentifier>, // Identifier für NoRiskMods
     pub fallback_version: Option<String>, // Fallback Version aus dem compatibility target
@@ -2277,6 +2287,7 @@ impl LocalContentLoader {
                                 is_directory: false,
                                 content_type: ContentType::NoRiskMod,
                                 modrinth_info,
+                                curseforge_info: None,
                                 source_type: source_type_str.map(|s| s.to_string()),
                                 norisk_info: Some(norisk_mod_identifier),
                                 fallback_version: fallback_version,
@@ -2305,6 +2316,9 @@ impl LocalContentLoader {
                         crate::state::profile_state::ModSource::Url { ref file_name, .. } => {
                             filename = file_name.clone()
                         }
+                        crate::state::profile_state::ModSource::CurseForge {
+                            ref file_name, ..
+                        } => filename = Some(file_name.clone()),
                         _ => {
                             warn!("Mod {} has no derivable filename. Skipping.", mod_item.id);
                             continue;
@@ -2335,11 +2349,12 @@ impl LocalContentLoader {
 
                 // Use the first directory as fallback if file not found
                 let path_buf = if let Some(found) = found_path { found } else {
-                    // Smarter fallback: if this profile mod comes from Modrinth/Url/Maven, point to mod_cache
+                    // Smarter fallback: if this profile mod comes from Modrinth/Url/Maven/CurseForge, point to mod_cache
                     match &mod_item.source {
                         crate::state::profile_state::ModSource::Modrinth { .. }
                         | crate::state::profile_state::ModSource::Url { .. }
-                        | crate::state::profile_state::ModSource::Maven { .. } => {
+                        | crate::state::profile_state::ModSource::Maven { .. }
+                        | crate::state::profile_state::ModSource::CurseForge { .. } => {
                             crate::config::ProjectDirsExt::meta_dir(&*crate::config::LAUNCHER_DIRECTORY)
                                 .join("mod_cache")
                                 .join(&actual_filename)
@@ -2353,6 +2368,9 @@ impl LocalContentLoader {
 
                 let sha1_hash = match mod_item.source {
                     crate::state::profile_state::ModSource::Modrinth {
+                        ref file_hash_sha1, ..
+                    } => file_hash_sha1.clone(),
+                    crate::state::profile_state::ModSource::CurseForge {
                         ref file_hash_sha1, ..
                     } => file_hash_sha1.clone(),
                     _ => None,
@@ -2379,6 +2397,27 @@ impl LocalContentLoader {
                     _ => None,
                 };
 
+                let curseforge_info = match mod_item.source {
+                    crate::state::profile_state::ModSource::CurseForge {
+                        ref project_id,
+                        ref file_id,
+                        ..
+                    } => Some(GenericCurseForgeInfo {
+                        project_id: project_id.clone(),
+                        file_id: file_id.clone(),
+                        name: mod_item
+                            .display_name
+                            .clone()
+                            .unwrap_or_else(|| project_id.clone()),
+                        version_number: mod_item
+                            .version
+                            .clone()
+                            .unwrap_or_else(|| file_id.clone()),
+                        download_url: None,
+                    }),
+                    _ => None,
+                };
+
                 preliminary_items.push(LocalContentItem {
                     filename: actual_filename,
                     path_str,
@@ -2388,6 +2427,7 @@ impl LocalContentLoader {
                     is_directory: false,
                     content_type: ContentType::Mod,
                     modrinth_info,
+                    curseforge_info,
                     source_type: None,
                     norisk_info: None,
                     fallback_version: mod_item.version.clone(),
@@ -2506,6 +2546,7 @@ impl LocalContentLoader {
                     is_directory: is_dir_flag,
                     content_type: params.content_type.clone(),
                     modrinth_info: None,
+                    curseforge_info: None,
                     source_type,
                     norisk_info: None,
                     fallback_version: None,
