@@ -166,6 +166,7 @@ pub async fn resolve_target_mods(
     fn get_canonical_key_profile(source: &ModSource) -> Option<String> {
         match source {
             ModSource::Modrinth { project_id, .. } => Some(format!("modrinth:{}", project_id)),
+            ModSource::CurseForge { project_id, .. } => Some(format!("curseforge:{}", project_id)),
             ModSource::Url { url, .. } => Some(format!("url:{}", url)),
             ModSource::Maven { coordinates, .. } => Some(format!("maven:{}", coordinates)),
             _ => None, // Ignore other types
@@ -422,6 +423,44 @@ pub async fn resolve_target_mods(
                                 mod_cache_dir,
                                 &mut final_mods,
                                 "profile Modrinth",
+                                mod_name,
+                                Some(project_id),
+                                enable_flagsmith_blocking,
+                            ).await;
+                        }
+                        Err(e) => {
+                            // Error getting filename from profile mod source
+                            warn!(
+                                "Could not determine filename for profile mod '{}': {}. Skipping.",
+                                mod_info
+                                    .display_name
+                                    .as_deref()
+                                    .unwrap_or(&mod_info.id.to_string()),
+                                e
+                            );
+                        }
+                    }
+                } else {
+                    // Log if canonical key fails for expected types
+                    warn!(
+                        "Could not get canonical key for profile mod: {:?}",
+                        mod_info.source
+                    );
+                }
+            }
+            ModSource::CurseForge { project_id, .. } => {
+                // Common logic for sources that can override pack mods
+                if let Some(canonical_key) = get_canonical_key_profile(&mod_info.source) {
+                    match profile_state::get_profile_mod_filename(&mod_info.source) {
+                        Ok(filename) => {
+                            let mod_id_string = mod_info.id.to_string();
+                            let mod_name = mod_info.display_name.as_deref().unwrap_or(&mod_id_string);
+                            try_add_mod_to_final_list(
+                                canonical_key,
+                                filename,
+                                mod_cache_dir,
+                                &mut final_mods,
+                                "profile CurseForge",
                                 mod_name,
                                 Some(project_id),
                                 enable_flagsmith_blocking,

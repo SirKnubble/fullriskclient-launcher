@@ -45,6 +45,13 @@ pub enum ModSource {
         download_url: String, // The direct download URL used when adding
         file_hash_sha1: Option<String>, // Optional SHA1 hash for verification
     }, // New variant for Modrinth mods
+    CurseForge {
+        project_id: String,             // CurseForge Project ID (e.g., "238222")
+        file_id: String,                // CurseForge File ID (e.g., "6829086")
+        file_name: String, // The actual filename (e.g., "jei-1.21.1-neoforge-19.22.1.316.jar")
+        download_url: String, // The direct download URL used when adding
+        file_hash_sha1: Option<String>, // Optional SHA1 hash for verification
+    }, // New variant for CurseForge mods
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -872,6 +879,294 @@ impl ProfileManager {
 
             Ok(())
         })
+    }
+
+    // Public wrapper function to add a mod (supports both Modrinth and CurseForge)
+    pub async fn add_mod_from_payload(
+        &self,
+        payload: &crate::commands::content_command::InstallContentPayload,
+        add_dependencies: bool,
+    ) -> Result<()> {
+        use crate::integrations::unified_mod::ModPlatform;
+
+        let display_name_log = payload.content_name.as_deref().unwrap_or(&payload.project_id);
+        let platform_name = match payload.source {
+            ModPlatform::Modrinth => "Modrinth",
+            ModPlatform::CurseForge => "CurseForge",
+        };
+
+        info!(
+            "Adding {} mod {} to profile {} (dependencies: {})",
+            platform_name, display_name_log, payload.profile_id, add_dependencies
+        );
+
+        let source = match payload.source {
+            ModPlatform::Modrinth => ModSource::Modrinth {
+                project_id: payload.project_id.clone(),
+                version_id: payload.version_id.clone(),
+                file_name: payload.file_name.clone(),
+                download_url: payload.download_url.clone(),
+                file_hash_sha1: payload.file_hash_sha1.clone(),
+            },
+            ModPlatform::CurseForge => ModSource::CurseForge {
+                project_id: payload.project_id.clone(),
+                file_id: payload.version_id.clone(), // For CurseForge, version_id is actually file_id
+                file_name: payload.file_name.clone(),
+                download_url: payload.download_url.clone(),
+                file_hash_sha1: payload.file_hash_sha1.clone(),
+            },
+        };
+
+        let mut profiles = self.profiles.write().await;
+
+        if let Some(profile) = profiles.get_mut(&payload.profile_id) {
+            if !profile.mods.iter().any(|m| m.source == source) {
+                info!(
+                    "Adding mod {} to profile {}",
+                    display_name_log, payload.profile_id
+                );
+
+                let new_mod = Mod {
+                    id: Uuid::new_v4(),
+                    source: source.clone(),
+                    enabled: true,
+                    display_name: payload.content_name.clone(),
+                    version: payload.version_number.clone(),
+                    game_versions: payload.game_versions.clone(),
+                    file_name_override: None,
+                    associated_loader: payload.loaders
+                        .clone()
+                        .and_then(|l| l.first().and_then(|s| ModLoader::from_str(s).ok())),
+                };
+                profile.mods.push(new_mod);
+                drop(profiles);
+                self.save_profiles().await?;
+                info!(
+                    "Successfully added {} mod {} to profile {}",
+                    platform_name, display_name_log, payload.profile_id
+                );
+            } else {
+                info!(
+                    "{} mod {} already exists in profile {}. Skipping addition.",
+                    platform_name, display_name_log, payload.profile_id
+                );
+            }
+        } else {
+            return Err(AppError::ProfileNotFound(payload.profile_id));
+        }
+
+        // Install dependencies if requested
+        if add_dependencies {
+            self.install_dependencies_for_mod(payload, display_name_log, platform_name).await?;
+        }
+
+        Ok(())
+    }
+
+    // Helper method to install dependencies for a mod
+    async fn install_dependencies_for_mod(
+        &self,
+        payload: &crate::commands::content_command::InstallContentPayload,
+        display_name_log: &str,
+        platform_name: &str,
+    ) -> Result<()> {
+        use crate::integrations::unified_mod::{ModPlatform, UnifiedModVersionsParams};
+
+        info!(
+            "Installing dependencies for {} mod {} (version: {})",
+            platform_name, display_name_log, payload.version_number.as_deref().unwrap_or("unknown")
+        );
+
+        // Get version details to find dependencies
+        let versions_params = UnifiedModVersionsParams {
+            source: payload.source.clone(),
+            project_id: payload.project_id.clone(),
+            loaders: payload.loaders.clone(),
+            game_versions: payload.game_versions.clone(),
+            limit: Some(1), // We only need the specific version
+            offset: None,
+        };
+
+        let versions_response = match crate::integrations::unified_mod::get_mod_versions_unified(versions_params).await {
+            Ok(response) => response,
+            Err(e) => {
+                warn!("Failed to get version details for dependencies: {}", e);
+                return Ok(()); // Don't fail the whole operation if dependencies can't be fetched
+            }
+        };
+
+        if let Some(target_version) = versions_response.versions.into_iter().find(|v| v.id == payload.version_id) {
+            info!("Found {} dependencies for {} mod {}", target_version.files.len(), platform_name, display_name_log);
+
+            match payload.source {
+                ModPlatform::Modrinth => {
+                    // For Modrinth, we need to get the full version details to access dependencies
+                    if let Ok(full_version) = crate::integrations::modrinth::get_version_details(payload.version_id.clone()).await {
+                        self.install_modrinth_dependencies(payload.profile_id, &full_version, display_name_log).await?;
+                    }
+                }
+                ModPlatform::CurseForge => {
+                    // For CurseForge, we need to get the file details to access dependencies
+                    if let Ok(curseforge_file) = crate::integrations::curseforge::get_file_details(
+                        payload.project_id.parse::<u32>().unwrap_or(0),
+                        payload.version_id.parse::<u32>().unwrap_or(0)
+                    ).await {
+                        self.install_curseforge_dependencies(payload.profile_id, &curseforge_file, display_name_log).await?;
+                    }
+                }
+            }
+        } else {
+            warn!("Could not find version {} for dependency resolution", payload.version_id);
+        }
+
+        Ok(())
+    }
+
+    // Helper method to install CurseForge dependencies
+    async fn install_curseforge_dependencies(
+        &self,
+        profile_id: Uuid,
+        file: &crate::integrations::curseforge::CurseForgeFile,
+        _parent_mod_name: &str,
+    ) -> Result<()> {
+        use crate::integrations::curseforge::CurseForgeFileRelationType;
+
+        let profile = self.get_profile(profile_id).await?;
+        let profile_loader_str = profile.loader.as_str().to_string();
+        let profile_game_version = profile.game_version.clone();
+
+        for dependency in &file.dependencies {
+            // Only install required dependencies
+            if let Some(relation_type) = CurseForgeFileRelationType::from_u32(dependency.relationType) {
+                if relation_type.should_install() {
+                    info!("Processing CurseForge dependency: ModId={}, RelationType={}", dependency.modId, relation_type.as_str());
+
+                    // Get dependency mod information
+                    match crate::integrations::curseforge::get_mod_info(dependency.modId).await {
+                        Ok(dep_mod_info) => {
+                            // Get compatible files for this dependency
+                            match crate::integrations::curseforge::get_mod_files(
+                                dependency.modId,
+                                Some(profile_game_version.clone()),
+                                None, // We'll filter loaders in the unified conversion
+                                None,
+                                None,
+                                Some(50), // Get first 50 files
+                            ).await {
+                                Ok(dep_files_response) => {
+                                    if let Some(best_file) = dep_files_response.data.into_iter().max_by_key(|f| f.fileDate.clone()) {
+                                        // Check if this file supports the required loader
+                                        let file_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&best_file.gameVersions);
+
+                                        // Check if the file is compatible with the profile's loader
+                                        let is_compatible = if profile_loader_str == "vanilla" {
+                                            // Vanilla is compatible with everything
+                                            true
+                                        } else {
+                                            file_loaders.contains(&profile_loader_str)
+                                        };
+
+                                        if is_compatible {
+                                            // Create dependency payload
+                                            let dep_payload = crate::commands::content_command::InstallContentPayload {
+                                                profile_id,
+                                                project_id: dependency.modId.to_string(),
+                                                version_id: best_file.id.to_string(),
+                                                file_name: best_file.fileName.clone(),
+                                                download_url: best_file.downloadUrl.clone(),
+                                                file_hash_sha1: best_file.hashes.iter()
+                                                    .find(|h| h.algo == 1) // SHA1 = 1
+                                                    .map(|h| h.value.clone()),
+                                                content_name: Some(best_file.displayName.clone()),
+                                                version_number: Some(best_file.fileName.clone()),
+                                                content_type: crate::utils::profile_utils::ContentType::Mod,
+                                                loaders: Some(file_loaders),
+                                                game_versions: Some(best_file.gameVersions.clone()),
+                                                source: crate::integrations::unified_mod::ModPlatform::CurseForge,
+                                            };
+
+                                            // Recursively install dependency (without further dependencies to avoid loops)
+                                            match Box::pin(self.add_mod_from_payload(&dep_payload, false)).await {
+                                                Ok(_) => info!("Successfully installed CurseForge dependency '{}'", dep_mod_info.name),
+                                                Err(e) => error!("Failed to install CurseForge dependency '{}': {}", dep_mod_info.name, e),
+                                            }
+                                        } else {
+                                            warn!("CurseForge dependency '{}' (ID: {}) is not compatible with profile loader '{}'", dep_mod_info.name, dependency.modId, profile_loader_str);
+                                        }
+                                    } else {
+                                        warn!("No compatible files found for CurseForge dependency mod ID {}", dependency.modId);
+                                    }
+                                }
+                                Err(e) => error!("Failed to get files for CurseForge dependency '{}': {}", dependency.modId, e),
+                            }
+                        }
+                        Err(e) => error!("Failed to get mod info for CurseForge dependency '{}': {}", dependency.modId, e),
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    // Helper method to install Modrinth dependencies
+    async fn install_modrinth_dependencies(
+        &self,
+        profile_id: Uuid,
+        version: &crate::integrations::modrinth::ModrinthVersion,
+        _parent_mod_name: &str,
+    ) -> Result<()> {
+        use crate::integrations::modrinth::ModrinthDependencyType;
+
+        let profile = self.get_profile(profile_id).await?;
+        let profile_loader_str = profile.loader.as_str().to_string();
+        let profile_game_version = profile.game_version.clone();
+
+        for dependency in &version.dependencies {
+            if dependency.dependency_type == ModrinthDependencyType::Required {
+                info!("Processing required Modrinth dependency: Project={:?}, Version={:?}", dependency.project_id, dependency.version_id);
+
+                if let Some(dep_project_id) = &dependency.project_id {
+                    // Get compatible versions for the dependency
+                    match crate::integrations::modrinth::get_mod_versions(
+                        dep_project_id.clone(),
+                        Some(vec![profile_loader_str.clone()]),
+                        Some(vec![profile_game_version.clone()]),
+                    ).await {
+                        Ok(dep_versions) => {
+                            if let Some(best_version) = dep_versions.iter().max_by_key(|v| &v.date_published) {
+                                if let Some(primary_file) = best_version.files.iter().find(|f| f.primary) {
+                                    // Create dependency payload
+                                    let dep_payload = crate::commands::content_command::InstallContentPayload {
+                                        profile_id,
+                                        project_id: dep_project_id.clone(),
+                                        version_id: best_version.id.clone(),
+                                        file_name: primary_file.filename.clone(),
+                                        download_url: primary_file.url.clone(),
+                                        file_hash_sha1: primary_file.hashes.sha1.clone(),
+                                        content_name: Some(best_version.name.clone()),
+                                        version_number: Some(best_version.version_number.clone()),
+                                        content_type: crate::utils::profile_utils::ContentType::Mod,
+                                        loaders: Some(best_version.loaders.clone()),
+                                        game_versions: Some(best_version.game_versions.clone()),
+                                        source: crate::integrations::unified_mod::ModPlatform::Modrinth,
+                                    };
+
+                                    // Recursively install dependency (without further dependencies to avoid loops)
+                                    match Box::pin(self.add_mod_from_payload(&dep_payload, false)).await {
+                                        Ok(_) => info!("Successfully installed dependency '{}'", dep_project_id),
+                                        Err(e) => error!("Failed to install dependency '{}': {}", dep_project_id, e),
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => error!("Failed to get versions for dependency '{}': {}", dep_project_id, e),
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     // Public wrapper function to add a Modrinth mod and its dependencies
@@ -2250,6 +2545,7 @@ impl PostInitializationHandler for ProfileManager {
 pub fn get_profile_mod_filename(source: &ModSource) -> crate::error::Result<String> {
     match source {
         ModSource::Modrinth { file_name, .. } => Ok(file_name.clone()),
+        ModSource::CurseForge { file_name, .. } => Ok(file_name.clone()),
         ModSource::Local { file_name } => Ok(file_name.clone()),
         ModSource::Url { file_name, url } => file_name.clone().ok_or_else(|| {
             crate::error::AppError::Other(format!("Filename missing for URL mod source: {}", url))

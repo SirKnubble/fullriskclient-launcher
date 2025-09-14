@@ -1467,10 +1467,9 @@ export function ModrinthSearchV2({
         loaders: bestVersion.loaders,
         game_versions: bestVersion.game_versions,
         source: project.source,
-      };
-      console.log("###InstallContentPayload", payload);
+        };
 
-      await toast.promise(
+        await toast.promise(
         installContentToProfile(payload),
         {
           loading: `Installing ${project.title} (${bestVersion.version_number}) to ${selectedProfile.name}...`,

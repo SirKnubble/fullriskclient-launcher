@@ -387,6 +387,48 @@ impl CurseForgeModLoaderType {
     }
 }
 
+pub enum CurseForgeFileRelationType {
+    EmbeddedLibrary = 1,
+    OptionalDependency = 2,
+    RequiredDependency = 3,
+    Tool = 4,
+    Incompatible = 5,
+    Include = 6,
+}
+
+impl CurseForgeFileRelationType {
+    pub fn from_u32(value: u32) -> Option<Self> {
+        match value {
+            1 => Some(CurseForgeFileRelationType::EmbeddedLibrary),
+            2 => Some(CurseForgeFileRelationType::OptionalDependency),
+            3 => Some(CurseForgeFileRelationType::RequiredDependency),
+            4 => Some(CurseForgeFileRelationType::Tool),
+            5 => Some(CurseForgeFileRelationType::Incompatible),
+            6 => Some(CurseForgeFileRelationType::Include),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CurseForgeFileRelationType::EmbeddedLibrary => "EmbeddedLibrary",
+            CurseForgeFileRelationType::OptionalDependency => "OptionalDependency",
+            CurseForgeFileRelationType::RequiredDependency => "RequiredDependency",
+            CurseForgeFileRelationType::Tool => "Tool",
+            CurseForgeFileRelationType::Incompatible => "Incompatible",
+            CurseForgeFileRelationType::Include => "Include",
+        }
+    }
+
+    pub fn is_required(&self) -> bool {
+        matches!(self, CurseForgeFileRelationType::RequiredDependency)
+    }
+
+    pub fn should_install(&self) -> bool {
+        matches!(self, CurseForgeFileRelationType::RequiredDependency | CurseForgeFileRelationType::Include)
+    }
+}
+
 // Enum for hash algorithms used in CurseForge file hashes
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum CurseForgeHashAlgo {
@@ -416,6 +458,16 @@ impl CurseForgeHashAlgo {
 pub struct CurseForgeFilesResponse {
     pub data: Vec<CurseForgeFile>,
     pub pagination: CurseForgePagination,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeModResponse {
+    pub data: CurseForgeMod,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFileResponse {
+    pub data: CurseForgeFile,
 }
 
 // Function to get files/versions for a specific CurseForge mod
@@ -540,4 +592,66 @@ pub async fn get_mod_files(
     );
 
     Ok(files_response)
+}
+
+/// Get detailed information about a specific file
+pub async fn get_file_details(mod_id: u32, file_id: u32) -> Result<CurseForgeFile> {
+    let url = format!("{}/mods/{}/files/{}", CURSEFORGE_API_BASE_URL, mod_id, file_id);
+
+    log::info!("Getting CurseForge file details: mod_id={}, file_id={}", mod_id, file_id);
+
+    let response = HTTP_CLIENT
+        .get(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge file details: {}", e)))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        log::error!("CurseForge file details API error ({}): {}", status, error_text);
+        return Err(AppError::Other(format!("CurseForge API error {}: {}", status, error_text)));
+    }
+
+    let file_response: CurseForgeFileResponse = response
+        .json()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to parse CurseForge file details: {}", e)))?;
+
+    log::debug!("Successfully retrieved file details for file ID {}", file_id);
+
+    Ok(file_response.data)
+}
+
+/// Get basic information about a mod
+pub async fn get_mod_info(mod_id: u32) -> Result<CurseForgeMod> {
+    let url = format!("{}/mods/{}", CURSEFORGE_API_BASE_URL, mod_id);
+
+    log::info!("Getting CurseForge mod info: mod_id={}", mod_id);
+
+    let response = HTTP_CLIENT
+        .get(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge mod info: {}", e)))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        log::error!("CurseForge mod info API error ({}): {}", status, error_text);
+        return Err(AppError::Other(format!("CurseForge API error {}: {}", status, error_text)));
+    }
+
+    let mod_response: CurseForgeModResponse = response
+        .json()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to parse CurseForge mod info: {}", e)))?;
+
+    log::debug!("Successfully retrieved mod info for mod ID {}", mod_id);
+
+    Ok(mod_response.data)
 }

@@ -384,27 +384,7 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
         };
 
         // Extract loaders from gameVersions array (CurseForge puts loaders in gameVersions)
-        let loaders: Vec<String> = file.gameVersions
-            .iter()
-            .filter_map(|version| {
-                let version_lower = version.to_lowercase();
-                if version_lower.contains("forge") && !version_lower.contains("neoforge") {
-                    Some("forge".to_string())
-                } else if version_lower.contains("fabric") {
-                    Some("fabric".to_string())
-                } else if version_lower.contains("quilt") {
-                    Some("quilt".to_string())
-                } else if version_lower.contains("neoforge") {
-                    Some("neoforge".to_string())
-                } else if version_lower.contains("liteloader") {
-                    Some("liteloader".to_string())
-                } else if version_lower.contains("cauldron") {
-                    Some("cauldron".to_string())
-                } else {
-                    None // Not a loader, probably a game version like "1.21"
-                }
-            })
-            .collect();
+        let loaders: Vec<String> = extract_loaders_from_game_versions(&file.gameVersions);
 
         let display_name_clone = file.displayName.clone();
         let download_url_clone = file.downloadUrl.clone();
@@ -623,4 +603,29 @@ pub async fn get_mod_versions_unified(
         versions: all_versions,
         total_count,
     })
+}
+
+/// Extract loader names from CurseForge gameVersions array
+pub fn extract_loaders_from_game_versions(game_versions: &[String]) -> Vec<String> {
+    game_versions
+        .iter()
+        .filter_map(|version| {
+            let version_lower = version.to_lowercase();
+            if version_lower.contains("forge") && !version_lower.contains("neoforge") {
+                Some("forge".to_string())
+            } else if version_lower.contains("fabric") {
+                Some("fabric".to_string())
+            } else if version_lower.contains("quilt") {
+                Some("quilt".to_string())
+            } else if version_lower.contains("neoforge") {
+                Some("neoforge".to_string())
+            } else if version_lower.contains("liteloader") {
+                Some("liteloader".to_string())
+            } else if version_lower.contains("cauldron") {
+                Some("cauldron".to_string())
+            } else {
+                None // Not a loader, probably a game version like "1.21"
+            }
+        })
+        .collect()
 }

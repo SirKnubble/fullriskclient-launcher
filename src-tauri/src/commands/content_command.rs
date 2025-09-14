@@ -21,18 +21,18 @@ use uuid::Uuid;
 // Updated InstallContentPayload struct
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InstallContentPayload {
-    profile_id: Uuid,
-    project_id: String,
-    version_id: String,
-    file_name: String,
-    download_url: String,
-    file_hash_sha1: Option<String>,
-    content_name: Option<String>, // Used as mod_name for mods
-    version_number: Option<String>,
-    content_type: profile_utils::ContentType, // Use ContentType from profile_utils
-    loaders: Option<Vec<String>>,             // Added loaders
-    game_versions: Option<Vec<String>>,       // Added game_versions
-    source: ModPlatform,                      // Added source to distinguish Modrinth/CurseForge
+    pub profile_id: Uuid,
+    pub project_id: String,
+    pub version_id: String,
+    pub file_name: String,
+    pub download_url: String,
+    pub file_hash_sha1: Option<String>,
+    pub content_name: Option<String>, // Used as mod_name for mods
+    pub version_number: Option<String>,
+    pub content_type: profile_utils::ContentType, // Use ContentType from profile_utils
+    pub loaders: Option<Vec<String>>,             // Added loaders
+    pub game_versions: Option<Vec<String>>,       // Added game_versions
+    pub source: ModPlatform,                      // Added source to distinguish Modrinth/CurseForge
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -731,33 +731,23 @@ pub async fn install_content_to_profile(
     match payload.content_type {
         profile_utils::ContentType::Mod => {
             match payload.source {
-                ModPlatform::Modrinth => {
+                ModPlatform::Modrinth | ModPlatform::CurseForge => {
+                    let platform_name = match payload.source {
+                        ModPlatform::Modrinth => "Modrinth",
+                        ModPlatform::CurseForge => "CurseForge",
+                    };
+
                     log::info!(
-                        "Attempting to install mod from Modrinth using profile_command::add_modrinth_mod_to_profile"
+                        "Attempting to install mod from {} using ProfileManager::add_mod_from_payload",
+                        platform_name
                     );
-                    crate::commands::profile_command::add_modrinth_mod_to_profile(
-                        payload.profile_id,
-                        payload.project_id,
-                        payload.version_id,
-                        payload.file_name,
-                        payload.download_url,
-                        payload.file_hash_sha1,
-                        payload.content_name, // Maps to mod_name
-                        payload.version_number,
-                        payload.loaders,       // Pass loaders
-                        payload.game_versions, // Pass game_versions
-                    )
-                    .await
-                }
-                ModPlatform::CurseForge => {
-                    log::info!(
-                        "Attempting to install mod from CurseForge using profile_command::add_curseforge_mod_to_profile"
-                    );
-                    // TODO: Implement CurseForge installation command
-                    // For now, return an error indicating it's not implemented yet
-                    Err(CommandError::from(AppError::Other(
-                        "CurseForge mod installation not yet implemented".to_string(),
-                    )))
+
+                    // Get profile manager from state
+                    let state = crate::state::state_manager::State::get().await?;
+                    let profile_manager = &state.profile_manager;
+
+                    // Use the new unified method for both platforms with dependency installation
+                    profile_manager.add_mod_from_payload(&payload, true).await.map_err(CommandError::from)
                 }
             }
         }

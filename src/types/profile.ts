@@ -84,7 +84,7 @@ export interface ProfileSettings {
 }
 
 interface ModSourceBase {
-  type: "local" | "url" | "maven" | "embedded" | "modrinth";
+  type: "local" | "url" | "maven" | "embedded" | "modrinth" | "curseforge";
 }
 
 export interface ModSourceLocal extends ModSourceBase {
@@ -118,12 +118,22 @@ export interface ModSourceModrinth extends ModSourceBase {
   file_hash_sha1: string | null;
 }
 
+export interface ModSourceCurseForge extends ModSourceBase {
+  type: "curseforge";
+  project_id: string;
+  file_id: string;
+  file_name: string;
+  download_url: string;
+  file_hash_sha1: string | null;
+}
+
 export type ModSource =
   | ModSourceLocal
   | ModSourceUrl
   | ModSourceMaven
   | ModSourceEmbedded
-  | ModSourceModrinth;
+  | ModSourceModrinth
+  | ModSourceCurseForge;
 
 export interface Mod {
   id: string;
