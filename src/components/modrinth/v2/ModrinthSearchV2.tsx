@@ -340,7 +340,7 @@ export function ModrinthSearchV2({
         source: modSource,
         project_type: convertToUnifiedProjectType(projectType),
         game_version: selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined,
-        mod_loader: currentSelectedLoaders.length > 0 ? currentSelectedLoaders[0] : undefined,
+        mod_loaders: currentSelectedLoaders.length > 0 ? currentSelectedLoaders : undefined,
         limit,
         offset: newSearch ? 0 : offset,
         sort: sortOrder as UnifiedSortType,

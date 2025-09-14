@@ -189,7 +189,7 @@ pub async fn search_mods(
     game_version: Option<String>,
     sort_field: Option<CurseForgeModSearchSortField>,
     sort_order: Option<CurseForgeSortOrder>,
-    mod_loader_type: Option<CurseForgeModLoaderType>,
+    mod_loader_types: Option<Vec<CurseForgeModLoaderType>>,
     game_version_type_id: Option<u32>,
     index: Option<u32>,
     page_size: Option<u32>,
@@ -237,10 +237,16 @@ pub async fn search_mods(
         log::debug!("CurseForge search - Sort order: {:?}", order);
     }
 
-    // Add optional modLoaderType
-    if let Some(loader) = mod_loader_type {
-        query_params.push(("modLoaderType".to_string(), (loader.clone() as u32).to_string()));
-        log::debug!("CurseForge search - Mod loader type: {:?}", loader);
+    // Add optional modLoaderTypes
+    if let Some(loader_types) = mod_loader_types {
+        if !loader_types.is_empty() {
+            let loader_ids: Vec<String> = loader_types
+                .iter()
+                .map(|loader| (*loader as u32).to_string())
+                .collect();
+            query_params.push(("modLoaderTypes".to_string(), loader_ids.join(",")));
+            log::debug!("CurseForge search - Mod loader types: {:?}", loader_types);
+        }
     }
 
     // Add optional gameVersionTypeId
@@ -373,7 +379,7 @@ impl CurseForgeSortOrder {
 }
 
 // Enum for mod loader types
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum CurseForgeModLoaderType {
     Any = 0,
     Forge = 1,

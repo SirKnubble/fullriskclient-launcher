@@ -67,7 +67,7 @@ export interface UnifiedModSearchParams {
   project_type: UnifiedProjectType;
   game_version?: string;
   categories?: string[];
-  mod_loader?: string;
+  mod_loaders?: string[];
   limit?: number;
   offset?: number;
   sort?: UnifiedSortType;

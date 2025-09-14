@@ -226,7 +226,7 @@ pub async fn debug_unified_mod_search() {
         project_type: UnifiedProjectType::Mod,
         game_version: None,
         categories: None,
-        mod_loader: None,
+        mod_loaders: None,
         limit: Some(5),
         offset: Some(0),
         sort: Some(UnifiedSortType::Relevance),
@@ -284,7 +284,7 @@ pub async fn debug_unified_mod_versions() {
         project_type: UnifiedProjectType::Mod,
         game_version: None,
         categories: None,
-        mod_loader: None,
+        mod_loaders: None,
         limit: Some(1), // Only get the first result
         offset: Some(0),
         sort: Some(UnifiedSortType::Relevance),

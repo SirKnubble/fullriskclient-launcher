@@ -348,7 +348,7 @@ pub async fn search_mods_unified_command(
         params.source,
         params.project_type,
         params.game_version.as_deref().unwrap_or("None"),
-        params.mod_loader.as_deref().unwrap_or("None"),
+        params.mod_loaders.as_ref().map(|l| format!("{:?}", l)).unwrap_or_else(|| "None".to_string()),
         params.limit,
         params.offset,
         params.sort,

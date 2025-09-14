@@ -166,7 +166,7 @@ pub struct UnifiedModSearchParams {
     pub project_type: UnifiedProjectType,
     pub game_version: Option<String>,
     pub categories: Option<Vec<String>>,
-    pub mod_loader: Option<String>,
+    pub mod_loaders: Option<Vec<String>>,
     pub limit: Option<u32>,
     pub offset: Option<u32>,
     pub sort: Option<UnifiedSortType>,
@@ -424,6 +424,13 @@ pub async fn search_mods_unified(
                 (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc))
             };
 
+            // Convert mod loaders to CurseForge types
+            let curseforge_loaders = if let Some(ref loaders) = params.mod_loaders {
+                convert_string_loaders_to_curseforge_types(loaders)
+            } else {
+                None
+            };
+
             match curseforge::search_mods(
                 432, // Minecraft game ID
                 Some(params.query.clone()),
@@ -432,7 +439,7 @@ pub async fn search_mods_unified(
                 params.game_version.clone(),
                 sort_field,
                 sort_order,
-                None, // mod_loader_type
+                curseforge_loaders, // mod_loader_types
                 None, // game_version_type_id
                 params.offset, // index for pagination
                 params.limit, // page_size
@@ -465,7 +472,7 @@ pub async fn search_mods_unified(
                 params.query,
                 params.project_type.to_modrinth_project_type(),
                 params.game_version,
-                params.mod_loader,
+                params.mod_loaders.as_ref().and_then(|loaders| loaders.first()).cloned(),
                 params.limit,
                 params.offset,
                 modrinth_sort,
@@ -629,3 +636,39 @@ pub fn extract_loaders_from_game_versions(game_versions: &[String]) -> Vec<Strin
         })
         .collect()
 }
+
+/// Convert string loader names to CurseForge loader types
+pub fn convert_string_loaders_to_curseforge_types(
+    loaders: &[String],
+) -> Option<Vec<curseforge::CurseForgeModLoaderType>> {
+    if loaders.is_empty() {
+        return None;
+    }
+
+    let mut curseforge_loaders = Vec::new();
+
+    for loader in loaders {
+        let loader_lower = loader.to_lowercase();
+        let curseforge_loader = match loader_lower.as_str() {
+            "any" => curseforge::CurseForgeModLoaderType::Any,
+            "forge" => curseforge::CurseForgeModLoaderType::Forge,
+            "cauldron" => curseforge::CurseForgeModLoaderType::Cauldron,
+            "liteloader" => curseforge::CurseForgeModLoaderType::LiteLoader,
+            "fabric" => curseforge::CurseForgeModLoaderType::Fabric,
+            "quilt" => curseforge::CurseForgeModLoaderType::Quilt,
+            "neoforge" => curseforge::CurseForgeModLoaderType::NeoForge,
+            _ => {
+                log::warn!("Unknown mod loader type: {}", loader);
+                continue; // Skip unknown loaders
+            }
+        };
+        curseforge_loaders.push(curseforge_loader);
+    }
+
+    if curseforge_loaders.is_empty() {
+        None
+    } else {
+        Some(curseforge_loaders)
+    }
+}
+
