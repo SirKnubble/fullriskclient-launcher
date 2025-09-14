@@ -17,12 +17,72 @@ use tokio::io::BufReader;
 use futures::future::try_join_all;
 use tempfile;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
+use sysinfo::System;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
 
 // Public CurseForge API Key (from PrismLauncher/MultiMC)
 const CURSEFORGE_API_KEY: &str = "$2a$10$bL4bIL5pUWqfcO7KQtnMReakwtfHbNKh6v1uTpKlzhwoueEJQnPnm";
+
+/// Gets the total system RAM in MB
+fn get_system_ram_mb() -> u64 {
+    let mut sys = System::new_all();
+    sys.refresh_memory();
+    let total_memory_bytes = sys.total_memory();
+    total_memory_bytes / (1024 * 1024)
+}
+
+/// Determines appropriate memory settings based on recommended RAM and system capabilities
+fn determine_memory_settings(recommended_ram_mb: Option<u64>) -> crate::state::profile_state::MemorySettings {
+    use crate::state::profile_state::MemorySettings;
+
+    let system_ram_mb = get_system_ram_mb();
+    info!("System RAM detected: {} MB", system_ram_mb);
+
+    match recommended_ram_mb {
+        Some(recommended) => {
+            info!("CurseForge pack recommends {} MB RAM", recommended);
+
+            // Reserve some RAM for the system (leave at least 2GB for system)
+            let available_ram_mb = system_ram_mb.saturating_sub(2048);
+
+            if recommended > available_ram_mb {
+                warn!(
+                    "Recommended RAM ({} MB) exceeds available system RAM ({} MB after reserving 2GB for system). Using adjusted amount instead.",
+                    recommended, available_ram_mb
+                );
+
+                // Use available RAM, but cap at a reasonable maximum
+                let ram_amount = available_ram_mb.min(16384).max(1024); // Use available RAM with caps, min 1GB
+
+                MemorySettings {
+                    min: ram_amount as u32,
+                    max: ram_amount as u32,
+                }
+            } else {
+                // Use recommended RAM, but ensure reasonable bounds
+                let ram_amount = recommended.min(available_ram_mb).min(16384).max(1024); // Use recommended RAM with caps, min 1GB
+
+                info!("Using recommended RAM settings: {} MB", ram_amount);
+                MemorySettings {
+                    min: ram_amount as u32,
+                    max: ram_amount as u32,
+                }
+            }
+        }
+        None => {
+            info!("No recommended RAM specified in CurseForge pack, using defaults");
+            // Use system-aware defaults
+            let ram_amount = (system_ram_mb / 2).min(4096).max(3048); // 1/4 of system RAM, min 2GB, max 4GB
+
+            MemorySettings {
+                min: ram_amount as u32,
+                max: ram_amount as u32,
+            }
+        }
+    }
+}
 
 // Structures for deserializing CurseForge API responses (Search)
 // Based on https://docs.curseforge.com/rest-api/?javascript#tocS_Search%20Mods%20Response
@@ -1014,6 +1074,9 @@ pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profi
         sanitized_name
     };
 
+    // Determine memory settings based on recommended RAM and system capabilities
+    let memory_settings = determine_memory_settings(manifest.minecraft.recommended_ram);
+
     let profile = Profile {
         id: placeholder_id,
         name: profile_name,
@@ -1023,7 +1086,10 @@ pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profi
         loader_version,
         created: Utc::now(),
         last_played: None,
-        settings: ProfileSettings::default(),
+        settings: ProfileSettings {
+            memory: memory_settings,
+            ..ProfileSettings::default()
+        },
         state: ProfileState::NotInstalled,
         mods: Vec::new(),
         selected_norisk_pack_id: None,
