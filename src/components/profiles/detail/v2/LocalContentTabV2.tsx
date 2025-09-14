@@ -170,6 +170,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     modrinthIcons,
     curseforgeIcons,
     localArchiveIcons,
+    getItemIcon,
+    getItemPlatformDisplayName,
     fetchData,
     handleToggleItemEnabled,
     handleDeleteItem,
@@ -573,48 +575,22 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           item.modrinth_info?.project_id,
         );
 
-      let iconToShow: React.ReactNode;
-      const modrinthProjectId = item.modrinth_info?.project_id;
-      const modrinthIconUrl = modrinthProjectId
-        ? modrinthIcons[modrinthProjectId]
-        : null;
-      const curseforgeProjectId = item.curseforge_info?.project_id;
-      const curseforgeIconUrl = curseforgeProjectId
-        ? curseforgeIcons[curseforgeProjectId]
-        : null;
-      const localIconDataUrl = item.path ? localArchiveIcons[item.path] : null;
+      // Get the appropriate icon using the platform-aware helper function
+      const itemIconUrl = getItemIcon(item);
 
-      if (modrinthIconUrl) {
+      let iconToShow: React.ReactNode;
+      if (itemIconUrl) {
         iconToShow = (
           <img
-            src={modrinthIconUrl}
-            alt={`${itemTitle} Modrinth icon`}
+            src={itemIconUrl}
+            alt={`${itemTitle} ${getItemPlatformDisplayName(item)} icon`}
             className="w-full h-full object-contain image-pixelated"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.visibility = "hidden";
-            }}
-          />
-        );
-      } else if (curseforgeIconUrl) {
-        iconToShow = (
-          <img
-            src={curseforgeIconUrl}
-            alt={`${itemTitle} CurseForge icon`}
-            className="w-full h-full object-contain image-pixelated"
-            style={item.curseforge_info ? {
-              filter: item.is_disabled ? undefined : undefined
+            style={item.is_disabled ? {
+              filter: "grayscale(100%) brightness(0.7)"
             } : undefined}
             onError={(e) => {
               (e.target as HTMLImageElement).style.visibility = "hidden";
             }}
-          />
-        );
-      } else if (localIconDataUrl) {
-        iconToShow = (
-          <img
-            src={localIconDataUrl}
-            alt={`${itemTitle} local icon`}
-            className="w-full h-full object-contain image-pixelated"
           />
         );
       } else {
@@ -844,25 +820,31 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         );
       })();
 
+      // Determine the primary platform for this item
+      const itemPlatform = getItemPlatformDisplayName(item);
+      const isDisabled = item.is_disabled;
+
       const itemBadgesNode = [
+        // NoRisk crash warning (highest priority)
         ...(isBlockedByNoRisk ? [{
           text: "CRASHES WITH NRC",
           color: "#ef4444"
         }] : []),
-        ...(item.modrinth_info ? [{
-          icon: "https://cdn.modrinth.com/modrinth-new.png",
-          text: "Modrinth",
-          color: item.is_disabled ? "#6b7280" : "#22c55e"
+
+        // Platform badge - only show the primary platform
+        ...(itemPlatform !== 'Local' ? [{
+          icon: itemPlatform === 'Modrinth'
+            ? "https://cdn.modrinth.com/modrinth-new.png"
+            : "https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium",
+          text: itemPlatform,
+          color: isDisabled ? "#6b7280" : (itemPlatform === 'Modrinth' ? "#22c55e" : "#f97316"),
+          iconFilter: isDisabled ? "grayscale(100%) brightness(0.7)" : undefined
         }] : []),
-        ...(item.curseforge_info ? [{
-          icon: "https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium",
-          text: "CurseForge",
-          color: item.is_disabled ? "#6b7280" : "#f97316",
-          iconFilter: item.is_disabled ? undefined : undefined
-        }] : []),
-        ...(item.source_type ? [{
+
+        // Source type badge (for local/custom mods)
+        ...(item.source_type && item.source_type !== 'custom' ? [{
           text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
-          color: item.is_disabled ? "#6b7280" : "#f59e0b"
+          color: isDisabled ? "#6b7280" : "#f59e0b"
         }] : [])
       ];
 
@@ -1011,6 +993,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       handleUpdateContentItem,
       modrinthIcons,
       localArchiveIcons,
+      getItemIcon,
+      getItemPlatformDisplayName,
       isUpdatingAll,
       isAnyTaskRunning,
       isLoading, // Added for item-specific loading states

@@ -2136,6 +2136,7 @@ pub struct LocalContentItem {
     pub content_type: ContentType, // Um den Typ mitzuführen
     pub modrinth_info: Option<GenericModrinthInfo>,
     pub curseforge_info: Option<GenericCurseForgeInfo>,
+    pub platform: Option<crate::integrations::unified_mod::ModPlatform>, // Platform this mod came from
     pub source_type: Option<String>, // Zur Kennzeichnung von Custom Mods
     pub norisk_info: Option<crate::state::profile_state::NoriskModIdentifier>, // Identifier für NoRiskMods
     pub fallback_version: Option<String>, // Fallback Version aus dem compatibility target
@@ -2289,6 +2290,7 @@ impl LocalContentLoader {
                                 content_type: ContentType::NoRiskMod,
                                 modrinth_info,
                                 curseforge_info: None,
+                                platform: None,
                                 source_type: source_type_str.map(|s| s.to_string()),
                                 norisk_info: Some(norisk_mod_identifier),
                                 fallback_version: fallback_version,
@@ -2336,6 +2338,17 @@ impl LocalContentLoader {
                         );
                         continue;
                     }
+                };
+
+                // Determine the platform from mod source
+                let platform = match &mod_item.source {
+                    crate::state::profile_state::ModSource::Modrinth { .. } => {
+                        Some(crate::integrations::unified_mod::ModPlatform::Modrinth)
+                    }
+                    crate::state::profile_state::ModSource::CurseForge { .. } => {
+                        Some(crate::integrations::unified_mod::ModPlatform::CurseForge)
+                    }
+                    _ => None, // Local, URL, Maven don't have a specific platform
                 };
 
                 // Try to find the mod in any of the content directories
@@ -2430,6 +2443,7 @@ impl LocalContentLoader {
                     content_type: ContentType::Mod,
                     modrinth_info,
                     curseforge_info,
+                    platform,
                     source_type: None,
                     norisk_info: None,
                     fallback_version: mod_item.version.clone(),
@@ -2549,6 +2563,7 @@ impl LocalContentLoader {
                     content_type: params.content_type.clone(),
                     modrinth_info: None,
                     curseforge_info: None,
+                    platform: None,
                     source_type,
                     norisk_info: None,
                     fallback_version: None,

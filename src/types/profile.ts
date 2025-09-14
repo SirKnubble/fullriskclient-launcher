@@ -1,4 +1,5 @@
 import { ContentType } from "./content";
+import { ModPlatform } from "./unified";
 
 export type ModLoader = "vanilla" | "forge" | "fabric" | "quilt" | "neoforge";
 export type ProfileState =
@@ -386,6 +387,7 @@ export interface LocalContentItem {
   content_type: ContentType;
   modrinth_info?: GenericModrinthInfo | null;
   curseforge_info?: GenericCurseForgeInfo | null;
+  platform?: ModPlatform | null; // Platform this mod came from
   source_type?: string | null; // For identifying "custom" mods
   norisk_info?: NoriskModIdentifier | null; // Identifier for NoRiskMods
   fallback_version?: string | null; // Fallback version from compatibility target

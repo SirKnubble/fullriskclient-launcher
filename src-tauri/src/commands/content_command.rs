@@ -55,20 +55,36 @@ async fn uninstall_content_by_sha1_internal(
         .get_profile(profile_id)
         .await?;
 
-    // Part 1: Remove Modrinth mod entries
+    // Part 1: Remove Modrinth and CurseForge mod entries
     let mut mod_ids_to_remove: Vec<Uuid> = Vec::new();
     for mod_entry in &profile.mods {
-        if let ModSource::Modrinth {
-            file_hash_sha1: Some(mod_hash),
-            ..
-        } = &mod_entry.source
-        {
-            if mod_hash == sha1_to_delete {
-                mod_ids_to_remove.push(mod_entry.id);
-                log::debug!(
-                    "Internal: Found Modrinth entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
-                    mod_entry.id, profile_id, sha1_to_delete
-                );
+        match &mod_entry.source {
+            ModSource::Modrinth {
+                file_hash_sha1: Some(mod_hash),
+                ..
+            } => {
+                if mod_hash == sha1_to_delete {
+                    mod_ids_to_remove.push(mod_entry.id);
+                    log::debug!(
+                        "Internal: Found Modrinth entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
+                        mod_entry.id, profile_id, sha1_to_delete
+                    );
+                }
+            }
+            ModSource::CurseForge {
+                file_hash_sha1: Some(mod_hash),
+                ..
+            } => {
+                if mod_hash == sha1_to_delete {
+                    mod_ids_to_remove.push(mod_entry.id);
+                    log::debug!(
+                        "Internal: Found CurseForge entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
+                        mod_entry.id, profile_id, sha1_to_delete
+                    );
+                }
+            }
+            _ => {
+                // Skip other mod sources
             }
         }
     }
@@ -83,7 +99,7 @@ async fn uninstall_content_by_sha1_internal(
                 .await
             {
                 log::error!(
-                    "Internal: Failed to remove Modrinth entry {} (SHA1: {}) from profile {}: {}",
+                    "Internal: Failed to remove mod entry {} (SHA1: {}) from profile {}: {}",
                     mod_id,
                     sha1_to_delete,
                     profile_id,
@@ -348,16 +364,18 @@ pub async fn toggle_content_from_profile(
     let mut asset_files_toggled_count = 0;
     let mut asset_file_toggle_errors = false;
 
-    // --- Phase 1: Toggle Modrinth Mod Entries (in profile.mods list) ---
+    // --- Phase 1: Toggle Modrinth and CurseForge Mod Entries (in profile.mods list) ---
     // Always check mods if SHA1 is provided, as it's a primary place for managed content.
     // If content_type is explicitly Mod, we'd primarily expect a hit here.
     // If content_type is an asset, a mod might still share a SHA1 if manually placed or due to other reasons.
     for mod_entry in profile.mods.iter() {
-        if let ModSource::Modrinth {
-            file_hash_sha1: Some(mod_hash),
-            ..
-        } = &mod_entry.source
-        {
+        let mod_hash = match &mod_entry.source {
+            ModSource::Modrinth { file_hash_sha1: Some(hash), .. } => Some(hash),
+            ModSource::CurseForge { file_hash_sha1: Some(hash), .. } => Some(hash),
+            _ => None,
+        };
+
+        if let Some(mod_hash) = mod_hash {
             if mod_hash == &current_sha1_hash {
                 if mod_entry.enabled == payload.enabled {
                     log::info!("Mod entry {} in profile {} is already state enabled={}. Skipping DB update.", mod_entry.id, payload.profile_id, payload.enabled);

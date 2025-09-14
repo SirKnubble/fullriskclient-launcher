@@ -95,6 +95,26 @@ impl ModDownloadService {
                             e
                         })
                     }
+                    ModSource::CurseForge {
+                        download_url,
+                        file_hash_sha1,
+                        ..
+                    } => {
+                        info!(
+                            "Preparing CurseForge mod for cache: {} ({})",
+                            display_name, filename
+                        );
+                        Self::download_and_verify_file(
+                            &download_url,
+                            &target_path,
+                            file_hash_sha1.as_deref(),
+                        )
+                        .await
+                        .map_err(|e| {
+                            error!("Failed cache mod {}: {}", display_name, e);
+                            e
+                        })
+                    }
                     ModSource::Url { url, file_name, .. } => {
                         let fname = file_name.as_deref().unwrap_or("unknown");
                         debug!(

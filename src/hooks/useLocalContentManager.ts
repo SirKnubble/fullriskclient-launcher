@@ -63,6 +63,9 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   curseforgeIcons: Record<string, string | null>;
   localArchiveIcons: Record<string, string | null>;
 
+  getItemIcon: (item: T) => string | null;
+  getItemPlatformDisplayName: (item: T) => string;
+
   contentUpdates: Record<string, ModrinthVersion | null>;
   isCheckingUpdates: boolean;
   itemsBeingUpdated: Set<string>;
@@ -243,6 +246,63 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const [modrinthIcons, setModrinthIcons] = useState<Record<string, string | null>>({});
   const [curseforgeIcons, setCurseforgeIcons] = useState<Record<string, string | null>>({});
   const [localArchiveIcons, setLocalArchiveIcons] = useState<Record<string, string | null>>({});
+
+  // Helper function to determine which platform to use for an item
+  const getItemPlatform = useCallback((item: T): 'modrinth' | 'curseforge' | 'local' => {
+    // If platform is explicitly set, use that
+    if (item.platform) {
+      return item.platform === 'Modrinth' ? 'modrinth' : 'curseforge';
+    }
+
+    // Fallback: check if we have info from both platforms
+    if (item.modrinth_info && item.curseforge_info) {
+      // If both are available, prefer the one with more complete info
+      // This is a heuristic - could be improved based on your needs
+      return item.modrinth_info.project_id ? 'modrinth' : 'curseforge';
+    }
+
+    // Single platform info
+    if (item.modrinth_info) return 'modrinth';
+    if (item.curseforge_info) return 'curseforge';
+
+    // No platform info available
+    return 'local';
+  }, []);
+
+  // Helper function to get the appropriate icon for an item
+  const getItemIcon = useCallback((item: T): string | null => {
+    const platform = getItemPlatform(item);
+
+    switch (platform) {
+      case 'modrinth':
+        if (item.modrinth_info?.project_id) {
+          return modrinthIcons[item.modrinth_info.project_id] || null;
+        }
+        break;
+      case 'curseforge':
+        if (item.curseforge_info?.project_id) {
+          return curseforgeIcons[item.curseforge_info.project_id] || null;
+        }
+        break;
+      case 'local':
+        return localArchiveIcons[item.path] || null;
+    }
+
+    // Fallback to local archive icon
+    return localArchiveIcons[item.path] || null;
+  }, [getItemPlatform, modrinthIcons, curseforgeIcons, localArchiveIcons]);
+
+  // Helper function to get platform display name
+  const getItemPlatformDisplayName = useCallback((item: T): string => {
+    const platform = getItemPlatform(item);
+
+    switch (platform) {
+      case 'modrinth': return 'Modrinth';
+      case 'curseforge': return 'CurseForge';
+      case 'local': return 'Local';
+      default: return 'Unknown';
+    }
+  }, [getItemPlatform]);
   const [hashesToFetchModrinthDetailsFor, setHashesToFetchModrinthDetailsFor] = useState<string[] | null>(null);
 
   const [contentUpdates, setContentUpdates] = useState<Record<string, ModrinthVersion | null>>({});
@@ -466,7 +526,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
 
       const projectIdsToFetch = items
-        .filter(item => item.modrinth_info?.project_id && modrinthIcons[item.modrinth_info.project_id] === undefined)
+        .filter(item => {
+          const platform = getItemPlatform(item);
+          return platform === 'modrinth' && item.modrinth_info?.project_id && modrinthIcons[item.modrinth_info.project_id] === undefined;
+        })
         .map(item => item.modrinth_info!.project_id!)
       const uniqueProjectIds = [...new Set(projectIdsToFetch)];
 
@@ -493,7 +556,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
     };
     fetchModrinthIcons();
-  }, [items]);
+  }, [items, getItemPlatform]);
 
   // Fetch CurseForge icons
   useEffect(() => {
@@ -504,7 +567,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
 
       const projectIdsToFetch = items
-        .filter(item => item.curseforge_info?.project_id && curseforgeIcons[item.curseforge_info.project_id] === undefined)
+        .filter(item => {
+          const platform = getItemPlatform(item);
+          return platform === 'curseforge' && item.curseforge_info?.project_id && curseforgeIcons[item.curseforge_info.project_id] === undefined;
+        })
         .map(item => item.curseforge_info!.project_id!)
         .map(id => parseInt(id, 10)) // Convert string to number
         .filter(id => !isNaN(id)); // Filter out invalid IDs
@@ -539,7 +605,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
     };
     fetchCurseForgeIcons();
-  }, [items]);
+  }, [items, getItemPlatform]);
 
   // Fetch local archive icons
   useEffect(() => {
@@ -1221,6 +1287,8 @@ export function useLocalContentManager<T extends LocalContentItem>({
     modrinthIcons,
     curseforgeIcons,
     localArchiveIcons,
+    getItemIcon,
+    getItemPlatformDisplayName,
     contentUpdates,
     isCheckingUpdates, 
     itemsBeingUpdated,
