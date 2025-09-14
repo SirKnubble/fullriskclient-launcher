@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UnifiedService } from '../../../services/unified-service';
 import { ModrinthService } from '../../../services/modrinth-service';
+import { CurseForgeService } from '../../../services/curseforge-service';
 import type {
   UnifiedModSearchResult,
   UnifiedModSearchResponse
@@ -2045,13 +2046,37 @@ export function ModrinthSearchV2({
       if (!primaryFile) { throw new Error("No primary file found for the latest version."); }
 
       toast.loading(`Installing ${project.title} (v${latestVersion.version_number}) as new profile...`, { id: toastId });
-      const newProfileId = await ModrinthService.downloadAndInstallModpack(
-        project.project_id,
-        latestVersion.id,
-        primaryFile.filename, 
-        primaryFile.url,
-        project.icon_url || undefined // Pass icon_url here
-      );
+
+      let newProfileId: string;
+
+      // Choose the appropriate service based on modSource
+      if (modSource === ModPlatform.CurseForge) {
+        // For CurseForge, we need projectId and fileId as numbers
+        const projectId = parseInt(project.project_id);
+        const fileId = parseInt(latestVersion.id);
+
+        if (isNaN(projectId) || isNaN(fileId)) {
+          throw new Error("Invalid project or file ID for CurseForge modpack");
+        }
+
+        newProfileId = await CurseForgeService.downloadAndInstallCurseForgeModpack(
+          projectId,
+          fileId,
+          primaryFile.filename,
+          primaryFile.url,
+          project.icon_url || undefined
+        );
+      } else {
+        // Default to Modrinth
+        newProfileId = await ModrinthService.downloadAndInstallModpack(
+          project.project_id,
+          latestVersion.id,
+          primaryFile.filename,
+          primaryFile.url,
+          project.icon_url || undefined
+        );
+      }
+
       toast.success(
         (t) => (
           <div className="flex flex-col">
@@ -2107,20 +2132,43 @@ export function ModrinthSearchV2({
     setInstallingModpackVersion(prev => ({ ...prev, [version.id]: true })); // Start loading for this modpack version
 
     const primaryFile = version.files.find(f => f.primary) || version.files[0];
-    if (!primaryFile) { 
-        toast.error("No primary file found for the selected version."); 
-        return; 
+    if (!primaryFile) {
+        toast.error("No primary file found for the selected version.");
+        return;
     }
     const toastId = toast.loading(`Installing ${project.title} (version ${version.version_number}) as new profile...`);
 
     try {
-      const newProfileId = await ModrinthService.downloadAndInstallModpack(
-        project.project_id,
-        version.id,
-        primaryFile.filename, 
-        primaryFile.url,
-        project.icon_url || undefined // Pass icon_url here
-      );
+      let newProfileId: string;
+
+      // Choose the appropriate service based on modSource
+      if (modSource === ModPlatform.CurseForge) {
+        // For CurseForge, we need projectId and fileId as numbers
+        const projectId = parseInt(project.project_id);
+        const fileId = parseInt(version.id);
+
+        if (isNaN(projectId) || isNaN(fileId)) {
+          throw new Error("Invalid project or file ID for CurseForge modpack");
+        }
+
+        newProfileId = await CurseForgeService.downloadAndInstallCurseForgeModpack(
+          projectId,
+          fileId,
+          primaryFile.filename,
+          primaryFile.url,
+          project.icon_url || undefined
+        );
+      } else {
+        // Default to Modrinth
+        newProfileId = await ModrinthService.downloadAndInstallModpack(
+          project.project_id,
+          version.id,
+          primaryFile.filename,
+          primaryFile.url,
+          project.icon_url || undefined
+        );
+      }
+
       toast.success(
         (t) => (
           <div className="flex flex-col">

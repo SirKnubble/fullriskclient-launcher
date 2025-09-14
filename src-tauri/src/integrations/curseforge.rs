@@ -1,9 +1,22 @@
 use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
-use log;
+use crate::state::profile_state::{Mod, ModLoader, ModSource, Profile, ProfileSettings, ProfileState};
+use log::{debug, error, info, warn};
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+use uuid::Uuid;
+use chrono::Utc;
+use sanitize_filename;
+use async_zip::tokio::read::seek::ZipFileReader;
+use tokio::io::BufReader;
+use futures::future::try_join_all;
+use tempfile;
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
@@ -754,4 +767,807 @@ pub async fn get_mods_by_ids(
     );
 
     Ok(mods_response)
+}
+
+// ===== CurseForge Modpack Import Structures =====
+
+/// Represents the overall structure of a CurseForge manifest.json file
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeManifest {
+    pub minecraft: CurseForgeMinecraft,
+    #[serde(rename = "manifestType")]
+    pub manifest_type: String, // Usually "minecraftModpack"
+    #[serde(rename = "manifestVersion")]
+    pub manifest_version: u32, // Usually 1
+    pub name: String,
+    pub version: Option<String>, // Optional pack version
+    pub author: Option<String>, // Optional author field
+    pub description: Option<String>, // Optional description
+    pub files: Vec<CurseForgeManifestFile>,
+    pub overrides: Option<String>, // Usually "overrides" - optional in some manifests
+}
+
+/// Represents the Minecraft section in CurseForge manifest
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeMinecraft {
+    pub version: String,
+    #[serde(rename = "modLoaders")]
+    pub mod_loaders: Vec<CurseForgeModLoader>,
+    #[serde(rename = "recommendedRam")]
+    pub recommended_ram: Option<u64>, // Optional field for recommended RAM
+}
+
+/// Represents a mod loader entry in CurseForge manifest
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeModLoader {
+    pub id: String,
+    pub primary: Option<bool>, // Some manifests might not specify primary
+}
+
+/// Represents a file entry within the CurseForge manifest
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeManifestFile {
+    #[serde(rename = "projectID")]
+    pub project_id: u32,
+    #[serde(rename = "fileID")]
+    pub file_id: u32,
+    #[serde(default = "default_required")]
+    pub required: bool,
+}
+
+/// Default value for required field - defaults to true
+fn default_required() -> bool {
+    true
+}
+
+/// Determines the ModLoader from CurseForge mod loader string
+fn determine_loader_from_curseforge_string(loader_string: &str) -> ModLoader {
+    let lower = loader_string.to_lowercase();
+
+    // Check for specific loaders first (neoforge before forge)
+    if lower.contains("neoforge") {
+        ModLoader::NeoForge
+    } else if lower.contains("fabric") {
+        ModLoader::Fabric
+    } else if lower.contains("quilt") {
+        ModLoader::Quilt
+    } else if lower.contains("forge") {
+        ModLoader::Forge
+    } else {
+        ModLoader::Vanilla
+    }
+}
+
+/// Extracts loader version from CurseForge loader string
+fn extract_loader_version(loader_string: &str) -> Option<String> {
+    // Examples: "fabric-loader-0.15.11", "neoforge-21.1.203", "forge-50.0.0"
+    let parts: Vec<&str> = loader_string.split('-').collect();
+    if parts.len() >= 2 {
+        Some(parts[1..].join("-"))
+    } else {
+        None
+    }
+}
+
+/// Determines the ModLoader and version from CurseForge mod loaders
+fn determine_loader_from_curseforge_loaders(loaders: &[CurseForgeModLoader]) -> (ModLoader, Option<String>) {
+    // First, try to find a loader marked as primary
+    for loader in loaders {
+        if loader.primary.unwrap_or(false) {
+            let loader_type = determine_loader_from_curseforge_string(&loader.id);
+            let version = extract_loader_version(&loader.id);
+            return (loader_type, version);
+        }
+    }
+
+    // If no primary loader found, use the first one
+    if let Some(loader) = loaders.first() {
+        let loader_type = determine_loader_from_curseforge_string(&loader.id);
+        let version = extract_loader_version(&loader.id);
+        (loader_type, version)
+    } else {
+        (ModLoader::Vanilla, None)
+    }
+}
+
+/// Processes a CurseForge modpack manifest from ZIP file and creates a potential Profile struct
+pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profile, CurseForgeManifest)> {
+    info!("Processing CurseForge manifest from ZIP file: {:?}", pack_path);
+
+    // Read the manifest file directly from the ZIP
+    let manifest_content = read_manifest_from_zip(pack_path).await.map_err(|e| {
+        error!("Failed to read CurseForge manifest from ZIP {:?}: {}", pack_path, e);
+        e
+    })?;
+
+    // Parse the manifest
+    let manifest: CurseForgeManifest = serde_json::from_str(&manifest_content).map_err(|e| {
+        error!("Failed to parse CurseForge manifest: {}", e);
+        AppError::Json(e)
+    })?;
+    info!("Parsed CurseForge manifest for pack: '{}'", manifest.name);
+
+    // Determine loader and version
+    let (loader, loader_version) = determine_loader_from_curseforge_loaders(&manifest.minecraft.mod_loaders);
+    let game_version = manifest.minecraft.version.clone();
+
+    info!(
+        "Determined requirements: MC={}, Loader={:?}, LoaderVersion={:?}",
+        game_version, loader, loader_version
+    );
+
+    // Create a potential Profile object
+    let profile_name = manifest.name.clone();
+    let placeholder_id = Uuid::new_v4();
+    let sanitized_name = sanitize_filename::sanitize(&profile_name);
+    let potential_path = if sanitized_name.is_empty() {
+        format!("imported-pack-{}", Utc::now().timestamp_millis())
+    } else {
+        sanitized_name
+    };
+
+    let profile = Profile {
+        id: placeholder_id,
+        name: profile_name,
+        path: potential_path,
+        game_version,
+        loader,
+        loader_version,
+        created: Utc::now(),
+        last_played: None,
+        settings: ProfileSettings::default(),
+        state: ProfileState::NotInstalled,
+        mods: Vec::new(),
+        selected_norisk_pack_id: None,
+        disabled_norisk_mods_detailed: std::collections::HashSet::new(),
+        source_standard_profile_id: None,
+        group: Some("MODPACKS".to_string()),
+        is_standard_version: false,
+        use_shared_minecraft_folder: false,
+        description: manifest.description.clone(),
+        norisk_information: None,
+        banner: None,
+        background: None,
+    };
+
+    info!("Prepared potential profile object for '{}'", profile.name);
+    Ok((profile, manifest))
+}
+
+/// Reads the manifest.json file directly from a ZIP archive
+async fn read_manifest_from_zip(pack_path: &Path) -> Result<String> {
+    let file = tokio::fs::File::open(pack_path).await.map_err(|e| {
+        error!("Failed to open pack file {:?}: {}", pack_path, e);
+        AppError::Io(e)
+    })?;
+    let mut buf_reader = BufReader::new(file);
+    let mut zip = ZipFileReader::with_tokio(&mut buf_reader)
+        .await
+        .map_err(|e| {
+            error!("Failed to read pack as ZIP: {}", e);
+            AppError::Other(format!("Failed to read pack zip: {}", e))
+        })?;
+
+    let entries = zip.file().entries();
+    let manifest_entry_index = entries
+        .iter()
+        .position(|e| {
+            e.filename()
+                .as_str()
+                .map_or(false, |name| name == "manifest.json")
+        })
+        .ok_or_else(|| {
+            error!("manifest.json not found in pack: {:?}", pack_path);
+            AppError::Other("manifest.json not found in pack".into())
+        })?;
+
+    // Read the manifest content directly from the ZIP entry
+    let entry_reader = zip
+        .reader_with_entry(manifest_entry_index)
+        .await
+        .map_err(|e| {
+            error!("Failed to get entry reader for manifest: {}", e);
+            AppError::Other(format!("Failed to read manifest entry: {}", e))
+        })?;
+
+    let mut entry_reader_tokio = entry_reader.compat();
+    let mut buffer = Vec::new();
+    tokio::io::copy(&mut entry_reader_tokio, &mut buffer).await.map_err(|e| {
+        error!("Failed to read manifest content from ZIP: {}", e);
+        AppError::Io(e)
+    })?;
+
+    let content = String::from_utf8(buffer).map_err(|e| {
+        error!("Failed to convert manifest content to UTF-8: {}", e);
+        AppError::Other(format!("Invalid UTF-8 in manifest: {}", e))
+    })?;
+
+    Ok(content)
+}
+
+/// Resolves CurseForge manifest files against the CurseForge API to create Mod structs
+pub async fn resolve_curseforge_manifest_files(manifest: &CurseForgeManifest) -> Result<Vec<Mod>> {
+    info!(
+        "Resolving {} files from CurseForge manifest '{}' against CurseForge API...",
+        manifest.files.len(),
+        manifest.name
+    );
+
+    let game_version = manifest.minecraft.version.clone();
+
+    // Collect all project IDs and file IDs
+    let mut project_ids = Vec::new();
+    let mut file_mapping: HashMap<u32, u32> = HashMap::new(); // project_id -> file_id
+
+    for file_entry in &manifest.files {
+        if file_entry.required {
+            project_ids.push(file_entry.project_id);
+            file_mapping.insert(file_entry.project_id, file_entry.file_id);
+        }
+    }
+
+    if project_ids.is_empty() {
+        info!("No required files found in CurseForge manifest.");
+        return Ok(Vec::new());
+    }
+
+    // Get mod information from CurseForge API
+    info!("Getting mod information for {} projects...", project_ids.len());
+    let mods_response = get_mods_by_ids(project_ids, Some(true)).await?;
+    info!("Received mod information for {} projects.", mods_response.data.len());
+
+    let mut mods_to_add = Vec::new();
+
+    // For each mod, get the specific file details
+    for curseforge_mod in mods_response.data {
+        let project_id = curseforge_mod.id;
+        let file_id = file_mapping.get(&project_id);
+
+        if let Some(&file_id) = file_id {
+            // Get file details
+            let file_details = match get_file_details(project_id, file_id).await {
+                Ok(details) => details,
+                Err(e) => {
+                    error!("Failed to get file details for project {} file {}: {}", project_id, file_id, e);
+                    continue;
+                }
+            };
+
+            // Create Mod struct
+            let mod_source = ModSource::CurseForge {
+                project_id: project_id.to_string(),
+                file_id: file_id.to_string(),
+                file_name: file_details.fileName.clone(),
+                download_url: file_details.downloadUrl.clone(),
+                file_hash_sha1: file_details.hashes.iter()
+                    .find(|h| h.algo == 1) // SHA1 = 1
+                    .map(|h| h.value.clone()),
+            };
+
+            let new_mod = Mod {
+                id: Uuid::new_v4(),
+                source: mod_source,
+                enabled: true,
+                display_name: Some(curseforge_mod.name.clone()),
+                version: Some(file_details.displayName.clone()),
+                game_versions: Some(vec![game_version.clone()]),
+                file_name_override: None,
+                associated_loader: Some(determine_loader_from_curseforge_loaders(&manifest.minecraft.mod_loaders).0),
+            };
+
+            info!(
+                "Prepared Mod struct for: {} (Enabled: {}, Loader: {:?})",
+                new_mod.display_name.as_deref().unwrap_or("Unknown"),
+                new_mod.enabled,
+                new_mod.associated_loader
+            );
+            mods_to_add.push(new_mod);
+        }
+    }
+
+    info!(
+        "Successfully resolved {} mods from the CurseForge manifest.",
+        mods_to_add.len()
+    );
+    Ok(mods_to_add)
+}
+
+/// Extracts files from the "overrides" directory within a CurseForge modpack archive
+/// into the specified target profile directory, using concurrent streaming operations.
+/// This function is called with the manifest to determine the overrides directory name.
+pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, manifest: &CurseForgeManifest) -> Result<()> {
+    let overrides_dir = manifest.overrides.as_deref().unwrap_or("overrides");
+
+    info!(
+        "Extracting overrides for profile '{}' from CurseForge pack {:?} using concurrent streaming (overrides dir: '{}')...",
+        profile.name, pack_path, overrides_dir
+    );
+
+    let state = crate::state::state_manager::State::get().await?;
+    let io_semaphore = state.io_semaphore.clone();
+
+    let target_dir = state
+        .profile_manager
+        .calculate_instance_path_for_profile(profile)?;
+
+    info!("Target profile directory calculated as: {:?}", target_dir);
+
+    if !target_dir.exists() {
+        info!(
+            "Target profile directory does not exist, creating: {:?}",
+            target_dir
+        );
+        fs::create_dir_all(&target_dir).await.map_err(|e| {
+            error!(
+                "Failed to create target profile directory {:?}: {}",
+                target_dir, e
+            );
+            AppError::Io(e)
+        })?;
+    }
+
+    let initial_file_for_listing = tokio::fs::File::open(pack_path).await.map_err(|e| {
+        error!(
+            "Failed to open CurseForge pack file for listing {:?}: {}",
+            pack_path, e
+        );
+        AppError::Io(e)
+    })?;
+    let mut initial_buf_reader = BufReader::new(initial_file_for_listing);
+    let zip_lister = ZipFileReader::with_tokio(&mut initial_buf_reader)
+        .await
+        .map_err(|e| {
+            error!("Failed to read CurseForge pack as ZIP for listing: {}", e);
+            AppError::Other(format!("Failed to read CurseForge pack zip for listing: {}", e))
+        })?;
+
+    let num_entries = zip_lister.file().entries().len();
+    info!(
+        "Found {} entries in the CurseForge pack archive. Preparing concurrent streaming for overrides...",
+        num_entries
+    );
+
+    let mut extraction_tasks = Vec::new();
+
+    for index in 0..num_entries {
+        let entry_filename_str;
+        let is_entry_dir;
+        let entry_uncompressed_size;
+        {
+            let entry = match zip_lister.file().entries().get(index) {
+                Some(e) => e,
+                None => {
+                    error!(
+                        "Failed to get zip entry metadata for index {} during listing",
+                        index
+                    );
+                    continue;
+                }
+            };
+            entry_filename_str = match entry.filename().as_str() {
+                Ok(s) => s.to_string(),
+                Err(_) => {
+                    error!("Non UTF-8 filename at index {} during listing", index);
+                    continue;
+                }
+            };
+            is_entry_dir = entry.dir().unwrap_or_else(|_err| {
+                warn!("Failed to determine if '{}' is a directory from entry, falling back to path check.", entry_filename_str);
+                entry_filename_str.ends_with('/')
+            });
+            entry_uncompressed_size = entry.uncompressed_size();
+        }
+
+        // Check if this is an override file (starts with the overrides directory)
+        let overrides_prefix = format!("{}/", overrides_dir);
+        let is_override_type = entry_filename_str.starts_with(&overrides_prefix);
+
+        if is_override_type {
+            let path_after_prefix = match entry_filename_str.strip_prefix(&overrides_prefix) {
+                Some(p_str) if !p_str.is_empty() => p_str,
+                _ => continue, // Skip if path after prefix is empty (e.g. just "overrides/")
+            };
+
+            // Sanitize each component of the path to prevent directory traversal and invalid names
+            let sanitized_relative_path = PathBuf::from(path_after_prefix)
+                .components()
+                .filter_map(|comp| match comp {
+                    // Sanitize normal path components (filenames/directory names)
+                    std::path::Component::Normal(os_str) => {
+                        let sanitized_comp = sanitize_filename::sanitize(os_str.to_string_lossy().as_ref());
+                        // Ensure sanitized component is not empty (e.g. if original was just "..")
+                        if sanitized_comp.is_empty() {
+                            None
+                        } else {
+                            Some(sanitized_comp)
+                        }
+                    }
+                    // Disallow ParentDir components to prevent trivial directory traversal
+                    std::path::Component::ParentDir => {
+                        warn!("Parent directory component '..' found and removed in override path: {}", path_after_prefix);
+                        None
+                    }
+                    // Ignore CurDir, RootDir, Prefix as they shouldn't be in relative archive paths or are handled by join
+                    std::path::Component::CurDir => None,
+                    std::path::Component::RootDir => None, // Should not appear in relative paths
+                    std::path::Component::Prefix(_) => None, // Should not appear in relative paths
+                })
+                .collect::<PathBuf>();
+
+            // If sanitization results in an empty path (e.g., path was only ".." or similar), skip it.
+            if sanitized_relative_path.as_os_str().is_empty() {
+                warn!("Skipping empty sanitized relative path for override entry: {} (original relative: {})", entry_filename_str, path_after_prefix);
+                continue;
+            }
+
+            let final_dest_path = {
+                let relative_path_str = sanitized_relative_path.to_string_lossy();
+                // Check for both / and \ to be platform-agnostic for path separators within the string
+                if relative_path_str.starts_with("mods/") || relative_path_str.starts_with("mods\\")
+                {
+                    // Construct the new path by taking the part of the string *after* "mods"
+                    // e.g., if relative_path_str is "mods/foo.jar", then &relative_path_str["mods".len()..] is "/foo.jar"
+                    // We then prepend "custom_mods"
+                    let new_relative_path =
+                        format!("custom_mods{}", &relative_path_str["mods".len()..]);
+                    target_dir.join(new_relative_path)
+                } else {
+                    // If sanitized_relative_path is used again after this block, ensure it's cloned if needed.
+                    // Here, it seems it's only used for final_dest_path construction.
+                    target_dir.join(sanitized_relative_path)
+                }
+            };
+
+            let task_pack_path = pack_path.to_path_buf();
+            let task_io_semaphore = io_semaphore.clone();
+            let task_final_dest_path = final_dest_path.clone();
+            let original_entry_index = index;
+
+            if is_entry_dir {
+                extraction_tasks.push(tokio::spawn(async move {
+                    let _permit = task_io_semaphore.acquire().await.map_err(|e| {
+                        error!(
+                            "Failed to acquire semaphore permit for creating dir {}: {}",
+                            task_final_dest_path.display(),
+                            e
+                        );
+                        AppError::Other(format!(
+                            "Semaphore error for dir {}: {}",
+                            task_final_dest_path.display(),
+                            e
+                        ))
+                    })?;
+
+                    if !task_final_dest_path.exists() {
+                        debug!(
+                            "Creating directory (from override task): {:?}",
+                            task_final_dest_path
+                        );
+                        fs::create_dir_all(&task_final_dest_path)
+                            .await
+                            .map_err(|e| {
+                                error!(
+                                    "Failed to create directory {:?} in task: {}",
+                                    task_final_dest_path, e
+                                );
+                                AppError::Io(e)
+                            })?;
+                    }
+                    Ok::<(), AppError>(())
+                }));
+            } else {
+                info!(
+                    "Queueing concurrent streaming for override file: '{}' -> {:?} (Size: {} bytes)",
+                    entry_filename_str, final_dest_path, entry_uncompressed_size
+                );
+
+                extraction_tasks.push(tokio::spawn(async move {
+                    let _permit = task_io_semaphore.acquire().await.map_err(|e| {
+                        error!(
+                            "Failed to acquire semaphore permit for '{}': {}",
+                            task_final_dest_path.display(),
+                            e
+                        );
+                        AppError::Other(format!(
+                            "Semaphore error for '{}': {}",
+                            task_final_dest_path.display(),
+                            e
+                        ))
+                    })?;
+
+                    if let Some(parent) = task_final_dest_path.parent() {
+                        if !parent.exists() {
+                            fs::create_dir_all(parent).await.map_err(|e| {
+                                error!(
+                                    "Task: Failed to create parent directory {:?} for override: {}",
+                                    parent, e
+                                );
+                                AppError::Io(e)
+                            })?;
+                        }
+                    }
+
+                    let task_file = tokio::fs::File::open(&task_pack_path).await.map_err(|e| {
+                        error!(
+                            "Task: Failed to open CurseForge pack file {:?}: {}",
+                            task_pack_path, e
+                        );
+                        AppError::Io(e)
+                    })?;
+                    let mut task_buf_reader = BufReader::new(task_file);
+                    let mut task_zip_reader = ZipFileReader::with_tokio(&mut task_buf_reader)
+                        .await
+                        .map_err(|e| {
+                            error!(
+                                "Task: Failed to read CurseForge pack as ZIP for '{}': {}",
+                                task_final_dest_path.display(),
+                                e
+                            );
+                            AppError::Other(format!(
+                                "Task: ZIP read error for {}: {}",
+                                task_final_dest_path.display(),
+                                e
+                            ))
+                        })?;
+
+                    let entry_reader_futures = task_zip_reader
+                        .reader_without_entry(original_entry_index)
+                        .await
+                        .map_err(|e| {
+                            error!(
+                                "Task: Failed to get entry reader for '{}' (index {}): {}",
+                                task_final_dest_path.display(),
+                                original_entry_index,
+                                e
+                            );
+                            AppError::Other(format!(
+                                "Task: Entry reader error for {}: {}",
+                                task_final_dest_path.display(),
+                                e
+                            ))
+                        })?;
+                    let mut entry_reader_tokio = entry_reader_futures.compat();
+
+                    let mut file_writer =
+                        fs::File::create(&task_final_dest_path).await.map_err(|e| {
+                            error!(
+                                "Task: Failed to create destination file {:?} for override: {}",
+                                task_final_dest_path, e
+                            );
+                            AppError::Io(e)
+                        })?;
+
+                    let bytes_copied = tokio::io::copy(&mut entry_reader_tokio, &mut file_writer)
+                        .await
+                        .map_err(|e| {
+                            error!(
+                                "Task: Failed to stream content for '{}' to {:?}: {}",
+                                task_final_dest_path.display(),
+                                task_final_dest_path,
+                                e
+                            );
+                            AppError::Io(e)
+                        })?;
+
+                    debug!(
+                        "Task: Successfully streamed {} bytes for override: {}",
+                        bytes_copied,
+                        task_final_dest_path.display()
+                    );
+                    Ok::<(), AppError>(())
+                }));
+            }
+        }
+    }
+
+    // Wait for all extraction tasks to complete
+    let results = try_join_all(extraction_tasks).await.map_err(|e| {
+        error!("Error joining override extraction tasks: {}", e);
+        AppError::Other(format!(
+            "One or more override extraction tasks panicked: {}",
+            e
+        ))
+    })?;
+
+    for result in results {
+        result?;
+    }
+
+    info!(
+        "Finished all concurrent streaming tasks for overrides for profile '{}'.",
+        profile.name
+    );
+    Ok(())
+}
+
+/// Imports a profile from a CurseForge modpack, processing, resolving, extracting, and saving it.
+pub async fn import_curseforge_pack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
+    info!("Starting full import process for CurseForge pack: {:?}", pack_path);
+
+    // Find manifest.json in the pack and read it directly
+    let (profile, manifest) = process_curseforge_pack_from_zip(&pack_path).await?;
+    let mut profile = profile;
+    info!(
+        "Successfully processed CurseForge manifest for '{}'.",
+        profile.name
+    );
+
+    // 2. Resolve mods from manifest files
+    let resolved_mods = resolve_curseforge_manifest_files(&manifest).await?;
+    info!(
+        "Successfully resolved {} mods from manifest.",
+        resolved_mods.len()
+    );
+    profile.mods = resolved_mods;
+
+    // 3. Determine unique profile path segment
+    let base_profiles_dir = crate::state::profile_state::default_profile_path();
+    let sanitized_base_name = sanitize_filename::sanitize(&profile.name);
+    if sanitized_base_name.is_empty() {
+        // Handle potential empty name after sanitization (e.g., use default or error)
+        let default_name = format!("imported-curseforge-pack-{}", Utc::now().timestamp_millis());
+        warn!(
+            "Profile name '{}' became empty after sanitization. Using default: {}",
+            profile.name, default_name
+        );
+        profile.name = default_name.clone(); // Use the default name for the profile name too
+        let unique_segment = crate::utils::path_utils::find_unique_profile_segment(
+            &base_profiles_dir,
+            &profile.name,
+        )
+        .await?;
+        profile.path = unique_segment;
+    } else {
+        let unique_segment = crate::utils::path_utils::find_unique_profile_segment(
+            &base_profiles_dir,
+            &sanitized_base_name,
+        )
+        .await?;
+        profile.path = unique_segment; // Update the profile path
+    }
+    info!(
+        "Determined unique profile directory segment: {}",
+        profile.path
+    );
+
+    // Ensure the target profile directory exists before extraction
+    let target_dir = base_profiles_dir.join(&profile.path);
+    if !target_dir.exists() {
+        fs::create_dir_all(&target_dir).await.map_err(|e| {
+            error!(
+                "Failed to create target profile directory {:?}: {}",
+                target_dir, e
+            );
+            AppError::Io(e)
+        })?;
+    }
+
+    // 4. Extract overrides to the correct final profile location
+    info!(
+        "Extracting overrides to profile directory: {:?}",
+        target_dir
+    );
+    // Use the absolute path to the pack file for extraction
+    extract_curseforge_overrides(&pack_path, &profile, &manifest).await?;
+    info!("Successfully extracted overrides.");
+
+    // 5. Save the profile using ProfileManager via State
+    let state = crate::state::state_manager::State::get().await?;
+    info!(
+        "Saving the new profile '{}' (ID: {})...",
+        profile.name, profile.id
+    );
+    let profile_id = state.profile_manager.create_profile(profile).await?; // Use create_profile
+    info!(
+        "Successfully created and saved profile with ID: {}",
+        profile_id
+    );
+
+    Ok(profile_id) // Return the ID of the created profile
+}
+
+
+/// Downloads a CurseForge modpack file and installs it as a new profile
+pub async fn download_and_install_curseforge_modpack(
+    project_id: u32,
+    file_id: u32,
+    file_name: String,
+    download_url: String,
+    icon_url: Option<String>,
+) -> Result<Uuid> {
+    info!(
+        "Downloading and installing CurseForge modpack for project {}, file {}, URL: {}",
+        project_id, file_id, download_url
+    );
+
+    // Ensure the file name has .zip extension (CurseForge packs are usually .zip)
+    let file_name_zip = if !file_name.ends_with(".zip") {
+        format!("{}.zip", file_name)
+    } else {
+        file_name.clone()
+    };
+
+    // Create a temporary directory for the download
+    let temp_dir = tempfile::tempdir().map_err(|e| {
+        error!("Failed to create temporary directory: {}", e);
+        AppError::Other(format!("Failed to create temporary directory: {}", e))
+    })?;
+
+    let temp_file_path = temp_dir.path().join(&file_name_zip);
+
+    info!("Downloading to temporary file: {:?}", temp_file_path);
+
+    // Download the file
+    let client = HTTP_CLIENT.clone();
+    let response = client
+        .get(&download_url)
+        .header(
+            "User-Agent",
+            format!(
+                "NoRiskClient-Launcher/{} (support@norisk.gg)",
+                env!("CARGO_PKG_VERSION")
+            ),
+        )
+        .send()
+        .await
+        .map_err(|e| {
+            error!("Failed to download CurseForge modpack: {}", e);
+            AppError::Download(format!("Failed to download CurseForge modpack: {}", e))
+        })?;
+
+    if !response.status().is_success() {
+        return Err(AppError::Download(format!(
+            "Failed to download CurseForge modpack: HTTP {}",
+            response.status()
+        )));
+    }
+
+    // Get the bytes and write to file
+    let bytes = response.bytes().await.map_err(|e| {
+        error!("Failed to read CurseForge modpack bytes: {}", e);
+        AppError::Download(format!("Failed to read CurseForge modpack bytes: {}", e))
+    })?;
+
+    let mut file = tokio::fs::File::create(&temp_file_path).await.map_err(|e| {
+        error!("Failed to create temporary file: {}", e);
+        AppError::Io(e)
+    })?;
+
+    tokio::io::copy(&mut bytes.as_ref(), &mut file).await.map_err(|e| {
+        error!("Failed to write downloaded data to temporary file: {}", e);
+        AppError::Io(e)
+    })?;
+
+    // Ensure the file is fully written to disk
+    file.sync_all().await.map_err(|e| {
+        error!("Failed to sync CurseForge pack file: {}", e);
+        AppError::Io(e)
+    })?;
+
+    drop(file); // Explicitly close the file
+
+    info!(
+        "Successfully downloaded CurseForge modpack to: {:?}",
+        temp_file_path
+    );
+
+    // Install the modpack as a profile
+    let profile_id = import_curseforge_pack_as_profile(temp_file_path.clone()).await?;
+
+    info!(
+        "Successfully installed CurseForge modpack \"{}\" as profile with ID: {}",
+        file_name_zip,
+        profile_id
+    );
+
+    // TODO: Handle icon_url if provided (similar to Modrinth implementation)
+    // This would require access to the profile image upload functionality
+    if icon_url.is_some() {
+        info!("Icon URL provided but not yet implemented for CurseForge modpacks");
+    }
+
+    // Keep the temp directory alive until we're done (will be cleaned up when it goes out of scope)
+    drop(temp_dir);
+
+    Ok(profile_id)
 }
