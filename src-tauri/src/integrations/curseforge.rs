@@ -1,10 +1,9 @@
 use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
-use log::{self, error, info};
+use log;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::HashMap;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
@@ -465,6 +464,19 @@ pub struct CurseForgeModResponse {
     pub data: CurseForgeMod,
 }
 
+// Structure for Get Mods by IDs request body
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetModsByIdsRequestBody {
+    pub modIds: Vec<u32>,
+    pub filterPcOnly: Option<bool>,
+}
+
+// Structure for Get Mods by IDs response
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeModsResponse {
+    pub data: Vec<CurseForgeMod>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CurseForgeFileResponse {
     pub data: CurseForgeFile,
@@ -654,4 +666,92 @@ pub async fn get_mod_info(mod_id: u32) -> Result<CurseForgeMod> {
     log::debug!("Successfully retrieved mod info for mod ID {}", mod_id);
 
     Ok(mod_response.data)
+}
+
+/// Get multiple mods by their IDs
+pub async fn get_mods_by_ids(
+    mod_ids: Vec<u32>,
+    filter_pc_only: Option<bool>,
+) -> Result<CurseForgeModsResponse> {
+    let url = format!("{}/mods", CURSEFORGE_API_BASE_URL);
+
+    let request_body = GetModsByIdsRequestBody {
+        modIds: mod_ids.clone(),
+        filterPcOnly: filter_pc_only,
+    };
+
+    log::info!("Getting CurseForge mods by IDs: {:?}", mod_ids);
+
+    let response = HTTP_CLIENT
+        .post(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge mods by IDs: {}", e)))?;
+
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .map(|ct| ct.to_str().unwrap_or("unknown"))
+        .unwrap_or("missing");
+
+    log::debug!("CurseForge get mods by IDs API response - Status: {}, Content-Type: {}", status, content_type);
+
+    // Always read the response body as text first for better error handling
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge get mods by IDs response body: {}", e)))?;
+
+    // Log response body for debugging (truncated if too long)
+    const MAX_BODY_LOG_LENGTH: usize = 2000;
+    let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
+        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+    } else {
+        response_text.clone()
+    };
+    log::debug!("CurseForge get mods by IDs API response body: {}", logged_body);
+
+    // Check for HTTP errors
+    if !status.is_success() {
+        log::error!("CurseForge get mods by IDs API HTTP error ({}): {}", status, response_text);
+        return Err(AppError::Other(format!(
+            "CurseForge API returned HTTP error {}: {}",
+            status, response_text
+        )));
+    }
+
+    // Try to parse the JSON response
+    let mods_response: CurseForgeModsResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "CurseForge get mods by IDs JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
+                parse_err,
+                &response_text[..response_text.len().min(500)]
+            );
+
+            // Try to parse as error response
+            if let Ok(error_response) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                log::error!("Parsed response as generic JSON: {}", error_response);
+            }
+
+            return Err(AppError::Other(format!(
+                "Failed to parse CurseForge get mods by IDs JSON response: {}. Response starts with: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            )));
+        }
+    };
+
+    log::info!(
+        "Successfully retrieved {} mods by IDs",
+        mods_response.data.len()
+    );
+
+    Ok(mods_response)
 }

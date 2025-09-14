@@ -6,6 +6,7 @@ import type { ModrinthVersion, ModrinthBulkUpdateRequestBody, ModrinthHashAlgori
 import { ContentType as NrContentType } from '../types/content';
 import type { ToggleContentPayload, UninstallContentPayload, SwitchContentVersionPayload } from '../types/content';
 import { ModrinthService } from '../services/modrinth-service';
+import { CurseForgeService } from '../services/curseforge-service';
 import { getLocalContent } from '../services/profile-service';
 import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
@@ -59,6 +60,7 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   itemToDeleteForDialog: T | null;
 
   modrinthIcons: Record<string, string | null>;
+  curseforgeIcons: Record<string, string | null>;
   localArchiveIcons: Record<string, string | null>;
 
   contentUpdates: Record<string, ModrinthVersion | null>;
@@ -239,6 +241,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const [isDialogActionLoading, setIsDialogActionLoading] = useState(false);
 
   const [modrinthIcons, setModrinthIcons] = useState<Record<string, string | null>>({});
+  const [curseforgeIcons, setCurseforgeIcons] = useState<Record<string, string | null>>({});
   const [localArchiveIcons, setLocalArchiveIcons] = useState<Record<string, string | null>>({});
   const [hashesToFetchModrinthDetailsFor, setHashesToFetchModrinthDetailsFor] = useState<string[] | null>(null);
 
@@ -490,7 +493,53 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
     };
     fetchModrinthIcons();
-  }, [items]); 
+  }, [items]);
+
+  // Fetch CurseForge icons
+  useEffect(() => {
+    const fetchCurseForgeIcons = async () => {
+      if (!items || items.length === 0) {
+        setCurseforgeIcons({});
+        return;
+      }
+
+      const projectIdsToFetch = items
+        .filter(item => item.curseforge_info?.project_id && curseforgeIcons[item.curseforge_info.project_id] === undefined)
+        .map(item => item.curseforge_info!.project_id!)
+        .map(id => parseInt(id, 10)) // Convert string to number
+        .filter(id => !isNaN(id)); // Filter out invalid IDs
+
+      const uniqueProjectIds = [...new Set(projectIdsToFetch)];
+
+      if (uniqueProjectIds.length > 0) {
+        try {
+          const modsResponse = await CurseForgeService.getModsByIds(uniqueProjectIds);
+          const newIcons: Record<string, string | null> = {};
+
+          if (modsResponse && modsResponse.data) {
+            modsResponse.data.forEach(mod => {
+              if (mod && mod.id && mod.logo) {
+                newIcons[mod.id.toString()] = mod.logo.url || null;
+              } else if (mod && mod.id) {
+                // Mod exists but has no logo
+                newIcons[mod.id.toString()] = null;
+              }
+            });
+          } else {
+            console.warn("[useLocalContentManager] CurseForgeService.getModsByIds did not return expected structure. Received:", modsResponse);
+          }
+
+          setCurseforgeIcons(prevIcons => ({ ...prevIcons, ...newIcons }));
+        } catch (err) {
+          console.error("[useLocalContentManager] Failed to fetch CurseForge mod details for icons:", err);
+          const errorIcons: Record<string, string | null> = {};
+          uniqueProjectIds.forEach(id => { errorIcons[id.toString()] = null; });
+          setCurseforgeIcons(prevIcons => ({ ...prevIcons, ...errorIcons }));
+        }
+      }
+    };
+    fetchCurseForgeIcons();
+  }, [items]);
 
   // Fetch local archive icons
   useEffect(() => {
@@ -1170,6 +1219,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
     handleCloseDeleteDialog,
     itemToDeleteForDialog,
     modrinthIcons,
+    curseforgeIcons,
     localArchiveIcons,
     contentUpdates,
     isCheckingUpdates, 

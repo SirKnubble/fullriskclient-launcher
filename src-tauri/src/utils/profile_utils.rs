@@ -2122,6 +2122,7 @@ pub struct GenericCurseForgeInfo {
     pub name: String, // Name des CurseForge-Projekts
     pub version_number: String,
     pub download_url: Option<String>,
+    pub icon_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -2414,6 +2415,7 @@ impl LocalContentLoader {
                             .clone()
                             .unwrap_or_else(|| file_id.clone()),
                         download_url: None,
+                        icon_url: None, // Will be populated later by frontend
                     }),
                     _ => None,
                 };

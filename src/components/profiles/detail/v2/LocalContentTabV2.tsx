@@ -168,6 +168,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     handleCloseDeleteDialog,
     itemToDeleteForDialog,
     modrinthIcons,
+    curseforgeIcons,
     localArchiveIcons,
     fetchData,
     handleToggleItemEnabled,
@@ -577,6 +578,10 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const modrinthIconUrl = modrinthProjectId
         ? modrinthIcons[modrinthProjectId]
         : null;
+      const curseforgeProjectId = item.curseforge_info?.project_id;
+      const curseforgeIconUrl = curseforgeProjectId
+        ? curseforgeIcons[curseforgeProjectId]
+        : null;
       const localIconDataUrl = item.path ? localArchiveIcons[item.path] : null;
 
       if (modrinthIconUrl) {
@@ -585,6 +590,20 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             src={modrinthIconUrl}
             alt={`${itemTitle} Modrinth icon`}
             className="w-full h-full object-contain image-pixelated"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.visibility = "hidden";
+            }}
+          />
+        );
+      } else if (curseforgeIconUrl) {
+        iconToShow = (
+          <img
+            src={curseforgeIconUrl}
+            alt={`${itemTitle} CurseForge icon`}
+            className="w-full h-full object-contain image-pixelated"
+            style={item.curseforge_info ? {
+              filter: item.is_disabled ? undefined : undefined
+            } : undefined}
             onError={(e) => {
               (e.target as HTMLImageElement).style.visibility = "hidden";
             }}
@@ -839,7 +858,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           icon: "https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium",
           text: "CurseForge",
           color: item.is_disabled ? "#6b7280" : "#f97316",
-          iconFilter: item.is_disabled ? undefined : "brightness(0) saturate(100%) invert(59%) sepia(93%) saturate(1352%) hue-rotate(1deg) brightness(105%) contrast(101%)"
+          iconFilter: item.is_disabled ? undefined : undefined
         }] : []),
         ...(item.source_type ? [{
           text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
