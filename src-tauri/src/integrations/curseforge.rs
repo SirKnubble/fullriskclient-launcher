@@ -484,6 +484,18 @@ pub struct GetModsByIdsRequestBody {
     pub filterPcOnly: Option<bool>,
 }
 
+// Structure for Get Files by IDs request body
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetModFilesRequestBody {
+    pub fileIds: Vec<u32>,
+}
+
+// Structure for Get Files by IDs response
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GetModFilesResponse {
+    pub data: Vec<CurseForgeFile>,
+}
+
 // Structure for Get Mods by IDs response
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CurseForgeModsResponse {
@@ -769,6 +781,96 @@ pub async fn get_mods_by_ids(
     Ok(mods_response)
 }
 
+/// Get multiple files by their IDs in bulk
+/// This is more efficient than calling get_file_details for each file individually
+/// Uses the POST /v1/mods/files endpoint
+pub async fn get_files_by_ids(file_ids: Vec<u32>) -> Result<Vec<CurseForgeFile>> {
+    if file_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let url = format!("{}/mods/files", CURSEFORGE_API_BASE_URL);
+
+    let request_body = GetModFilesRequestBody {
+        fileIds: file_ids.clone(),
+    };
+
+    log::info!("Getting CurseForge files by IDs: {} files", file_ids.len());
+
+    let response = HTTP_CLIENT
+        .post(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge files by IDs: {}", e)))?;
+
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .map(|ct| ct.to_str().unwrap_or("unknown"))
+        .unwrap_or("missing");
+
+    log::debug!("CurseForge get files by IDs API response - Status: {}, Content-Type: {}", status, content_type);
+
+    // Always read the response body as text first for better error handling
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge get files by IDs response body: {}", e)))?;
+
+    // Log response body for debugging (truncated if too long)
+    const MAX_BODY_LOG_LENGTH: usize = 2000;
+    let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
+        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+    } else {
+        response_text.clone()
+    };
+    log::debug!("CurseForge get files by IDs API response body: {}", logged_body);
+
+    // Check for HTTP errors
+    if !status.is_success() {
+        log::error!("CurseForge get files by IDs API HTTP error ({}): {}", status, response_text);
+        return Err(AppError::Other(format!(
+            "CurseForge API returned HTTP error {}: {}",
+            status, response_text
+        )));
+    }
+
+    // Try to parse the JSON response
+    let files_response: GetModFilesResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "CurseForge get files by IDs JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
+                parse_err,
+                &response_text[..response_text.len().min(500)]
+            );
+
+            // Try to parse as error response
+            if let Ok(error_response) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                log::error!("Parsed response as generic JSON: {}", error_response);
+            }
+
+            return Err(AppError::Other(format!(
+                "Failed to parse CurseForge get files by IDs JSON response: {}. Response starts with: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            )));
+        }
+    };
+
+    log::info!(
+        "Successfully retrieved {} files by IDs",
+        files_response.data.len()
+    );
+
+    Ok(files_response.data)
+}
+
 // ===== CurseForge Modpack Import Structures =====
 
 /// Represents the overall structure of a CurseForge manifest.json file
@@ -1016,19 +1118,44 @@ pub async fn resolve_curseforge_manifest_files(manifest: &CurseForgeManifest) ->
     let mods_response = get_mods_by_ids(project_ids, Some(true)).await?;
     info!("Received mod information for {} projects.", mods_response.data.len());
 
+    // Collect all file IDs for bulk request
+    let file_ids: Vec<u32> = file_mapping.values().cloned().collect();
+
+    if file_ids.is_empty() {
+        info!("No file IDs found to fetch.");
+        return Ok(Vec::new());
+    }
+
+    // Bulk fetch all file details
+    info!("Bulk fetching {} file details...", file_ids.len());
+    let file_details_list = match get_files_by_ids(file_ids).await {
+        Ok(details) => details,
+        Err(e) => {
+            error!("Failed to bulk fetch file details: {}", e);
+            return Err(e);
+        }
+    };
+    info!("Successfully retrieved {} file details", file_details_list.len());
+
+    // Create a mapping from file_id to file details for easy lookup
+    let mut file_details_map: HashMap<u32, CurseForgeFile> = HashMap::new();
+    for file_detail in file_details_list {
+        file_details_map.insert(file_detail.id, file_detail);
+    }
+
     let mut mods_to_add = Vec::new();
 
-    // For each mod, get the specific file details
+    // For each mod, get the specific file details from the bulk response
     for curseforge_mod in mods_response.data {
         let project_id = curseforge_mod.id;
         let file_id = file_mapping.get(&project_id);
 
         if let Some(&file_id) = file_id {
-            // Get file details
-            let file_details = match get_file_details(project_id, file_id).await {
-                Ok(details) => details,
-                Err(e) => {
-                    error!("Failed to get file details for project {} file {}: {}", project_id, file_id, e);
+            // Get file details from bulk response
+            let file_details = match file_details_map.get(&file_id) {
+                Some(details) => details,
+                None => {
+                    error!("File details not found for file ID {} in bulk response", file_id);
                     continue;
                 }
             };
