@@ -38,7 +38,7 @@ interface ContentPack {
     file_id: string;
     name: string;
     version_number: string;
-    download_url: string;
+    download_url?: string | null;
   } | null;
   filename?: string;
 }

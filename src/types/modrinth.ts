@@ -114,6 +114,7 @@ export interface ResourcePackInfo {
     file_size: number;
     is_disabled: boolean;
     modrinth_info: ResourcePackModrinthInfo | null;
+    curseforge_info?: import('./profile').GenericCurseForgeInfo | null;
 }
 
 export interface ShaderPackModrinthInfo {
@@ -131,6 +132,7 @@ export interface ShaderPackInfo {
     file_size: number;
     is_disabled: boolean;
     modrinth_info: ShaderPackModrinthInfo | null;
+    curseforge_info?: import('./profile').GenericCurseForgeInfo | null;
 }
 
 export interface DataPackModrinthInfo {
@@ -148,6 +150,7 @@ export interface DataPackInfo {
     file_size: number;
     is_disabled: boolean;
     modrinth_info: DataPackModrinthInfo | null;
+    curseforge_info?: import('./profile').GenericCurseForgeInfo | null;
 }
 
 // --- Structures for Bulk Project Lookup --- 
