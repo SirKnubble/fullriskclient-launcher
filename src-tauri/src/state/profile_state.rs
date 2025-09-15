@@ -2710,6 +2710,116 @@ impl ProfileManager {
             profile_id
         );
 
+        // Install missing dependencies if any
+        if !payload.new_version_details.dependencies.is_empty() {
+            info!("Processing {} dependencies for updated mod", payload.new_version_details.dependencies.len());
+            if let Err(e) = self.install_missing_dependencies(
+                profile_id,
+                &payload.new_version_details.dependencies,
+                &payload.new_version_details.source,
+            ).await {
+                error!("Failed to install dependencies: {}", e);
+                // Don't fail the entire operation if dependency installation fails
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Checks if a dependency mod is already installed in the profile
+    fn is_dependency_installed(
+        &self,
+        profile: &Profile,
+        dependency_project_id: &str,
+    ) -> bool {
+        profile.mods.iter().any(|mod_entry| {
+            match &mod_entry.source {
+                ModSource::Modrinth { project_id, .. } => {
+                    project_id == dependency_project_id && mod_entry.enabled
+                },
+                ModSource::CurseForge { project_id, .. } => {
+                    project_id == dependency_project_id && mod_entry.enabled
+                },
+                _ => false,
+            }
+        })
+    }
+
+    /// Installs missing dependencies for a mod
+    async fn install_missing_dependencies(
+        &self,
+        profile_id: Uuid,
+        dependencies: &[crate::integrations::unified_mod::UnifiedDependency],
+        platform: &crate::integrations::unified_mod::ModPlatform,
+    ) -> Result<()> {
+        use crate::integrations::unified_mod::{UnifiedModVersionsParams, ModPlatform};
+
+        // Get profile once and reuse it
+        let profile = self.get_profile(profile_id).await?;
+
+        for dependency in dependencies {
+            // Only process required dependencies
+            if dependency.dependency_type != crate::integrations::unified_mod::UnifiedDependencyType::Required {
+                continue;
+            }
+
+            if let Some(dep_project_id) = &dependency.project_id {
+                // Check if dependency is already installed
+                if self.is_dependency_installed(&profile, dep_project_id) {
+                    info!("Dependency {} already installed, skipping", dep_project_id);
+                    continue;
+                }
+
+                info!("Installing missing dependency: {}", dep_project_id);
+
+                // Get the dependency version details
+                let versions_params = UnifiedModVersionsParams {
+                    source: platform.clone(),
+                    project_id: dep_project_id.clone(),
+                    loaders: Some(vec![profile.loader.as_str().to_string()]), // Use profile's loader
+                    game_versions: Some(vec![profile.game_version.clone()]),
+                    limit: Some(1), // Get latest version
+                    offset: None,
+                };
+
+                match crate::integrations::unified_mod::get_mod_versions_unified(versions_params).await {
+                    Ok(versions_response) => {
+                        if let Some(dep_version) = versions_response.versions.first() {
+                            // Create install payload for the dependency
+                            let dep_payload = crate::commands::content_command::InstallContentPayload {
+                                profile_id,
+                                project_id: dep_project_id.clone(),
+                                version_id: dep_version.id.clone(),
+                                file_name: dep_version.files.first()
+                                    .map(|f| f.filename.clone())
+                                    .unwrap_or_else(|| format!("{}.jar", dep_project_id)),
+                                download_url: dep_version.files.first()
+                                    .map(|f| f.url.clone())
+                                    .unwrap_or_default(),
+                                file_hash_sha1: dep_version.files.first()
+                                    .and_then(|f| f.hashes.get("sha1").cloned()),
+                                content_name: Some(dep_version.name.clone()),
+                                version_number: Some(dep_version.version_number.clone()),
+                                content_type: crate::utils::profile_utils::ContentType::Mod,
+                                loaders: Some(dep_version.loaders.clone()),
+                                game_versions: Some(dep_version.game_versions.clone()),
+                                source: platform.clone(),
+                            };
+
+                            // Install the dependency (without recursively installing its dependencies to avoid loops)
+                            match self.add_mod_from_payload(&dep_payload, false).await {
+                                Ok(_) => info!("Successfully installed dependency '{}'", dep_project_id),
+                                Err(e) => error!("Failed to install dependency '{}': {}", dep_project_id, e),
+                            }
+                        } else {
+                            warn!("No compatible version found for dependency '{}'", dep_project_id);
+                        }
+                    }
+                    Err(e) => error!("Failed to get versions for dependency '{}': {}", dep_project_id, e),
+                }
+            }
+        }
+
         Ok(())
     }
 
