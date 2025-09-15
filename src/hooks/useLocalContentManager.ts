@@ -69,7 +69,7 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   getItemIcon: (item: T) => string | null;
   getItemPlatformDisplayName: (item: T) => string;
 
-  contentUpdates: Record<string, ModrinthVersion | null>;
+  contentUpdates: Record<string, UnifiedVersion | null>;
   isCheckingUpdates: boolean;
   itemsBeingUpdated: Set<string>;
   contentUpdateError: string | null;
@@ -105,8 +105,6 @@ function mapBackendItemToFrontendType<T extends LocalContentItem>(rawItem: Profi
   // rawItem is typed as ProfileLocalContentItem (from types/profile.ts)
   // It has fields like: filename, path_str, ..., norisk_identifier, fallback_version
   // The actual object from Rust via invoke might have `norisk_info` field instead of `norisk_identifier` being populated.
-  console.log(`mapBackendItemToFrontendType: Raw item from backend - PathStr: ${rawItem.path_str}, Filename: ${rawItem.filename}`);
-
   const outputItem = {
     ...rawItem, // Spread all properties from rawItem (which is typed as ProfileLocalContentItem)
     path: rawItem.path_str, // Add/override path using path_str from ProfileLocalContentItem // Fallback to the typed norisk_identifier if norisk_info isn't there
@@ -115,7 +113,6 @@ function mapBackendItemToFrontendType<T extends LocalContentItem>(rawItem: Profi
   // Optional: For cleanliness, if T is not expected to have path_str, we could delete it.
   // However, LocalContentItem (the type T extends) currently inherits path_str from ProfileLocalContentItem.
   // delete (outputItem as any).path_str;
-  console.log(`mapBackendItemToFrontendType: Mapped item - Path: ${outputItem.path}, Filename: ${outputItem.filename}`);
   return outputItem as T;
 }
 
@@ -927,29 +924,60 @@ export function useLocalContentManager<T extends LocalContentItem>({
       setContentUpdates({});
       return;
     }
-    const itemsWithHashes = currentItems.filter(item => item.sha1_hash); // Erweitert um alle Items mit Hashes
-    if (itemsWithHashes.length === 0) {
+
+    // Sammle alle Items die entweder einen sha1_hash (Modrinth) oder fingerprint (CurseForge) haben
+    const itemsWithIdentifiers = currentItems.filter(item =>
+      item.sha1_hash || (item.curseforge_info?.fingerprint !== undefined)
+    );
+
+    if (itemsWithIdentifiers.length === 0) {
       setContentUpdates({});
       return;
     }
 
-    const hashes = itemsWithHashes.map(item => item.sha1_hash!);
+    // Erstelle Identifier-Mapping: für jeden Item einen eindeutigen String-Identifier
+    const itemIdentifiers: Array<{ item: T; identifier: string; platform: ModPlatform }> = [];
 
-    // Sammle Plattform-Informationen für jeden Hash
-    const hashPlatforms: Record<string, ModPlatform> = {};
-    for (const item of itemsWithHashes) {
-      if (item.sha1_hash) {
-        // Bestimme Plattform basierend auf verfügbaren Informationen
-        if (item.platform) {
-          hashPlatforms[item.sha1_hash] = item.platform === 'Modrinth' ? ModPlatform.Modrinth : ModPlatform.CurseForge;
-        } else if (item.modrinth_info) {
-          hashPlatforms[item.sha1_hash] = ModPlatform.Modrinth;
-        } else if (item.curseforge_info) {
-          hashPlatforms[item.sha1_hash] = ModPlatform.CurseForge;
+    for (const item of itemsWithIdentifiers) {
+      let identifier: string;
+      let platform: ModPlatform;
+
+      // Bestimme die Plattform basierend auf den Metadaten, nicht auf dem Identifier-Typ
+      if (item.modrinth_info) {
+        // Mod von Modrinth
+        platform = ModPlatform.Modrinth;
+        identifier = item.sha1_hash!; // Modrinth-Mods müssen einen sha1_hash haben
+      } else if (item.curseforge_info) {
+        // Mod von CurseForge
+        platform = ModPlatform.CurseForge;
+        identifier = item.curseforge_info.fingerprint.toString(); // Verwende fingerprint als Identifier
+      } else {
+        // Fallback: schaue nach expliziter platform Angabe oder default zu Modrinth
+        if (item.platform === 'CurseForge' && item.curseforge_info?.fingerprint) {
+          platform = ModPlatform.CurseForge;
+          identifier = item.curseforge_info.fingerprint.toString();
         } else {
-          // Default zu Modrinth wenn keine spezifische Plattform-Info vorhanden
-          hashPlatforms[item.sha1_hash] = ModPlatform.Modrinth;
+          // Default zu Modrinth für Items ohne klare Plattform-Info
+          platform = ModPlatform.Modrinth;
+          identifier = item.sha1_hash!;
         }
+      }
+
+      itemIdentifiers.push({ item, identifier, platform });
+    }
+
+    const hashes = itemIdentifiers.map(({ identifier }) => identifier);
+
+    // Sammle Plattform-Informationen für jeden Identifier
+    const hashPlatforms: Record<string, ModPlatform> = {};
+    const hashFingerprints: Record<string, number> = {};
+
+    for (const { identifier, platform, item } of itemIdentifiers) {
+      hashPlatforms[identifier] = platform;
+
+      // Sammle CurseForge Fingerprints wenn verfügbar
+      if (platform === ModPlatform.CurseForge && item.curseforge_info?.fingerprint) {
+        hashFingerprints[identifier] = item.curseforge_info.fingerprint;
       }
     }
 
@@ -965,28 +993,65 @@ export function useLocalContentManager<T extends LocalContentItem>({
         loaders: (contentType === 'Mod' || contentType === 'NoRiskMod') && currentProfile.loader ? [currentProfile.loader] : [],
         game_versions: [currentProfile.game_version],
         hash_platforms: hashPlatforms, // Neue Plattform-Mapping
+        hash_fingerprints: Object.keys(hashFingerprints).length > 0 ? hashFingerprints : undefined,
       };
 
       // Verwende den UnifiedService
       const updates: UnifiedUpdateCheckResponse = await UnifiedService.checkModUpdates(request);
 
+      // Debug logging
+      console.log('=== UPDATE CHECK DEBUG ===');
+      console.log('Available update keys:', Object.keys(updates.updates));
+      console.log('Sample updates:');
+      Object.entries(updates.updates).slice(0, 3).forEach(([key, update]) => {
+        console.log(`  Key: "${key}" -> ${update.version_number} (${update.source})`);
+      });
+
       const filteredUpdates: Record<string, UnifiedVersion> = {};
-      const itemsByHash = new Map<string, T>();
-      for (const item of itemsWithHashes) {
-        if(item.sha1_hash) itemsByHash.set(item.sha1_hash, item);
+      const itemsByIdentifier = new Map<string, T>();
+
+      // Erstelle Mapping von Identifier zu Item
+      for (const { item, identifier } of itemIdentifiers) {
+        itemsByIdentifier.set(identifier, item);
       }
 
-      for (const [hash, unifiedVersion] of Object.entries(updates.updates)) {
-        const item = itemsByHash.get(hash);
+      console.log('=== FILTERING DEBUG ===');
+      console.log('Items by identifier keys:', Array.from(itemsByIdentifier.keys()));
+      console.log('Update keys to process:', Object.keys(updates.updates));
+
+      for (const [identifier, unifiedVersion] of Object.entries(updates.updates)) {
+        const item = itemsByIdentifier.get(identifier);
+        console.log(`Processing update key "${identifier}": item found = ${!!item}`);
+        if (item) {
+          console.log(`  Item: ${item.filename}, platform: ${item.platform}, has curseforge_info: ${!!item.curseforge_info}, fingerprint: ${item.curseforge_info?.fingerprint}, sha1_hash: ${item.sha1_hash}`);
+        } else {
+          // Try to find item with different identifier formats
+          console.log(`  Looking for item with fingerprint ${identifier}...`);
+          const foundByFingerprint = items.find(i => i.curseforge_info?.fingerprint?.toString() === identifier);
+          if (foundByFingerprint) {
+            console.log(`  Found by fingerprint: ${foundByFingerprint.filename}`);
+          } else {
+            console.log(`  No item found with fingerprint ${identifier}`);
+          }
+        }
+
         if (item && unifiedVersion && unifiedVersion.id) {
           // Vergleiche die aktuelle Version mit der verfügbaren Update-Version
           const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
+          console.log(`Comparing versions for ${item.filename}: current=${currentVersionId} (${typeof currentVersionId}), update=${unifiedVersion.id} (${typeof unifiedVersion.id})`);
           if (currentVersionId !== unifiedVersion.id) {
+            console.log(`Found update for ${item.filename}: ${currentVersionId} -> ${unifiedVersion.id}`);
             // Verwende UnifiedVersion direkt ohne Konvertierung
-            filteredUpdates[hash] = unifiedVersion as UnifiedVersion;
+            filteredUpdates[identifier] = unifiedVersion as UnifiedVersion;
+          } else {
+            console.log(`No update needed for ${item.filename}: versions match (${currentVersionId})`);
           }
+        } else {
+          console.log(`Skipping update for key "${identifier}": item=${!!item}, unifiedVersion=${!!unifiedVersion}, unifiedVersion.id=${unifiedVersion?.id}`);
         }
       }
+
+      console.log('Filtered updates result:', Object.keys(filteredUpdates));
 
       console.log("Filtered updates:", filteredUpdates);
       setContentUpdates(filteredUpdates);
@@ -1019,6 +1084,11 @@ export function useLocalContentManager<T extends LocalContentItem>({
     // Platform-specific validation
     if (platform === 'Modrinth' && contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info && !item.modrinth_info) {
       toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a Modrinth mod. Cannot update.`);
+      return;
+    }
+
+    if (platform === 'CurseForge' && contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info && !item.curseforge_info) {
+      toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a CurseForge mod. Cannot update.`);
       return;
     }
 
@@ -1087,11 +1157,12 @@ export function useLocalContentManager<T extends LocalContentItem>({
       // Update the main items list with the new item data
       setItems(prevItems => prevItems.map(i => i.filename === item.filename ? updatedItem : i));
       
-      // Remove the update notification
-      if (item.sha1_hash) {
+      // Remove the update notification using the same identifier logic as above
+      const updateIdentifier = item.sha1_hash || (item.curseforge_info?.fingerprint ? item.curseforge_info.fingerprint.toString() : null);
+      if (updateIdentifier) {
           setContentUpdates(prev => {
               const newUpdates = { ...prev };
-              delete newUpdates[item.sha1_hash!];
+              delete newUpdates[updateIdentifier];
               return newUpdates;
           });
       }

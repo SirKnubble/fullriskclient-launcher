@@ -456,8 +456,8 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
             version_number: display_name_clone, // CurseForge uses displayName as version
             changelog: None, // CurseForge doesn't provide changelog
             dependencies: unified_dependencies,
-            game_versions: file.gameVersions,
-            loaders, // Now properly mapped from modLoader field
+            game_versions: extract_game_versions_from_mixed(&file.gameVersions),
+            loaders, // Extracted from gameVersions array
             files: unified_files,
             date_published: file.fileDate,
             downloads: file.downloadCount,
@@ -697,6 +697,27 @@ pub fn extract_loaders_from_game_versions(game_versions: &[String]) -> Vec<Strin
         .collect()
 }
 
+/// Extract actual game versions from mixed game versions array (excluding loaders)
+pub fn extract_game_versions_from_mixed(game_versions: &[String]) -> Vec<String> {
+    game_versions
+        .iter()
+        .filter_map(|version| {
+            let version_lower = version.to_lowercase();
+            // Filter out loaders, keep only actual game versions like "1.21", "1.20.1", etc.
+            if version_lower.contains("forge") ||
+               version_lower.contains("fabric") ||
+               version_lower.contains("quilt") ||
+               version_lower.contains("neoforge") ||
+               version_lower.contains("liteloader") ||
+               version_lower.contains("cauldron") {
+                None // This is a loader, exclude it
+            } else {
+                Some(version.clone()) // This is likely a game version
+            }
+        })
+        .collect()
+}
+
 /// Convert string loader names to CurseForge loader types
 pub fn convert_string_loaders_to_curseforge_types(
     loaders: &[String],
@@ -741,6 +762,18 @@ pub struct UnifiedUpdateCheckRequest {
     pub game_versions: Vec<String>,
     /// Optional: Map of hash to platform (if not provided, defaults to Modrinth)
     pub hash_platforms: Option<std::collections::HashMap<String, ModPlatform>>,
+    /// Optional: Map of hash to CurseForge fingerprint for faster update checking
+    pub hash_fingerprints: Option<std::collections::HashMap<String, u64>>,
+    /// Optional: Map of hash to installed file info for proper update comparison
+    pub hash_installed_info: Option<std::collections::HashMap<String, InstalledFileInfo>>,
+}
+
+/// Information about installed file for update comparison
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct InstalledFileInfo {
+    pub project_id: u32,
+    pub file_id: u32,
+    pub file_date: String,
 }
 
 /// Response structure for update checks
@@ -780,7 +813,7 @@ pub async fn check_mod_updates_unified(
     let mut all_updates = std::collections::HashMap::new();
 
     // Handle Modrinth results
-    match modrinth_updates {
+    /*match modrinth_updates {
         Ok(updates) => {
             let update_count = updates.len();
             all_updates.extend(updates);
@@ -790,7 +823,7 @@ pub async fn check_mod_updates_unified(
             error!("Failed to check Modrinth updates: {}", e);
             // Continue with CurseForge results even if Modrinth fails
         }
-    }
+    }*/
 
     // Handle CurseForge results
     match curseforge_updates {
@@ -891,14 +924,37 @@ async fn check_curseforge_updates_only(
 
     info!("Checking {} CurseForge hashes for updates", curseforge_hashes.len());
 
-    // Use the new bulk update checking function
-    let update_results = match curseforge::check_mod_updates_bulk_with_hashes(
-        curseforge_hashes.clone(),
-        &request.algorithm,
+    // Collect fingerprints for CurseForge hashes
+    let mut fingerprints = Vec::new();
+
+    if let Some(hash_fingerprints) = &request.hash_fingerprints {
+        for hash in &curseforge_hashes {
+            if let Some(fingerprint) = hash_fingerprints.get(hash) {
+                fingerprints.push(*fingerprint);
+            } else {
+                warn!("No fingerprint found for CurseForge hash: {}", hash);
+            }
+        }
+    } else {
+        warn!("No hash_fingerprints provided for {} CurseForge hashes", curseforge_hashes.len());
+    }
+
+    if fingerprints.is_empty() {
+        info!("No fingerprints available for CurseForge update check, skipping");
+        return Ok(std::collections::HashMap::new());
+    }
+
+    info!("Using {} fingerprints for CurseForge update check", fingerprints.len());
+
+    // Use fingerprint-based checking with filtering and installed version comparison
+    let update_results = match curseforge::check_mod_updates_bulk(
+        fingerprints,
+        &request.game_versions,
+        &request.loaders,
     ).await {
         Ok(results) => results,
         Err(e) => {
-            error!("Failed to check CurseForge updates: {}", e);
+            error!("Failed to check CurseForge updates with fingerprints: {}", e);
             return Err(e);
         }
     };
@@ -907,8 +963,8 @@ async fn check_curseforge_updates_only(
     let mut updates = std::collections::HashMap::new();
 
     for update_info in update_results {
-        // Create a unique key for this update (project_id + file_id)
-        let update_key = format!("curseforge:{}:{}", update_info.project_id, update_info.file_id);
+        // Use original fingerprint as key (matches what the UI expects)
+        let update_key = update_info.original_fingerprint.to_string();
 
         // Convert to UnifiedVersion
         let unified_version = UnifiedVersion {
@@ -931,7 +987,7 @@ async fn check_curseforge_updates_only(
                     HashMap::new()
                 },
                 primary: true,
-                fingerprint: None, // Fingerprint is not available in update info
+                fingerprint: Some(update_info.fingerprint as u64), // Include the fingerprint for update tracking
             }],
             dependencies: update_info.dependencies.into_iter().map(|dep| UnifiedDependency {
                 project_id: Some(dep.modId.to_string()),
@@ -939,8 +995,8 @@ async fn check_curseforge_updates_only(
                 file_name: None,
                 dependency_type: convert_curseforge_dependency_type(dep.relationType),
             }).collect(),
-            game_versions: update_info.game_versions.clone(),
-            loaders: Vec::new(), // Could be derived from dependencies if needed
+            game_versions: extract_game_versions_from_mixed(&update_info.game_versions),
+            loaders: extract_loaders_from_game_versions(&update_info.game_versions),
             source: ModPlatform::CurseForge,
             release_type: if update_info.release_type == 1 { UnifiedVersionType::Release } else { UnifiedVersionType::Beta },
             url: update_info.download_url.clone(),

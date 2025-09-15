@@ -29,6 +29,8 @@ import {
   type LocalContentType,
   useLocalContentManager,
 } from "../../../../hooks/useLocalContentManager";
+import type { UnifiedVersion } from "../../../../types/unified";
+import { ModPlatform, UnifiedVersionType, UnifiedDependencyType } from "../../../../types/unified";
 import type { NoriskModpacksConfig } from "../../../../types/noriskPacks";
 import * as ProfileService from "../../../../services/profile-service";
 import * as ContentService from "../../../../services/content-service"; // Added import
@@ -46,6 +48,8 @@ import { EmptyState } from "../../../ui/EmptyState"; // Added import
 import { useProfileStore } from "../../../../store/profile-store"; // Added import
 import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added import
 import * as FlagsmithService from "../../../../services/flagsmith-service"; // Added
+import { Tooltip } from "../../../ui/Tooltip"; // Added for custom tooltips
+import { ActionButton } from "../../../ui/ActionButton"; // Added for custom update button
 
 // Generic icons that can be used across different content types
 const LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD = [
@@ -561,9 +565,27 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const isDeleting = itemBeingDeleted === item.filename;
       const isCurrentlyUpdating = itemsBeingUpdated.has(item.filename);
 
-      const updateAvailableVersion = item.sha1_hash
-        ? contentUpdates[item.sha1_hash]
+      // Get update using the appropriate identifier based on the item's platform
+      let updateIdentifier: string | null = null;
+      if (item.modrinth_info && item.sha1_hash) {
+        // Modrinth mod - use sha1 hash as identifier
+        updateIdentifier = item.sha1_hash;
+      } else if (item.curseforge_info?.fingerprint) {
+        // CurseForge mod - use fingerprint as identifier
+        updateIdentifier = item.curseforge_info.fingerprint.toString();
+      } else {
+        // Fallback for items without clear platform identification
+        updateIdentifier = item.sha1_hash || (item.curseforge_info?.fingerprint ? item.curseforge_info.fingerprint.toString() : null);
+      }
+
+      const updateAvailableVersion = updateIdentifier
+        ? contentUpdates[updateIdentifier]
         : null;
+
+      // Debug logging only for items that have updates available
+      if (updateAvailableVersion) {
+        console.log(`Item "${item.filename}": modrinth_info=${!!item.modrinth_info}, curseforge_info=${!!item.curseforge_info}, sha1_hash="${item.sha1_hash}", fingerprint=${item.curseforge_info?.fingerprint}, updateIdentifier="${updateIdentifier}", hasUpdate=${!!updateAvailableVersion}, updateVersion="${updateAvailableVersion.version_number}"`);
+      }
 
       const isItemOpen = openVersionDropdownId === item.filename;
 
@@ -781,9 +803,41 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                                         }
                                       }
                                       onClick={() => {
+                                        // Convert ModrinthVersion to UnifiedVersion for the switch function
+                                        const unifiedVersion: UnifiedVersion = {
+                                          id: version.id,
+                                          project_id: version.project_id,
+                                          source: ModPlatform.Modrinth,
+                                          name: version.name,
+                                          version_number: version.version_number,
+                                          changelog: version.changelog,
+                                          dependencies: version.dependencies?.map(dep => ({
+                                            project_id: dep.project_id,
+                                            version_id: dep.version_id,
+                                            file_name: dep.file_name,
+                                            dependency_type: dep.dependency_type as unknown as UnifiedDependencyType
+                                          })) || [],
+                                          game_versions: version.game_versions,
+                                          loaders: version.loaders,
+                                          files: version.files?.map(file => ({
+                                            filename: file.filename,
+                                            url: file.url,
+                                            size: file.size,
+                                            hashes: file.hashes || {},
+                                            primary: file.primary,
+                                            fingerprint: undefined // Modrinth doesn't use fingerprints
+                                          })) || [],
+                                          date_published: version.date_published,
+                                          downloads: version.downloads,
+                                          release_type: version.version_type === 'release' ? UnifiedVersionType.Release :
+                                                       version.version_type === 'beta' ? UnifiedVersionType.Beta :
+                                                       UnifiedVersionType.Alpha,
+                                          url: `https://modrinth.com/mod/${version.project_id}/version/${version.id}`
+                                        };
+
                                         handleSwitchContentVersion(
                                           item,
-                                          version,
+                                          unifiedVersion,
                                         );
                                         setOpenVersionDropdownId(null);
                                       }}
@@ -851,24 +905,23 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       // Build action buttons array for this item
       const itemActions: ContentActionButton[] = [];
 
-      // Update action (if available and not NoRisk mod) - icon-only
-      if (updateAvailableVersion && !isCurrentlyUpdating && !item.norisk_info) {
+      // Check if update is available (used for custom tooltip rendering)
+      const hasUpdateAvailable = updateAvailableVersion && !isCurrentlyUpdating && !item.norisk_info;
+      let shouldShowUpdateButton = false;
+
+      if (hasUpdateAvailable) {
         console.log(`Update available for ${item.filename}:`, updateAvailableVersion);
-        if (
-          !item.modrinth_info ||
-          item.modrinth_info.version_id !== updateAvailableVersion.id
-        ) {
-          console.log(`Adding highlight update button for ${item.filename}`);
-          itemActions.push({
-            id: "update",
-            label: "", // Force icon-only but keep highlight variant
-            icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10],
-            variant: "highlight" as const,
-            tooltip: `Update to ${updateAvailableVersion.version_number}`,
-            onClick: () => handleUpdateContentItem(item, updateAvailableVersion),
-          });
+        // Check if current version differs from available update
+        const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
+        if (currentVersionId !== updateAvailableVersion.id) {
+          console.log(`Update button will be shown for ${item.filename} (current: ${currentVersionId}, update: ${updateAvailableVersion.id})`);
+          shouldShowUpdateButton = true;
         }
-      } else if (isCurrentlyUpdating && !item.norisk_info) {
+      }
+
+      // Update action is handled separately with custom tooltip below
+      // Only add update action if no update available
+      if (isCurrentlyUpdating && !item.norisk_info) {
         itemActions.push({
           id: "updating",
           icon: LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11],
@@ -918,10 +971,26 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         },
       });
 
+      // Render update button separately with custom tooltip if available
+      const updateButtonNode = shouldShowUpdateButton ? (
+        <Tooltip content={`Update to ${updateAvailableVersion.version_number}`}>
+          <ActionButton
+            id="update"
+            label="" // Force icon-only but keep highlight variant
+            icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10]}
+            variant="highlight"
+            onClick={() => handleUpdateContentItem(item, updateAvailableVersion)}
+          />
+        </Tooltip>
+      ) : null;
+
       const itemActionsNode = (
-        <ContentActionButtons
-          actions={itemActions}
-        />
+        <div className="flex items-center gap-2">
+          {updateButtonNode}
+          <ContentActionButtons
+            actions={itemActions}
+          />
+        </div>
       );
 
 

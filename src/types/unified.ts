@@ -141,6 +141,7 @@ export interface UnifiedUpdateCheckRequest {
   loaders: string[];
   game_versions: string[];
   hash_platforms?: Record<string, ModPlatform>;
+  hash_fingerprints?: Record<string, number>;
 }
 
 export interface UnifiedUpdateCheckResponse {

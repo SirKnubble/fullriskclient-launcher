@@ -1101,7 +1101,7 @@ export function ModrinthSearchV2({
         file_name: primaryFile.filename,
         download_url: primaryFile.url,
         file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-        file_fingerprint: primaryFile.fingerprint || undefined,
+        file_fingerprint: undefined, // Modrinth doesn't use fingerprints
         content_name: targetProject.title,
         version_number: targetVersion.version_number,
         content_type: mappedContentType,
@@ -1463,7 +1463,7 @@ export function ModrinthSearchV2({
         file_name: primaryFile.filename,
         download_url: primaryFile.url,
         file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-        file_fingerprint: primaryFile.fingerprint || undefined,
+        file_fingerprint: undefined, // Modrinth doesn't use fingerprints
         content_name: project.title,
         version_number: bestVersion.version_number,
         content_type: mappedContentType,
@@ -1652,7 +1652,7 @@ export function ModrinthSearchV2({
         file_name: primaryFile.filename,
         download_url: primaryFile.url,
         file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-        file_fingerprint: primaryFile.fingerprint || undefined,
+        file_fingerprint: undefined, // Modrinth doesn't use fingerprints
         content_name: project.title,
         version_number: bestVersion.version_number,
         content_type: mappedContentType,
@@ -1758,7 +1758,7 @@ export function ModrinthSearchV2({
         file_name: primaryFile.filename,
         download_url: primaryFile.url,
         file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-        file_fingerprint: primaryFile.fingerprint || undefined,
+        file_fingerprint: undefined, // Modrinth doesn't use fingerprints
         content_name: quickInstallProject.title,
         version_number: bestVersion.version_number,
         content_type: mappedContentType,
@@ -2511,7 +2511,7 @@ export function ModrinthSearchV2({
           file_name: primaryFile.filename,
           download_url: primaryFile.url,
           file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
-          file_fingerprint: primaryFile.fingerprint || undefined,
+          file_fingerprint: undefined, // Modrinth doesn't use fingerprints
           content_name: project.title,
           version_number: version.version_number,
           content_type: mappedContentType,

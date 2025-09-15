@@ -2123,6 +2123,7 @@ pub struct GenericCurseForgeInfo {
     pub version_number: String,
     pub download_url: Option<String>,
     pub icon_url: Option<String>,
+    pub fingerprint: Option<u64>, // CurseForge file fingerprint for update checking
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -2415,6 +2416,7 @@ impl LocalContentLoader {
                     crate::state::profile_state::ModSource::CurseForge {
                         ref project_id,
                         ref file_id,
+                        ref file_fingerprint,
                         ..
                     } => Some(GenericCurseForgeInfo {
                         project_id: project_id.clone(),
@@ -2429,6 +2431,7 @@ impl LocalContentLoader {
                             .unwrap_or_else(|| file_id.clone()),
                         download_url: None,
                         icon_url: None, // Will be populated later by frontend
+                        fingerprint: *file_fingerprint,
                     }),
                     _ => None,
                 };

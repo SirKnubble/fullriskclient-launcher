@@ -375,6 +375,7 @@ export interface GenericCurseForgeInfo {
   name: string;
   version_number: string;
   download_url?: string | null; // Making it optional as in Rust struct
+  fingerprint?: number; // CurseForge file fingerprint for update checking
 }
 
 export interface LocalContentItem {

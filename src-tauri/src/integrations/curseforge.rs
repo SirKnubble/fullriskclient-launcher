@@ -1837,12 +1837,20 @@ pub struct CurseForgeFingerprintResponse {
     #[serde(rename = "installedFingerprints")]
     pub installed_fingerprints: Vec<u64>,
     #[serde(rename = "unmatchedFingerprints")]
-    pub unmatched_fingerprints: Vec<u64>,
+    pub unmatched_fingerprints: Option<Vec<u64>>,
+}
+
+/// Wrapper structure for CurseForge fingerprint API response (API returns data wrapped in 'data' field)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFingerprintApiResponse {
+    pub data: CurseForgeFingerprintResponse,
 }
 
 /// Structure for CurseForge update information
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CurseForgeUpdateInfo {
+    pub original_fingerprint: u64,
+    pub fingerprint: u32,
     pub project_id: u32,
     pub file_id: u32,
     pub file_name: String,
@@ -1855,16 +1863,44 @@ pub struct CurseForgeUpdateInfo {
     pub file_date: String,
 }
 
+/// Find the best matching file from a list of files based on game versions and loaders
+/// Only returns files that match both the exact game version AND loader combination
+pub(crate) fn find_best_matching_file<'a>(
+    files: &'a [CurseForgeFile],
+    game_versions: &[String],
+    loaders: &[String],
+) -> Option<&'a CurseForgeFile> {
+    if files.is_empty() {
+        return None;
+    }
+
+    // Only accept files that match both game version and loader
+    for file in files {
+        let file_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&file.gameVersions);
+        let has_matching_game_version = game_versions.iter().any(|gv| file.gameVersions.contains(gv));
+        let has_matching_loader = loaders.iter().any(|loader| file_loaders.contains(loader));
+
+        if has_matching_game_version && has_matching_loader {
+            return Some(file);
+        }
+    }
+
+    // No compatible file found - don't suggest updates for incompatible versions
+    None
+}
+
 /// Check for mod updates using CurseForge's fingerprint API
 /// This performs bulk update checking for multiple mods at once
+/// Filters results by game versions and loaders to find actual updates
 pub async fn check_mod_updates_bulk(
     fingerprints: Vec<u64>,
+    game_versions: &[String],
+    loaders: &[String],
 ) -> Result<Vec<CurseForgeUpdateInfo>> {
     if fingerprints.is_empty() {
         info!("No fingerprints provided for CurseForge update check");
         return Ok(Vec::new());
     }
-
     info!("Checking {} fingerprints for CurseForge updates", fingerprints.len());
 
     let url = format!("{}/fingerprints", CURSEFORGE_API_BASE_URL);
@@ -1925,7 +1961,7 @@ pub async fn check_mod_updates_bulk(
     }
 
     // Try to parse the JSON response
-    let fingerprint_response: CurseForgeFingerprintResponse = match serde_json::from_str(&response_text) {
+    let api_response: CurseForgeFingerprintApiResponse = match serde_json::from_str(&response_text) {
         Ok(parsed) => parsed,
         Err(parse_err) => {
             error!(
@@ -1947,113 +1983,164 @@ pub async fn check_mod_updates_bulk(
         }
     };
 
+    let fingerprint_response = api_response.data;
+
     info!(
         "CurseForge fingerprint check results - Exact matches: {}, Partial matches: {}, Partial fingerprint matches: {}, Unmatched: {}",
         fingerprint_response.exact_matches.len(),
         fingerprint_response.partial_matches.len(),
         fingerprint_response.partial_match_fingerprints.len(),
-        fingerprint_response.unmatched_fingerprints.len()
+        fingerprint_response.unmatched_fingerprints.as_ref().map(|v| v.len()).unwrap_or(0)
     );
 
-    // Convert matches to update info
+    // Collect all project IDs from matches
+    let mut project_ids = Vec::new();
+    for exact_match in &fingerprint_response.exact_matches {
+        project_ids.push(exact_match.id);
+    }
+    for partial_match in &fingerprint_response.partial_matches {
+        if !project_ids.contains(&partial_match.id) {
+            project_ids.push(partial_match.id);
+        }
+    }
+
+    if project_ids.is_empty() {
+        info!("No project IDs found from fingerprint matches");
+        return Ok(Vec::new());
+    }
+
+    info!("Found {} unique projects from fingerprints, fetching mod details", project_ids.len());
+
+    // Get full mod details to access all available files
+    let mods_response = match get_mods_by_ids(project_ids, None).await {
+        Ok(response) => response,
+        Err(e) => {
+            error!("Failed to get mod details for update check: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Convert fingerprint matches to update info with proper filtering
     let mut updates = Vec::new();
 
-    // Process exact matches
-    for exact_match in fingerprint_response.exact_matches {
-        // Find the latest file for this project
-        if let Some(latest_file) = exact_match.latest_files.first() {
+    // Process exact matches - these have the actual installed file
+    for (index, fingerprint_match) in fingerprint_response.exact_matches.iter().enumerate() {
+        // Get the mod details for this match
+        let Some(mod_data) = mods_response.data.iter().find(|m| m.id == fingerprint_match.id) else {
+            continue; // No mod data found for this fingerprint match
+        };
+
+        // Find the best matching file from latestFiles based on our filters
+        let Some(best_file) = find_best_matching_file(&fingerprint_match.latest_files, game_versions, loaders) else {
+            log::debug!("Mod {}: No compatible file found for current game version/loader combination", mod_data.name);
+            continue;
+        };
+
+        log::debug!("Mod {}: Found best matching file - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}",
+                   mod_data.name, best_file.id, best_file.fileDate, best_file.displayName, best_file.gameVersions);
+
+        // Compare with the actual installed file (fingerprint_match.file)
+        let installed_file = &fingerprint_match.file;
+        let installed_date = &installed_file.fileDate;
+        let update_date = &best_file.fileDate;
+
+        // If the best_file is newer than installed, or has different ID, it's an update
+        let date_newer = update_date > installed_date;
+        let id_different = best_file.id != installed_file.id;
+
+        let installed_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&installed_file.gameVersions);
+        let best_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&best_file.gameVersions);
+
+        log::debug!(
+            "Mod {}: Installed file - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}, Loaders: {:?}; Best available - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}, Loaders: {:?}; Is update: {} (date_newer: {}, id_different: {})",
+            mod_data.name,
+            installed_file.id,
+            installed_date,
+            installed_file.displayName,
+            installed_file.gameVersions,
+            installed_loaders,
+            best_file.id,
+            update_date,
+            best_file.displayName,
+            best_file.gameVersions,
+            best_loaders,
+            date_newer || id_different,
+            date_newer,
+            id_different
+        );
+
+        if date_newer || id_different {
+            log::debug!("Mod {}: Adding as update", mod_data.name);
             let update_info = CurseForgeUpdateInfo {
-                project_id: exact_match.id,
-                file_id: latest_file.id,
-                file_name: latest_file.fileName.clone(),
-                download_url: latest_file.downloadUrl.clone(),
-                release_type: latest_file.releaseType,
-                game_versions: latest_file.gameVersions.clone(),
-                dependencies: latest_file.dependencies.clone(),
-                hash_sha1: latest_file.hashes.iter()
+                original_fingerprint: fingerprint_response.exact_fingerprints[index],
+                fingerprint: fingerprint_match.id,
+                project_id: mod_data.id,
+                file_id: best_file.id,
+                file_name: best_file.fileName.clone(),
+                download_url: best_file.downloadUrl.clone(),
+                release_type: best_file.releaseType,
+                game_versions: best_file.gameVersions.clone(),
+                dependencies: best_file.dependencies.clone(),
+                hash_sha1: best_file.hashes.iter()
                     .find(|h| h.algo == 1) // SHA1 = 1
                     .map(|h| h.value.clone()),
-                file_size: latest_file.fileLength,
-                file_date: latest_file.fileDate.clone(),
+                file_size: best_file.fileLength,
+                file_date: best_file.fileDate.clone(),
             };
 
             updates.push(update_info);
+        } else {
+            log::debug!("Mod {}: No update needed (already latest compatible version)", mod_data.name);
         }
     }
 
-    // Process partial matches
-    for partial_match in fingerprint_response.partial_matches {
-        // Find the latest file for this project
-        if let Some(latest_file) = partial_match.latest_files.first() {
-            let update_info = CurseForgeUpdateInfo {
-                project_id: partial_match.id,
-                file_id: latest_file.id,
-                file_name: latest_file.fileName.clone(),
-                download_url: latest_file.downloadUrl.clone(),
-                release_type: latest_file.releaseType,
-                game_versions: latest_file.gameVersions.clone(),
-                dependencies: latest_file.dependencies.clone(),
-                hash_sha1: latest_file.hashes.iter()
-                    .find(|h| h.algo == 1) // SHA1 = 1
-                    .map(|h| h.value.clone()),
-                file_size: latest_file.fileLength,
-                file_date: latest_file.fileDate.clone(),
-            };
+    // Process partial matches - we don't have exact installed file info, so assume updates are available
+    for fingerprint_match in &fingerprint_response.partial_matches {
+        // Get the mod details for this match
+        let Some(mod_data) = mods_response.data.iter().find(|m| m.id == fingerprint_match.id) else {
+            continue; // No mod data found for this fingerprint match
+        };
 
-            updates.push(update_info);
-        }
+        // Find the best matching file from latestFiles based on our filters
+        let Some(best_file) = find_best_matching_file(&fingerprint_match.latest_files, game_versions, loaders) else {
+            log::debug!("Mod {}: No compatible file found for current game version/loader combination", mod_data.name);
+            continue;
+        };
+
+        log::debug!("Mod {}: Found best matching file for partial match - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}",
+                   mod_data.name, best_file.id, best_file.fileDate, best_file.displayName, best_file.gameVersions);
+
+        // For partial matches, we assume there might be an update since we found a similar (but not exact) fingerprint
+        log::debug!("Mod {}: Partial match found (similar fingerprint), assuming update is available", mod_data.name);
+
+        // Get the original fingerprint from partial_match_fingerprints
+        let project_id_key = fingerprint_match.id.to_string();
+        let original_fingerprint = fingerprint_response.partial_match_fingerprints
+            .get(&project_id_key)
+            .and_then(|fingerprints| fingerprints.first().copied())
+            .unwrap_or(0); // Fallback to 0 if not found
+
+        let update_info = CurseForgeUpdateInfo {
+            original_fingerprint,
+            fingerprint: fingerprint_match.id,
+            project_id: mod_data.id,
+            file_id: best_file.id,
+            file_name: best_file.fileName.clone(),
+            download_url: best_file.downloadUrl.clone(),
+            release_type: best_file.releaseType,
+            game_versions: best_file.gameVersions.clone(),
+            dependencies: best_file.dependencies.clone(),
+            hash_sha1: best_file.hashes.iter()
+                .find(|h| h.algo == 1) // SHA1 = 1
+                .map(|h| h.value.clone()),
+            file_size: best_file.fileLength,
+            file_date: best_file.fileDate.clone(),
+        };
+
+        updates.push(update_info);
     }
 
-    info!("Found {} CurseForge mod updates", updates.len());
+    info!("Found {} CurseForge mod updates after filtering", updates.len());
     Ok(updates)
 }
 
-/// Check for mod updates using CurseForge's fingerprint API with string hashes
-/// This is a convenience wrapper that converts string hashes to u64 fingerprints
-pub async fn check_mod_updates_bulk_with_hashes(
-    hashes: Vec<String>,
-    algorithm: &str,
-) -> Result<Vec<CurseForgeUpdateInfo>> {
-    if hashes.is_empty() {
-        info!("No hashes provided for CurseForge update check");
-        return Ok(Vec::new());
-    }
-
-    // Convert string hashes to u64 fingerprints based on algorithm
-    let mut fingerprints = Vec::new();
-
-    for hash in &hashes {
-        match algorithm.to_lowercase().as_str() {
-            "sha1" => {
-                // Convert SHA1 hex string to u64 fingerprint
-                // SHA1 is typically 40 hex chars, but CurseForge expects u64 fingerprints
-                // For CurseForge, we need to use the actual file fingerprint, not the hash
-                // This is a limitation - we might need to store fingerprints separately
-                warn!("SHA1 hash conversion to fingerprint not directly supported. Need actual file fingerprints.");
-                continue;
-            }
-            "murmur2" | "murmurhash" => {
-                // Try to parse as u64 directly
-                match hash.parse::<u64>() {
-                    Ok(fingerprint) => fingerprints.push(fingerprint),
-                    Err(_) => {
-                        warn!("Failed to parse murmur hash as u64: {}", hash);
-                        continue;
-                    }
-                }
-            }
-            _ => {
-                warn!("Unsupported hash algorithm for CurseForge: {}", algorithm);
-                continue;
-            }
-        }
-    }
-
-    if fingerprints.is_empty() {
-        warn!("No valid fingerprints could be extracted from hashes");
-        return Ok(Vec::new());
-    }
-
-    info!("Converted {} hashes to {} fingerprints for CurseForge", hashes.len(), fingerprints.len());
-    check_mod_updates_bulk(fingerprints).await
-}
