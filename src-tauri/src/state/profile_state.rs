@@ -51,6 +51,7 @@ pub enum ModSource {
         file_name: String, // The actual filename (e.g., "jei-1.21.1-neoforge-19.22.1.316.jar")
         download_url: String, // The direct download URL used when adding
         file_hash_sha1: Option<String>, // Optional SHA1 hash for verification
+        file_fingerprint: Option<u64>, // CurseForge fingerprint for update checking
     }, // New variant for CurseForge mods
 }
 
@@ -914,6 +915,7 @@ impl ProfileManager {
                 file_name: payload.file_name.clone(),
                 download_url: payload.download_url.clone(),
                 file_hash_sha1: payload.file_hash_sha1.clone(),
+                file_fingerprint: payload.file_fingerprint,
             },
         };
 
@@ -1077,6 +1079,7 @@ impl ProfileManager {
                                                 file_hash_sha1: best_file.hashes.iter()
                                                     .find(|h| h.algo == 1) // SHA1 = 1
                                                     .map(|h| h.value.clone()),
+                                                file_fingerprint: Some(best_file.fileFingerprint),
                                                 content_name: Some(best_file.displayName.clone()),
                                                 version_number: Some(best_file.fileName.clone()),
                                                 content_type: crate::utils::profile_utils::ContentType::Mod,
@@ -1144,6 +1147,7 @@ impl ProfileManager {
                                         file_name: primary_file.filename.clone(),
                                         download_url: primary_file.url.clone(),
                                         file_hash_sha1: primary_file.hashes.sha1.clone(),
+                                        file_fingerprint: None, // Not used for Modrinth
                                         content_name: Some(best_version.name.clone()),
                                         version_number: Some(best_version.version_number.clone()),
                                         content_type: crate::utils::profile_utils::ContentType::Mod,
@@ -1488,6 +1492,7 @@ impl ProfileManager {
                     file_hash_sha1: new_version_details.hashes.iter()
                         .find(|h| h.algo == 1) // SHA1 = 1
                         .map(|h| h.value.clone()),
+                    file_fingerprint: Some(new_version_details.fileFingerprint),
                 };
 
                 mod_to_update.version = Some(new_version_details.displayName.clone());
@@ -2676,6 +2681,7 @@ impl ProfileManager {
                         file_name: primary_file.filename.clone(),
                         download_url: primary_file.url.clone(),
                         file_hash_sha1: primary_file.hashes.get("sha1").cloned(),
+                        file_fingerprint: primary_file.fingerprint,
                     };
 
                     mod_to_update.version = Some(payload.new_version_details.version_number.clone());
@@ -2798,6 +2804,8 @@ impl ProfileManager {
                                     .unwrap_or_default(),
                                 file_hash_sha1: dep_version.files.first()
                                     .and_then(|f| f.hashes.get("sha1").cloned()),
+                                file_fingerprint: dep_version.files.first()
+                                    .and_then(|f| f.fingerprint),
                                 content_name: Some(dep_version.name.clone()),
                                 version_number: Some(dep_version.version_number.clone()),
                                 content_type: crate::utils::profile_utils::ContentType::Mod,

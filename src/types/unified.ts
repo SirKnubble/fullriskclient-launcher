@@ -98,6 +98,7 @@ export interface UnifiedVersionFile {
   size: number;
   hashes: Record<string, string>;
   primary: boolean;
+  fingerprint?: number; // CurseForge fingerprint for update checking
 }
 
 export interface UnifiedDependency {

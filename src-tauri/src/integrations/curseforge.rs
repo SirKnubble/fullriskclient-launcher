@@ -1243,6 +1243,7 @@ pub async fn resolve_curseforge_manifest_files(manifest: &CurseForgeManifest) ->
                 file_hash_sha1: file_details.hashes.iter()
                     .find(|h| h.algo == 1) // SHA1 = 1
                     .map(|h| h.value.clone()),
+                file_fingerprint: Some(file_details.fileFingerprint),
             };
 
             let new_mod = Mod {
@@ -1801,4 +1802,258 @@ pub async fn download_and_install_curseforge_modpack(
     drop(temp_dir);
 
     Ok(profile_id)
+}
+
+// ===== CurseForge Update Checking Structures =====
+
+/// Request structure for CurseForge fingerprint-based update checking
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFingerprintRequest {
+    pub fingerprints: Vec<u64>,
+}
+
+/// Structure representing a fingerprint match from CurseForge API
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFingerprintMatch {
+    pub id: u32,
+    pub file: CurseForgeFile,
+    #[serde(rename = "latestFiles")]
+    pub latest_files: Vec<CurseForgeFile>,
+}
+
+/// Response structure for CurseForge fingerprint API
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeFingerprintResponse {
+    #[serde(rename = "isCacheBuilt")]
+    pub is_cache_built: bool,
+    #[serde(rename = "exactMatches")]
+    pub exact_matches: Vec<CurseForgeFingerprintMatch>,
+    #[serde(rename = "exactFingerprints")]
+    pub exact_fingerprints: Vec<u64>,
+    #[serde(rename = "partialMatches")]
+    pub partial_matches: Vec<CurseForgeFingerprintMatch>,
+    #[serde(rename = "partialMatchFingerprints")]
+    pub partial_match_fingerprints: std::collections::HashMap<String, Vec<u64>>,
+    #[serde(rename = "installedFingerprints")]
+    pub installed_fingerprints: Vec<u64>,
+    #[serde(rename = "unmatchedFingerprints")]
+    pub unmatched_fingerprints: Vec<u64>,
+}
+
+/// Structure for CurseForge update information
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurseForgeUpdateInfo {
+    pub project_id: u32,
+    pub file_id: u32,
+    pub file_name: String,
+    pub download_url: String,
+    pub release_type: u32,
+    pub game_versions: Vec<String>,
+    pub dependencies: Vec<CurseForgeDependency>,
+    pub hash_sha1: Option<String>,
+    pub file_size: u64,
+    pub file_date: String,
+}
+
+/// Check for mod updates using CurseForge's fingerprint API
+/// This performs bulk update checking for multiple mods at once
+pub async fn check_mod_updates_bulk(
+    fingerprints: Vec<u64>,
+) -> Result<Vec<CurseForgeUpdateInfo>> {
+    if fingerprints.is_empty() {
+        info!("No fingerprints provided for CurseForge update check");
+        return Ok(Vec::new());
+    }
+
+    info!("Checking {} fingerprints for CurseForge updates", fingerprints.len());
+
+    let url = format!("{}/fingerprints", CURSEFORGE_API_BASE_URL);
+
+    let request_body = CurseForgeFingerprintRequest {
+        fingerprints: fingerprints.clone(),
+    };
+
+    log::debug!("Sending fingerprint request for {} fingerprints", fingerprints.len());
+
+    let response = HTTP_CLIENT
+        .post(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .send()
+        .await
+        .map_err(|e| {
+            error!("Failed to send CurseForge fingerprint request: {}", e);
+            AppError::Other(format!("CurseForge fingerprint request failed: {}", e))
+        })?;
+
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .map(|ct| ct.to_str().unwrap_or("unknown"))
+        .unwrap_or("missing");
+
+    log::debug!("CurseForge fingerprint API response - Status: {}, Content-Type: {}", status, content_type);
+
+    // Always read the response body as text first for better error handling
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| {
+            error!("Failed to read CurseForge fingerprint response body: {}", e);
+            AppError::Other(format!("Failed to read CurseForge fingerprint response: {}", e))
+        })?;
+
+    // Log response body for debugging (truncated if too long)
+    const MAX_BODY_LOG_LENGTH: usize = 2000;
+    let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
+        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+    } else {
+        response_text.clone()
+    };
+    log::debug!("CurseForge fingerprint API response body: {}", logged_body);
+
+    // Check for HTTP errors
+    if !status.is_success() {
+        error!("CurseForge fingerprint API HTTP error ({}): {}", status, response_text);
+        return Err(AppError::Other(format!(
+            "CurseForge fingerprint API returned HTTP error {}: {}",
+            status, response_text
+        )));
+    }
+
+    // Try to parse the JSON response
+    let fingerprint_response: CurseForgeFingerprintResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            error!(
+                "CurseForge fingerprint JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
+                parse_err,
+                &response_text[..response_text.len().min(500)]
+            );
+
+            // Try to parse as error response
+            if let Ok(error_response) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                error!("Parsed response as generic JSON: {}", error_response);
+            }
+
+            return Err(AppError::Other(format!(
+                "Failed to parse CurseForge fingerprint JSON response: {}. Response starts with: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            )));
+        }
+    };
+
+    info!(
+        "CurseForge fingerprint check results - Exact matches: {}, Partial matches: {}, Partial fingerprint matches: {}, Unmatched: {}",
+        fingerprint_response.exact_matches.len(),
+        fingerprint_response.partial_matches.len(),
+        fingerprint_response.partial_match_fingerprints.len(),
+        fingerprint_response.unmatched_fingerprints.len()
+    );
+
+    // Convert matches to update info
+    let mut updates = Vec::new();
+
+    // Process exact matches
+    for exact_match in fingerprint_response.exact_matches {
+        // Find the latest file for this project
+        if let Some(latest_file) = exact_match.latest_files.first() {
+            let update_info = CurseForgeUpdateInfo {
+                project_id: exact_match.id,
+                file_id: latest_file.id,
+                file_name: latest_file.fileName.clone(),
+                download_url: latest_file.downloadUrl.clone(),
+                release_type: latest_file.releaseType,
+                game_versions: latest_file.gameVersions.clone(),
+                dependencies: latest_file.dependencies.clone(),
+                hash_sha1: latest_file.hashes.iter()
+                    .find(|h| h.algo == 1) // SHA1 = 1
+                    .map(|h| h.value.clone()),
+                file_size: latest_file.fileLength,
+                file_date: latest_file.fileDate.clone(),
+            };
+
+            updates.push(update_info);
+        }
+    }
+
+    // Process partial matches
+    for partial_match in fingerprint_response.partial_matches {
+        // Find the latest file for this project
+        if let Some(latest_file) = partial_match.latest_files.first() {
+            let update_info = CurseForgeUpdateInfo {
+                project_id: partial_match.id,
+                file_id: latest_file.id,
+                file_name: latest_file.fileName.clone(),
+                download_url: latest_file.downloadUrl.clone(),
+                release_type: latest_file.releaseType,
+                game_versions: latest_file.gameVersions.clone(),
+                dependencies: latest_file.dependencies.clone(),
+                hash_sha1: latest_file.hashes.iter()
+                    .find(|h| h.algo == 1) // SHA1 = 1
+                    .map(|h| h.value.clone()),
+                file_size: latest_file.fileLength,
+                file_date: latest_file.fileDate.clone(),
+            };
+
+            updates.push(update_info);
+        }
+    }
+
+    info!("Found {} CurseForge mod updates", updates.len());
+    Ok(updates)
+}
+
+/// Check for mod updates using CurseForge's fingerprint API with string hashes
+/// This is a convenience wrapper that converts string hashes to u64 fingerprints
+pub async fn check_mod_updates_bulk_with_hashes(
+    hashes: Vec<String>,
+    algorithm: &str,
+) -> Result<Vec<CurseForgeUpdateInfo>> {
+    if hashes.is_empty() {
+        info!("No hashes provided for CurseForge update check");
+        return Ok(Vec::new());
+    }
+
+    // Convert string hashes to u64 fingerprints based on algorithm
+    let mut fingerprints = Vec::new();
+
+    for hash in &hashes {
+        match algorithm.to_lowercase().as_str() {
+            "sha1" => {
+                // Convert SHA1 hex string to u64 fingerprint
+                // SHA1 is typically 40 hex chars, but CurseForge expects u64 fingerprints
+                // For CurseForge, we need to use the actual file fingerprint, not the hash
+                // This is a limitation - we might need to store fingerprints separately
+                warn!("SHA1 hash conversion to fingerprint not directly supported. Need actual file fingerprints.");
+                continue;
+            }
+            "murmur2" | "murmurhash" => {
+                // Try to parse as u64 directly
+                match hash.parse::<u64>() {
+                    Ok(fingerprint) => fingerprints.push(fingerprint),
+                    Err(_) => {
+                        warn!("Failed to parse murmur hash as u64: {}", hash);
+                        continue;
+                    }
+                }
+            }
+            _ => {
+                warn!("Unsupported hash algorithm for CurseForge: {}", algorithm);
+                continue;
+            }
+        }
+    }
+
+    if fingerprints.is_empty() {
+        warn!("No valid fingerprints could be extracted from hashes");
+        return Ok(Vec::new());
+    }
+
+    info!("Converted {} hashes to {} fingerprints for CurseForge", hashes.len(), fingerprints.len());
+    check_mod_updates_bulk(fingerprints).await
 }

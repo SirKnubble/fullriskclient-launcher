@@ -56,6 +56,7 @@ export interface InstallContentPayload {
   file_name: string;
   download_url: string;
   file_hash_sha1?: string;
+  file_fingerprint?: number; // CurseForge fingerprint for update checking
   content_name?: string;
   version_number?: string;
   content_type: ContentType; // Using the ContentType enum

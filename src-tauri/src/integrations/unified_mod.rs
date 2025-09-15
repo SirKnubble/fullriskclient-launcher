@@ -217,6 +217,7 @@ pub struct UnifiedVersionFile {
     pub size: u64,
     pub hashes: HashMap<String, String>,
     pub primary: bool,
+    pub fingerprint: Option<u64>, // CurseForge fingerprint for update checking
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -343,6 +344,7 @@ impl From<modrinth::ModrinthVersion> for UnifiedVersion {
                     size: file.size,
                     hashes: hashes_map,
                     primary: file.primary,
+                    fingerprint: None, // Not available from Modrinth API
                 }
             })
             .collect();
@@ -407,6 +409,7 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
             size: file.fileLength,
             hashes: hashes_map,
             primary: true, // CurseForge doesn't have primary flag, assume single file is primary
+            fingerprint: Some(file.fileFingerprint),
         };
 
         let unified_files = vec![unified_file];
@@ -878,7 +881,7 @@ async fn check_modrinth_updates_only(
 /// Check for CurseForge updates only (internal helper)
 /// TODO: This is a placeholder implementation - will be implemented when CurseForge update checking is ready
 async fn check_curseforge_updates_only(
-    _request: &UnifiedUpdateCheckRequest,
+    request: &UnifiedUpdateCheckRequest,
     curseforge_hashes: Vec<String>,
 ) -> Result<std::collections::HashMap<String, UnifiedVersion>, crate::error::AppError> {
     if curseforge_hashes.is_empty() {
@@ -886,15 +889,80 @@ async fn check_curseforge_updates_only(
         return Ok(std::collections::HashMap::new());
     }
 
-    // TODO: Implement CurseForge update checking
-    // For now, just log that we would check these hashes
-    warn!(
-        "CurseForge update checking not yet implemented. Would check {} hashes: {:?}",
-        curseforge_hashes.len(),
-        curseforge_hashes
-    );
+    info!("Checking {} CurseForge hashes for updates", curseforge_hashes.len());
 
-    // Return empty results for now
-    Ok(std::collections::HashMap::new())
+    // Use the new bulk update checking function
+    let update_results = match curseforge::check_mod_updates_bulk_with_hashes(
+        curseforge_hashes.clone(),
+        &request.algorithm,
+    ).await {
+        Ok(results) => results,
+        Err(e) => {
+            error!("Failed to check CurseForge updates: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Convert CurseForge update results to unified format
+    let mut updates = std::collections::HashMap::new();
+
+    for update_info in update_results {
+        // Create a unique key for this update (project_id + file_id)
+        let update_key = format!("curseforge:{}:{}", update_info.project_id, update_info.file_id);
+
+        // Convert to UnifiedVersion
+        let unified_version = UnifiedVersion {
+            id: update_info.file_id.to_string(),
+            project_id: update_info.project_id.to_string(),
+            name: update_info.file_name.clone(),
+            version_number: update_info.file_name.clone(), // Use filename as version number
+            changelog: None,
+            date_published: update_info.file_date.clone(),
+            downloads: 0, // Not available in fingerprint response
+            files: vec![UnifiedVersionFile {
+                filename: update_info.file_name.clone(),
+                url: update_info.download_url.clone(),
+                size: update_info.file_size,
+                hashes: if let Some(sha1) = update_info.hash_sha1.clone() {
+                    let mut hash_map = HashMap::new();
+                    hash_map.insert("sha1".to_string(), sha1);
+                    hash_map
+                } else {
+                    HashMap::new()
+                },
+                primary: true,
+                fingerprint: None, // Fingerprint is not available in update info
+            }],
+            dependencies: update_info.dependencies.into_iter().map(|dep| UnifiedDependency {
+                project_id: Some(dep.modId.to_string()),
+                version_id: None,
+                file_name: None,
+                dependency_type: convert_curseforge_dependency_type(dep.relationType),
+            }).collect(),
+            game_versions: update_info.game_versions.clone(),
+            loaders: Vec::new(), // Could be derived from dependencies if needed
+            source: ModPlatform::CurseForge,
+            release_type: if update_info.release_type == 1 { UnifiedVersionType::Release } else { UnifiedVersionType::Beta },
+            url: update_info.download_url.clone(),
+        };
+
+        updates.insert(update_key, unified_version);
+    }
+
+    info!("Found {} CurseForge updates", updates.len());
+    Ok(updates)
+}
+
+/// Convert CurseForge dependency relation type to unified dependency type
+fn convert_curseforge_dependency_type(relation_type: u32) -> UnifiedDependencyType {
+    match relation_type {
+        1 => UnifiedDependencyType::Embedded, // EmbeddedLibrary -> Embedded
+        2 => UnifiedDependencyType::Optional, // OptionalDependency -> Optional
+        3 => UnifiedDependencyType::Required, // RequiredDependency -> Required
+        4 => UnifiedDependencyType::Optional, // Tool -> Optional (no direct mapping)
+        5 => UnifiedDependencyType::Incompatible, // Incompatible -> Incompatible
+        6 => UnifiedDependencyType::Required, // Include -> Required (no direct mapping, closest is Required)
+        _ => UnifiedDependencyType::Optional, // Default to optional
+    }
 }
 

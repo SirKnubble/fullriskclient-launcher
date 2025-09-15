@@ -29,6 +29,7 @@ pub struct InstallContentPayload {
     pub file_name: String,
     pub download_url: String,
     pub file_hash_sha1: Option<String>,
+    pub file_fingerprint: Option<u64>,           // CurseForge fingerprint for update checking
     pub content_name: Option<String>, // Used as mod_name for mods
     pub version_number: Option<String>,
     pub content_type: profile_utils::ContentType, // Use ContentType from profile_utils
