@@ -1,6 +1,7 @@
 import { NoriskModIdentifier, type LocalContentItem as ProfileLocalContentItem } from "./profile";
 import type { ModrinthVersion } from "./modrinth";
-import { ModPlatform } from "./unified";
+import { ModPlatform, type UnifiedVersion } from "./unified";
+import type { CurseForgeFile } from "./curseforge";
 
 /**
  * Payload for uninstalling content from a profile.
@@ -81,7 +82,7 @@ export interface SwitchContentVersionPayload {
   profile_id: string; // Uuid
   content_type: ContentType; // Backend ContentType enum
   current_item_details?: ProfileLocalContentItem | null; // Pass the whole item from frontend
-  new_modrinth_version_details?: ModrinthVersion | null;
+  new_version_details: UnifiedVersion; // Unified version details for any platform
 }
 
 // Represents a NoriskMod item as expected by the backend for add/remove operations 

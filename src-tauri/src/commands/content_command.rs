@@ -1,6 +1,8 @@
 use crate::commands::file_command; // Added import for file_command
 use crate::error::{AppError, CommandError};
 use crate::integrations::modrinth::ModrinthVersion; // Added for new payload
+use crate::integrations::curseforge::CurseForgeFile; // Added for CurseForge support
+use crate::integrations::unified_mod::UnifiedVersion; // Added for unified version support
 use crate::state::profile_state::ModSource;
 use crate::integrations::unified_mod::ModPlatform; // Import unified ModPlatform
 use crate::state::state_manager::State as AppStateManager;
@@ -1123,190 +1125,82 @@ pub async fn install_local_content_to_profile(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SwitchContentVersionPayload {
-    profile_id: Uuid,
-    content_type: profile_utils::ContentType,
-    current_item_details: Option<profile_utils::LocalContentItem>, // Pass the whole item
-    new_modrinth_version_details: Option<ModrinthVersion>, // Full details of the new version
+    pub profile_id: Uuid,
+    pub content_type: profile_utils::ContentType,
+    pub current_item_details: Option<profile_utils::LocalContentItem>, // Pass the whole item
+    pub new_version_details: UnifiedVersion, // Unified version details for any platform
 }
 
 #[tauri::command]
 pub async fn switch_content_version(
     payload: SwitchContentVersionPayload,
 ) -> Result<(), CommandError> {
-    let new_version_details = payload.new_modrinth_version_details.ok_or_else(|| {
-        AppError::InvalidInput("Missing new_modrinth_version_details in payload.".to_string())
-    })?;
-
-    let current_item = payload.current_item_details.ok_or_else(|| {
+    let current_item_details = payload.current_item_details.as_ref().ok_or_else(|| {
         AppError::InvalidInput("Missing current_item_details in payload.".to_string())
     })?;
 
     log::info!(
         "Attempting to switch content version for item '{}' (ContentType: {:?}, ID: {:?}) in profile {}",
-        current_item.filename,
-        payload.content_type, // Use content_type from top-level payload for clarity
-        current_item.id,
+        current_item_details.filename.clone(),
+        payload.content_type,
+        current_item_details.id.clone(),
         payload.profile_id
-    );
-    log::info!(
-        "Switching to Modrinth version: Project_ID: {}, Version_ID: {}, Name: {}",
-        new_version_details.project_id,
-        new_version_details.id,
-        new_version_details.name
     );
 
     let state_manager = AppStateManager::get().await?;
 
-    match payload.content_type {
-        // Use payload.content_type here
-        profile_utils::ContentType::Mod => {
-            if let Some(mod_id_str) = current_item.id.clone() {
-                // Managed Modrinth mod entry update by ID
-                let mod_id_to_update = Uuid::parse_str(&mod_id_str).map_err(|_| {
-                    AppError::InvalidInput(format!("Invalid Uuid format for mod id: {}", mod_id_str))
-                })?;
+    // Get platform from unified version
+    let platform = payload.new_version_details.source.clone();
 
-                log::info!(
-                    "Proceeding with version switch for mod ID: {}. New version: {}",
-                    mod_id_to_update,
-                    new_version_details.id
-                );
+    log::info!(
+        "Using platform {:?} for version switch",
+        platform
+    );
+
+    match payload.content_type {
+        profile_utils::ContentType::Mod => {
+            if current_item_details.id.is_some() {
+                // Use the new unified method for managed mods
+                log::info!("Using unified method for managed mod update");
                 state_manager
                     .profile_manager
-                    .update_profile_modrinth_mod_version(
+                    .update_mod_with_switch_content_version_payload(
                         payload.profile_id,
-                        mod_id_to_update,
-                        &new_version_details,
+                        &payload,
                     )
                     .await
                     .map_err(CommandError::from)
             } else {
-                // Local/custom mod file: replace the JAR in-place using the selected Modrinth version
-                use std::path::PathBuf;
-                use tokio::fs;
-
-                let primary_file = new_version_details
-                    .files
-                    .iter()
+                // Local/custom mod file: replace the JAR in-place using the selected version
+                let primary_file = payload.new_version_details.files.iter()
                     .find(|f| f.primary)
-                    .or_else(|| new_version_details.files.first())
-                    .ok_or_else(|| AppError::InvalidInput("Selected version has no files".to_string()))?;
-
-                let current_path = PathBuf::from(&current_item.path_str);
-                let dir = current_path
-                    .parent()
-                    .ok_or_else(|| AppError::InvalidInput("Invalid current item path".to_string()))?;
-
-                let target_path = dir.join(&primary_file.filename);
-
-                // Ensure directory exists
-                fs::create_dir_all(dir).await.map_err(AppError::Io).map_err(CommandError::from)?;
-
-                // Download to a temp path then atomically replace
-                let tmp_path = target_path.with_extension("jar.nrc_tmp");
-                let mut config = crate::utils::download_utils::DownloadConfig::new()
-                    .with_streaming(true);
-                if let Some(sha1) = &primary_file.hashes.sha1 {
-                    config = config.with_sha1(sha1);
-                }
-                crate::utils::download_utils::DownloadUtils::download_file(
-                    &primary_file.url,
-                    &tmp_path,
-                    config,
-                )
-                .await
-                .map_err(CommandError::from)?;
-
-                // Remove old file if it exists (either enabled or disabled variant)
-                if current_path.exists() {
-                    let _ = fs::remove_file(&current_path).await; // ignore errors
-                }
-
-                // Move tmp -> target
-                fs::rename(&tmp_path, &target_path)
-                    .await
-                    .map_err(AppError::Io)
-                    .map_err(CommandError::from)?;
+                    .or_else(|| payload.new_version_details.files.first())
+                    .ok_or_else(|| AppError::InvalidInput("Selected unified version has no files".to_string()))?;
 
                 log::info!(
-                    "Switched local/custom mod '{}' -> '{}'",
-                    current_item.path_str,
-                    target_path.to_string_lossy()
+                    "Switching local mod '{}' to version '{}' ({})",
+                    current_item_details.filename.clone(),
+                    payload.new_version_details.name,
+                    payload.new_version_details.id
                 );
+
+                crate::utils::path_utils::download_and_replace_file(
+                    &current_item_details.path_str,
+                    &primary_file.filename,
+                    &primary_file.url,
+                    primary_file.hashes.get("sha1").map(|x| x.as_str()),
+                ).await?;
 
                 Ok(())
             }
         }
-        profile_utils::ContentType::ResourcePack => {
-            let profile = state_manager
-                .profile_manager
-                .get_profile(payload.profile_id)
-                .await?;
-            let rp_info = ResourcePackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str, // path_str from LocalContentItem
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
-                modrinth_info: None, // The update util focuses on new_version_details
-            };
-
-            log::info!(
-                "Switching ResourcePack version for file: {}",
-                rp_info.filename
-            );
-            resourcepack_utils::update_resourcepack_from_modrinth(
-                &profile,
-                &rp_info,
-                &new_version_details,
-            )
-            .await
-            .map_err(CommandError::from)
-        }
-        profile_utils::ContentType::ShaderPack => {
-            let profile = state_manager
-                .profile_manager
-                .get_profile(payload.profile_id)
-                .await?;
-            let sp_info = ShaderPackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str,
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
-                modrinth_info: None,
-            };
-
-            log::info!(
-                "Switching ShaderPack version for file: {}",
-                sp_info.filename
-            );
-            shaderpack_utils::update_shaderpack_from_modrinth(
-                &profile,
-                &sp_info,
-                &new_version_details,
-            )
-            .await
-            .map_err(CommandError::from)
-        }
-        profile_utils::ContentType::DataPack => {
-            let profile = state_manager
-                .profile_manager
-                .get_profile(payload.profile_id)
-                .await?;
-            let dp_info = DataPackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str,
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
-                modrinth_info: None,
-            };
-
-            log::info!("Switching DataPack version for file: {}", dp_info.filename);
-            datapack_utils::update_datapack_from_modrinth(&profile, &dp_info, &new_version_details)
-                .await
-                .map_err(CommandError::from)
+        profile_utils::ContentType::ResourcePack
+        | profile_utils::ContentType::ShaderPack
+        | profile_utils::ContentType::DataPack => {
+            log::error!("Content type {:?} version switching not yet implemented", payload.content_type);
+            Err(CommandError::from(AppError::InvalidOperation(
+                format!("Version switching for {:?} is not yet implemented", payload.content_type),
+            )))
         }
         profile_utils::ContentType::NoRiskMod => {
             log::error!("Switching version for NoRiskMod is not supported via this command.");
@@ -1316,3 +1210,4 @@ pub async fn switch_content_version(
         }
     }
 }
+

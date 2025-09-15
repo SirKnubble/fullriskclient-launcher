@@ -82,6 +82,7 @@ export interface UnifiedVersion {
   name: string;
   version_number: string;
   changelog?: string;
+  dependencies: UnifiedDependency[];
   game_versions: string[];
   loaders: string[];
   files: UnifiedVersionFile[];
@@ -97,6 +98,20 @@ export interface UnifiedVersionFile {
   size: number;
   hashes: Record<string, string>;
   primary: boolean;
+}
+
+export interface UnifiedDependency {
+  project_id?: string;
+  version_id?: string;
+  file_name?: string;
+  dependency_type: UnifiedDependencyType;
+}
+
+export enum UnifiedDependencyType {
+  Required = "required",
+  Optional = "optional",
+  Incompatible = "incompatible",
+  Embedded = "embedded",
 }
 
 export enum UnifiedVersionType {
@@ -117,4 +132,16 @@ export interface UnifiedModVersionsParams {
   game_versions?: string[];
   limit?: number;
   offset?: number;
+}
+
+export interface UnifiedUpdateCheckRequest {
+  hashes: string[];
+  algorithm: string;
+  loaders: string[];
+  game_versions: string[];
+  hash_platforms?: Record<string, ModPlatform>;
+}
+
+export interface UnifiedUpdateCheckResponse {
+  updates: Record<string, UnifiedVersion>;
 }

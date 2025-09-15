@@ -3,10 +3,13 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import type { Profile, LocalContentItem as ProfileLocalContentItem, GenericModrinthInfo as ProfileGenericModrinthInfo, LoadItemsParams } from '../types/profile';
 import type { ModrinthVersion, ModrinthBulkUpdateRequestBody, ModrinthHashAlgorithm, ResourcePackModrinthInfo, ShaderPackModrinthInfo, DataPackModrinthInfo } from '../types/modrinth';
+import type { UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse, UnifiedVersion } from '../types/unified';
+import { ModPlatform } from '../types/unified';
 import { ContentType as NrContentType } from '../types/content';
 import type { ToggleContentPayload, UninstallContentPayload, SwitchContentVersionPayload } from '../types/content';
 import { ModrinthService } from '../services/modrinth-service';
 import { CurseForgeService } from '../services/curseforge-service';
+import { UnifiedService } from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
 import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
@@ -80,9 +83,9 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   handleOpenItemFolder: (item: T) => void;
 
   checkForContentUpdates: (currentProfile?: Profile, currentItems?: T[]) => Promise<void>;
-  handleUpdateContentItem: (item: T, updateVersion: ModrinthVersion, suppressOwnToast?: boolean) => Promise<void>;
+  handleUpdateContentItem: (item: T, updateVersion: UnifiedVersion, suppressOwnToast?: boolean) => Promise<void>;
   handleUpdateAllAvailableContent: () => Promise<void>;
-  handleSwitchContentVersion: (item: T, newVersion: ModrinthVersion) => Promise<void>;
+  handleSwitchContentVersion: (item: T, newVersion: UnifiedVersion) => Promise<void>;
 }
 
 // Helper to map LocalContentType (UI string) to NrContentType (backend enum string)
@@ -305,7 +308,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
   }, [getItemPlatform]);
   const [hashesToFetchModrinthDetailsFor, setHashesToFetchModrinthDetailsFor] = useState<string[] | null>(null);
 
-  const [contentUpdates, setContentUpdates] = useState<Record<string, ModrinthVersion | null>>({});
+  const [contentUpdates, setContentUpdates] = useState<Record<string, UnifiedVersion>>({});
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [itemsBeingUpdated, setItemsBeingUpdated] = useState<Set<string>>(new Set());
   const [contentUpdateError, setContentUpdateError] = useState<string | null>(null);
@@ -924,38 +927,68 @@ export function useLocalContentManager<T extends LocalContentItem>({
       setContentUpdates({});
       return;
     }
-    const itemsWithHashes = currentItems.filter(item => item.modrinth_info && item.sha1_hash);
+    const itemsWithHashes = currentItems.filter(item => item.sha1_hash); // Erweitert um alle Items mit Hashes
     if (itemsWithHashes.length === 0) {
       setContentUpdates({});
       return;
     }
+
     const hashes = itemsWithHashes.map(item => item.sha1_hash!);
+
+    // Sammle Plattform-Informationen für jeden Hash
+    const hashPlatforms: Record<string, ModPlatform> = {};
+    for (const item of itemsWithHashes) {
+      if (item.sha1_hash) {
+        // Bestimme Plattform basierend auf verfügbaren Informationen
+        if (item.platform) {
+          hashPlatforms[item.sha1_hash] = item.platform === 'Modrinth' ? ModPlatform.Modrinth : ModPlatform.CurseForge;
+        } else if (item.modrinth_info) {
+          hashPlatforms[item.sha1_hash] = ModPlatform.Modrinth;
+        } else if (item.curseforge_info) {
+          hashPlatforms[item.sha1_hash] = ModPlatform.CurseForge;
+        } else {
+          // Default zu Modrinth wenn keine spezifische Plattform-Info vorhanden
+          hashPlatforms[item.sha1_hash] = ModPlatform.Modrinth;
+        }
+      }
+    }
+
     setIsCheckingUpdates(true);
     setContentUpdateError(null);
     console.log("Current Items:", currentItems);
+    console.log("Hash platforms:", hashPlatforms);
+
     try {
-      const requestBody: ModrinthBulkUpdateRequestBody = {
+      const request: UnifiedUpdateCheckRequest = {
         hashes,
-        algorithm: "sha1" as ModrinthHashAlgorithm,
+        algorithm: "sha1",
         loaders: (contentType === 'Mod' || contentType === 'NoRiskMod') && currentProfile.loader ? [currentProfile.loader] : [],
         game_versions: [currentProfile.game_version],
+        hash_platforms: hashPlatforms, // Neue Plattform-Mapping
       };
-      const updates = await invoke<Record<string, ModrinthVersion | null>>(
-        "check_modrinth_updates", 
-        { request: requestBody } 
-      );
-      const filteredUpdates: Record<string, ModrinthVersion> = {};
+
+      // Verwende den UnifiedService
+      const updates: UnifiedUpdateCheckResponse = await UnifiedService.checkModUpdates(request);
+
+      const filteredUpdates: Record<string, UnifiedVersion> = {};
       const itemsByHash = new Map<string, T>();
       for (const item of itemsWithHashes) {
         if(item.sha1_hash) itemsByHash.set(item.sha1_hash, item);
       }
-      for (const [hash, versionInfo] of Object.entries(updates)) {
+
+      for (const [hash, unifiedVersion] of Object.entries(updates.updates)) {
         const item = itemsByHash.get(hash);
-        if (item && versionInfo && versionInfo.id && 
-           ((item.modrinth_info && item.modrinth_info.version_id !== versionInfo.id) || !item.modrinth_info)) {
-          filteredUpdates[hash] = versionInfo;
+        if (item && unifiedVersion && unifiedVersion.id) {
+          // Vergleiche die aktuelle Version mit der verfügbaren Update-Version
+          const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
+          if (currentVersionId !== unifiedVersion.id) {
+            // Verwende UnifiedVersion direkt ohne Konvertierung
+            filteredUpdates[hash] = unifiedVersion as UnifiedVersion;
+          }
         }
       }
+
+      console.log("Filtered updates:", filteredUpdates);
       setContentUpdates(filteredUpdates);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -967,91 +1000,77 @@ export function useLocalContentManager<T extends LocalContentItem>({
     }
   }, [profile, items, contentType]);
 
-  const handleUpdateContentItem = useCallback(async (item: T, updateVersion: ModrinthVersion, suppressOwnToast: boolean = false) => {
+  const handleUpdateContentItem = useCallback(async (item: T, updateVersion: UnifiedVersion, suppressOwnToast: boolean = false) => {
     // 1. Initial checks
     if (!profile) {
       toast.error("Profile missing, cannot update.");
       return;
     }
 
-    let command = "";
-    let payload: any;
-    let isModUpdateById = false;
+    // 2. Validate requirements for all content types
+    const platform = updateVersion.source;
 
-    // 2. Determine command, payload, and handle unsupported scenarios
-    if (contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info) {
-      if (!item.modrinth_info) { 
-          toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a Modrinth mod. Cannot update.`);
-          return;
-      }
-      command = "update_modrinth_mod_version";
-      payload = {
-        profileId: profile.id,
-        modInstanceId: item.id,
-        newVersionDetails: updateVersion,
-      };
-      isModUpdateById = true;
-      console.log(`[${contentType}] Using update_modrinth_mod_version for item ID: ${item.id}`);
-    } else {
-      if (!item.path) {
-          toast.error(`Item path missing for ${getDisplayFileName(item)}, cannot update.`);
-          return;
-      }
-      // For non-ID based updates (assets or fallback mods), modrinth_info and sha1_hash are crucial.
-      if (!item.modrinth_info || !item.sha1_hash) {
-          toast.error(`Item ${getDisplayFileName(item)} is not linked to Modrinth correctly or missing hash, cannot auto-update.`);
-          return;
-      }
-
-      payload = { profileId: profile.id, newVersionDetails: updateVersion };
-      const itemPayloadKey = contentType.toLowerCase(); 
-      payload[itemPayloadKey] = item; 
-
-      switch (contentType) {
-        case 'ShaderPack': command = "update_shaderpack_from_modrinth"; break;
-        case 'ResourcePack': command = "update_resourcepack_from_modrinth"; break;
-        case 'DataPack': command = "update_datapack_from_modrinth"; break;
-        case 'Mod':
-          // For custom/local mods (no id) use the generic switch_content_version path
-          command = "switch_content_version";
-          payload = {
-            payload: {
-              profile_id: profile.id,
-              content_type: mapUiContentTypeToBackend(contentType),
-              current_item_details: { ...item, path_str: item.path },
-              new_modrinth_version_details: updateVersion,
-            },
-          };
-          break;
-        default:
-          toast.error(`Unsupported content type for update: ${contentType}`);
-          return;
-      }
-      console.log(`[${contentType}] Using generic update command: ${command} for item: ${item.filename}`);
+    // Basic validation for all content types
+    if (!item.path && !(contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info)) {
+      toast.error(`Item path missing for ${getDisplayFileName(item)}, cannot update.`);
+      return;
     }
 
-    if (!command) { // Should ideally be caught by earlier checks
-        toast.error(`Could not determine update action for ${getDisplayFileName(item)}.`);
-        return;
+    // Platform-specific validation
+    if (platform === 'Modrinth' && contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info && !item.modrinth_info) {
+      toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a Modrinth mod. Cannot update.`);
+      return;
     }
+
+    console.log(`[${contentType}] Updating ${getDisplayFileName(item)} to version ${updateVersion.version_number} (${platform})`);
 
     // 3. Setup for the operation
     setItemsBeingUpdated(prev => new Set(prev).add(item.filename));
     setContentUpdateError(null);
 
     const promiseAction = async () => {
-      await invoke(command, payload); // Core operation
+      // Use the unified service method - backend handles all platform logic
+      await UnifiedService.switchContentVersion(
+        profile.id,
+        mapUiContentTypeToBackend(contentType),
+        item,
+        updateVersion
+      );
 
       // After successful invoke, create the updated item for the frontend state.
       const primaryFile = updateVersion.files.find(f => f.primary) || updateVersion.files[0];
       if (!primaryFile) throw new Error("Updated version details are missing a primary file.");
 
-      const newSha1 = primaryFile.hashes?.sha1 || null;
+      const newSha1 = primaryFile.hashes.sha1 || null;
       const newFilename = primaryFile.filename;
       const oldPath = item.path;
       const pathSeparator = oldPath.includes('/') ? '/' : '\\';
       const dirPath = oldPath.substring(0, oldPath.lastIndexOf(pathSeparator));
       const newPath = `${dirPath}${pathSeparator}${newFilename}`;
+
+      // Plattform-spezifische Info-Updates
+      let updatedModrinthInfo = item.modrinth_info;
+      let updatedCurseForgeInfo = item.curseforge_info;
+
+      if (platform === 'Modrinth') {
+        updatedModrinthInfo = {
+          ...(item.modrinth_info || {}),
+          project_id: updateVersion.project_id,
+          version_id: updateVersion.id,
+          name: updateVersion.name,
+          version_number: updateVersion.version_number,
+          download_url: primaryFile.url,
+        };
+      } else if (platform === 'CurseForge') {
+        updatedCurseForgeInfo = {
+          ...(item.curseforge_info || {}),
+          project_id: updateVersion.project_id,
+          file_id: updateVersion.id,
+          name: updateVersion.name,
+          version_number: updateVersion.version_number,
+          download_url: primaryFile.url,
+        };
+      }
 
       const updatedItem: T = {
           ...item, // Start with the old item to preserve path etc.
@@ -1061,14 +1080,8 @@ export function useLocalContentManager<T extends LocalContentItem>({
           is_disabled: false,
           sha1_hash: newSha1,
           fallback_version: updateVersion.version_number,
-          modrinth_info: {
-              ...(item.modrinth_info || {}),
-              project_id: updateVersion.project_id,
-              version_id: updateVersion.id,
-              name: updateVersion.name,
-              version_number: updateVersion.version_number,
-              download_url: primaryFile.url,
-          },
+          modrinth_info: updatedModrinthInfo,
+          curseforge_info: updatedCurseForgeInfo,
       };
 
       // Update the main items list with the new item data
@@ -1092,14 +1105,14 @@ export function useLocalContentManager<T extends LocalContentItem>({
         await toast.promise(
           promiseAction(),
           {
-            loading: `Updating ${getDisplayFileName(item)} to ${updateVersion.version_number}...`,
-            success: `Successfully updated ${getDisplayFileName(item)} to ${updateVersion.version_number}!`,
-            error: (err: any) => {
-              console.error(`Failed to update ${contentType} for ${getDisplayFileName(item)}:`, err);
-              const displayName = getDisplayFileName(item);
-              const errorMsg = err?.message || (typeof err === 'string' ? err : "An unknown error occurred during the update.");
-              return `Failed to update ${displayName}: ${errorMsg}`;
-            }
+        loading: `Updating ${getDisplayFileName(item)} to ${updateVersion.version_number}...`,
+        success: `Successfully updated ${getDisplayFileName(item)} to ${updateVersion.version_number}!`,
+        error: (err: any) => {
+          console.error(`Failed to update ${contentType} for ${getDisplayFileName(item)} (${platform}):`, err);
+          const displayName = getDisplayFileName(item);
+          const errorMsg = err?.message || (typeof err === 'string' ? err : "An unknown error occurred during the update.");
+          return `Failed to update ${displayName}: ${errorMsg}`;
+        }
           },
           {
             success: {
@@ -1128,10 +1141,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const handleUpdateAllAvailableContent = useCallback(async () => {
     if (Object.keys(contentUpdates).length === 0 || !profile) return;
     
-    const itemsToUpdateWithDetails: {item: T, version: ModrinthVersion}[] = [];
-    for (const item of items) { 
+    const itemsToUpdateWithDetails: {item: T, version: UnifiedVersion}[] = [];
+    for (const item of items) {
       if (item.sha1_hash && contentUpdates[item.sha1_hash]) {
-        itemsToUpdateWithDetails.push({ item, version: contentUpdates[item.sha1_hash]! });
+        itemsToUpdateWithDetails.push({ item, version: contentUpdates[item.sha1_hash] });
       }
     }
 
@@ -1148,7 +1161,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
     
     for (const { item, version } of itemsToUpdateWithDetails) {
       try {
-        await handleUpdateContentItem(item, version, true); // suppressOwnToast
+        await handleUpdateContentItem(item, version, true); // suppressOwnToast - version ist jetzt UnifiedVersion
         succeededCount++;
         toast.loading(`Updating ${succeededCount}/${totalCount} ${contentType}s...`, { id: toastId });
       } catch(err) {
@@ -1186,34 +1199,59 @@ export function useLocalContentManager<T extends LocalContentItem>({
     }
   }, [profile, items, contentUpdates, contentType, getDisplayFileName, handleUpdateContentItem]);
 
-  const handleSwitchContentVersion = useCallback(async (item: T, newVersion: ModrinthVersion) => {
+  const handleSwitchContentVersion = useCallback(async (item: T, newVersion: UnifiedVersion) => {
     if (!profile) {
       toast.error("Cannot switch version: Missing profile.");
       return;
     }
-    
-    const payload: SwitchContentVersionPayload = {
+
+    const platform = newVersion.source;
+    const payload = {
       profile_id: profile.id,
       content_type: mapUiContentTypeToBackend(contentType),
       current_item_details: {
         ...item,
         path_str: item.path,
       },
-      new_modrinth_version_details: newVersion,
+      [platform === 'Modrinth' ? 'new_modrinth_version_details' : 'new_curseforge_version_details']: newVersion,
     };
 
     const promiseAction = async () => {
-      await switchContentVersion(payload);
+      await invoke("switch_content_version", { payload });
 
       const primaryFile = newVersion.files.find(f => f.primary) || newVersion.files[0];
       if (!primaryFile) throw new Error("Switched version details are missing a primary file.");
 
-      const newSha1 = primaryFile.hashes?.sha1 || null;
+      const newSha1 = primaryFile.hashes.sha1 || null;
       const newFilename = primaryFile.filename;
       const oldPath = item.path;
       const pathSeparator = oldPath.includes('/') ? '/' : '\\';
       const dirPath = oldPath.substring(0, oldPath.lastIndexOf(pathSeparator));
       const newPath = `${dirPath}${pathSeparator}${newFilename}`;
+
+      // Plattform-spezifische Info-Updates
+      let updatedModrinthInfo = item.modrinth_info;
+      let updatedCurseForgeInfo = item.curseforge_info;
+
+      if (platform === 'Modrinth') {
+        updatedModrinthInfo = {
+          ...(item.modrinth_info || {}),
+          project_id: newVersion.project_id,
+          version_id: newVersion.id,
+          name: newVersion.name,
+          version_number: newVersion.version_number,
+          download_url: primaryFile.url,
+        };
+      } else if (platform === 'CurseForge') {
+        updatedCurseForgeInfo = {
+          ...(item.curseforge_info || {}),
+          project_id: newVersion.project_id,
+          file_id: newVersion.id,
+          name: newVersion.name,
+          version_number: newVersion.version_number,
+          download_url: primaryFile.url,
+        };
+      }
 
       const updatedItem: T = {
         ...item,
@@ -1223,7 +1261,8 @@ export function useLocalContentManager<T extends LocalContentItem>({
         is_disabled: false,
         sha1_hash: newSha1,
         fallback_version: newVersion.version_number,
-        modrinth_info: { ...(item.modrinth_info || {}), project_id: newVersion.project_id, version_id: newVersion.id, name: newVersion.name, version_number: newVersion.version_number, download_url: primaryFile.url },
+        modrinth_info: updatedModrinthInfo,
+        curseforge_info: updatedCurseForgeInfo,
       };
 
       setItems(prevItems => prevItems.map(i => i.filename === item.filename ? updatedItem : i));

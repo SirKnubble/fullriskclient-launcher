@@ -6,7 +6,7 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
-use crate::integrations::unified_mod::{search_mods_unified, get_mod_versions_unified, UnifiedModVersionsParams, UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedVersionResponse, ModPlatform, UnifiedProjectType, UnifiedSortType};
+use crate::integrations::unified_mod::{search_mods_unified, get_mod_versions_unified, UnifiedModVersionsParams, UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedVersionResponse, ModPlatform, UnifiedProjectType, UnifiedSortType, check_mod_updates_unified, UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse};
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -255,6 +255,27 @@ pub async fn check_modrinth_updates(
         .map_err(CommandError::from)?;
 
     log::info!("Found updates for {} mods", updates.len());
+
+    Ok(updates)
+}
+
+/// Unified command for checking mod updates across all platforms (currently only Modrinth)
+/// This will eventually support both Modrinth and CurseForge based on item platforms
+#[tauri::command]
+pub async fn check_mod_updates_unified_command(
+    request: UnifiedUpdateCheckRequest,
+) -> Result<UnifiedUpdateCheckResponse, CommandError> {
+    log::debug!(
+        "Received check_mod_updates_unified_command for {} hashes using algorithm {}",
+        request.hashes.len(),
+        request.algorithm
+    );
+
+    let updates = check_mod_updates_unified(request)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!("Found unified updates for {} mods", updates.updates.len());
 
     Ok(updates)
 }

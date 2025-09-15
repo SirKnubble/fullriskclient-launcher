@@ -2,6 +2,7 @@ use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result}; // Dein Result- und Fehlertyp
 use crate::integrations::norisk_packs::{get_norisk_pack_mod_filename, NoriskModEntryDefinition};
 use crate::state::State;
+use crate::utils::download_utils; // Added for DownloadUtils
 use futures::future::try_join_all; // Added for joining futures
 use log::{error, info, warn};
 use std::path::{Path, PathBuf};
@@ -852,4 +853,65 @@ pub async fn copy_dir_with_progress(
     }
 
     copy_recursive(source, target, semaphore, progress_counter, state, profile_id, total_files).await
+}
+
+/// Downloads and replaces a local mod file atomically.
+/// This function downloads a file from a URL to a temporary location,
+/// then atomically replaces the existing file.
+///
+/// # Arguments
+/// * `current_path_str` - Path to the file that should be replaced
+/// * `new_filename` - Name of the new file to create
+/// * `download_url` - URL to download the file from
+/// * `sha1_hash` - Optional SHA1 hash for verification
+///
+/// # Returns
+/// Result indicating success or failure
+pub async fn download_and_replace_file(
+    current_path_str: &str,
+    new_filename: &str,
+    download_url: &str,
+    sha1_hash: Option<&str>,
+) -> Result<()> {
+    let current_path = PathBuf::from(current_path_str);
+    let dir = current_path
+        .parent()
+        .ok_or_else(|| AppError::InvalidInput("Invalid current item path".to_string()))?;
+
+    let target_path = dir.join(new_filename);
+
+    // Ensure directory exists
+    fs::create_dir_all(dir).await.map_err(AppError::Io)?;
+
+    // Download to a temp path then atomically replace
+    let tmp_path = target_path.with_extension("jar.nrc_tmp");
+    let mut config = download_utils::DownloadConfig::new()
+        .with_streaming(true);
+    if let Some(sha1) = sha1_hash {
+        config = config.with_sha1(sha1);
+    }
+    download_utils::DownloadUtils::download_file(
+        download_url,
+        &tmp_path,
+        config,
+    )
+    .await?;
+
+    // Remove old file if it exists (either enabled or disabled variant)
+    if current_path.exists() {
+        let _ = fs::remove_file(&current_path).await; // ignore errors
+    }
+
+    // Move tmp -> target
+    fs::rename(&tmp_path, &target_path)
+        .await
+        .map_err(AppError::Io)?;
+
+    info!(
+        "Switched local mod '{}' -> '{}'",
+        current_path_str,
+        target_path.to_string_lossy()
+    );
+
+    Ok(())
 }

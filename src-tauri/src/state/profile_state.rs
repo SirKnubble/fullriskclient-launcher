@@ -1390,6 +1390,158 @@ impl ProfileManager {
             .collect())
     }
 
+        /// Updates the version of a specific CurseForge mod instance within a profile,
+    /// after checking for the presence of required dependencies (by project ID).
+    /// Automatically adds missing dependencies.
+    pub async fn update_profile_curseforge_mod_version(
+        &self,
+        profile_id: Uuid,
+        mod_id: Uuid,
+        new_version_details: &crate::integrations::curseforge::CurseForgeFile,
+    ) -> Result<()> {
+        info!(
+            "Attempting to update CurseForge mod instance {} in profile {} to version '{}' (ID: {})",
+            mod_id, profile_id, new_version_details.displayName, new_version_details.id
+        );
+
+        let mut profiles = self.profiles.write().await;
+
+        let profile = profiles.get_mut(&profile_id).ok_or_else(|| {
+            error!(
+                "Profile {} not found during CurseForge mod update attempt.",
+                profile_id
+            );
+            AppError::ProfileNotFound(profile_id)
+        })?;
+
+        info!(
+            "Checking required dependencies for new CurseForge version {}...",
+            new_version_details.id
+        );
+        let existing_project_ids: HashSet<String> = profile
+            .mods
+            .iter()
+            .filter_map(|m| match &m.source {
+                ModSource::CurseForge { project_id, .. } => Some(project_id.clone()),
+                _ => None,
+            })
+            .collect();
+
+        // Track missing dependencies to install them later
+        let mut missing_deps = Vec::new();
+
+        for dependency in &new_version_details.dependencies {
+            // Only process required dependencies
+            if let Some(relation_type) = crate::integrations::curseforge::CurseForgeFileRelationType::from_u32(dependency.relationType) {
+                if relation_type.should_install() {
+                    if !existing_project_ids.contains(&dependency.modId.to_string()) {
+                        info!(
+                            "Required dependency project '{}' is missing in profile {}. Will install it automatically.",
+                            dependency.modId, profile_id
+                        );
+                        missing_deps.push(dependency.modId);
+                    } else {
+                        info!(
+                            "Required dependency project '{}' found in profile.",
+                            dependency.modId
+                        );
+                    }
+                }
+            }
+        }
+
+        // Now update the mod
+        let mod_to_update_index = profile.mods.iter().position(|m| m.id == mod_id);
+
+        if let Some(index) = mod_to_update_index {
+            let mod_to_update = &mut profile.mods[index];
+
+            if let ModSource::CurseForge {
+                project_id: old_project_id,
+                ..
+            } = &mod_to_update.source
+            {
+                if old_project_id != &new_version_details.modId.to_string() {
+                    error!(
+                        "Project ID mismatch when updating CurseForge mod {}! Expected '{}', got '{}'. Aborting update.",
+                         mod_id, old_project_id, new_version_details.modId
+                    );
+                    return Err(AppError::Other(format!(
+                        "Project ID mismatch for CurseForge mod {}",
+                        mod_id
+                    )));
+                }
+
+                info!(
+                    "Updating CurseForge mod instance {} from version {} to {} using file '{}'",
+                    mod_id,
+                    mod_to_update.version.as_deref().unwrap_or("?"),
+                    new_version_details.displayName,
+                    new_version_details.fileName
+                );
+
+                mod_to_update.source = ModSource::CurseForge {
+                    project_id: new_version_details.modId.to_string(),
+                    file_id: new_version_details.id.to_string(),
+                    file_name: new_version_details.fileName.clone(),
+                    download_url: new_version_details.downloadUrl.clone(),
+                    file_hash_sha1: new_version_details.hashes.iter()
+                        .find(|h| h.algo == 1) // SHA1 = 1
+                        .map(|h| h.value.clone()),
+                };
+
+                mod_to_update.version = Some(new_version_details.displayName.clone());
+                mod_to_update.game_versions = Some(new_version_details.gameVersions.clone());
+                // For CurseForge, we don't have explicit loader info in the file, so we keep the existing one
+                // or try to determine it from game versions
+                if mod_to_update.associated_loader.is_none() {
+                    mod_to_update.associated_loader = crate::integrations::unified_mod::extract_loaders_from_game_versions(&new_version_details.gameVersions)
+                        .first()
+                        .and_then(|s| ModLoader::from_str(s).ok());
+                }
+
+                info!("CurseForge mod instance {} updated successfully in memory.", mod_id);
+            } else {
+                error!(
+                    "Mod instance {} in profile {} is not a CurseForge mod.",
+                    mod_id, profile_id
+                );
+                return Err(AppError::Other(format!(
+                    "Mod {} is not a CurseForge mod",
+                    mod_id
+                )));
+            }
+        } else {
+            error!(
+                "Mod instance with ID {} not found in profile {} during update.",
+                mod_id, profile_id
+            );
+            return Err(AppError::ModNotFoundInProfile { profile_id, mod_id });
+        }
+
+        // Save changes to the profile first
+        drop(profiles);
+        self.save_profiles().await?;
+        info!(
+            "Profile {} saved after updating CurseForge mod {}.",
+            profile_id, mod_id
+        );
+
+        // Now install any missing dependencies
+        if !missing_deps.is_empty() {
+            let display_name_log = new_version_details.displayName.as_str();
+            info!("Installing {} missing CurseForge dependencies", missing_deps.len());
+            match self.install_curseforge_dependencies(profile_id, &new_version_details, display_name_log).await {
+                Ok(_) => info!("Successfully installed CurseForge dependencies for '{}'", display_name_log),
+                Err(e) => error!("Failed to install some CurseForge dependencies for '{}': {}", display_name_log, e),
+            }
+        } else {
+            info!("No missing CurseForge dependencies to install for '{}'", new_version_details.displayName);
+        }
+
+        Ok(())
+    }
+
     /// Updates the version of a specific Modrinth mod instance within a profile,
     /// after checking for the presence of required dependencies (by project ID).
     /// Automatically adds missing dependencies.
@@ -2443,6 +2595,122 @@ impl ProfileManager {
         } else {
             Err(AppError::ProfileNotFound(copy_id))
         }
+    }
+
+    /// Updates a mod in a profile using SwitchContentVersionPayload
+    /// This method handles the unified version update process
+    pub async fn update_mod_with_switch_content_version_payload(
+        &self,
+        profile_id: Uuid,
+        payload: &crate::commands::content_command::SwitchContentVersionPayload,
+    ) -> Result<()> {
+        info!(
+            "Updating mod in profile {} using unified version switch",
+            profile_id
+        );
+
+        let mut profiles = self.profiles.write().await;
+
+        let profile = profiles.get_mut(&profile_id).ok_or_else(|| {
+            error!(
+                "Profile {} not found during unified mod update attempt.",
+                profile_id
+            );
+            AppError::ProfileNotFound(profile_id)
+        })?;
+
+        let current_item = payload.current_item_details.as_ref().ok_or_else(|| {
+            AppError::InvalidInput("Missing current_item_details in payload.".to_string())
+        })?;
+
+        // Find the mod to update
+        let mod_to_update_index = profile.mods.iter().position(|m| {
+            match &m.source {
+                ModSource::Modrinth { project_id, .. } => {
+                    // Check if ID matches or project_id from modrinth_info matches
+                    current_item.id.as_ref() == Some(&m.id.to_string()) ||
+                    (current_item.modrinth_info.as_ref().map(|info| &info.project_id) == Some(project_id))
+                },
+                ModSource::CurseForge { project_id, .. } => {
+                    // Check if ID matches or project_id from curseforge_info matches
+                    current_item.id.as_ref() == Some(&m.id.to_string()) ||
+                    (current_item.curseforge_info.as_ref().map(|info| &info.project_id) == Some(project_id))
+                },
+                _ => false,
+            }
+        });
+
+        if let Some(index) = mod_to_update_index {
+            let mod_to_update = &mut profile.mods[index];
+
+            // Update the mod source based on the platform from unified version
+            match payload.new_version_details.source {
+                crate::integrations::unified_mod::ModPlatform::Modrinth => {
+                    // Find primary file
+                    let primary_file = payload.new_version_details.files.iter()
+                        .find(|f| f.primary)
+                        .or_else(|| payload.new_version_details.files.first())
+                        .ok_or_else(|| AppError::InvalidInput("No primary file found in unified version".to_string()))?;
+
+                    mod_to_update.source = ModSource::Modrinth {
+                        project_id: payload.new_version_details.project_id.clone(),
+                        version_id: payload.new_version_details.id.clone(),
+                        file_name: primary_file.filename.clone(),
+                        download_url: primary_file.url.clone(),
+                        file_hash_sha1: primary_file.hashes.get("sha1").cloned(),
+                    };
+
+                    mod_to_update.version = Some(payload.new_version_details.version_number.clone());
+                    mod_to_update.game_versions = Some(payload.new_version_details.game_versions.clone());
+                },
+                crate::integrations::unified_mod::ModPlatform::CurseForge => {
+                    // Find primary file
+                    let primary_file = payload.new_version_details.files.iter()
+                        .find(|f| f.primary)
+                        .or_else(|| payload.new_version_details.files.first())
+                        .ok_or_else(|| AppError::InvalidInput("No primary file found in unified version".to_string()))?;
+
+                    mod_to_update.source = ModSource::CurseForge {
+                        project_id: payload.new_version_details.project_id.clone(),
+                        file_id: payload.new_version_details.id.clone(),
+                        file_name: primary_file.filename.clone(),
+                        download_url: primary_file.url.clone(),
+                        file_hash_sha1: primary_file.hashes.get("sha1").cloned(),
+                    };
+
+                    mod_to_update.version = Some(payload.new_version_details.version_number.clone());
+                    mod_to_update.game_versions = Some(payload.new_version_details.game_versions.clone());
+                },
+            }
+
+            // Update display name if available
+            if mod_to_update.display_name.is_none() {
+                mod_to_update.display_name = Some(payload.new_version_details.name.clone());
+            }
+
+            info!("Successfully updated mod {} in profile {}", mod_to_update.id, profile_id);
+        } else {
+            error!(
+                "Mod not found in profile {} for update with unified version",
+                profile_id
+            );
+            return Err(AppError::ModNotFoundInProfile {
+                profile_id,
+                mod_id: current_item.id.as_ref()
+                    .and_then(|id_str| Uuid::parse_str(id_str).ok())
+                    .unwrap_or(Uuid::nil()),
+            });
+        }
+
+        drop(profiles);
+        self.save_profiles().await?;
+
+        info!(
+            "Profile {} saved after updating mod with unified version.",
+            profile_id
+        );
+
+        Ok(())
     }
 
     /// Deletes a custom mod file (either .jar or .jar.disabled) from the profile's custom_mods directory.

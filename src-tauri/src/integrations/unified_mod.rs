@@ -2,6 +2,7 @@ use crate::integrations::curseforge;
 use crate::integrations::modrinth;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use log::{debug, error, info, warn};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum ModPlatform {
@@ -199,6 +200,7 @@ pub struct UnifiedVersion {
     pub name: String,
     pub version_number: String,
     pub changelog: Option<String>,
+    pub dependencies: Vec<UnifiedDependency>,
     pub game_versions: Vec<String>,
     pub loaders: Vec<String>,
     pub files: Vec<UnifiedVersionFile>,
@@ -215,6 +217,23 @@ pub struct UnifiedVersionFile {
     pub size: u64,
     pub hashes: HashMap<String, String>,
     pub primary: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedDependency {
+    pub project_id: Option<String>,
+    pub version_id: Option<String>,
+    pub file_name: Option<String>,
+    pub dependency_type: UnifiedDependencyType,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum UnifiedDependencyType {
+    Required,
+    Optional,
+    Incompatible,
+    Embedded,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -331,6 +350,22 @@ impl From<modrinth::ModrinthVersion> for UnifiedVersion {
         let project_id_clone = version.project_id.clone();
         let id_clone = version.id.clone();
 
+        // Convert Modrinth dependencies to unified dependencies
+        let unified_dependencies: Vec<UnifiedDependency> = version.dependencies
+            .into_iter()
+            .map(|dep| UnifiedDependency {
+                project_id: dep.project_id,
+                version_id: dep.version_id,
+                file_name: dep.file_name,
+                dependency_type: match dep.dependency_type {
+                    modrinth::ModrinthDependencyType::Required => UnifiedDependencyType::Required,
+                    modrinth::ModrinthDependencyType::Optional => UnifiedDependencyType::Optional,
+                    modrinth::ModrinthDependencyType::Incompatible => UnifiedDependencyType::Incompatible,
+                    modrinth::ModrinthDependencyType::Embedded => UnifiedDependencyType::Embedded,
+                },
+            })
+            .collect();
+
         UnifiedVersion {
             id: version.id,
             project_id: version.project_id,
@@ -338,6 +373,7 @@ impl From<modrinth::ModrinthVersion> for UnifiedVersion {
             name: version.name,
             version_number: version.version_number,
             changelog: version.changelog,
+            dependencies: unified_dependencies,
             game_versions: version.game_versions,
             loaders: version.loaders,
             files: unified_files,
@@ -389,6 +425,26 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
         let display_name_clone = file.displayName.clone();
         let download_url_clone = file.downloadUrl.clone();
 
+        // Convert CurseForge dependencies to unified dependencies
+        // CurseForge relationType: 1=EmbeddedLibrary, 2=OptionalDependency, 3=RequiredDependency, 4=Tool, 5=Incompatible, 6=Include
+        let unified_dependencies: Vec<UnifiedDependency> = file.dependencies
+            .into_iter()
+            .map(|dep| UnifiedDependency {
+                project_id: Some(dep.modId.to_string()),
+                version_id: None, // CurseForge doesn't specify version IDs in dependencies
+                file_name: None, // CurseForge doesn't specify file names in dependencies
+                dependency_type: match dep.relationType {
+                    1 => UnifiedDependencyType::Embedded, // EmbeddedLibrary
+                    2 => UnifiedDependencyType::Optional, // OptionalDependency
+                    3 => UnifiedDependencyType::Required, // RequiredDependency
+                    4 => UnifiedDependencyType::Optional, // Tool (treated as optional)
+                    5 => UnifiedDependencyType::Incompatible, // Incompatible
+                    6 => UnifiedDependencyType::Optional, // Include (treated as optional)
+                    _ => UnifiedDependencyType::Optional, // Default to optional for unknown types
+                },
+            })
+            .collect();
+
         UnifiedVersion {
             id: file.id.to_string(),
             project_id: file.modId.to_string(),
@@ -396,6 +452,7 @@ impl From<curseforge::CurseForgeFile> for UnifiedVersion {
             name: file.displayName,
             version_number: display_name_clone, // CurseForge uses displayName as version
             changelog: None, // CurseForge doesn't provide changelog
+            dependencies: unified_dependencies,
             game_versions: file.gameVersions,
             loaders, // Now properly mapped from modLoader field
             files: unified_files,
@@ -670,5 +727,174 @@ pub fn convert_string_loaders_to_curseforge_types(
     } else {
         Some(curseforge_loaders)
     }
+}
+
+/// Request structure for checking mod updates
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedUpdateCheckRequest {
+    pub hashes: Vec<String>,
+    pub algorithm: String,
+    pub loaders: Vec<String>,
+    pub game_versions: Vec<String>,
+    /// Optional: Map of hash to platform (if not provided, defaults to Modrinth)
+    pub hash_platforms: Option<std::collections::HashMap<String, ModPlatform>>,
+}
+
+/// Response structure for update checks
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedUpdateCheckResponse {
+    pub updates: std::collections::HashMap<String, UnifiedVersion>,
+}
+
+/// Check for updates across all supported platforms
+/// This is the unified entry point for update checking that supports
+/// both Modrinth and CurseForge based on the items' platforms
+pub async fn check_mod_updates_unified(
+    request: UnifiedUpdateCheckRequest,
+) -> Result<UnifiedUpdateCheckResponse, crate::error::AppError> {
+    info!(
+        "Checking for unified mod updates: {} hashes, algorithm: {}",
+        request.hashes.len(),
+        request.algorithm
+    );
+
+    // Group hashes by platform
+    let (modrinth_hashes, curseforge_hashes) = group_hashes_by_platform(&request);
+
+    info!(
+        "Grouped hashes - Modrinth: {}, CurseForge: {}",
+        modrinth_hashes.len(),
+        curseforge_hashes.len()
+    );
+
+    // Check for updates on each platform concurrently
+    let (modrinth_updates, curseforge_updates) = tokio::join!(
+        check_modrinth_updates_only(&request, modrinth_hashes),
+        check_curseforge_updates_only(&request, curseforge_hashes)
+    );
+
+    // Combine results
+    let mut all_updates = std::collections::HashMap::new();
+
+    // Handle Modrinth results
+    match modrinth_updates {
+        Ok(updates) => {
+            let update_count = updates.len();
+            all_updates.extend(updates);
+            info!("Modrinth updates found: {}", update_count);
+        }
+        Err(e) => {
+            error!("Failed to check Modrinth updates: {}", e);
+            // Continue with CurseForge results even if Modrinth fails
+        }
+    }
+
+    // Handle CurseForge results
+    match curseforge_updates {
+        Ok(updates) => {
+            let update_count = updates.len();
+            all_updates.extend(updates);
+            info!("CurseForge updates found: {}", update_count);
+        }
+        Err(e) => {
+            error!("Failed to check CurseForge updates: {}", e);
+            // Continue with Modrinth results even if CurseForge fails
+        }
+    }
+
+    info!("Total unified updates found: {}", all_updates.len());
+
+    Ok(UnifiedUpdateCheckResponse {
+        updates: all_updates,
+    })
+}
+
+/// Group hashes by their platform based on the request
+fn group_hashes_by_platform(request: &UnifiedUpdateCheckRequest) -> (Vec<String>, Vec<String>) {
+    let mut modrinth_hashes = Vec::new();
+    let mut curseforge_hashes = Vec::new();
+
+    if let Some(hash_platforms) = &request.hash_platforms {
+        // Use provided platform mapping
+        for hash in &request.hashes {
+            match hash_platforms.get(hash) {
+                Some(ModPlatform::Modrinth) => modrinth_hashes.push(hash.clone()),
+                Some(ModPlatform::CurseForge) => curseforge_hashes.push(hash.clone()),
+                None => {
+                    // Default to Modrinth if platform not specified
+                    warn!("No platform specified for hash {}, defaulting to Modrinth", hash);
+                    modrinth_hashes.push(hash.clone());
+                }
+            }
+        }
+    } else {
+        // No platform mapping provided, assume all are Modrinth
+        info!("No platform mapping provided, assuming all hashes are for Modrinth");
+        modrinth_hashes = request.hashes.clone();
+    }
+
+    (modrinth_hashes, curseforge_hashes)
+}
+
+/// Check for Modrinth updates only (internal helper)
+async fn check_modrinth_updates_only(
+    request: &UnifiedUpdateCheckRequest,
+    modrinth_hashes: Vec<String>,
+) -> Result<std::collections::HashMap<String, UnifiedVersion>, crate::error::AppError> {
+    if modrinth_hashes.is_empty() {
+        info!("No Modrinth hashes to check");
+        return Ok(std::collections::HashMap::new());
+    }
+
+    info!("Checking Modrinth updates for {} hashes", modrinth_hashes.len());
+
+    // Call the existing Modrinth update check function
+    let modrinth_request = modrinth::ModrinthBulkUpdateRequestBody {
+        hashes: modrinth_hashes,
+        algorithm: request.algorithm.clone(),
+        loaders: request.loaders.clone(),
+        game_versions: request.game_versions.clone(),
+    };
+    let modrinth_response = modrinth::check_bulk_updates(modrinth_request).await?;
+    let total_checked = modrinth_response.len();
+
+    // Convert Modrinth versions to unified format
+    let mut unified_updates = std::collections::HashMap::new();
+
+    for (hash, modrinth_version) in modrinth_response {
+        let unified_version: UnifiedVersion = modrinth_version.into();
+        unified_updates.insert(hash, unified_version);
+    }
+
+    info!(
+        "Found {} Modrinth updates out of {} checked hashes",
+        unified_updates.len(),
+        total_checked
+    );
+
+    Ok(unified_updates)
+}
+
+/// Check for CurseForge updates only (internal helper)
+/// TODO: This is a placeholder implementation - will be implemented when CurseForge update checking is ready
+async fn check_curseforge_updates_only(
+    _request: &UnifiedUpdateCheckRequest,
+    curseforge_hashes: Vec<String>,
+) -> Result<std::collections::HashMap<String, UnifiedVersion>, crate::error::AppError> {
+    if curseforge_hashes.is_empty() {
+        info!("No CurseForge hashes to check");
+        return Ok(std::collections::HashMap::new());
+    }
+
+    // TODO: Implement CurseForge update checking
+    // For now, just log that we would check these hashes
+    warn!(
+        "CurseForge update checking not yet implemented. Would check {} hashes: {:?}",
+        curseforge_hashes.len(),
+        curseforge_hashes
+    );
+
+    // Return empty results for now
+    Ok(std::collections::HashMap::new())
 }
 

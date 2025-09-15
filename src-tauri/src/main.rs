@@ -72,7 +72,7 @@ use commands::profile_command::{
 use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command};
 
 use commands::modrinth_commands::{
-    check_modrinth_updates, download_and_install_modrinth_modpack,
+    check_modrinth_updates, check_mod_updates_unified_command, download_and_install_modrinth_modpack,
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
     get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
@@ -380,6 +380,7 @@ async fn main() {
             add_modrinth_content_to_profile,
             get_modrinth_project_details,
             check_modrinth_updates,
+            check_mod_updates_unified_command,
             get_icons_for_archives,
             set_profile_mod_enabled,
             delete_mod_from_profile,
