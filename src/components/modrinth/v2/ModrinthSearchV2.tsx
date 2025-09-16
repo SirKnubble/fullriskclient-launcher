@@ -6,7 +6,8 @@ import { ModrinthService } from '../../../services/modrinth-service';
 import { CurseForgeService } from '../../../services/curseforge-service';
 import type {
   UnifiedModSearchResult,
-  UnifiedModSearchResponse
+  UnifiedModSearchResponse,
+  UnifiedVersion
 } from '../../../types/unified';
 import { ModPlatform, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
 import type {
@@ -166,7 +167,7 @@ export function ModrinthSearchV2({
   const [filterServerRequired, setFilterServerRequired] = useState(false);
 
   // New state for expanded versions
-  const [expandedVersions, setExpandedVersions] = useState<Record<string, any[] | null | 'loading'>>({});
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, UnifiedVersion[] | null | 'loading'>>({});
 
   // New state for managing how many versions are displayed per project
   const [numDisplayedVersions, setNumDisplayedVersions] = useState<Record<string, number>>({});
@@ -182,12 +183,12 @@ export function ModrinthSearchV2({
 
   // State for installation modal
   // Removed installModalOpen state - now using global modal system
-  const [selectedVersion, setSelectedVersion] = useState<ModrinthVersion | null>(null);
+  const [selectedVersion, setSelectedVersion] = useState<UnifiedVersion | null>(null);
   const [selectedProject, setSelectedProject] = useState<UnifiedModSearchResult | null>(null);
 
   // State to track the currently opened install modal
   const [currentInstallProject, setCurrentInstallProject] = useState<UnifiedModSearchResult | any | null>(null);
-  const [currentInstallVersion, setCurrentInstallVersion] = useState<ModrinthVersion | null>(null);
+  const [currentInstallVersion, setCurrentInstallVersion] = useState<UnifiedVersion | null>(null);
   const [installing, setInstalling] = useState<Record<string, boolean>>({});
   const [uninstalling, setUninstalling] = useState<Record<string, boolean>>({});
   const [installStatus, setInstallStatus] = useState<Record<string, boolean>>({});
@@ -603,7 +604,7 @@ export function ModrinthSearchV2({
   };
   
   // Create a new function to check installation status for displayed versions only
-  const checkDisplayedVersionsStatus = async (projectId: string, versions: ModrinthVersion[], startIndex: number, count: number, forceRefresh: string[] = []) => {
+  const checkDisplayedVersionsStatus = async (projectId: string, versions: UnifiedVersion[], startIndex: number, count: number, forceRefresh: string[] = []) => {
     if (!selectedProfile || !versions || versions.length === 0) return;
     
     const displayedVersions = versions.slice(startIndex, startIndex + count);
@@ -834,14 +835,14 @@ export function ModrinthSearchV2({
   };
 
   // Filter function for versions
-  const getFilteredVersions = (projectId: string, versions: ModrinthVersion[]) => {
+  const getFilteredVersions = (projectId: string, versions: UnifiedVersion[]) => {
     if (!versionFilters[projectId]) return versions;
     
     const filters = versionFilters[projectId];
     
     return versions.filter(version => {
       // Filter by version type
-      if (filters.versionType !== 'all' && version.version_type !== filters.versionType) {
+      if (filters.versionType !== 'all' && version.release_type !== filters.versionType) {
         return false;
       }
       
@@ -866,7 +867,7 @@ export function ModrinthSearchV2({
   };
 
   // Open install modal using global modal system
-  const openInstallModal = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
+  const openInstallModal = async (project: UnifiedModSearchResult | any, version: UnifiedVersion) => {
     console.log('🚀 Opening install modal for:', project.title, version.version_number);
     setSelectedVersion(version);
     setSelectedProject(project);
@@ -1060,7 +1061,7 @@ export function ModrinthSearchV2({
   // Removed closeInstallModal - now handled by global modal system
 
   // Install mod to selected profile
-  const installToProfile = async (profileId: string, project?: UnifiedModSearchResult | any, version?: ModrinthVersion) => {
+  const installToProfile = async (profileId: string, project?: UnifiedModSearchResult | any, version?: UnifiedVersion) => {
     // Use provided parameters or fall back to global state
     const targetProject = project || selectedProject;
     const targetVersion = version || selectedVersion;
@@ -1151,97 +1152,93 @@ export function ModrinthSearchV2({
   };
 
   // New function to install directly to the selected profile without opening a modal
-  const handleDirectInstall = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
+  const handleDirectInstall = async (project: UnifiedModSearchResult | any, version: UnifiedVersion) => {
     if (!selectedProfile) {
       // Open the install modal instead of showing an error
       openInstallModal(project, version);
       return;
     }
-    
+
     const profileId = selectedProfile.id;
     const profileName = selectedProfile.name;
-    
-    setInstallingVersion(prev => ({ ...prev, [version.id]: true }));
-    
-    toast.promise(
-      async () => {
-        const primaryFile = version.files.find(file => file.primary) || version.files[0];
-        if (!primaryFile) {
-          throw new Error("No primary file found for this version");
-        }
-        
-        // Based on project type
-        if (project.project_type === 'mod' || project.project_type === 'modpack') {
-          // Use mod-specific API for mods and modpacks
-          await ProfileService.addModrinthModToProfile(
-            profileId,
-            project.project_id,
-            version.id,
-            primaryFile.filename,
-            primaryFile.url,
-            primaryFile.hashes?.sha1 || undefined,
-            project.title,
-            version.version_number,
-            version.loaders,
-            version.game_versions
-          );
-        } else {
-          // Use content API for resourcepacks, shaders, and datapacks
-          await ProfileService.addModrinthContentToProfile(
-            profileId,
-            project.project_id,
-            version.id,
-            primaryFile.filename,
-            primaryFile.url,
-            primaryFile.hashes?.sha1 || null,
-            project.title,
-            version.version_number,
-            project.project_type
-          );
-        }
-        
-        // Update project status for this profile - always set to installed when a version is installed
-        setInstalledProjects(prev => ({
-          ...prev,
-          [project.project_id]: getStatusForNewInstall(prev[project.project_id])
-        }));
-        
-        // Update version status to installed and enabled for this profile
-        setInstalledVersions(prev => {
-          // Erstelle eine Kopie des vorherigen Zustands
-          const newState = { ...prev };
-          
-          // Stelle sicher, dass der Profil-Eintrag existiert
-          if (!newState[profileId]) {
-            newState[profileId] = {};
-          }
-          
-          // Aktualisiere den Versions-Status für dieses Profil
-          newState[profileId][version.id] = getStatusForNewInstall(
-            newState[profileId][version.id]
-          );
-          
-          return newState;
-        });
-        
-        // No need to call checkDisplayedVersionsStatus since we already know the state
-        // This reduces server load and improves performance
 
-        justInstalledOrToggledRef.current = true; // Set flag
-        if (onInstallSuccess) {
-            onInstallSuccess();
-        }
-      },
-      {
-        loading: `Installing ${project.title} (${version.version_number}) to ${profileName}...`,
-        success: `Successfully installed ${project.title} (${version.version_number}) to ${profileName}`,
-        error: (err) => `Failed to install: ${err.message || String(err)}`
+    setInstallingVersion(prev => ({ ...prev, [version.id]: true }));
+
+    try {
+      // Get primary file
+      const primaryFile = version.files.find(f => f.primary) || version.files[0];
+      if (!primaryFile) {
+        toast.error(`No primary file found for ${project.title}`);
+        setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
+        return;
       }
-    ).catch(error => {
-        // Catch is mostly for toast.promise rejections that don't get auto-logged by toast
-        console.error("Direct install error (toast.promise rejected):", error);
-    });
-    setInstallingVersion(prev => ({ ...prev, [version.id]: false })); // Stop loading for this version
+
+      // Check content type
+      const mappedContentType = mapUnifiedProjectTypeToNrContentType(project.project_type);
+      if (!mappedContentType) {
+        setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
+        return;
+      }
+
+      // Special handling for modpacks
+      if (project.project_type === 'modpack') {
+        toast.error("Modpacks must be installed as new profiles.");
+        setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
+        return;
+      }
+
+      // Proceed with installation using the unified generic function
+      const payload: InstallContentPayload = {
+        profile_id: profileId,
+        project_id: project.project_id,
+        version_id: version.id,
+        file_name: primaryFile.filename,
+        download_url: primaryFile.url,
+        file_hash_sha1: primaryFile.hashes?.sha1 || undefined,
+        file_fingerprint: primaryFile.fingerprint || undefined,
+        content_name: project.title,
+        version_number: version.version_number,
+        content_type: mappedContentType,
+        loaders: version.loaders,
+        game_versions: version.game_versions,
+        source: project.source,
+      };
+
+      await toast.promise(
+        installContentToProfile(payload),
+        {
+          loading: `Installing ${project.title} (${version.version_number}) to ${profileName}...`,
+          success: `Successfully installed ${project.title} (${version.version_number}) to ${profileName}`,
+          error: (err) => `Failed to install: ${err.message || String(err)}`,
+        }
+      );
+
+      // Update installation status
+      setInstalledProjects(prev => ({
+        ...prev,
+        [project.project_id]: getStatusForNewInstall(prev[project.project_id])
+      }));
+
+      setInstalledVersions(prev => {
+        const newState = { ...prev };
+        if (!newState[profileId]) newState[profileId] = {};
+        newState[profileId][version.id] = getStatusForNewInstall(
+          newState[profileId][version.id]
+        );
+        return newState;
+      });
+
+      justInstalledOrToggledRef.current = true;
+
+      if (onInstallSuccess) onInstallSuccess();
+
+    } catch (error) {
+      console.error(`Direct install failed for ${project.title}:`, error);
+      toast.error(`Failed to install ${project.title}`);
+    } finally {
+      // Reset loading state for the version
+      setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
+    }
   };
 
   // Find the selected profile when the component mounts or selectedProfileId changes
@@ -1334,7 +1331,7 @@ export function ModrinthSearchV2({
   }
 
   // Find the best version for a profile
-  const findBestVersionForProfile = (profile: Profile, versions: any[]): any | null => {
+  const findBestVersionForProfile = (profile: Profile, versions: UnifiedVersion[]): UnifiedVersion | null => {
     if (!profile || !versions || versions.length === 0) return null;
     
     // First try: find a version matching both game version and loader
@@ -2120,7 +2117,7 @@ export function ModrinthSearchV2({
     }
   };
 
-  const handleInstallModpackVersionAsProfile = async (project: UnifiedModSearchResult | any, version: ModrinthVersion) => {
+  const handleInstallModpackVersionAsProfile = async (project: UnifiedModSearchResult | any, version: UnifiedVersion) => {
     if (project.project_type !== 'modpack') {
       toast.error("This handler is primarily for modpack versions. For other types, behavior might differ.");
       if (onInstallSuccess) {
@@ -2213,7 +2210,7 @@ export function ModrinthSearchV2({
   const handleInstallToNewProfile = async (
     profileName: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion | null,
+    version: UnifiedVersion | null,
     sourceProfileIdToCopy?: string | null // Parameter for copying
   ): Promise<void> => {
 
@@ -2222,7 +2219,7 @@ export function ModrinthSearchV2({
       let successMessageDetail = `Successfully created profile '${profileName}'`;
       let gameVersion = '1.21.1'; // Default fallback
       let loader = 'fabric'; // Default to fabric, will be overridden if needed
-      let versionToInstall: ModrinthVersion | null = null; // The version we'll install
+      let versionToInstall: UnifiedVersion | null = null; // The version we'll install
 
       // Handle profile creation
       if (sourceProfileIdToCopy) {
@@ -2648,7 +2645,7 @@ export function ModrinthSearchV2({
   const handleDeleteVersionFromProfile = async (
     profileId: string, // This is the definitive profile ID for this operation
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion
+    version: UnifiedVersion
   ) => {
     // REMOVED: if (!selectedProfile) { ... }
 
@@ -2777,7 +2774,7 @@ export function ModrinthSearchV2({
   const handleToggleEnableVersion = async (
     profileId: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string
   ) => {

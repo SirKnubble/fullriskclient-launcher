@@ -50,6 +50,7 @@ import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added 
 import * as FlagsmithService from "../../../../services/flagsmith-service"; // Added
 import { Tooltip } from "../../../ui/Tooltip"; // Added for custom tooltips
 import { ActionButton } from "../../../ui/ActionButton"; // Added for custom update button
+import { getUpdateIdentifier } from "../../../../utils/update-identifier-utils";
 
 // Generic icons that can be used across different content types
 const LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD = [
@@ -565,18 +566,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const isDeleting = itemBeingDeleted === item.filename;
       const isCurrentlyUpdating = itemsBeingUpdated.has(item.filename);
 
-      // Get update using the appropriate identifier based on the item's platform
-      let updateIdentifier: string | null = null;
-      if (item.modrinth_info && item.sha1_hash) {
-        // Modrinth mod - use sha1 hash as identifier
-        updateIdentifier = item.sha1_hash;
-      } else if (item.curseforge_info?.fingerprint) {
-        // CurseForge mod - use fingerprint as identifier
-        updateIdentifier = item.curseforge_info.fingerprint.toString();
-      } else {
-        // Fallback for items without clear platform identification
-        updateIdentifier = item.sha1_hash || (item.curseforge_info?.fingerprint ? item.curseforge_info.fingerprint.toString() : null);
-      }
+      // Get update using the centralized identifier logic
+      const updateIdentifier = getUpdateIdentifier(item);
 
       const updateAvailableVersion = updateIdentifier
         ? contentUpdates[updateIdentifier]

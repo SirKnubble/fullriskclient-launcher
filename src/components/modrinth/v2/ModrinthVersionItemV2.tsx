@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import type {
   ModrinthSearchHit,
-  ModrinthVersion,
 } from "../../../types/modrinth";
+import type { UnifiedVersion } from "../../../types/unified";
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
 import { Icon } from "@iconify/react";
@@ -15,7 +15,7 @@ import { gsap } from "gsap";
 import { useIsFirstRender } from "../../../hooks/useIsFirstRender";
 
 interface ModrinthVersionItemV2Props {
-  version: ModrinthVersion;
+  version: UnifiedVersion;
   project: ModrinthSearchHit;
   versionStatus: ContentInstallStatus | null;
   isInstalling?: boolean;
@@ -26,23 +26,23 @@ interface ModrinthVersionItemV2Props {
   onMouseLeave: () => void;
   onInstallClick: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onDeleteClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
   onInstallModpackVersionAsProfileClick?: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   selectedProfileId?: string | null;
 }
@@ -344,7 +344,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                     </TagBadge>
                   )}
                 <TagBadge className="flex-shrink-0">
-                  {version.version_type}
+                  {version.release_type}
                 </TagBadge>
                 {version.game_versions.length > 0 &&
                   version.game_versions.slice(0, 5).map((gv) => (

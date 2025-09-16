@@ -3,9 +3,8 @@
 import React, { useEffect } from "react";
 import type {
   ModrinthGameVersion,
-  ModrinthVersion,
 } from "../../../types/modrinth";
-import type { UnifiedModSearchResult } from "../../../types/unified";
+import type { UnifiedModSearchResult, UnifiedVersion } from "../../../types/unified";
 
 // Unified project card supporting both Modrinth and CurseForge
 type CompatibleProject = UnifiedModSearchResult;
@@ -24,7 +23,7 @@ import { ThemedSurface } from "../../ui/ThemedSurface";
 type Profile = any;
 
 interface VersionListPassthroughProps {
-  projectVersions: ModrinthVersion[] | null | "loading";
+  projectVersions: UnifiedVersion[] | null | "loading";
   displayedCount: number;
   versionFilters: {
     gameVersions: string[];
@@ -64,19 +63,19 @@ interface VersionListPassthroughProps {
   onLoadMoreVersions: (projectId: string) => void;
   onInstallVersionClick: (
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onHoverVersion: (versionId: string | null) => void;
   selectedProfileId?: string | null;
   onDeleteVersionClick?: (
     profileId: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
@@ -96,12 +95,12 @@ export interface ModrinthProjectCardV2Props
   onInstallModpackAsProfileClick?: (project: UnifiedModSearchResult) => void;
   onInstallModpackVersionAsProfileClick?: (
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleVersionsClick: (projectId: string) => void;
   isExpanded: boolean;
   isLoadingVersions: boolean;
-  projectVersions: ModrinthVersion[] | null | "loading";
+  projectVersions: UnifiedVersion[] | null | "loading";
   displayedCount: number;
   versionDropdownUIState: {
     showAllGameVersions: boolean;
@@ -136,19 +135,19 @@ export interface ModrinthProjectCardV2Props
   onLoadMoreVersions: (projectId: string) => void;
   onInstallVersionClick: (
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onHoverVersion: (versionId: string | null) => void;
   selectedProfileId?: string | null;
   onDeleteVersionClick?: (
     profileId: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
     project: UnifiedModSearchResult | any,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
@@ -433,7 +432,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
               <ModrinthVersionListV2
               projectId={hit.project_id}
               project={hit}
-              versions={projectVersions as ModrinthVersion[]}
+              versions={projectVersions as UnifiedVersion[]}
               displayedCount={displayedCount}
               filters={versionFilters}
               uiState={versionDropdownUIState}

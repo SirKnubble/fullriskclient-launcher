@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal } from '../../ui/Modal';
 import { Icon } from '@iconify/react';
 import type { ModrinthSearchHit, ModrinthVersion } from '../../../types/modrinth';
+import type { UnifiedVersion } from '../../../types/unified';
 import type { Profile } from '../../../types/profile';
 import { ProfileIconV2 } from '../../profiles/ProfileIconV2';
 import { useThemeStore } from '../../../store/useThemeStore';
@@ -54,11 +55,11 @@ interface ModrinthQuickInstallProfilesModalProps {
   onProfileSelect?: (project: ModrinthSearchHit, profile: Profile) => void;
   // New format for specific version install (compatible with ModrinthInstallModalV2)
   onInstallToProfile?: (profileId: string) => void;
-  onUninstallClick?: (profileId: string, project: ModrinthSearchHit, version: ModrinthVersion) => Promise<void>;
+  onUninstallClick?: (profileId: string, project: ModrinthSearchHit, version: UnifiedVersion) => Promise<void>;
   onInstallToNewProfile?: (
     profileName: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     sourceProfileIdToCopy?: string | null
   ) => Promise<void>;
   onProfileClick?: (profile: Profile) => void;
@@ -67,7 +68,7 @@ interface ModrinthQuickInstallProfilesModalProps {
   uninstallingProfiles?: Record<string, boolean>;
   installStatus?: Record<string, boolean>;
   // Optional version for specific version install
-  version?: ModrinthVersion | null;
+  version?: UnifiedVersion | null;
 }
 
 export function ModrinthQuickInstallProfilesModal({

@@ -13,6 +13,7 @@ import { UnifiedService } from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
 import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
+import { getUpdateIdentifier, getContentPlatform } from '../utils/update-identifier-utils';
 
 // Base type for content items managed by this hook - maps to ProfileLocalContentItem
 // We'll use ProfileLocalContentItem directly or ensure T extends it.
@@ -939,31 +940,13 @@ export function useLocalContentManager<T extends LocalContentItem>({
     const itemIdentifiers: Array<{ item: T; identifier: string; platform: ModPlatform }> = [];
 
     for (const item of itemsWithIdentifiers) {
-      let identifier: string;
-      let platform: ModPlatform;
+      // Use centralized utility function for consistent identifier logic
+      const identifier = getUpdateIdentifier(item);
+      const platform = getContentPlatform(item) === 'CurseForge' ? ModPlatform.CurseForge : ModPlatform.Modrinth;
 
-      // Bestimme die Plattform basierend auf den Metadaten, nicht auf dem Identifier-Typ
-      if (item.modrinth_info) {
-        // Mod von Modrinth
-        platform = ModPlatform.Modrinth;
-        identifier = item.sha1_hash!; // Modrinth-Mods müssen einen sha1_hash haben
-      } else if (item.curseforge_info) {
-        // Mod von CurseForge
-        platform = ModPlatform.CurseForge;
-        identifier = item.curseforge_info.fingerprint.toString(); // Verwende fingerprint als Identifier
-      } else {
-        // Fallback: schaue nach expliziter platform Angabe oder default zu Modrinth
-        if (item.platform === 'CurseForge' && item.curseforge_info?.fingerprint) {
-          platform = ModPlatform.CurseForge;
-          identifier = item.curseforge_info.fingerprint.toString();
-        } else {
-          // Default zu Modrinth für Items ohne klare Plattform-Info
-          platform = ModPlatform.Modrinth;
-          identifier = item.sha1_hash!;
-        }
+      if (identifier) {
+        itemIdentifiers.push({ item, identifier, platform });
       }
-
-      itemIdentifiers.push({ item, identifier, platform });
     }
 
     const hashes = itemIdentifiers.map(({ identifier }) => identifier);
