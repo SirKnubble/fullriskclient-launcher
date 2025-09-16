@@ -52,6 +52,90 @@ import { Tooltip } from "../../../ui/Tooltip"; // Added for custom tooltips
 import { ActionButton } from "../../../ui/ActionButton"; // Added for custom update button
 import { getUpdateIdentifier } from "../../../../utils/update-identifier-utils";
 
+/**
+ * Determines if a given version is the currently installed version for an item
+ * Handles different info structures (modrinth_info, curseforge_info) and version matching logic
+ */
+function isCurrentInstalledVersion(
+  version: UnifiedVersion,
+  item: LocalContentItem,
+  debugMode: boolean = false
+): boolean {
+  // Check Modrinth info first (most common)
+  const localModrinthInfo = item.modrinth_info;
+  if (localModrinthInfo) {
+    // Prioritize version_id if it exists on localModrinthInfo (typical for GenericModrinthInfo)
+    if (
+      typeof localModrinthInfo === "object" &&
+      localModrinthInfo !== null &&
+      "version_id" in localModrinthInfo &&
+      localModrinthInfo.version_id === version.id
+    ) {
+      if (debugMode) {
+        console.log(`[${item.filename}] Version match by version_id: ${localModrinthInfo.version_id}`);
+      }
+      return true;
+    }
+
+    // Fallback to id if version_id didn't match or doesn't exist (typical for full ModrinthVersion object)
+    if (
+      typeof localModrinthInfo === "object" &&
+      localModrinthInfo !== null &&
+      "id" in localModrinthInfo &&
+      (localModrinthInfo as any).id === version.id
+    ) {
+      if (debugMode) {
+        console.log(`[${item.filename}] Version match by id fallback: ${(localModrinthInfo as any).id}`);
+      }
+      return true;
+    }
+  }
+
+  // Check CurseForge info
+  const localCurseForgeInfo = item.curseforge_info;
+  if (localCurseForgeInfo) {
+    // For CurseForge, we primarily check file_id
+    if (
+      typeof localCurseForgeInfo === "object" &&
+      localCurseForgeInfo !== null &&
+      "file_id" in localCurseForgeInfo &&
+      localCurseForgeInfo.file_id === version.id
+    ) {
+      if (debugMode) {
+        console.log(`[${item.filename}] CurseForge version match by file_id: ${localCurseForgeInfo.file_id}`);
+      }
+      return true;
+    }
+  }
+
+  // Optional: secondary check by version_number if no ID match - can be less reliable if IDs truly differ for same version string
+  // This is commented out as it's less reliable, but could be useful in some edge cases
+  /*
+  if (localModrinthInfo?.version_number === version.version_number) {
+    if (debugMode) {
+      console.log(`[${item.filename}] Version match by version_number fallback: ${version.version_number}`);
+    }
+    return true;
+  }
+  */
+
+  if (debugMode) {
+    const installedVersionStr = localModrinthInfo?.version_number ||
+                               localCurseForgeInfo?.version_number ||
+                               "N/A";
+    const installedIdToCompare = localModrinthInfo?.version_id ||
+                                (localModrinthInfo && 'id' in localModrinthInfo ? localModrinthInfo.id : undefined) ||
+                                localCurseForgeInfo?.file_id ||
+                                "N/A";
+
+    console.log(
+      `[${item.filename}] Checking: List ver: ${version.version_number} (ID: ${version.id}) vs Installed: ${installedVersionStr} (Stored ID: ${installedIdToCompare}) -> NO MATCH`
+    );
+  }
+
+  return false;
+}
+
 // Generic icons that can be used across different content types
 const LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD = [
   "solar:gallery-bold-duotone", // Fallback icon, empty state (can be overridden by prop)
@@ -747,73 +831,12 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                               </div>
                               <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {availableVersions.map((version) => {
-                                  const localModrinthInfo = item.modrinth_info;
-                                  let isCurrent = false;
-
-                                  if (localModrinthInfo) {
-                                    // Prioritize version_id if it exists on localModrinthInfo (typical for GenericModrinthInfo)
-                                    if (
-                                      typeof localModrinthInfo === "object" &&
-                                      localModrinthInfo !== null &&
-                                      "version_id" in localModrinthInfo &&
-                                      localModrinthInfo.version_id ===
-                                        version.id
-                                    ) {
-                                      isCurrent = true;
-                                    }
-                                    // Fallback to id if version_id didn't match or doesn't exist (typical for full ModrinthVersion object)
-                                    else if (
-                                      typeof localModrinthInfo === "object" &&
-                                      localModrinthInfo !== null &&
-                                      "id" in localModrinthInfo &&
-                                      localModrinthInfo.id === version.id
-                                    ) {
-                                      isCurrent = true;
-                                    }
-                                    // Optional: secondary check by version_number if no ID match - can be less reliable if IDs truly differ for same version string
-                                    // else if (typeof localModrinthInfo === 'object' && localModrinthInfo !== null && 'version_number' in localModrinthInfo && localModrinthInfo.version_number === version.version_number) {
-                                    //   isCurrent = true;
-                                    // }
-                                  }
-
-                                  // DEBUGGING LOGS START
-                                  if (
-                                    item.filename === openVersionDropdownId &&
-                                    localModrinthInfo
-                                  ) {
-                                    const installedVersionStr =
-                                      "version_number" in localModrinthInfo &&
-                                      localModrinthInfo.version_number
-                                        ? String(
-                                            localModrinthInfo.version_number,
-                                          )
-                                        : "N/A";
-                                    const installedIdToCompare =
-                                      "version_id" in localModrinthInfo &&
-                                      localModrinthInfo.version_id
-                                        ? localModrinthInfo.version_id
-                                        : "id" in localModrinthInfo &&
-                                            localModrinthInfo.id
-                                          ? localModrinthInfo.id
-                                          : "N/A";
-
-                                    console.log(
-                                      `[${item.filename}] Checking: List ver: ${version.version_number} (ID: ${version.id}) vs Installed: ${installedVersionStr} (Stored ID for compare: ${installedIdToCompare}) -> isCurrent: ${isCurrent}`,
-                                    );
-                                    if (
-                                      !isCurrent &&
-                                      installedVersionStr ===
-                                        version.version_number
-                                    ) {
-                                      console.warn(
-                                        `[${item.filename}] MISMATCH OR NO ID MATCH DETAIL FOR VERSION ${version.version_number}:
-                                           Installed Info (item.modrinth_info): ${JSON.stringify(localModrinthInfo, null, 2)}
-                                           Current Version in List (version): ${JSON.stringify(version, null, 2)}
-                                           Comparing (Stored ID for compare: ${installedIdToCompare}) === (List version.id: ${version.id})`,
-                                      );
-                                    }
-                                  }
-                                  // DEBUGGING LOGS END
+                                  // Use the centralized function to determine if this version is currently installed
+                                  const isCurrent = isCurrentInstalledVersion(
+                                    version,
+                                    item,
+                                    item.filename === openVersionDropdownId // Enable debug mode for the currently open dropdown
+                                  );
 
                                   return (
                                     <div
@@ -832,7 +855,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                                         setOpenVersionDropdownId(null);
                                       }}
                                     >
-                                      {version.name} ({version.version_number})
+                                      {version.name}
                                     </div>
                                   );
                                 })}
