@@ -1118,7 +1118,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
 
     // Remove update notification if requested
     if (options.removeUpdateNotification) {
-      const updateIdentifier = item.sha1_hash || (item.curseforge_info?.fingerprint ? item.curseforge_info.fingerprint.toString() : null);
+      const updateIdentifier = getUpdateIdentifier(item);
       if (updateIdentifier) {
         setContentUpdates(prev => {
           const newUpdates = { ...prev };
