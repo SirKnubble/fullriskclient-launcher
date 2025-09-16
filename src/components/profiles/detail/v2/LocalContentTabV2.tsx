@@ -17,7 +17,6 @@ import { useThemeStore } from "../../../../store/useThemeStore";
 import { GenericContentTab } from "../../../ui/GenericContentTab";
 import { preloadIcons } from "../../../../lib/icon-utils";
 import type { Profile } from "../../../../types/profile";
-import type { ModrinthVersion } from "../../../../types/modrinth";
 import { SearchInput } from "../../../ui/SearchInput";
 import { SearchWithFilters } from "../../../ui/SearchWithFilters";
 import { CheckboxV2 } from "../../../ui/CheckboxV2";
@@ -44,6 +43,7 @@ import { ThemedSurface } from "../../../ui/ThemedSurface";
 import { useAppDragDropStore } from "../../../../store/appStore"; // Import the store
 import { createPortal } from "react-dom";
 import { ModrinthService } from "../../../../services/modrinth-service"; // Added import
+import { UnifiedService } from "../../../../services/unified-service"; // Added import
 import { EmptyState } from "../../../ui/EmptyState"; // Added import
 import { useProfileStore } from "../../../../store/profile-store"; // Added import
 import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added import
@@ -122,7 +122,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
   // State for version dropdown content
   const [availableVersions, setAvailableVersions] = useState<
-    ModrinthVersion[] | null
+    UnifiedVersion[] | null
   >(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   const [versionsError, setVersionsError] = useState<string | null>(null);
@@ -473,7 +473,37 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         const currentItem = items.find(
           (it) => it.filename === openVersionDropdownId,
         );
-        if (currentItem && currentItem.modrinth_info?.project_id) {
+
+        // Determine platform and project ID from the item
+        let platform: ModPlatform | null = null;
+        let projectId: string | null = null;
+        let platformName = "Unknown";
+
+        if (currentItem) {
+          if (currentItem.platform) {
+            platform = currentItem.platform;
+            if (platform === ModPlatform.Modrinth) {
+              projectId = currentItem.modrinth_info?.project_id || null;
+              platformName = "Modrinth";
+            } else if (platform === ModPlatform.CurseForge) {
+              projectId = currentItem.curseforge_info?.project_id || null;
+              platformName = "CurseForge";
+            }
+          } else {
+            // Fallback: determine platform from available info
+            if (currentItem.modrinth_info?.project_id) {
+              platform = ModPlatform.Modrinth;
+              projectId = currentItem.modrinth_info.project_id;
+              platformName = "Modrinth";
+            } else if (currentItem.curseforge_info?.project_id) {
+              platform = ModPlatform.CurseForge;
+              projectId = currentItem.curseforge_info.project_id;
+              platformName = "CurseForge";
+            }
+          }
+        }
+
+        if (platform && projectId) {
           setIsLoadingVersions(true);
           setAvailableVersions(null);
           setVersionsError(null);
@@ -483,14 +513,15 @@ export function LocalContentTabV2<T extends LocalContentItem>({
               loadersArg = profile?.loader ? [profile.loader] : undefined;
             }
 
-            const versions = await ModrinthService.getModVersions(
-              currentItem.modrinth_info.project_id,
-              loadersArg,
-              profile?.game_version ? [profile.game_version] : undefined,
-            );
-            setAvailableVersions(versions);
+            const versions = await UnifiedService.getModVersions({
+              source: platform,
+              project_id: projectId,
+              loaders: loadersArg,
+              game_versions: profile?.game_version ? [profile.game_version] : undefined,
+            });
+            setAvailableVersions(versions.versions);
           } catch (error) {
-            console.error("Failed to fetch Modrinth versions:", error);
+            console.error(`Failed to fetch ${platformName} versions:`, error);
             setVersionsError(
               error instanceof Error
                 ? error.message
@@ -499,13 +530,13 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           }
           setIsLoadingVersions(false);
         } else {
-          // Item is not from Modrinth or no project_id, or no item found
+          // Item is not from a supported platform or no project_id available
           setAvailableVersions(null);
           setIsLoadingVersions(false);
           setVersionsError(
-            currentItem?.modrinth_info?.project_id
-              ? null
-              : "Version history not available.",
+            currentItem
+              ? "Version history not available for this item."
+              : "Item not found.",
           );
         }
       }
@@ -794,41 +825,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                                         }
                                       }
                                       onClick={() => {
-                                        // Convert ModrinthVersion to UnifiedVersion for the switch function
-                                        const unifiedVersion: UnifiedVersion = {
-                                          id: version.id,
-                                          project_id: version.project_id,
-                                          source: ModPlatform.Modrinth,
-                                          name: version.name,
-                                          version_number: version.version_number,
-                                          changelog: version.changelog,
-                                          dependencies: version.dependencies?.map(dep => ({
-                                            project_id: dep.project_id,
-                                            version_id: dep.version_id,
-                                            file_name: dep.file_name,
-                                            dependency_type: dep.dependency_type as unknown as UnifiedDependencyType
-                                          })) || [],
-                                          game_versions: version.game_versions,
-                                          loaders: version.loaders,
-                                          files: version.files?.map(file => ({
-                                            filename: file.filename,
-                                            url: file.url,
-                                            size: file.size,
-                                            hashes: file.hashes || {},
-                                            primary: file.primary,
-                                            fingerprint: undefined // Modrinth doesn't use fingerprints
-                                          })) || [],
-                                          date_published: version.date_published,
-                                          downloads: version.downloads,
-                                          release_type: version.version_type === 'release' ? UnifiedVersionType.Release :
-                                                       version.version_type === 'beta' ? UnifiedVersionType.Beta :
-                                                       UnifiedVersionType.Alpha,
-                                          url: `https://modrinth.com/mod/${version.project_id}/version/${version.id}`
-                                        };
-
                                         handleSwitchContentVersion(
                                           item,
-                                          unifiedVersion,
+                                          version,
                                         );
                                         setOpenVersionDropdownId(null);
                                       }}
