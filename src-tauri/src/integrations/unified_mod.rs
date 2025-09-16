@@ -813,7 +813,7 @@ pub async fn check_mod_updates_unified(
     let mut all_updates = std::collections::HashMap::new();
 
     // Handle Modrinth results
-    /*match modrinth_updates {
+    match modrinth_updates {
         Ok(updates) => {
             let update_count = updates.len();
             all_updates.extend(updates);
@@ -823,7 +823,7 @@ pub async fn check_mod_updates_unified(
             error!("Failed to check Modrinth updates: {}", e);
             // Continue with CurseForge results even if Modrinth fails
         }
-    }*/
+    }
 
     // Handle CurseForge results
     match curseforge_updates {

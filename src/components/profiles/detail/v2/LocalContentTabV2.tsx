@@ -608,8 +608,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             console.error(`Failed to fetch ${platformName} versions:`, error);
             setVersionsError(
               error instanceof Error
-                ? error.message
-                : "Failed to load versions.",
+                ? `Failed to load versions from ${platformName}: ${error.message}`
+                : `Failed to load versions from ${platformName}.`,
             );
           }
           setIsLoadingVersions(false);
@@ -619,7 +619,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           setIsLoadingVersions(false);
           setVersionsError(
             currentItem
-              ? "Version history not available for this item."
+              ? `Version history not available on ${getItemPlatformDisplayName(currentItem)}.`
               : "Item not found.",
           );
         }
@@ -827,7 +827,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                             availableVersions.length > 0 ? (
                             <>
                               <div className="font-bold mb-2 text-sm tracking-wider">
-                                Available Versions:
+                                Available Versions on {getItemPlatformDisplayName(item)}:
                               </div>
                               <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                 {availableVersions.map((version) => {
@@ -864,12 +864,12 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                           ) : availableVersions &&
                             availableVersions.length === 0 ? (
                             <div className="text-white/70 text-sm tracking-wider">
-                              No other compatible versions found.
+                              No other compatible versions found on {getItemPlatformDisplayName(item)}.
                             </div>
                           ) : (
                             <div className="text-white/70 text-sm tracking-wider">
-                              Version history not available.
-                            </div> // Fallback for non-Modrinth items or if project_id missing
+                              Version history not available on {getItemPlatformDisplayName(item)}.
+                            </div> // Fallback for items without version history
                           )}
                         </div>,
                         document.body,
