@@ -391,6 +391,74 @@ impl From<modrinth::ModrinthVersion> for UnifiedVersion {
     }
 }
 
+impl From<UnifiedVersion> for modrinth::ModrinthVersion {
+    fn from(version: UnifiedVersion) -> Self {
+        // Convert unified files back to Modrinth files
+        let modrinth_files: Vec<modrinth::ModrinthFile> = version.files
+            .into_iter()
+            .map(|file| {
+                let mut hashes = modrinth::ModrinthHashes {
+                    sha512: None,
+                    sha1: None,
+                };
+
+                if let Some(sha1) = file.hashes.get("sha1") {
+                    hashes.sha1 = Some(sha1.clone());
+                }
+                if let Some(sha512) = file.hashes.get("sha512") {
+                    hashes.sha512 = Some(sha512.clone());
+                }
+
+                modrinth::ModrinthFile {
+                    hashes,
+                    url: file.url,
+                    filename: file.filename,
+                    primary: file.primary,
+                    size: file.size,
+                    file_type: None, // Not available in UnifiedVersion
+                }
+            })
+            .collect();
+
+        // Convert unified dependencies back to Modrinth dependencies
+        let modrinth_dependencies: Vec<modrinth::ModrinthDependency> = version.dependencies
+            .into_iter()
+            .map(|dep| modrinth::ModrinthDependency {
+                version_id: dep.version_id,
+                project_id: dep.project_id,
+                file_name: dep.file_name,
+                dependency_type: match dep.dependency_type {
+                    UnifiedDependencyType::Required => modrinth::ModrinthDependencyType::Required,
+                    UnifiedDependencyType::Optional => modrinth::ModrinthDependencyType::Optional,
+                    UnifiedDependencyType::Incompatible => modrinth::ModrinthDependencyType::Incompatible,
+                    UnifiedDependencyType::Embedded => modrinth::ModrinthDependencyType::Embedded,
+                },
+            })
+            .collect();
+
+        modrinth::ModrinthVersion {
+            id: version.id,
+            project_id: version.project_id,
+            author_id: Some(String::new()), // Not available in UnifiedVersion
+            featured: false, // Not available in UnifiedVersion
+            name: version.name,
+            version_number: version.version_number,
+            changelog: version.changelog,
+            date_published: version.date_published,
+            downloads: version.downloads,
+            version_type: match version.release_type {
+                UnifiedVersionType::Release => modrinth::ModrinthVersionType::Release,
+                UnifiedVersionType::Beta => modrinth::ModrinthVersionType::Beta,
+                UnifiedVersionType::Alpha => modrinth::ModrinthVersionType::Alpha,
+            },
+            files: modrinth_files,
+            dependencies: modrinth_dependencies,
+            game_versions: version.game_versions,
+            loaders: version.loaders,
+        }
+    }
+}
+
 impl From<curseforge::CurseForgeFile> for UnifiedVersion {
     fn from(file: curseforge::CurseForgeFile) -> Self {
         let mut hashes_map = HashMap::new();

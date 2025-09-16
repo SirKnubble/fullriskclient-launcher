@@ -1195,13 +1195,88 @@ pub async fn switch_content_version(
                 Ok(())
             }
         }
-        profile_utils::ContentType::ResourcePack
-        | profile_utils::ContentType::ShaderPack
-        | profile_utils::ContentType::DataPack => {
-            log::error!("Content type {:?} version switching not yet implemented", payload.content_type);
-            Err(CommandError::from(AppError::InvalidOperation(
-                format!("Version switching for {:?} is not yet implemented", payload.content_type),
-            )))
+        profile_utils::ContentType::ResourcePack => {
+            let profile = state_manager
+                .profile_manager
+                .get_profile(payload.profile_id)
+                .await?;
+            let rp_info = ResourcePackInfo {
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
+                modrinth_info: None,
+            };
+
+            log::info!(
+                "Switching ResourcePack version for file: {}",
+                rp_info.filename
+            );
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
+            resourcepack_utils::update_resourcepack_from_modrinth(
+                &profile,
+                &rp_info,
+                &modrinth_version,
+            )
+            .await
+            .map_err(CommandError::from)
+        }
+        profile_utils::ContentType::ShaderPack => {
+            let profile = state_manager
+                .profile_manager
+                .get_profile(payload.profile_id)
+                .await?;
+            let sp_info = ShaderPackInfo {
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
+                modrinth_info: None,
+            };
+
+            log::info!(
+                "Switching ShaderPack version for file: {}",
+                sp_info.filename
+            );
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
+            shaderpack_utils::update_shaderpack_from_modrinth(
+                &profile,
+                &sp_info,
+                &modrinth_version,
+            )
+            .await
+            .map_err(CommandError::from)
+        }
+        profile_utils::ContentType::DataPack => {
+            let profile = state_manager
+                .profile_manager
+                .get_profile(payload.profile_id)
+                .await?;
+            let dp_info = DataPackInfo {
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
+                modrinth_info: None,
+            };
+
+            log::info!("Switching DataPack version for file: {}", dp_info.filename);
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
+            datapack_utils::update_datapack_from_modrinth(&profile, &dp_info, &modrinth_version)
+                .await
+                .map_err(CommandError::from)
         }
         profile_utils::ContentType::NoRiskMod => {
             log::error!("Switching version for NoRiskMod is not supported via this command.");
