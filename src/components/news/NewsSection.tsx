@@ -18,9 +18,19 @@ interface NewsSectionProps {
 
 export function NewsSection({ className }: NewsSectionProps) {
   const newsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [rightWidth, setRightWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("newsPaneWidth");
+      return stored ? parseInt(stored, 10) : 320;
+    }
+    return 320;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
@@ -76,6 +86,39 @@ export function NewsSection({ className }: NewsSectionProps) {
       return () => ctx.revert();
     }
   }, [posts, isLoading, isBackgroundAnimationEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("newsPaneWidth", rightWidth.toString());
+  }, [rightWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newWidth = rect.right - e.clientX;
+      const clamped = Math.min(Math.max(240, newWidth), 600); // min 240, max 600
+      setRightWidth(clamped);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+
+    if (isDragging) {
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -185,18 +228,39 @@ export function NewsSection({ className }: NewsSectionProps) {
   };
 
   return (
-    <div
-      ref={newsRef}
-      className={cn("h-full flex flex-col !p-3 z-0", className)}
-      style={{
-        borderLeft: `2px solid ${accentColor.value}60`,
-        borderRight: `2px solid ${accentColor.value}60`,
-        boxShadow: `0 0 15px ${accentColor.value}30 inset`,
-      }}
-    >
-      <div className="pb-1">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+    <div ref={containerRef} className="flex h-full relative">
+      {/* Hide/Show NewsSection Button */}
+      <button
+        className="absolute top-3 right-6 text-white text-sm text-center px-2 py-1 rounded-[var(--border-radius)] z-[100]"
+        style={{
+          pointerEvents: "auto",
+          backgroundColor: `${accentColor.value}90`,
+          width: "40px",
+        }}
+        onClick={() => setIsVisible((v) => !v)}
+      >
+        {isVisible ? "Hide" : "Show"}
+      </button>
+      {/* resize handle + panel */}
+      {isVisible && (
+        <>
+          <div
+            className="w-1 bg-gray-700 cursor-col-resize hover:bg-gray-500"
+            onMouseDown={() => setIsDragging(true)}
+          />
+          <div
+            ref={newsRef}
+            className={cn("h-full flex flex-col !p-3 z-0", isVisible ? "transition-[transform,opacity] duration-300 ease-in-out": "", className)}
+            style={{
+              width: `${rightWidth}px`,
+              borderLeft: `2px solid ${accentColor.value}60`,
+              borderRight: `2px solid ${accentColor.value}60`,
+              boxShadow: `0 0 15px ${accentColor.value}30 inset`,
+            }}
+          >
+            <div className="pb-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
             <Icon icon="pixel:newspaper-solid" className="w-7 h-7 text-white" />
             <h2 className="text-2xl font-minecraft lowercase text-white">NEWS</h2>
           </div>
@@ -210,5 +274,8 @@ export function NewsSection({ className }: NewsSectionProps) {
         {renderContent()}
       </div>
     </div>
+</>
+      )}
+    </div>      
   );
 }
