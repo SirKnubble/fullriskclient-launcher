@@ -1217,8 +1217,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
     
     const itemsToUpdateWithDetails: {item: T, version: UnifiedVersion}[] = [];
     for (const item of items) {
-      if (item.sha1_hash && contentUpdates[item.sha1_hash]) {
-        itemsToUpdateWithDetails.push({ item, version: contentUpdates[item.sha1_hash] });
+      // Use the same identifier logic as in checkForContentUpdates
+      const updateIdentifier = getUpdateIdentifier(item);
+      if (updateIdentifier && contentUpdates[updateIdentifier]) {
+        itemsToUpdateWithDetails.push({ item, version: contentUpdates[updateIdentifier] });
       }
     }
 
