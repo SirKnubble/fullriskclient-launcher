@@ -1863,6 +1863,20 @@ pub struct CurseForgeUpdateInfo {
     pub file_date: String,
 }
 
+/// Convert CurseForge mod loader ID to string name
+/// Maps CurseForge loader IDs (1=Forge, 2=Fabric, etc.) to string names
+pub fn curseforge_loader_id_to_string(loader_id: u32) -> &'static str {
+    match loader_id {
+        1 => "forge",
+        2 => "fabric",
+        3 => "quilt",
+        4 => "neoforge",
+        5 => "liteloader",
+        6 => "cauldron",
+        _ => "unknown"
+    }
+}
+
 /// Find the best matching file from a list of files based on game versions and loaders
 /// Only returns files that match both the exact game version AND loader combination
 pub(crate) fn find_best_matching_file<'a>(
@@ -1887,6 +1901,149 @@ pub(crate) fn find_best_matching_file<'a>(
 
     // No compatible file found - don't suggest updates for incompatible versions
     None
+}
+
+/// Find the index of the currently installed file in the mod's latestFilesIndexes
+/// and check if there are newer compatible versions available
+/// Returns only data from latestFilesIndexes without accessing latestFiles
+pub fn check_mod_update_by_file_index(
+    mod_data: &CurseForgeMod,
+    fingerprint_match: &CurseForgeFingerprintMatch,
+    game_versions: &[String],
+    loaders: &[String],
+) -> Option<CurseForgeFileIndex> {
+    log::debug!("###Checking mod update by file index for mod {}", mod_data.name);
+
+    // Debug: Show all latestFilesIndexes entries first
+    log::debug!("Mod {}: Available latestFilesIndexes entries ({} total):", mod_data.name, mod_data.latestFilesIndexes.len());
+    for (i, index_entry) in mod_data.latestFilesIndexes.iter().enumerate() {
+        log::debug!("  [{}] FileId: {}, GameVersion: {}, ModLoader: {:?}, Filename: '{}', ReleaseType: {}",
+                   i,
+                   index_entry.fileId,
+                   index_entry.gameVersion,
+                   index_entry.modLoader,
+                   index_entry.filename,
+                   index_entry.releaseType);
+    }
+
+    // Find the index of the installed file in the mod's latestFilesIndexes
+    let installed_file_id = fingerprint_match.file.id;
+    log::debug!("Mod {}: Looking for installed file ID {} in latestFilesIndexes", mod_data.name, installed_file_id);
+
+    // Find the file index entry for our installed file
+    let installed_file_index = mod_data.latestFilesIndexes
+        .iter()
+        .find(|idx| idx.fileId == installed_file_id);
+
+    if let Some(index) = installed_file_index {
+        log::debug!("Mod {}: Found installed file ID {} in latestFilesIndexes", mod_data.name, installed_file_id);
+    } else {
+        log::debug!("Mod {}: Installed file ID {} NOT found in latestFilesIndexes - will return first compatible file from latestFilesIndexes", mod_data.name, installed_file_id);
+    }
+
+    // If we found the installed file, log its details
+    if let Some(installed_index) = installed_file_index {
+        log::debug!(
+            "Mod {}: Installed file ID {} found in latestFilesIndexes - GameVersion: {}, FileId: {}, ModLoader: {:?}",
+            mod_data.name,
+            installed_file_id,
+            installed_index.gameVersion,
+            installed_index.fileId,
+            installed_index.modLoader
+        );
+    }
+
+    // Now look through latestFilesIndexes for compatible files
+    // If we have the installed file, we look for newer ones; otherwise, we take the first compatible one
+
+    let mut compatible_updates = Vec::new();
+
+    for (current_pos, index_entry) in mod_data.latestFilesIndexes.iter().enumerate() {
+        // Skip our installed file if we found it
+        if index_entry.fileId == installed_file_id {
+            continue;
+        }
+
+        // If we found the installed file, skip older files (higher indices)
+        // Note: In CurseForge latestFilesIndexes, newer versions appear at LOWER indices!
+        if let Some(installed_index) = installed_file_index {
+            let installed_index_pos = mod_data.latestFilesIndexes
+                .iter()
+                .position(|idx| idx.fileId == installed_file_id)
+                .unwrap_or(usize::MAX);
+
+            if current_pos >= installed_index_pos {
+                continue;
+            }
+        }
+
+        // Check game version compatibility
+        let has_matching_game_version = game_versions.iter().any(|gv| {
+            gv == &index_entry.gameVersion
+        });
+
+        // Check loader compatibility
+        let has_matching_loader = if let Some(mod_loader_id) = index_entry.modLoader {
+            // Convert loader ID to string and check against our loaders
+            let loader_name = curseforge_loader_id_to_string(mod_loader_id);
+            loaders.iter().any(|l| l == loader_name)
+        } else {
+            // If no loader specified, assume compatible (some mods work with any loader)
+            true
+        };
+
+        if has_matching_game_version && has_matching_loader {
+            log::debug!(
+                "Mod {}: Found compatible update via latestFilesIndexes - Index: {}, FileId: {}, GameVersion: {}, ModLoader: {:?}, Filename: '{}'",
+                mod_data.name,
+                current_pos,
+                index_entry.fileId,
+                index_entry.gameVersion,
+                index_entry.modLoader,
+                index_entry.filename
+            );
+
+            compatible_updates.push((current_pos, index_entry.clone()));
+        }
+    }
+
+    // Return the latest compatible update (lowest index position = newest)
+    // In CurseForge latestFilesIndexes, newer versions have LOWER indices!
+    if let Some((latest_pos, latest_update)) = compatible_updates
+        .into_iter()
+        .min_by_key(|(pos, _)| *pos)
+    {
+        if installed_file_index.is_some() {
+            log::debug!(
+                "Mod {}: Returning latest compatible update via latestFilesIndexes - Index: {}, FileId: {}",
+                mod_data.name,
+                latest_pos,
+                latest_update.fileId
+            );
+        } else {
+            log::debug!(
+                "Mod {}: Returning first compatible file from latestFilesIndexes (installed file not found) - Index: {}, FileId: {}",
+                mod_data.name,
+                latest_pos,
+                latest_update.fileId
+            );
+        }
+        Some(latest_update)
+    } else {
+        if installed_file_index.is_some() {
+            log::debug!(
+                "Mod {}: No newer compatible files found via latestFilesIndexes for installed file ID {}",
+                mod_data.name,
+                installed_file_id
+            );
+        } else {
+            log::debug!(
+                "Mod {}: No compatible files found in latestFilesIndexes",
+                mod_data.name
+            );
+        }
+        None
+    }
 }
 
 /// Check for mod updates using CurseForge's fingerprint API
@@ -2023,121 +2180,146 @@ pub async fn check_mod_updates_bulk(
     // Convert fingerprint matches to update info with proper filtering
     let mut updates = Vec::new();
 
-    // Process exact matches - these have the actual installed file
-    for (index, fingerprint_match) in fingerprint_response.exact_matches.iter().enumerate() {
-        // Get the mod details for this match
-        let Some(mod_data) = mods_response.data.iter().find(|m| m.id == fingerprint_match.id) else {
-            continue; // No mod data found for this fingerprint match
-        };
+    // Helper struct to collect update candidates before batch processing
+    struct UpdateCandidate<'a> {
+        fingerprint_match: &'a CurseForgeFingerprintMatch,
+        mod_data: &'a CurseForgeMod,
+        update_index: CurseForgeFileIndex,
+        original_fingerprint: u64,
+        is_exact_match: bool,
+    }
 
-        // Find the best matching file from latestFiles based on our filters
-        let Some(best_file) = find_best_matching_file(&fingerprint_match.latest_files, game_versions, loaders) else {
-            log::debug!("Mod {}: No compatible file found for current game version/loader combination", mod_data.name);
+    // First pass: Find all potential updates via latestFilesIndexes
+    let mut update_candidates = Vec::new();
+
+    // Process exact matches
+    for (index, fingerprint_match) in fingerprint_response.exact_matches.iter().enumerate() {
+        let Some(mod_data) = mods_response.data.iter().find(|m| m.id == fingerprint_match.id) else {
             continue;
         };
 
-        log::debug!("Mod {}: Found best matching file - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}",
-                   mod_data.name, best_file.id, best_file.fileDate, best_file.displayName, best_file.gameVersions);
+        if let Some(update_index) = check_mod_update_by_file_index(
+            mod_data,
+            fingerprint_match,
+            game_versions,
+            loaders
+        ) {
+            info!(
+                "Mod {}: Found update candidate via latestFilesIndexes - FileId: {}, GameVersion: {}, ModLoader: {:?} (exact match)",
+                mod_data.name,
+                update_index.fileId,
+                update_index.gameVersion,
+                update_index.modLoader
+            );
 
-        // Compare with the actual installed file (fingerprint_match.file)
-        let installed_file = &fingerprint_match.file;
-        let installed_date = &installed_file.fileDate;
-        let update_date = &best_file.fileDate;
-
-        // If the best_file is newer than installed, or has different ID, it's an update
-        let date_newer = update_date > installed_date;
-        let id_different = best_file.id != installed_file.id;
-
-        let installed_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&installed_file.gameVersions);
-        let best_loaders = crate::integrations::unified_mod::extract_loaders_from_game_versions(&best_file.gameVersions);
-
-        log::debug!(
-            "Mod {}: Installed file - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}, Loaders: {:?}; Best available - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}, Loaders: {:?}; Is update: {} (date_newer: {}, id_different: {})",
-            mod_data.name,
-            installed_file.id,
-            installed_date,
-            installed_file.displayName,
-            installed_file.gameVersions,
-            installed_loaders,
-            best_file.id,
-            update_date,
-            best_file.displayName,
-            best_file.gameVersions,
-            best_loaders,
-            date_newer || id_different,
-            date_newer,
-            id_different
-        );
-
-        if date_newer || id_different {
-            log::debug!("Mod {}: Adding as update", mod_data.name);
-            let update_info = CurseForgeUpdateInfo {
+            update_candidates.push(UpdateCandidate {
+                fingerprint_match,
+                mod_data,
+                update_index,
                 original_fingerprint: fingerprint_response.exact_fingerprints[index],
-                fingerprint: fingerprint_match.id,
-                project_id: mod_data.id,
-                file_id: best_file.id,
-                file_name: best_file.fileName.clone(),
-                download_url: best_file.downloadUrl.clone(),
-                release_type: best_file.releaseType,
-                game_versions: best_file.gameVersions.clone(),
-                dependencies: best_file.dependencies.clone(),
-                hash_sha1: best_file.hashes.iter()
-                    .find(|h| h.algo == 1) // SHA1 = 1
-                    .map(|h| h.value.clone()),
-                file_size: best_file.fileLength,
-                file_date: best_file.fileDate.clone(),
-            };
-
-            updates.push(update_info);
+                is_exact_match: true,
+            });
         } else {
-            log::debug!("Mod {}: No update needed (already latest compatible version)", mod_data.name);
+            debug!("Mod {}: No newer compatible files found via latestFilesIndexes (exact match)", mod_data.name);
         }
     }
 
-    // Process partial matches - we don't have exact installed file info, so assume updates are available
+    // Process partial matches
     for fingerprint_match in &fingerprint_response.partial_matches {
-        // Get the mod details for this match
         let Some(mod_data) = mods_response.data.iter().find(|m| m.id == fingerprint_match.id) else {
-            continue; // No mod data found for this fingerprint match
-        };
-
-        // Find the best matching file from latestFiles based on our filters
-        let Some(best_file) = find_best_matching_file(&fingerprint_match.latest_files, game_versions, loaders) else {
-            log::debug!("Mod {}: No compatible file found for current game version/loader combination", mod_data.name);
             continue;
         };
 
-        log::debug!("Mod {}: Found best matching file for partial match - ID: {}, Date: {}, Name: '{}', GameVersions: {:?}",
-                   mod_data.name, best_file.id, best_file.fileDate, best_file.displayName, best_file.gameVersions);
+        if let Some(update_index) = check_mod_update_by_file_index(
+            mod_data,
+            fingerprint_match,
+            game_versions,
+            loaders
+        ) {
+            info!(
+                "Mod {}: Found update candidate via latestFilesIndexes - FileId: {}, GameVersion: {}, ModLoader: {:?} (partial match)",
+                mod_data.name,
+                update_index.fileId,
+                update_index.gameVersion,
+                update_index.modLoader
+            );
 
-        // For partial matches, we assume there might be an update since we found a similar (but not exact) fingerprint
-        log::debug!("Mod {}: Partial match found (similar fingerprint), assuming update is available", mod_data.name);
+            let project_id_key = fingerprint_match.id.to_string();
+            let original_fingerprint = fingerprint_response.partial_match_fingerprints
+                .get(&project_id_key)
+                .and_then(|fingerprints| fingerprints.first().copied())
+                .unwrap_or(0);
 
-        // Get the original fingerprint from partial_match_fingerprints
-        let project_id_key = fingerprint_match.id.to_string();
-        let original_fingerprint = fingerprint_response.partial_match_fingerprints
-            .get(&project_id_key)
-            .and_then(|fingerprints| fingerprints.first().copied())
-            .unwrap_or(0); // Fallback to 0 if not found
+            update_candidates.push(UpdateCandidate {
+                fingerprint_match,
+                mod_data,
+                update_index,
+                original_fingerprint,
+                is_exact_match: false,
+            });
+        } else {
+            debug!("Mod {}: No newer compatible files found via latestFilesIndexes (partial match)", mod_data.name);
+        }
+    }
 
-        let update_info = CurseForgeUpdateInfo {
-            original_fingerprint,
-            fingerprint: fingerprint_match.id,
-            project_id: mod_data.id,
-            file_id: best_file.id,
-            file_name: best_file.fileName.clone(),
-            download_url: best_file.downloadUrl.clone(),
-            release_type: best_file.releaseType,
-            game_versions: best_file.gameVersions.clone(),
-            dependencies: best_file.dependencies.clone(),
-            hash_sha1: best_file.hashes.iter()
-                .find(|h| h.algo == 1) // SHA1 = 1
-                .map(|h| h.value.clone()),
-            file_size: best_file.fileLength,
-            file_date: best_file.fileDate.clone(),
-        };
+    // Second pass: Batch fetch detailed file information using POST /v1/mods/files
+    if !update_candidates.is_empty() {
+        let file_ids: Vec<u32> = update_candidates.iter()
+            .map(|candidate| candidate.update_index.fileId)
+            .collect();
 
-        updates.push(update_info);
+        info!("Batch fetching {} file details for update candidates", file_ids.len());
+
+        match get_files_by_ids(file_ids).await {
+            Ok(update_files) => {
+                // Create a lookup map for efficient file data retrieval
+                let file_data_map: std::collections::HashMap<u32, &CurseForgeFile> = update_files.iter()
+                    .map(|file| (file.id, file))
+                    .collect();
+
+                // Process each update candidate
+                for candidate in update_candidates {
+                    if let Some(update_file) = file_data_map.get(&candidate.update_index.fileId) {
+                        info!(
+                            "Mod {}: Retrieved detailed file info for FileId {} - Name: '{}', Size: {} bytes ({})",
+                            candidate.mod_data.name,
+                            update_file.id,
+                            update_file.displayName,
+                            update_file.fileLength,
+                            if candidate.is_exact_match { "exact" } else { "partial" }
+                        );
+
+                        let update_info = CurseForgeUpdateInfo {
+                            original_fingerprint: candidate.original_fingerprint,
+                            fingerprint: candidate.fingerprint_match.id,
+                            project_id: candidate.mod_data.id,
+                            file_id: update_file.id,
+                            file_name: update_file.fileName.clone(),
+                            download_url: update_file.downloadUrl.clone(),
+                            release_type: update_file.releaseType,
+                            game_versions: update_file.gameVersions.clone(),
+                            dependencies: update_file.dependencies.clone(),
+                            hash_sha1: update_file.hashes.iter()
+                                .find(|h| h.algo == 1) // SHA1 = 1
+                                .map(|h| h.value.clone()),
+                            file_size: update_file.fileLength,
+                            file_date: update_file.fileDate.clone(),
+                        };
+
+                        updates.push(update_info);
+                    } else {
+                        error!(
+                            "Mod {}: File data not found in batch response for FileId {}",
+                            candidate.mod_data.name,
+                            candidate.update_index.fileId
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Failed to batch fetch file details for {} update candidates: {}", update_candidates.len(), e);
+            }
+        }
     }
 
     info!("Found {} CurseForge mod updates after filtering", updates.len());
