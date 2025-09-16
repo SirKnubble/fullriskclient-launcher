@@ -22,6 +22,7 @@ use super::minecraft_auth::Credentials;
 use super::modloader::ModloaderFactory;
 use crate::minecraft::downloads::MinecraftLoggingDownloadService;
 use crate::utils::mc_utils;
+use tokio::fs as async_fs;
 
 async fn emit_progress_event(
     state: &State,
@@ -403,12 +404,71 @@ pub async fn install_minecraft_version(
 
     // Install modloader using the factory
     if modloader_enum != ModLoader::Vanilla {
+        // Resolve loader version from Norisk pack policy if available
+        let mut install_profile = profile.clone();
+        if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
+            let config_now: NoriskModpacksConfig = state.norisk_pack_manager.get_config().await;
+            if let Ok(resolved_pack) = config_now.get_resolved_pack_definition(selected_pack_id) {
+                if let Some(policy) = &resolved_pack.loader_policy {
+                        let loader_key = modloader_enum.as_str();
+                        let mut resolved_version: Option<String> = None;
+                        // Helper to read version from a loader map
+                        let get_ver = |m: &std::collections::HashMap<String, crate::integrations::norisk_packs::LoaderSpec>| {
+                            m.get(loader_key).and_then(|s| s.version.clone())
+                        };
+                        // 1) Exact MC version match
+                        if let Some(loader_map) = policy.by_minecraft.get(version_id) {
+                            resolved_version = get_ver(loader_map);
+                        }
+                        // 2) Wildcard pattern like "1.21.*"
+                        if resolved_version.is_none() {
+                            for (pat, loader_map) in &policy.by_minecraft {
+                                if pat.ends_with(".*") {
+                                    let prefix = &pat[..pat.len() - 2];
+                                    if version_id.starts_with(prefix) {
+                                        resolved_version = get_ver(loader_map);
+                                        if resolved_version.is_some() { break; }
+                                    }
+                                }
+                            }
+                        }
+                        // 3) Prefix match (e.g., "1.21")
+                        if resolved_version.is_none() {
+                            for (pat, loader_map) in &policy.by_minecraft {
+                                if !pat.ends_with(".*") && version_id.starts_with(pat) {
+                                    resolved_version = get_ver(loader_map);
+                                    if resolved_version.is_some() { break; }
+                                }
+                            }
+                        }
+                        // 4) Default fallback
+                        if resolved_version.is_none() {
+                            resolved_version = policy
+                                .default
+                                .get(loader_key)
+                                .and_then(|s| s.version.clone());
+                        }
+
+                        if let Some(ver) = resolved_version {
+                            info!(
+                                "Applying loader version '{}' from pack policy '{}' for MC {} ({:?})",
+                                ver,
+                                selected_pack_id,
+                                version_id,
+                                modloader_enum
+                            );
+                            install_profile.loader_version = Some(ver);
+                        }
+                    }
+                }
+            }
+
         let modloader_installer = ModloaderFactory::create_installer_with_config(
             &modloader_enum,
             java_path.clone(),
             launcher_config.concurrent_downloads,
         );
-        let modloader_result = modloader_installer.install(version_id, profile).await?;
+        let modloader_result = modloader_installer.install(version_id, &install_profile).await?;
 
         // Apply modloader specific parameters to launch parameters
         if let Some(main_class) = modloader_result.main_class {
@@ -678,6 +738,20 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
+    // --- Prototype: Provide managed mods via Fabric addMods meta file (Fabric only) ---
+    if modloader_enum == ModLoader::Fabric {
+        let add_mods_arg = crate::minecraft::downloads::mod_resolver::build_fabric_add_mods_arg(
+            profile.id,
+            version_id,
+            &target_mods,
+        )
+        .await?;
+        let mut current_jvm_args = launch_params.additional_jvm_args.clone();
+        current_jvm_args.push(add_mods_arg);
+        launch_params = launch_params.with_additional_jvm_args(current_jvm_args);
+        info!("Configured Fabric addMods meta file for profile '{}'", profile.name);
+    }
+
     // --- Step: Sync mods from cache to profile directory ---
     let sync_event_id = emit_progress_event(
         &state,
@@ -697,10 +771,19 @@ pub async fn install_minecraft_version(
     // Get the correct mods directory path for the profile
     let profile_mods_path = state.profile_manager.get_profile_mods_path(profile)?;
 
+    // Ensure mods folder exists for all loaders before launch/sync
+    async_fs::create_dir_all(&profile_mods_path).await?;
+
     // Pass the resolved target_mods list and the specific mods path to the sync function
-    mod_downloader_service
-        .sync_mods_to_profile(&target_mods, &profile_mods_path)
-        .await?;
+    if modloader_enum == ModLoader::Fabric {
+        info!(
+            "Skipping mods folder sync for Fabric (using addMods meta file instead)."
+        );
+    } else {
+        mod_downloader_service
+            .sync_mods_to_profile(&target_mods, &profile_mods_path)
+            .await?;
+    }
 
     info!("Mod sync completed for profile '{}'", profile.name);
     emit_progress_event(
