@@ -3099,11 +3099,27 @@ impl ProfileManager {
 impl PostInitializationHandler for ProfileManager {
     async fn on_state_ready(&self, _app_handle: Arc<tauri::AppHandle>) -> Result<()> {
         info!("ProfileManager: on_state_ready called. Loading profiles...");
+        // PRIORITY 0: Create backup BEFORE ANYTHING else (including loading)
+        info!("ProfileManager: Creating pre-load backup of profiles.json...");
+        if self.profiles_path.exists() {
+            match backup_utils::create_backup(&self.profiles_path, Some("profiles"), &self.backup_config).await {
+                Ok(backup_path) => {
+                    info!("ProfileManager: Pre-load backup created: {:?}", backup_path);
+                }
+                Err(e) => {
+                    warn!("ProfileManager: Failed to create pre-load backup: {}", e);
+                    // Continue anyway - don't fail the whole operation
+                }
+            }
+        } else {
+            info!("ProfileManager: profiles.json doesn't exist yet - no backup needed at this stage");
+        }
+
         let mut loaded_profiles = self
             .load_profiles_internal(&self.profiles_path.clone())
             .await?;
-        
-        // Perform profile migrations
+
+        // Perform profile migrations (now safe because we have a backup)
         let migration_count = crate::utils::migration_utils::migrate_profiles(&mut loaded_profiles);
         
         // Set profiles in memory
@@ -3121,51 +3137,6 @@ impl PostInitializationHandler for ProfileManager {
         // Sync standard profiles - create editable copies for each norisk_version
         if let Err(e) = self.sync_standard_profiles().await {
             warn!("ProfileManager: Failed to sync standard profiles: {}", e);
-        }
-
-        // Log backup statistics and create initial backup if needed
-        match backup_utils::get_backup_stats(Some("profiles")).await {
-            Ok(stats) => {
-                info!("ProfileManager: Backup stats - Total backups: {}, Total size: {} bytes",
-                      stats.total_backups, stats.total_size);
-                if let Some(oldest) = stats.oldest_backup {
-                    info!("ProfileManager: Oldest backup: {}", oldest.format("%Y-%m-%d %H:%M:%S UTC"));
-                }
-                if let Some(newest) = stats.newest_backup {
-                    info!("ProfileManager: Newest backup: {}", newest.format("%Y-%m-%d %H:%M:%S UTC"));
-                }
-
-                // Create initial backup if no backups exist yet
-                if stats.total_backups == 0 {
-                    info!("ProfileManager: No backups found for profiles.json - creating initial backup...");
-                    match backup_utils::create_backup(&self.profiles_path, Some("profiles"), &self.backup_config).await {
-                        Ok(backup_path) => {
-                            info!("ProfileManager: Initial backup created successfully: {:?}", backup_path);
-                        }
-                        Err(e) => {
-                            warn!("ProfileManager: Failed to create initial backup: {}", e);
-                        }
-                    }
-                } else {
-                    info!("ProfileManager: Backups already exist ({} total) - skipping initial backup creation", stats.total_backups);
-                }
-            }
-            Err(e) => {
-                warn!("ProfileManager: Failed to get backup statistics: {}. Attempting to create initial backup anyway.", e);
-
-                // Even if we can't get stats, try to create a backup if the profiles file exists
-                if self.profiles_path.exists() {
-                    info!("ProfileManager: Creating initial backup as fallback...");
-                    match backup_utils::create_backup(&self.profiles_path, Some("profiles"), &self.backup_config).await {
-                        Ok(backup_path) => {
-                            info!("ProfileManager: Initial backup created successfully: {:?}", backup_path);
-                        }
-                        Err(backup_err) => {
-                            warn!("ProfileManager: Failed to create initial backup: {}", backup_err);
-                        }
-                    }
-                }
-            }
         }
 
         info!("ProfileManager: Successfully loaded profiles in on_state_ready.");
