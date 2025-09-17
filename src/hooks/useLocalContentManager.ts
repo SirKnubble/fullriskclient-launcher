@@ -11,7 +11,7 @@ import { ModrinthService } from '../services/modrinth-service';
 import { CurseForgeService } from '../services/curseforge-service';
 import { UnifiedService } from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
-import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion } from '../services/content-service';
+import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion, toggleModUpdates, bulkToggleModUpdates } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
 import { getUpdateIdentifier, getContentPlatform } from '../utils/update-identifier-utils';
 
@@ -93,6 +93,10 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   handleUpdateContentItem: (item: T, updateVersion: UnifiedVersion, suppressOwnToast?: boolean) => Promise<void>;
   handleUpdateAllAvailableContent: () => Promise<void>;
   handleSwitchContentVersion: (item: T, newVersion: UnifiedVersion) => Promise<void>;
+
+  // Mod update toggle methods
+  handleToggleItemUpdatesEnabled: (item: T) => Promise<void>;
+  handleBatchToggleSelectedUpdatesEnabled: (updatesEnabled: boolean) => Promise<void>;
 }
 
 // Helper to map LocalContentType (UI string) to NrContentType (backend enum string)
@@ -514,8 +518,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (activeDropdownId && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        const moreActionsButton = (event.target as HTMLElement).closest(`[data-item-id="${activeDropdownId}"] [title~="More"]`);
-        if (!moreActionsButton) {
+        // Check if the click was on the "More Actions" button or any of its children
+        const clickedElement = event.target as HTMLElement;
+        const isMoreActionsButton = clickedElement.closest(`button[title="More Actions"], button[aria-label="More Actions"]`);
+        if (!isMoreActionsButton) {
           setActiveDropdownId(null);
         }
       }
@@ -715,8 +721,9 @@ export function useLocalContentManager<T extends LocalContentItem>({
     for (const item of items) {
       const updateIdentifier = getUpdateIdentifier(item);
       if (updateIdentifier && contentUpdates[updateIdentifier]) {
-        // Only count mods that have updates enabled (true or null/undefined)
-        const hasUpdatesEnabled = contentType === 'Mod' && item.updates_enabled !== false;
+        // Only count mods that have updates enabled (default to true if null/undefined)
+        const updatesEnabledDefault = item.updates_enabled ?? true;
+        const hasUpdatesEnabled = contentType === 'Mod' && updatesEnabledDefault !== false;
 
         if (hasUpdatesEnabled) {
           count++;
@@ -1352,6 +1359,125 @@ export function useLocalContentManager<T extends LocalContentItem>({
   // `checkForContentUpdates` is a useCallback that itself depends on `items`, so it will use the latest `items` when called.
   // The `isInitialLoadProcessComplete` flag is the primary gate for this effect.
 
+  // Toggle updates enabled for a single item
+  const handleToggleItemUpdatesEnabled = useCallback(async (item: T) => {
+    if (!profile) {
+      toast.error("Cannot toggle update checks: Missing profile.");
+      return;
+    }
+
+    if (!item.id) {
+      toast.error(`Cannot toggle update checks: ${getDisplayFileName(item)} has no valid ID.`);
+      return;
+    }
+
+    const currentUpdatesEnabled = item.updates_enabled ?? true; // Default to true if null
+    const newUpdatesEnabled = !currentUpdatesEnabled;
+
+    const promiseAction = async () => {
+      await toggleModUpdates({
+        profile_id: profile.id,
+        mod_id: item.id,
+        updates_enabled: newUpdatesEnabled,
+      });
+
+      // Update local state immediately for better UX
+      setItems(prevItems =>
+        prevItems.map(prevItem =>
+          prevItem.id === item.id
+            ? { ...prevItem, updates_enabled: newUpdatesEnabled }
+            : prevItem
+        )
+      );
+    };
+
+    await toast.promise(
+      promiseAction(),
+      {
+        loading: `${newUpdatesEnabled ? 'Enabling' : 'Disabling'} update checks for ${getDisplayFileName(item)}...`,
+        success: `Update checks ${newUpdatesEnabled ? 'enabled' : 'disabled'} for ${getDisplayFileName(item)}.`,
+        error: (err) => `Failed to toggle update checks: ${err.message?.toString() || 'Unknown error'}`,
+      },
+      {
+        success: {
+          duration: 700,
+        },
+      },
+    );
+
+  }, [profile, getDisplayFileName]);
+
+  // Bulk toggle updates enabled for selected items
+  const handleBatchToggleSelectedUpdatesEnabled = useCallback(async (updatesEnabled: boolean) => {
+    if (!profile) {
+      toast.error("Cannot toggle update checks: Missing profile.");
+      return;
+    }
+
+    if (selectedItemIds.size === 0) {
+      toast.error("No items selected.");
+      return;
+    }
+
+    // Find the selected items
+    const selectedItems = items.filter(item => selectedItemIds.has(item.filename));
+
+    if (selectedItems.length === 0) {
+      toast.error("Selected items not found.");
+      return;
+    }
+
+    const promiseAction = async () => {
+      // Filter out items without valid IDs and prepare bulk update payload
+      const validItems = selectedItems.filter(item => item.id);
+      if (validItems.length === 0) {
+        throw new Error("No valid items found with IDs for update check toggle");
+      }
+
+      const modUpdates = validItems.map(item => ({
+        mod_id: item.id,
+        updates_enabled: updatesEnabled,
+      }));
+
+      await bulkToggleModUpdates({
+        profile_id: profile.id,
+        mod_updates: modUpdates,
+      });
+
+      // Update local state immediately for better UX (only for valid items)
+      setItems(prevItems =>
+        prevItems.map(prevItem =>
+          validItems.some(validItem => validItem.filename === prevItem.filename)
+            ? { ...prevItem, updates_enabled: updatesEnabled }
+            : prevItem
+        )
+      );
+
+      // Clear selection after successful operation
+      setSelectedItemIds(new Set());
+    };
+
+    await toast.promise(
+      promiseAction(),
+      {
+        loading: `${updatesEnabled ? 'Enabling' : 'Disabling'} update checks for ${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}...`,
+        success: `Update checks ${updatesEnabled ? 'enabled' : 'disabled'} for ${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}.`,
+        error: (err) => `Failed to toggle update checks: ${err.message || 'Unknown error'}`,
+      },
+      {
+        success: {
+          duration: 700,
+        },
+      },
+    ).catch((err) => {
+      // If we get an error about valid items, show a more specific message
+      if (err.message && err.message.includes('No valid items found')) {
+        toast.error('Cannot toggle update checks: Selected items do not have valid IDs');
+      }
+    });
+
+  }, [profile, selectedItemIds, items]);
+
   return {
     items,
     isLoading: isInitialLoadingState, 
@@ -1399,5 +1525,9 @@ export function useLocalContentManager<T extends LocalContentItem>({
     handleUpdateContentItem,
     handleUpdateAllAvailableContent,
     handleSwitchContentVersion,
+
+    // Mod update toggle methods
+    handleToggleItemUpdatesEnabled,
+    handleBatchToggleSelectedUpdatesEnabled,
   };
 } 

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { UninstallContentPayload, ToggleContentPayload, InstallContentPayload, InstallLocalContentPayload, SwitchContentVersionPayload } from '../types/content';
+import type { UninstallContentPayload, ToggleContentPayload, InstallContentPayload, InstallLocalContentPayload, SwitchContentVersionPayload, ToggleModUpdatesPayload, BulkToggleModUpdatesPayload } from '../types/content';
 
 /**
  * Uninstalls content from a specified profile based on the provided payload.
@@ -135,6 +135,53 @@ export async function switchContentVersion(
       error
     );
     // Consider toast: toast.error(`Failed to switch content version: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * Toggles mod update settings for a single mod in a specified profile.
+ *
+ * @param payload - The details of the mod update settings to toggle.
+ * @returns A promise that resolves if the toggle is successful, or rejects with an error.
+ */
+export async function toggleModUpdates(
+  payload: ToggleModUpdatesPayload,
+): Promise<void> {
+  try {
+    await invoke<void>('toggle_mod_updates', { payload });
+    console.log(
+      `Successfully toggled mod updates for profile ${payload.profile_id}, mod ${payload.mod_id} to updates_enabled=${payload.updates_enabled}`
+    );
+  } catch (error) {
+    console.error(
+      `Error toggling mod updates for profile ${payload.profile_id}, mod ${payload.mod_id}:`,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Bulk toggles mod update settings for multiple mods in a specified profile.
+ * This is more efficient than calling toggleModUpdates multiple times.
+ *
+ * @param payload - The details of multiple mod update settings to toggle.
+ * @returns A promise that resolves if all toggles are successful, or rejects with an error.
+ */
+export async function bulkToggleModUpdates(
+  payload: BulkToggleModUpdatesPayload,
+): Promise<void> {
+  try {
+    await invoke<void>('bulk_toggle_mod_updates', { payload });
+    console.log(
+      `Successfully bulk toggled mod updates for profile ${payload.profile_id}, ${payload.mod_updates.length} mods`
+    );
+  } catch (error) {
+    console.error(
+      `Error bulk toggling mod updates for profile ${payload.profile_id}, ${payload.mod_updates.length} mods:`,
+      error
+    );
     throw error;
   }
 } 

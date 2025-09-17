@@ -1139,6 +1139,18 @@ pub struct ToggleModUpdatesPayload {
     pub updates_enabled: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BulkToggleModUpdatesPayload {
+    pub profile_id: Uuid,
+    pub mod_updates: Vec<BulkModUpdateEntry>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BulkModUpdateEntry {
+    pub mod_id: Uuid,
+    pub updates_enabled: bool,
+}
+
 #[tauri::command]
 pub async fn switch_content_version(
     payload: SwitchContentVersionPayload,
@@ -1298,11 +1310,26 @@ pub async fn switch_content_version(
 pub async fn toggle_mod_updates(
     payload: ToggleModUpdatesPayload,
 ) -> Result<(), CommandError> {
+    // For backwards compatibility, convert single mod request to bulk request
+    let bulk_payload = BulkToggleModUpdatesPayload {
+        profile_id: payload.profile_id,
+        mod_updates: vec![BulkModUpdateEntry {
+            mod_id: payload.mod_id,
+            updates_enabled: payload.updates_enabled,
+        }],
+    };
+
+    bulk_toggle_mod_updates(bulk_payload).await
+}
+
+#[tauri::command]
+pub async fn bulk_toggle_mod_updates(
+    payload: BulkToggleModUpdatesPayload,
+) -> Result<(), CommandError> {
     log::info!(
-        "Attempting to toggle mod updates: profile_id={}, mod_id={}, updates_enabled={}",
+        "Attempting to bulk toggle mod updates: profile_id={}, mod_count={}",
         payload.profile_id,
-        payload.mod_id,
-        payload.updates_enabled
+        payload.mod_updates.len()
     );
 
     let state_manager = AppStateManager::get().await.map_err(|e| {
@@ -1313,67 +1340,101 @@ pub async fn toggle_mod_updates(
         )))
     })?;
 
-    // Get the profile to find the mod
+    // Get the profile to validate mods exist
     let profile = state_manager
         .profile_manager
         .get_profile(payload.profile_id)
         .await
         .map_err(CommandError::from)?;
 
-    // Find the mod by ID
-    let mod_entry = profile.mods.iter().find(|m| m.id == payload.mod_id);
+    // Validate all mods exist before making any changes
+    let mut not_found_mods = Vec::new();
+    let mut mods_to_update = Vec::new();
 
-    match mod_entry {
-        Some(mod_entry) => {
-            // Check if the current state is already what we want
-            if mod_entry.updates_enabled == payload.updates_enabled {
-                log::info!(
-                    "Mod {} in profile {} already has updates_enabled={}. No change needed.",
-                    mod_entry.id,
-                    payload.profile_id,
-                    payload.updates_enabled
-                );
-                return Ok(());
-            }
-
-            // Update the mod's updates_enabled setting
-            match state_manager
-                .profile_manager
-                .set_mod_updates_enabled(payload.profile_id, payload.mod_id, payload.updates_enabled)
-                .await
-            {
-                Ok(_) => {
+    for mod_update in &payload.mod_updates {
+        let mod_entry = profile.mods.iter().find(|m| m.id == mod_update.mod_id);
+        match mod_entry {
+            Some(mod_entry) => {
+                // Only update if the state actually needs to change
+                if mod_entry.updates_enabled != mod_update.updates_enabled {
+                    mods_to_update.push((mod_update.mod_id, mod_update.updates_enabled));
+                } else {
                     log::info!(
-                        "Successfully toggled updates for mod {} in profile {} to updates_enabled={}",
-                        payload.mod_id,
+                        "Mod {} in profile {} already has updates_enabled={}. Skipping.",
+                        mod_entry.id,
                         payload.profile_id,
-                        payload.updates_enabled
+                        mod_update.updates_enabled
                     );
-                    Ok(())
-                }
-                Err(e) => {
-                    log::error!(
-                        "Failed to toggle updates for mod {} in profile {}: {}",
-                        payload.mod_id,
-                        payload.profile_id,
-                        e
-                    );
-                    Err(CommandError::from(e))
                 }
             }
-        }
-        None => {
-            log::warn!(
-                "Mod with ID {} not found in profile {}",
-                payload.mod_id,
-                payload.profile_id
-            );
-            Err(CommandError::from(AppError::NotFound(format!(
-                "Mod with ID {} not found in profile {}",
-                payload.mod_id,
-                payload.profile_id
-            ))))
+            None => {
+                not_found_mods.push(mod_update.mod_id);
+            }
         }
     }
+
+    // Report any mods that weren't found
+    if !not_found_mods.is_empty() {
+        log::warn!(
+            "The following mods were not found in profile {}: {:?}",
+            payload.profile_id,
+            not_found_mods
+        );
+        return Err(CommandError::from(AppError::NotFound(format!(
+            "Some mods not found in profile: {:?}",
+            not_found_mods
+        ))));
+    }
+
+    // If no mods need updating, we're done
+    if mods_to_update.is_empty() {
+        log::info!("No mods in profile {} need updating.", payload.profile_id);
+        return Ok(());
+    }
+
+    // Update all mods that need updating
+    let mut update_errors = Vec::new();
+
+    for (mod_id, updates_enabled) in mods_to_update {
+        match state_manager
+            .profile_manager
+            .set_mod_updates_enabled(payload.profile_id, mod_id, updates_enabled)
+            .await
+        {
+            Ok(_) => {
+                log::info!(
+                    "Successfully toggled updates for mod {} in profile {} to updates_enabled={}",
+                    mod_id,
+                    payload.profile_id,
+                    updates_enabled
+                );
+            }
+            Err(e) => {
+                log::error!(
+                    "Failed to toggle updates for mod {} in profile {}: {}",
+                    mod_id,
+                    payload.profile_id,
+                    e
+                );
+                update_errors.push((mod_id, e.to_string()));
+            }
+        }
+    }
+
+    // If any updates failed, report the errors
+    if !update_errors.is_empty() {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Some mod updates failed: {:?}",
+            update_errors
+        ))));
+    }
+
+    log::info!(
+        "Successfully completed bulk toggle for {} mods in profile {}",
+        payload.mod_updates.len(),
+        payload.profile_id
+    );
+
+    Ok(())
 }
 

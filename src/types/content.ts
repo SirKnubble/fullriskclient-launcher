@@ -86,4 +86,32 @@ export interface SwitchContentVersionPayload {
   new_version_details: UnifiedVersion; // Unified version details for any platform
 }
 
-// Represents a NoriskMod item as expected by the backend for add/remove operations 
+/**
+ * Payload for toggling mod update settings for a single mod.
+ * Mirrors the Rust struct `ToggleModUpdatesPayload`.
+ */
+export interface ToggleModUpdatesPayload {
+  profile_id: string; // UUID
+  mod_id: string; // UUID of the mod
+  updates_enabled: boolean; // Whether updates should be enabled for this mod
+}
+
+/**
+ * Payload for bulk toggling mod update settings for multiple mods.
+ * Mirrors the Rust struct `BulkToggleModUpdatesPayload`.
+ */
+export interface BulkToggleModUpdatesPayload {
+  profile_id: string; // UUID
+  mod_updates: BulkModUpdateEntry[]; // Array of mod update entries
+}
+
+/**
+ * Single entry for bulk mod update operations.
+ * Mirrors the Rust struct `BulkModUpdateEntry`.
+ */
+export interface BulkModUpdateEntry {
+  mod_id: string; // UUID of the mod
+  updates_enabled: boolean; // Whether updates should be enabled for this mod
+}
+
+// Represents a NoriskMod item as expected by the backend for add/remove operations

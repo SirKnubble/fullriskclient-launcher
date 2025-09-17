@@ -281,6 +281,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     handleUpdateContentItem,
     handleUpdateAllAvailableContent,
     handleSwitchContentVersion,
+    handleToggleItemUpdatesEnabled,
+    handleBatchToggleSelectedUpdatesEnabled,
   } = useLocalContentManager<T>({
     // Hook uses the generic type T
     profile,
@@ -912,40 +914,56 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         ...(item.source_type && item.source_type !== 'custom' ? [{
           text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
           color: isDisabled ? "#6b7280" : "#f59e0b"
-        }] : [])
+        }] : []),
+
+        // Updates status badge - removed for cleaner look
       ];
 
       // Build action buttons array for this item
       const itemActions: ContentActionButton[] = [];
 
       // Check if update is available (used for custom tooltip rendering)
-      const hasUpdateAvailable = updateAvailableVersion && !isCurrentlyUpdating && !item.norisk_info;
+      // Note: NoRisk mods can also have updates available, but they won't be auto-updatable
+      const hasUpdateAvailable = updateAvailableVersion && !isCurrentlyUpdating;
       let shouldShowUpdateButton = false;
       let isUpdateButtonDimmed = false;
       let updateButtonTooltip = "";
+
+      // Check if this mod comes from a modpack (defined outside if block for broader scope)
+      const isFromModPack = item.modpack_origin !== null && item.modpack_origin !== undefined;
 
       if (hasUpdateAvailable) {
         console.log(`Update available for ${item.filename}:`, updateAvailableVersion);
         // Check if current version differs from available update
         const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
         if (currentVersionId !== updateAvailableVersion.id) {
-          // Check if this mod comes from a modpack
-          const isFromModPack = item.modpack_origin !== null && item.modpack_origin !== undefined;
 
           const currentVersion = item.modrinth_info?.version_number || item.curseforge_info?.version_number;
 
-          if (isFromModPack) {
-            // Show disabled update button for modpack mods (completely blocked)
+          if (isFromModPack && item.updates_enabled !== true) {
+            // Show disabled update button for modpack mods (only if updates are not explicitly enabled)
             shouldShowUpdateButton = true;
             isUpdateButtonDimmed = true; // Show dimmed styling and actually disable
             updateButtonTooltip = `This mod comes from a modpack and cannot be updated individually. Updates should be handled through the modpack.`;
             console.log(`Update button shown and disabled for ${item.filename} - modpack mod`);
           } else {
-            // Normal update button for non-modpack mods
-            shouldShowUpdateButton = true;
-            isUpdateButtonDimmed = false;
-            updateButtonTooltip = getUpdateText(false, updateAvailableVersion, currentVersion);
-            console.log(`Update button will be shown for ${item.filename} (current: ${currentVersionId}, update: ${updateAvailableVersion.id})`);
+            // Check if updates are enabled for this mod (consistent with updatableContentCount logic)
+            // Default to enabled if null/undefined, only disabled if explicitly false
+            const updatesEnabledDefault = item.updates_enabled ?? true;
+            const hasUpdatesEnabled = contentType === 'Mod' && updatesEnabledDefault !== false;
+
+            if (hasUpdatesEnabled) {
+              // Normal update button for mods with updates enabled
+              shouldShowUpdateButton = true;
+              isUpdateButtonDimmed = false;
+              updateButtonTooltip = getUpdateText(isFromModPack, updateAvailableVersion, currentVersion, item.modpack_origin, item.updates_enabled);
+            } else {
+              // Show dimmed update button for mods with updates disabled
+              shouldShowUpdateButton = true;
+              isUpdateButtonDimmed = true;
+              updateButtonTooltip = `Update checks are disabled for this mod. Enable update checks first to allow automatic updates.`;
+              console.log(`Update button will be shown (dimmed) for ${item.filename} - updates disabled`);
+            }
           }
         }
       }
@@ -1001,6 +1019,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         tooltip: "More Actions",
         onClick: (e) => {
           e.stopPropagation();
+          e.preventDefault();
           setActiveDropdownId(
             activeDropdownId === item.filename ? null : item.filename,
           );
@@ -1014,10 +1033,12 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             <div className="max-w-xs">
               {/* Use the formatted text component for rich tooltips */}
               <ModUpdateText
-                isFromModPack={isUpdateButtonDimmed}
+                isFromModPack={isFromModPack}
                 updateVersion={updateAvailableVersion}
                 currentVersion={item.modrinth_info?.version_number || item.curseforge_info?.version_number}
                 className="text-left"
+                modpackOrigin={item.modpack_origin}
+                updatesEnabled={item.updates_enabled}
               />
             </div>
           }
@@ -1046,28 +1067,59 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
 
       const itemDropdownNode = (
-        <ThemedSurface className="absolute top-full right-0 mt-1 w-44 z-20">
-          <div
-            ref={dropdownRef}
-            className="flex flex-col gap-0.5"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div
+          ref={dropdownRef}
+          className="absolute top-full right-0 mt-1 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden"
+          style={{
+            minWidth: "200px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="py-2">
             <button
               onClick={() => {
                 if (item.path) handleOpenItemFolder(item);
                 setActiveDropdownId(null);
               }}
-              className="w-full text-left px-2 py-1.5 text-[11px] font-minecraft-ten hover:bg-[var(--accent-color-soft)] rounded-sm text-white/80 hover:text-white transition-colors duration-100 flex items-center gap-1.5 disabled:opacity-50"
+              className="w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-sm text-white/80 hover:text-white transition-colors duration-150"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `${accentColor.value}15`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
             >
               <Icon
                 icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[5]}
-                className="w-3 h-3 flex-shrink-0"
+                className="w-4 h-4 flex-shrink-0 text-white/70"
               />
-              Open Folder
+              <span className="flex-1">Open Folder</span>
             </button>
-            {/* Add other generic actions here if needed */}
+            {item.id && (
+              <button
+                onClick={() => {
+                  handleToggleItemUpdatesEnabled(item);
+                  setActiveDropdownId(null);
+                }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left font-minecraft-ten text-sm text-white/80 hover:text-white transition-colors duration-150"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = `${accentColor.value}15`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              <Icon
+                icon={(item.updates_enabled ?? true) ? "solar:close-circle-bold" : "solar:check-circle-bold"}
+                className="w-4 h-4 flex-shrink-0 text-white/70"
+              />
+              <span className="flex-1">
+                {(item.updates_enabled ?? true) ? "Disable Check" : "Enable Check"}
+              </span>
+            </button>
+            )}
           </div>
-        </ThemedSurface>
+        </div>
       );
 
       return (
@@ -1139,6 +1191,35 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   const isAnyBatchActionInProgress =
     isBatchToggling || isBatchDeleting || isUpdatingAll;
 
+  // Helper function to determine the appropriate updates toggle action
+  const getUpdatesToggleConfig = useCallback(() => {
+    if (selectedItemIds.size === 0) return null;
+
+    const selectedItems = items.filter(item => selectedItemIds.has(item.filename));
+    const validItems = selectedItems.filter(item => item.id);
+
+    if (validItems.length === 0) return null;
+
+    // Count how many items have updates enabled vs disabled
+    const enabledCount = validItems.filter(item => item.updates_enabled ?? true).length;
+    const disabledCount = validItems.filter(item => !(item.updates_enabled ?? true)).length;
+
+    // If more items have updates enabled, suggest disabling
+    // If more items have updates disabled, suggest enabling
+    // If equal or mixed, suggest enabling (more common use case)
+    const shouldEnable = disabledCount >= enabledCount;
+
+    return {
+      shouldEnable,
+      actionCount: validItems.length,
+      enabledCount,
+      disabledCount,
+    };
+  }, [selectedItemIds, items]);
+
+  // Get the updates toggle configuration
+  const updatesToggleConfig = getUpdatesToggleConfig();
+
   const primaryLeftActionsContent = (
     <div className="flex flex-col flex-grow min-w-0">
       <div className="flex items-center gap-2">
@@ -1191,6 +1272,21 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                     tooltip: `Toggle enable/disable for ${selectedItemIds.size} selected items`,
                     onClick: handleBatchToggleSelected,
                   },
+                  // Smart updates toggle button - only show if we have valid items
+                  ...(updatesToggleConfig ? [{
+                    id: "batch-toggle-updates",
+                    label: updatesToggleConfig.shouldEnable
+                      ? `ENABLE CHECK (${updatesToggleConfig.actionCount})`
+                      : `DISABLE CHECK (${updatesToggleConfig.actionCount})`,
+                    icon: updatesToggleConfig.shouldEnable
+                      ? "solar:check-circle-bold"
+                      : "solar:close-circle-bold",
+                    variant: "text" as const,
+                    tooltip: updatesToggleConfig.shouldEnable
+                      ? `Enable update checks for ${updatesToggleConfig.actionCount} selected items`
+                      : `Disable update checks for ${updatesToggleConfig.actionCount} selected items`,
+                    onClick: () => handleBatchToggleSelectedUpdatesEnabled(updatesToggleConfig.shouldEnable),
+                  }] : []),
                   ...(contentType !== "NoRiskMod" ? [{
                     id: "batch-delete",
                     label: isBatchDeleting ? "DELETING..." : `DELETE (${selectedItemIds.size})`,
