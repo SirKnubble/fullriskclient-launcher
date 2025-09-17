@@ -143,6 +143,9 @@ pub struct Profile {
     #[serde(default)]
     pub background: Option<ProfileBanner>,
     pub norisk_information: Option<NoriskInformation>,
+    /// Information about this profile's modpack origin (if it was created from a modpack)
+    #[serde(default)]
+    pub modpack_info: Option<ModPackInfo>,
 }
 
 fn default_true() -> bool {
@@ -157,6 +160,37 @@ pub struct NoriskInformation {
     pub is_experimental: bool,
     #[serde(default = "default_true")]
     pub copy_initial_mc_data: bool,
+}
+
+/// Information about a modpack source (Modrinth or CurseForge)
+/// This allows tracking the origin and versions of modpacks for updates
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "source", rename_all = "snake_case")]
+pub enum ModPackSource {
+    /// Modrinth modpack source
+    Modrinth {
+        /// Modrinth Project ID (e.g., "AANobbMI")
+        project_id: String,
+        /// Modrinth Version ID (e.g., "tFw0iWAk")
+        version_id: String,
+    },
+    /// CurseForge modpack source
+    CurseForge {
+        /// CurseForge Project ID
+        project_id: u32,
+        /// CurseForge File ID
+        file_id: u32,
+    },
+}
+
+/// Information about a modpack installation
+/// Stores metadata about installed modpacks for tracking and updates
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ModPackInfo {
+    /// The source platform and identifiers
+    pub source: ModPackSource,
+    /// File hash for verification (SHA1 for Modrinth, fingerprint for CurseForge)
+    pub file_hash: Option<String>,
 }
 
 

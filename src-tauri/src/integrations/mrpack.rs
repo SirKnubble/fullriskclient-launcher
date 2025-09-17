@@ -1,7 +1,7 @@
 use crate::error::{AppError, Result};
 use crate::integrations::modrinth;
 use crate::state::profile_state::{
-    Mod, ModLoader, ModSource, Profile, ProfileSettings, ProfileState,
+    Mod, ModLoader, ModSource, ModPackInfo, ModPackSource, Profile, ProfileSettings, ProfileState,
 };
 use crate::state::state_manager::State;
 use async_zip::tokio::read::seek::ZipFileReader;
@@ -192,6 +192,7 @@ pub async fn process_mrpack(pack_path: PathBuf) -> Result<(Profile, ModrinthInde
         norisk_information: None,
         banner: None,
         background: None,
+        modpack_info: None,
     };
 
     info!("Prepared potential profile object for '{}'", profile.name);
@@ -731,7 +732,12 @@ pub async fn test_mrpack_processing() -> Result<()> {
 }
 
 /// Imports a profile from a .mrpack file, processing, resolving, extracting, and saving it.
-pub async fn import_mrpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
+/// If project_id and version_id are provided, detailed ModPackInfo will be created.
+pub async fn import_mrpack_as_profile(
+    pack_path: PathBuf,
+    project_id: Option<String>,
+    version_id: Option<String>
+) -> Result<Uuid> {
     info!("Starting full import process for mrpack: {:?}", pack_path);
 
     // 1. Process mrpack to get base profile and manifest
@@ -748,6 +754,22 @@ pub async fn import_mrpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
         resolved_mods.len()
     );
     profile.mods = resolved_mods;
+
+    // 2.5. Create ModPackInfo for this modpack (if we have the required parameters)
+    if let (Some(project_id), Some(version_id)) = (project_id, version_id) {
+        let modpack_info = ModPackInfo {
+            source: ModPackSource::Modrinth {
+                project_id,
+                version_id,
+            },
+            file_hash: None, // Could be added later if needed
+        };
+
+        profile.modpack_info = Some(modpack_info);
+        info!("Created ModPackInfo for Modrinth pack");
+    } else {
+        warn!("Missing project_id or version_id for Modrinth pack, skipping ModPackInfo creation");
+    }
 
     // 3. Determine unique profile path segment (similar to create_profile command)
     let base_profiles_dir = crate::state::profile_state::default_profile_path();
@@ -816,7 +838,13 @@ pub async fn import_mrpack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
 }
 
 /// Downloads a modpack from a URL and returns the temporary file path
-pub async fn download_and_process_mrpack(download_url: &str, file_name: &str) -> Result<Uuid> {
+/// For Modrinth packs, provide project_id and version_id to create ModPackInfo
+pub async fn download_and_process_mrpack(
+    download_url: &str,
+    file_name: &str,
+    project_id: Option<String>,
+    version_id: Option<String>
+) -> Result<Uuid> {
     info!("Downloading modpack from URL: {}", download_url);
 
     // Create a temporary directory
@@ -891,7 +919,11 @@ pub async fn download_and_process_mrpack(download_url: &str, file_name: &str) ->
     );
 
     // Import the modpack and get profile ID
-    let profile_id = import_mrpack_as_profile(temp_file_path.clone()).await?;
+    let profile_id = import_mrpack_as_profile(
+        temp_file_path.clone(),
+        project_id,
+        version_id
+    ).await?;
     info!(
         "Successfully imported modpack as new profile with ID: {}",
         profile_id

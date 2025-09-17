@@ -3,6 +3,7 @@ import type {
   UnifiedModSearchParams,
   UnifiedModSearchResponse,
   UnifiedModVersionsParams,
+  UnifiedModpackVersionsResponse,
   UnifiedVersionResponse,
   UnifiedProjectType,
   UnifiedSortType,
@@ -10,6 +11,7 @@ import type {
   UnifiedUpdateCheckResponse,
   UnifiedVersion,
 } from "../types/unified";
+import type { ModPackSource } from "../types/profile";
 import type { SwitchContentVersionPayload, ContentType } from "../types/content";
 import type { LocalContentItem } from "../types/profile";
 import { invoke } from "@tauri-apps/api/core";
@@ -25,6 +27,12 @@ export class UnifiedService {
 
     static async checkModUpdates(request: UnifiedUpdateCheckRequest): Promise<UnifiedUpdateCheckResponse> {
         return invoke<UnifiedUpdateCheckResponse>("check_mod_updates_unified_command", { request });
+    }
+
+    static async getModpackVersions(modpackSource: ModPackSource): Promise<UnifiedModpackVersionsResponse> {
+        return invoke<UnifiedModpackVersionsResponse>("get_modpack_versions_unified_command", {
+            modpackSource
+        });
     }
 
     static async switchContentVersion(

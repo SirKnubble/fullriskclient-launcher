@@ -46,8 +46,8 @@ pub async fn import_curseforge_pack(pack_path: String) -> Result<String, Command
         return Err(CommandError::from(AppError::Other(format!("Path is not a file: {}", pack_path))));
     }
 
-    // Import the pack
-    let profile_id = import_curseforge_pack_as_profile(path_buf)
+    // Import the pack (without project_id/file_id for manually imported packs)
+    let profile_id = import_curseforge_pack_as_profile(path_buf, None, None)
         .await
         .map_err(CommandError::from)?;
 

@@ -27,6 +27,7 @@ import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
 import { LogsTab } from "./detail/LogsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
+import { ModpackDebugInfo } from "../../debug";
 
 type MainTabType = "content" | "worlds" | "logs" | "screenshots";
 type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
@@ -340,6 +341,7 @@ export function ProfileDetailViewV2({
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <ModpackDebugInfo profile={profile} />
       <div className={`flex-1 ${activeMainTab === "logs" ? "flex flex-col min-h-0" : "overflow-y-auto no-scrollbar"}`}>
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">

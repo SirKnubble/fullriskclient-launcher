@@ -136,6 +136,10 @@ export type ModSource =
   | ModSourceModrinth
   | ModSourceCurseForge;
 
+export type ModPackSource =
+  | { source: "modrinth"; project_id: string; version_id: string }
+  | { source: "curseforge"; project_id: number; file_id: number };
+
 export interface Mod {
   id: string;
   source: ModSource;
@@ -157,6 +161,11 @@ export interface NoriskModIdentifier {
 export interface NoriskInformation {
   keep_local_assets: boolean;
   is_experimental: boolean;
+}
+
+export interface ModPackInfo {
+  source: ModPackSource;
+  file_hash?: string | null;
 }
 
 export interface CustomModInfo {
@@ -187,6 +196,7 @@ export interface Profile {
   banner: ProfileBanner | null;
   background: ProfileBanner | null;
   norisk_information: NoriskInformation | null;
+  modpack_info?: ModPackInfo | null;
 }
 
 export interface ProfileGroup {

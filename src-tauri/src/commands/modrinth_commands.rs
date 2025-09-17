@@ -6,7 +6,12 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
-use crate::integrations::unified_mod::{search_mods_unified, get_mod_versions_unified, UnifiedModVersionsParams, UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedVersionResponse, ModPlatform, UnifiedProjectType, UnifiedSortType, check_mod_updates_unified, UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse};
+use crate::integrations::unified_mod::{
+    check_mod_updates_unified, get_mod_versions_unified, get_modpack_versions_unified, search_mods_unified, ModPlatform,
+    UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedModVersionsParams, UnifiedModpackVersionsResponse,
+    UnifiedProjectType, UnifiedSortType, UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse, UnifiedVersionResponse,
+};
+use crate::state::profile_state::ModPackSource;
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -171,12 +176,17 @@ pub async fn download_and_install_modrinth_modpack(
         file_name.clone() // Clone if already correct to ensure ownership for logging later if needed
     };
 
-    let profile_id_uuid = mrpack::download_and_process_mrpack(&download_url, &file_name_mrpack)
-        .await
-        .map_err(|e| {
-            log::error!("Failed to download and process modpack: {}", e);
-            CommandError::from(e)
-        })?;
+    let profile_id_uuid = mrpack::download_and_process_mrpack(
+            &download_url,
+            &file_name_mrpack,
+            Some(project_id),
+            Some(version_id),
+        )
+    .await
+    .map_err(|e| {
+        log::error!("Failed to download and process modpack: {}", e);
+        CommandError::from(e)
+    })?;
 
     log::info!(
         "Successfully downloaded and installed modpack \"{}\" as profile with ID: {}",
@@ -381,7 +391,10 @@ pub async fn search_mods_unified_command(
         .await
         .map_err(CommandError::from)?;
 
-    log::info!("Unified search completed: {} results found", result.results.len());
+    log::info!(
+        "Unified search completed: {} results found",
+        result.results.len()
+    );
     Ok(result)
 }
 
@@ -402,9 +415,35 @@ pub async fn get_mod_versions_unified_command(
     );
 
     let result = get_mod_versions_unified(params)
-    .await
-    .map_err(CommandError::from)?;
+        .await
+        .map_err(CommandError::from)?;
 
-    log::info!("Unified versions fetch completed: {} versions found", result.versions.len());
+    log::info!(
+        "Unified versions fetch completed: {} versions found",
+        result.versions.len()
+    );
+    Ok(result)
+}
+
+/// Get specific modpack version and all available versions
+/// This is optimized for modpack management - gets the installed version plus all available versions
+#[tauri::command]
+pub async fn get_modpack_versions_unified_command(
+    modpack_source: ModPackSource,
+) -> Result<UnifiedModpackVersionsResponse, CommandError> {
+    log::debug!(
+        "Received get_modpack_versions_unified command: modpack_source={:?}",
+        modpack_source
+    );
+
+    let result = get_modpack_versions_unified(&modpack_source)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Modpack versions fetch completed: {} total versions, updates available: {}",
+        result.all_versions.len(),
+        result.updates_available
+    );
     Ok(result)
 }

@@ -147,3 +147,14 @@ export interface UnifiedUpdateCheckRequest {
 export interface UnifiedUpdateCheckResponse {
   updates: Record<string, UnifiedVersion>;
 }
+
+/// Response structure for modpack version requests
+/// Includes the specific installed version and all available versions
+export interface UnifiedModpackVersionsResponse {
+  /// The specific installed version (if found)
+  installed_version?: UnifiedVersion | null;
+  /// All available versions for this modpack
+  all_versions: UnifiedVersion[];
+  /// Whether updates are available for the installed version
+  updates_available?: boolean;
+}

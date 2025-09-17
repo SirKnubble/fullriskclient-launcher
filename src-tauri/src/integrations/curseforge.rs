@@ -1,6 +1,6 @@
 use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
-use crate::state::profile_state::{Mod, ModLoader, ModSource, Profile, ProfileSettings, ProfileState};
+use crate::state::profile_state::{Mod, ModLoader, ModPackInfo, ModPackSource, ModSource, Profile, ProfileSettings, ProfileState};
 use log::{debug, error, info, warn};
 use reqwest;
 use serde::{Deserialize, Serialize};
@@ -1104,6 +1104,7 @@ pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profi
         norisk_information: None,
         banner: None,
         background: None,
+        modpack_info: None,
     };
 
     info!("Prepared potential profile object for '{}'", profile.name);
@@ -1583,7 +1584,12 @@ pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, m
 }
 
 /// Imports a profile from a CurseForge modpack, processing, resolving, extracting, and saving it.
-pub async fn import_curseforge_pack_as_profile(pack_path: PathBuf) -> Result<Uuid> {
+/// If project_id and file_id are provided, detailed ModPackInfo will be created.
+pub async fn import_curseforge_pack_as_profile(
+    pack_path: PathBuf,
+    project_id: Option<u32>,
+    file_id: Option<u32>
+) -> Result<Uuid> {
     info!("Starting full import process for CurseForge pack: {:?}", pack_path);
 
     // Find manifest.json in the pack and read it directly
@@ -1601,6 +1607,22 @@ pub async fn import_curseforge_pack_as_profile(pack_path: PathBuf) -> Result<Uui
         resolved_mods.len()
     );
     profile.mods = resolved_mods;
+
+    // 2.5. Create ModPackInfo for this modpack (if we have the required parameters)
+    if let (Some(project_id), Some(file_id)) = (project_id, file_id) {
+        let modpack_info = ModPackInfo {
+            source: ModPackSource::CurseForge {
+                project_id,
+                file_id,
+            },
+            file_hash: None, // Could be added later if needed
+        };
+
+        profile.modpack_info = Some(modpack_info);
+        info!("Created ModPackInfo for CurseForge pack");
+    } else {
+        warn!("Missing project_id or file_id for CurseForge pack, skipping ModPackInfo creation");
+    }
 
     // 3. Determine unique profile path segment
     let base_profiles_dir = crate::state::profile_state::default_profile_path();
@@ -1754,7 +1776,11 @@ pub async fn download_and_install_curseforge_modpack(
     );
 
     // Install the modpack as a profile
-    let profile_id = import_curseforge_pack_as_profile(temp_file_path.clone()).await?;
+    let profile_id = import_curseforge_pack_as_profile(
+        temp_file_path.clone(),
+        Some(project_id),
+        Some(file_id)
+    ).await?;
 
     info!(
         "Successfully installed CurseForge modpack \"{}\" as profile with ID: {}",

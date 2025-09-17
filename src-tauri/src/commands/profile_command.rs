@@ -149,6 +149,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         background: None,
         is_standard_version: false,
         norisk_information: None,
+        modpack_info: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;
@@ -1138,7 +1139,7 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         let new_profile_id = match file_extension.as_deref() {
             Some("mrpack") => {
                 log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-                mrpack::import_mrpack_as_profile(file_path_buf).await?
+                mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
             }
             Some("noriskpack") => {
                 log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
@@ -1211,7 +1212,7 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
     let new_profile_id = match file_extension.as_deref() {
         Some("mrpack") => {
             log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-            mrpack::import_mrpack_as_profile(file_path_buf).await?
+            mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
         }
         Some("noriskpack") => {
             log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
@@ -1488,6 +1489,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         norisk_information: source_profile.norisk_information.clone(),
         banner: source_profile.banner.clone(),
         background: source_profile.background.clone(),
+        modpack_info: source_profile.modpack_info.clone(),
     };
 
     // 6. Erstelle das neue Profilverzeichnis

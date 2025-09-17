@@ -1,5 +1,6 @@
 use crate::integrations::curseforge;
 use crate::integrations::modrinth;
+use crate::state::profile_state::ModPackSource;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use log::{debug, error, info, warn};
@@ -250,6 +251,20 @@ pub enum UnifiedVersionType {
 pub struct UnifiedVersionResponse {
     pub versions: Vec<UnifiedVersion>,
     pub total_count: u64,
+}
+
+/// Response structure for modpack version requests
+/// Includes the specific installed version and all available versions
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UnifiedModpackVersionsResponse {
+    /// The specific installed version (if found)
+    pub installed_version: Option<UnifiedVersion>,
+    /// All available versions for this modpack
+    pub all_versions: Vec<UnifiedVersion>,
+    /// Whether updates are available (newer versions exist)
+    pub updates_available: bool,
+    /// Latest available version
+    pub latest_version: Option<UnifiedVersion>,
 }
 
 impl From<modrinth::ModrinthSearchHit> for UnifiedModSearchResult {
@@ -737,6 +752,126 @@ pub async fn get_mod_versions_unified(
     Ok(UnifiedVersionResponse {
         versions: all_versions,
         total_count,
+    })
+}
+
+/// Get specific modpack version and all available versions
+/// This is optimized for modpack management - gets the installed version plus all available versions
+pub async fn get_modpack_versions_unified(
+    modpack_source: &ModPackSource,
+) -> Result<UnifiedModpackVersionsResponse, crate::error::AppError> {
+    info!("Getting modpack versions for: {:?}", modpack_source);
+
+    let mut installed_version = None;
+    let mut all_versions = Vec::new();
+    let mut latest_version = None;
+
+    match modpack_source {
+        ModPackSource::Modrinth { project_id, version_id } => {
+            // Get all versions for this project first
+            let versions_params = UnifiedModVersionsParams {
+                source: ModPlatform::Modrinth,
+                project_id: project_id.clone(),
+                loaders: None,
+                game_versions: None,
+                limit: None,
+                offset: None,
+            };
+
+            match get_mod_versions_unified(versions_params).await {
+                Ok(response) => {
+                    all_versions = response.versions;
+
+                    // Find the installed version
+                    installed_version = all_versions.iter()
+                        .find(|v| v.id == *version_id)
+                        .cloned();
+
+                    // Find latest version (first in list is usually newest for Modrinth)
+                    latest_version = all_versions.first().cloned();
+                }
+                Err(e) => {
+                    warn!("Failed to get Modrinth project versions: {}", e);
+                    // Try to get just the specific version as fallback
+                    match modrinth::get_version_details(version_id.clone()).await {
+                        Ok(version) => {
+                            let unified_version: UnifiedVersion = version.into();
+                            installed_version = Some(unified_version.clone());
+                            all_versions = vec![unified_version];
+                            latest_version = all_versions.first().cloned();
+                        }
+                        Err(e2) => {
+                            error!("Failed to get specific Modrinth version: {}", e2);
+                            return Err(e2);
+                        }
+                    }
+                }
+            }
+        }
+
+        ModPackSource::CurseForge { project_id, file_id } => {
+            // Get all files for this project first
+            let versions_params = UnifiedModVersionsParams {
+                source: ModPlatform::CurseForge,
+                project_id: project_id.to_string(),
+                loaders: None,
+                game_versions: None,
+                limit: None,
+                offset: None,
+            };
+
+            match get_mod_versions_unified(versions_params).await {
+                Ok(response) => {
+                    all_versions = response.versions;
+
+                    // Find the installed version
+                    installed_version = all_versions.iter()
+                        .find(|v| v.id == file_id.to_string())
+                        .cloned();
+
+                    // Find latest version (first in list is usually newest for CurseForge)
+                    latest_version = all_versions.first().cloned();
+                }
+                Err(e) => {
+                    warn!("Failed to get CurseForge project files: {}", e);
+                    // Try to get just the specific file as fallback
+                    match curseforge::get_file_details(*project_id, *file_id).await {
+                        Ok(file) => {
+                            let unified_version: UnifiedVersion = file.into();
+                            installed_version = Some(unified_version.clone());
+                            all_versions = vec![unified_version];
+                            latest_version = all_versions.first().cloned();
+                        }
+                        Err(e2) => {
+                            error!("Failed to get specific CurseForge file: {}", e2);
+                            return Err(e2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Determine if updates are available
+    let updates_available = if let (Some(installed), Some(latest)) = (&installed_version, &latest_version) {
+        // Simple comparison based on date (newer date = newer version)
+        latest.date_published > installed.date_published
+    } else {
+        false
+    };
+
+    info!(
+        "Found {} total versions, installed version: {}, updates available: {}",
+        all_versions.len(),
+        installed_version.as_ref().map_or("None".to_string(), |v| v.name.clone()),
+        updates_available
+    );
+
+    Ok(UnifiedModpackVersionsResponse {
+        installed_version,
+        all_versions,
+        updates_available,
+        latest_version,
     })
 }
 
