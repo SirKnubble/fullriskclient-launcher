@@ -114,8 +114,7 @@ pub async fn create_backup<P: AsRef<Path>>(
         fs::metadata(&source_path).await?.len()
     );
 
-    let mut f = fs::File::create(&metadata_path).await.map_err(AppError::Io)?;
-    f.write_all(metadata.as_bytes()).await.map_err(AppError::Io)?;
+    fs::write(&metadata_path, metadata.as_bytes()).await.map_err(AppError::Io)?;
 
     // Cleanup old backups
     cleanup_old_backups(source_path, category, config).await?;
@@ -163,7 +162,7 @@ async fn get_last_backup_time(source_path: &Path, category: Option<&str>) -> Opt
 }
 
 /// Cleans up old backups according to the configuration
-async fn cleanup_old_backups(
+pub async fn cleanup_old_backups(
     source_path: &Path,
     category: Option<&str>,
     config: &BackupConfig,
@@ -452,83 +451,3 @@ pub async fn validate_backup(backup_path: &Path) -> Result<bool> {
     }
 }
 
-/// Cleans up old backups across all categories
-/// This is a maintenance function that should be called periodically
-pub async fn cleanup_old_backups_all_categories() -> Result<u64> {
-    let backup_root = get_backup_root();
-    let now = Utc::now();
-    let mut total_removed = 0u64;
-
-    // Default config for cleanup
-    let default_config = BackupConfig::default();
-
-    if !backup_root.exists() {
-        return Ok(0);
-    }
-
-    // Iterate through all category directories
-    match fs::read_dir(&backup_root).await {
-        Ok(mut cat_iter) => {
-            while let Ok(Some(cat_entry)) = cat_iter.next_entry().await {
-                if cat_entry.file_type().await.map_err(AppError::Io)?.is_dir() {
-                    let cat_path = cat_entry.path();
-
-                    // Get category name
-                    if let Some(cat_name) = cat_path.file_name().and_then(|n| n.to_str()) {
-                        info!("Cleaning up backups in category: {}", cat_name);
-
-                        // Use the cleanup function for each category
-                        // We'll use a more aggressive cleanup for maintenance (shorter retention)
-                        let maintenance_config = BackupConfig {
-                            max_backups_per_file: 5, // Keep fewer during maintenance
-                            max_backup_age_seconds: 30 * 24 * 60 * 60, // 30 days for maintenance
-                            min_backup_interval_seconds: default_config.min_backup_interval_seconds,
-                        };
-
-                        // For maintenance, we'll manually clean up by iterating through files
-                        if let Ok(mut file_iter) = fs::read_dir(&cat_path).await {
-                            while let Ok(Some(file_entry)) = file_iter.next_entry().await {
-                                let file_path = file_entry.path();
-
-                                if let Some(filename) = file_path.file_name().and_then(|n| n.to_str()) {
-                                    if filename.ends_with(".backup") {
-                                        // Check file age
-                                        if let Ok(metadata) = file_entry.metadata().await {
-                                            if let Ok(modified) = metadata.modified() {
-                                                let modified_dt: DateTime<Utc> = modified.into();
-                                                let age_seconds = now.signed_duration_since(modified_dt).num_seconds();
-
-                                                if age_seconds > maintenance_config.max_backup_age_seconds as i64 {
-                                                    match fs::remove_file(&file_path).await {
-                                                        Ok(_) => {
-                                                            // Also remove metadata file
-                                                            let meta_path = file_path.with_extension("backup.meta");
-                                                            let _ = fs::remove_file(&meta_path).await;
-                                                            total_removed += 1;
-                                                            info!("Removed old backup during maintenance: {}", file_path.display());
-                                                        }
-                                                        Err(e) => warn!("Failed to remove old backup '{}': {}", file_path.display(), e),
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed to read backup root directory: {}", e);
-            return Err(AppError::Io(e));
-        }
-    }
-
-    if total_removed > 0 {
-        info!("Backup maintenance completed: removed {} old backups", total_removed);
-    }
-
-    Ok(total_removed)
-}

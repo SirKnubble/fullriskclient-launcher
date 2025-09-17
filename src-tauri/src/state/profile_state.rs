@@ -3171,18 +3171,23 @@ impl PostInitializationHandler for ProfileManager {
         info!("ProfileManager: Successfully loaded profiles in on_state_ready.");
 
         // Fire-and-forget: purge trashed items and old backups after init
+        let backup_config_clone = self.backup_config.clone();
+        let profiles_path_clone = self.profiles_path.clone();
         tauri::async_runtime::spawn(async move {
             let seconds_30_days = 30 * 24 * 60 * 60;
-            let seconds_2_minutes = 2 * 60;
 
             // Clean up trash
             if let Err(e) = crate::utils::trash_utils::purge_expired(seconds_30_days).await {
                 log::warn!("Trash purge after init failed: {}", e);
             }
 
-            // Clean up old backups (keep backups for 90 days as configured)
-            if let Err(e) = crate::utils::backup_utils::cleanup_old_backups_all_categories().await {
-                log::warn!("Backup cleanup after init failed: {}", e);
+            // Clean up old backups for profiles category using our specific config
+            if let Err(e) = crate::utils::backup_utils::cleanup_old_backups(
+                &profiles_path_clone,
+                Some("profiles"),
+                &backup_config_clone,
+            ).await {
+                log::warn!("Profile backup cleanup after init failed: {}", e);
             }
         });
 
