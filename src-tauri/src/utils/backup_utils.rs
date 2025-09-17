@@ -140,8 +140,10 @@ async fn get_last_backup_time(source_path: &Path, category: Option<&str>) -> Opt
                 if filename.starts_with(original_name) && filename.ends_with(".backup") {
                     // Try to parse timestamp from filename
                     if let Some(ts_part) = filename.split('.').nth(1) {
+                        // Safely extract up to 8 characters for date parsing
+                        let date_part = ts_part.chars().take(8).collect::<String>();
                         if let Ok(parsed) = DateTime::parse_from_str(
-                            &format!("{} 00:00:00 +00:00", &ts_part[..8]),
+                            &format!("{} 00:00:00 +00:00", date_part),
                             "%Y%m%d %H:%M:%S %z"
                         ).or_else(|_| {
                             // Try alternative format
@@ -198,7 +200,7 @@ pub async fn cleanup_old_backups(
 
     // Remove old backups beyond the limit
     if backup_files.len() > config.max_backups_per_file {
-        let to_remove = &backup_files[config.max_backups_per_file..];
+        let to_remove = backup_files.iter().skip(config.max_backups_per_file);
         for (backup_path, _) in to_remove {
             if let Err(e) = fs::remove_file(backup_path).await {
                 warn!("Failed to remove old backup '{}': {}", backup_path.display(), e);
@@ -246,10 +248,10 @@ pub async fn restore_from_backup<P: AsRef<Path>>(
 
     // Find the most recent backup
     let mut latest_backup: Option<PathBuf> = None;
-    let mut latest_time = DateTime::<Utc>::from_utc(
-        chrono::naive::NaiveDateTime::from_timestamp(0, 0),
-        Utc
-    );
+    let mut latest_time = DateTime::from_timestamp(0, 0).unwrap_or_else(|| {
+        // Fallback: use 2000-01-01 00:00:00 UTC as minimum timestamp
+        DateTime::from_timestamp(946684800, 0).unwrap()
+    });
 
     if let Ok(mut entries) = fs::read_dir(&backup_base).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
