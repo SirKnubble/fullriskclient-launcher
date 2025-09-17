@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { setProfileGroupingPreference } from "../services/launcher-config-service";
+import { ModPlatform } from "../types/unified";
 
 export type AccentColor = {
   name: string;
@@ -238,6 +239,9 @@ interface ThemeState {
   // Global context menu management
   openContextMenuId: string | null;
   setOpenContextMenuId: (id: string | null) => void;
+  // Mod source selection
+  modSource: ModPlatform;
+  setModSource: (source: ModPlatform) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -259,6 +263,8 @@ export const useThemeStore = create<ThemeState>()(
       profilesTabLayoutMode: "list",
       // Global context menu management - defaults
       openContextMenuId: null,
+      // Mod source selection - defaults
+      modSource: ModPlatform.Modrinth,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -414,6 +420,11 @@ export const useThemeStore = create<ThemeState>()(
       // Global context menu management
       setOpenContextMenuId: (id: string | null) => {
         set({ openContextMenuId: id });
+      },
+
+      // Mod source selection
+      setModSource: (source: ModPlatform) => {
+        set({ modSource: source });
       },
     }),    {
       name: "norisk-theme-storage",

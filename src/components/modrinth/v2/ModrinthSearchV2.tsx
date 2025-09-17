@@ -40,7 +40,6 @@ import { Icon } from '@iconify/react';
 import { cn } from '../../../lib/utils';
 import { Select } from '../../ui/Select'; // Import Select component
 import { IconButton } from '../../ui/buttons/IconButton'; // Import IconButton
-import { useThemeStore } from '../../../store/useThemeStore'; // Import useThemeStore
 import { TagBadge } from '../../ui/TagBadge'; // Import TagBadge
 import { Input } from '../../ui/Input'; // Import Input component
 import { Checkbox } from '../../ui/Checkbox'; // Import Checkbox component
@@ -71,6 +70,7 @@ import { useProfileStore } from '../../../store/profile-store'; // Hinzufügen d
 import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
 import { useNavigate } from 'react-router-dom';
 import { useGlobalModal } from '../../../hooks/useGlobalModal';
+import { useThemeStore } from '../../../store/useThemeStore';
 
 // Remove any other stray imports of uninstallContentFromProfile below this point
 
@@ -202,8 +202,8 @@ export function ModrinthSearchV2({
   // Add state for currently selected profile
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
 
-  // New state for mod source selection (defaults to CurseForge)
-  const [modSource, setModSource] = useState<ModPlatform>(ModPlatform.CurseForge);
+  // Get mod source from theme store (persistent)
+  const { modSource, setModSource } = useThemeStore();
 
   // New state for tracking which projects are installed in the selected profile
   const [installedProjects, setInstalledProjects] = useState<Record<string, ContentInstallStatus | null>>({}); // Updated type

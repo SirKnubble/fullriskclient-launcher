@@ -91,7 +91,7 @@ export function GenericContentTab<T>({
 
       {/* Secondary actions bar */}
       {(showSecondaryActionsBar || secondaryLeftActions || secondaryRightActions) && showSecondaryActionsBar !== false && (
-        <div className="flex items-center justify-between mb-5 px-1 py-1 gap-2">
+        <div className="flex items-center justify-between mb-1 px-1 py-1 gap-2">
           <div className="flex items-center gap-2 flex-grow min-w-0">
             {secondaryLeftActions}
           </div>

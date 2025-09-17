@@ -217,6 +217,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
             "border-l-blue-500",
         )}
       >
+
         {/* Stats - absolute oben rechts */}
         <div className="absolute top-3 right-3 flex items-center space-x-2 text-xs text-gray-400 font-minecraft-ten">
           {/* Downloads */}
@@ -230,23 +231,6 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
               <path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" />
             </svg>
             <span>{hit.downloads.toLocaleString()}</span>
-          </div>
-          
-          {/* Follows */}
-          <div className="text-white/50 flex items-center gap-0.5">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-3 w-3"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{hit.follows ? hit.follows.toLocaleString() : 'N/A'}</span>
           </div>
         </div>
 
@@ -323,7 +307,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
           </div>
 
           {/* Description */}
-          <p className="text-xs text-gray-300 line-clamp-2 font-minecraft-ten leading-tight mb-2">
+          <p className="text-xs text-gray-300 line-clamp-2 font-minecraft-ten leading-tight mb-2 min-h-[2rem]">
             {hit.description}
           </p>
 
