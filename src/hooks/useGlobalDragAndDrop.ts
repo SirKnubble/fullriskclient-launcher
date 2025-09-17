@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { UnlistenFn, Event as TauriEvent } from '@tauri-apps/api/event';
 import type { PhysicalPosition } from '@tauri-apps/api/window'; // For payload.position
@@ -25,6 +26,7 @@ const PROCESS_COOLDOWN_MS = 1500; // Cooldown period in milliseconds
 export function useGlobalDragAndDrop() {
   // Destructure from store for useEffect dependencies, but use getState() inside event handler for freshest values.
   const { activeDropProfileId, activeDropContentType, triggerRefresh } = useAppDragDropStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     let unlistenDragDrop: UnlistenFn | undefined;
@@ -65,8 +67,8 @@ export function useGlobalDragAndDrop() {
               console.log(`[DragDrop Hook ${instanceId}] Cleared pathKey from cache: ${pathKey}`);
             }, PROCESS_COOLDOWN_MS);
 
-            const profilePackPath = droppedPaths.find(path => 
-              path.toLowerCase().endsWith('.noriskpack') || path.toLowerCase().endsWith('.mrpack')
+            const profilePackPath = droppedPaths.find(path =>
+              path.toLowerCase().endsWith('.noriskpack') || path.toLowerCase().endsWith('.mrpack') || path.toLowerCase().endsWith('.zip')
             );
 
             if (profilePackPath) {
@@ -77,13 +79,16 @@ export function useGlobalDragAndDrop() {
               toast.loading(`Importing profile from ${fileName}...`, { id: loadingToastId });
 
               try {
-                await ProfileService.importProfileByPath(profilePackPath);
+                const newProfileId = await ProfileService.importProfileByPath(profilePackPath);
                 console.log(`[DragDrop Hook ${instanceId}] Profile import SUCCESS (OpID: ${operationId}) for: ${profilePackPath} at ${new Date().toISOString()}`);
                 toast.success(
-                  `Profile import initiated for ${fileName}. Profile list will refresh.`,
-                  { id: loadingToastId }
+                  `Profile import initiated for ${fileName}. Opening profile...`,
+                  { id: loadingToastId, duration: 3000 }
                 );
                 useProfileStore.getState().fetchProfiles(); // Fetch profiles after successful import
+
+                // Navigate to the new profile
+                navigate(`/profilesv2/${newProfileId}`);
               } catch (err) {
                 console.error(`[DragDrop Hook ${instanceId}] Profile import ERROR (OpID: ${operationId}) for: ${profilePackPath} at ${new Date().toISOString()}:`, err);
                 toast.error(
@@ -161,7 +166,7 @@ export function useGlobalDragAndDrop() {
                 toast(`No files matching expected types (${expectedExtensions.join(', ')}) for ${itemTypeName} were dropped.`);
               }
             } else {
-              toast('Drop files onto an active profile content area to import them, or drop a .noriskpack/.mrpack file anywhere to import a profile.');
+              toast('Drop files onto an active profile content area to import them, or drop a .noriskpack/.mrpack/.zip file anywhere to import a profile.');
             }
           } else if (payload.type === 'cancel') {
             console.log(`[DragDrop Hook ${instanceId}] File drop cancelled at ${eventTimestamp}`);

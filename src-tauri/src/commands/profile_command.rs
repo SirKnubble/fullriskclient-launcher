@@ -1,5 +1,6 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, CommandError};
+use crate::integrations::curseforge;
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
@@ -1106,8 +1107,8 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         app_handle
             .dialog()
             .file()
-            .add_filter("Modpack Files", &["mrpack", "noriskpack"])
-            .set_title("Select Modpack File (.mrpack or .noriskpack)")
+            .add_filter("Modpack Files", &["mrpack", "noriskpack", "zip"])
+            .set_title("Select Modpack File (.mrpack, .noriskpack, or .zip)")
             .blocking_pick_file() // Use the blocking version for single file selection
     })
     .await
@@ -1146,13 +1147,17 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
                 crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf)
                     .await?
             }
+            Some("zip") => {
+                log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
+                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+            }
             _ => {
                 log::error!(
                     "Selected file has an invalid extension: {:?}",
                     file_path_buf
                 );
                 return Err(CommandError::from(AppError::Other(
-                    "Invalid file type selected. Please select a .mrpack or .noriskpack file."
+                    "Invalid file type selected. Please select a .mrpack, .noriskpack, or .zip file."
                         .to_string(),
                 )));
             }
@@ -1218,13 +1223,17 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
             log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
             crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf).await?
         }
+        Some("zip") => {
+            log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
+            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+        }
         _ => {
             log::error!(
                 "Selected file has an invalid extension: {:?}",
                 file_path_buf
             );
             return Err(CommandError::from(AppError::Other(
-                "Invalid file type selected. Please select a .mrpack or .noriskpack file."
+                "Invalid file type selected. Please select a .mrpack, .noriskpack, or .zip file."
                     .to_string(),
             )));
         }
