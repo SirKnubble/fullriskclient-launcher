@@ -174,9 +174,9 @@ impl NoriskVersionManager {
     #[allow(dead_code)]
     pub async fn print_current_config(&self) {
         let config_guard = self.config.read().await;
-        println!("--- Current Norisk Versions Config ---");
-        println!("{:#?}", *config_guard);
-        println!("--- End Norisk Versions Config ---");
+        //println!("--- Current Norisk Versions Config ---");
+        //println!("{:#?}", *config_guard);
+        //println!("--- End Norisk Versions Config ---");
     }
 
     /// Returns a standard profile by ID if found

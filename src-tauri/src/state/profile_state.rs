@@ -3,6 +3,7 @@ use crate::error::AppError;
 use crate::error::Result;
 use crate::integrations::modrinth::{self, ModrinthDependencyType, ModrinthVersion};
 use crate::state::post_init::PostInitializationHandler;
+use crate::utils::backup_utils::{self, BackupConfig, safe_write_with_backup};
 use crate::utils::hash_utils;
 use crate::utils::mc_utils;
 use crate::utils::path_utils;
@@ -314,6 +315,7 @@ pub struct ProfileManager {
     profiles: Arc<RwLock<HashMap<Uuid, Profile>>>,
     profiles_path: PathBuf,
     save_lock: Mutex<()>,
+    backup_config: BackupConfig,
 }
 
 impl ProfileManager {
@@ -322,29 +324,143 @@ impl ProfileManager {
             "ProfileManager: Initializing with path: {:?} (profiles loading deferred)",
             profiles_path
         );
+
+        // Configure backup settings - more aggressive for profiles due to critical nature
+        let backup_config = BackupConfig {
+            max_backups_per_file: 20, // Keep more backups for profiles
+            max_backup_age_seconds: 90 * 24 * 60 * 60, // 90 days for profiles
+            min_backup_interval_seconds: 30, // Allow backups every 30 seconds for profiles
+        };
+
         Ok(Self {
             profiles: Arc::new(RwLock::new(HashMap::new())), // Start with empty profiles
             profiles_path,
             save_lock: Mutex::new(()),
+            backup_config,
         })
     }
 
     // Renamed from load_profiles to avoid conflict, made internal
     async fn load_profiles_internal(&self, path: &PathBuf) -> Result<HashMap<Uuid, Profile>> {
-        if !path.exists() {
-            return Ok(HashMap::new());
+        let mut attempt_count = 0;
+        let max_attempts = 2; // Allow one retry after restoration
+
+        loop {
+            attempt_count += 1;
+
+            if !path.exists() {
+                if attempt_count == 1 {
+                    info!("ProfileManager: Profiles file doesn't exist, checking for backups to restore");
+                    // Try to restore from backup if file doesn't exist
+                    match backup_utils::restore_from_backup(path, Some("profiles")).await {
+                        Ok(restored_path) => {
+                            info!("ProfileManager: Successfully restored profiles from backup: {:?}", restored_path);
+                            continue; // Try loading again
+                        }
+                        Err(e) => {
+                            warn!("ProfileManager: No backup available to restore: {}", e);
+                            return Ok(HashMap::new());
+                        }
+                    }
+                } else {
+                    return Ok(HashMap::new());
+                }
+            }
+
+            match fs::read_to_string(path).await {
+                Ok(data) => {
+                    match serde_json::from_str::<Vec<Profile>>(&data) {
+                        Ok(profiles) => {
+                            info!("ProfileManager: Successfully loaded {} profiles from file", profiles.len());
+                            return Ok(profiles.into_iter().map(|p| (p.id, p)).collect());
+                        }
+                        Err(e) => {
+                            if attempt_count < max_attempts {
+                                error!("ProfileManager: Failed to parse profiles JSON: {}. Attempting recovery from backup.", e);
+
+                                // Backup the corrupted file
+                                let corrupted_path = path.with_extension(format!(
+                                    "corrupted.{}",
+                                    Utc::now().format("%Y%m%d_%H%M%S")
+                                ));
+                                if let Err(backup_err) = fs::copy(path, &corrupted_path).await {
+                                    error!("ProfileManager: Failed to backup corrupted file: {}", backup_err);
+                                } else {
+                                    info!("ProfileManager: Corrupted profiles file saved as: {:?}", corrupted_path);
+                                }
+
+                                // Try to restore from backup
+                                match backup_utils::restore_from_backup(path, Some("profiles")).await {
+                                    Ok(restored_path) => {
+                                        info!("ProfileManager: Successfully restored profiles from backup: {:?}", restored_path);
+                                        continue; // Try loading again
+                                    }
+                                    Err(restore_err) => {
+                                        error!("ProfileManager: Failed to restore from backup: {}. Starting with empty profiles.", restore_err);
+                                        return Ok(HashMap::new());
+                                    }
+                                }
+                            } else {
+                                error!("ProfileManager: Failed to parse profiles JSON after {} attempts: {}. Starting with empty profiles.", max_attempts, e);
+                                return Ok(HashMap::new());
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    if attempt_count < max_attempts {
+                        error!("ProfileManager: Failed to read profiles file: {}. Attempting recovery from backup.", e);
+
+                        // Try to restore from backup
+                        match backup_utils::restore_from_backup(path, Some("profiles")).await {
+                            Ok(restored_path) => {
+                                info!("ProfileManager: Successfully restored profiles from backup: {:?}", restored_path);
+                                continue; // Try loading again
+                            }
+                            Err(restore_err) => {
+                                error!("ProfileManager: Failed to restore from backup: {}. Starting with empty profiles.", restore_err);
+                                return Ok(HashMap::new());
+                            }
+                        }
+                    } else {
+                        error!("ProfileManager: Failed to read profiles file after {} attempts: {}. Starting with empty profiles.", max_attempts, e);
+                        return Ok(HashMap::new());
+                    }
+                }
+            }
         }
-        let data = fs::read_to_string(path).await?;
-        let profiles: Vec<Profile> = serde_json::from_str(&data)?;
-        Ok(profiles.into_iter().map(|p| (p.id, p)).collect())
     }
 
     async fn save_profiles(&self) -> Result<()> {
         let _guard = self.save_lock.lock().await;
 
+        info!("ProfileManager: Saving profiles to {:?}", self.profiles_path);
+
         let profiles_data = {
             let profiles_guard = self.profiles.read().await;
             let profiles_vec: Vec<&Profile> = profiles_guard.values().collect();
+
+            // Validate that we have profiles to save
+            if profiles_vec.is_empty() {
+                warn!("ProfileManager: Attempting to save empty profiles list - this might indicate data loss!");
+                // Don't save empty profiles if we have a backup to restore from
+                if let Ok(backups) = backup_utils::list_backups(&self.profiles_path, Some("profiles")).await {
+                    if !backups.is_empty() {
+                        warn!("ProfileManager: Backups available, attempting automatic recovery");
+                        match backup_utils::restore_from_backup(&self.profiles_path, Some("profiles")).await {
+                            Ok(restored_path) => {
+                                info!("ProfileManager: Successfully restored profiles from backup: {:?}", restored_path);
+                                return Ok(()); // Don't save the empty list
+                            }
+                            Err(e) => {
+                                error!("ProfileManager: Failed to restore from backup: {}", e);
+                                // Continue with save despite the error
+                            }
+                        }
+                    }
+                }
+            }
+
             serde_json::to_string_pretty(&profiles_vec)?
         };
 
@@ -354,7 +470,15 @@ impl ProfileManager {
             }
         }
 
-        fs::write(&self.profiles_path, profiles_data).await?;
+        // Use safe write with automatic backup
+        safe_write_with_backup(
+            &self.profiles_path,
+            profiles_data.as_bytes(),
+            Some("profiles"),
+            &self.backup_config,
+        ).await?;
+
+        info!("ProfileManager: Successfully saved {} profiles", self.profiles.read().await.len());
         Ok(())
     }
 
@@ -2998,15 +3122,67 @@ impl PostInitializationHandler for ProfileManager {
         if let Err(e) = self.sync_standard_profiles().await {
             warn!("ProfileManager: Failed to sync standard profiles: {}", e);
         }
-        
+
+        // Log backup statistics and create initial backup if needed
+        match backup_utils::get_backup_stats(Some("profiles")).await {
+            Ok(stats) => {
+                info!("ProfileManager: Backup stats - Total backups: {}, Total size: {} bytes",
+                      stats.total_backups, stats.total_size);
+                if let Some(oldest) = stats.oldest_backup {
+                    info!("ProfileManager: Oldest backup: {}", oldest.format("%Y-%m-%d %H:%M:%S UTC"));
+                }
+                if let Some(newest) = stats.newest_backup {
+                    info!("ProfileManager: Newest backup: {}", newest.format("%Y-%m-%d %H:%M:%S UTC"));
+                }
+
+                // Create initial backup if no backups exist yet
+                if stats.total_backups == 0 {
+                    info!("ProfileManager: No backups found for profiles.json - creating initial backup...");
+                    match backup_utils::create_backup(&self.profiles_path, Some("profiles"), &self.backup_config).await {
+                        Ok(backup_path) => {
+                            info!("ProfileManager: Initial backup created successfully: {:?}", backup_path);
+                        }
+                        Err(e) => {
+                            warn!("ProfileManager: Failed to create initial backup: {}", e);
+                        }
+                    }
+                } else {
+                    info!("ProfileManager: Backups already exist ({} total) - skipping initial backup creation", stats.total_backups);
+                }
+            }
+            Err(e) => {
+                warn!("ProfileManager: Failed to get backup statistics: {}. Attempting to create initial backup anyway.", e);
+
+                // Even if we can't get stats, try to create a backup if the profiles file exists
+                if self.profiles_path.exists() {
+                    info!("ProfileManager: Creating initial backup as fallback...");
+                    match backup_utils::create_backup(&self.profiles_path, Some("profiles"), &self.backup_config).await {
+                        Ok(backup_path) => {
+                            info!("ProfileManager: Initial backup created successfully: {:?}", backup_path);
+                        }
+                        Err(backup_err) => {
+                            warn!("ProfileManager: Failed to create initial backup: {}", backup_err);
+                        }
+                    }
+                }
+            }
+        }
+
         info!("ProfileManager: Successfully loaded profiles in on_state_ready.");
 
-        // Fire-and-forget: purge trashed items after init (test: 2 minutes)
+        // Fire-and-forget: purge trashed items and old backups after init
         tauri::async_runtime::spawn(async move {
             let seconds_30_days = 30 * 24 * 60 * 60;
             let seconds_2_minutes = 2 * 60;
+
+            // Clean up trash
             if let Err(e) = crate::utils::trash_utils::purge_expired(seconds_30_days).await {
                 log::warn!("Trash purge after init failed: {}", e);
+            }
+
+            // Clean up old backups (keep backups for 90 days as configured)
+            if let Err(e) = crate::utils::backup_utils::cleanup_old_backups_all_categories().await {
+                log::warn!("Backup cleanup after init failed: {}", e);
             }
         });
 

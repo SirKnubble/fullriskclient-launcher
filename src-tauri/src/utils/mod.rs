@@ -17,6 +17,7 @@ pub mod system_info; // <-- Hinzufügen
 pub mod updater_utils;
 pub mod world_utils; // <-- Hinzugefügt
 pub mod trash_utils; // <-- New trash module
+pub mod backup_utils; // <-- New backup module for critical files
 
 // Füge hier ggf. andere Util-Module hinzu
 // pub mod network_utils;

@@ -308,10 +308,10 @@ async fn main() {
                 }
 
                 // --- Test Unified Mod Search ---
-                debug_utils::debug_unified_mod_search().await;
+                //debug_utils::debug_unified_mod_search().await;
 
                 // --- Test Unified Mod Versions ---
-                debug_utils::debug_unified_mod_versions().await;
+                //debug_utils::debug_unified_mod_versions().await;
             });
 
             // --- Register Focus Event Listener for Discord RPC --- 
