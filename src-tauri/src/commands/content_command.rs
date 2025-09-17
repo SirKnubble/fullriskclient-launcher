@@ -1132,6 +1132,13 @@ pub struct SwitchContentVersionPayload {
     pub new_version_details: UnifiedVersion, // Unified version details for any platform
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ToggleModUpdatesPayload {
+    pub profile_id: Uuid,
+    pub mod_id: Uuid,
+    pub updates_enabled: bool,
+}
+
 #[tauri::command]
 pub async fn switch_content_version(
     payload: SwitchContentVersionPayload,
@@ -1283,6 +1290,89 @@ pub async fn switch_content_version(
             Err(CommandError::from(AppError::InvalidOperation(
                 "NoRiskMod versions are managed by pack configuration.".to_string(),
             )))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn toggle_mod_updates(
+    payload: ToggleModUpdatesPayload,
+) -> Result<(), CommandError> {
+    log::info!(
+        "Attempting to toggle mod updates: profile_id={}, mod_id={}, updates_enabled={}",
+        payload.profile_id,
+        payload.mod_id,
+        payload.updates_enabled
+    );
+
+    let state_manager = AppStateManager::get().await.map_err(|e| {
+        log::error!("Failed to get AppStateManager: {}", e);
+        CommandError::from(AppError::Other(format!(
+            "Failed to get internal state: {}",
+            e
+        )))
+    })?;
+
+    // Get the profile to find the mod
+    let profile = state_manager
+        .profile_manager
+        .get_profile(payload.profile_id)
+        .await
+        .map_err(CommandError::from)?;
+
+    // Find the mod by ID
+    let mod_entry = profile.mods.iter().find(|m| m.id == payload.mod_id);
+
+    match mod_entry {
+        Some(mod_entry) => {
+            // Check if the current state is already what we want
+            if mod_entry.updates_enabled == payload.updates_enabled {
+                log::info!(
+                    "Mod {} in profile {} already has updates_enabled={}. No change needed.",
+                    mod_entry.id,
+                    payload.profile_id,
+                    payload.updates_enabled
+                );
+                return Ok(());
+            }
+
+            // Update the mod's updates_enabled setting
+            match state_manager
+                .profile_manager
+                .set_mod_updates_enabled(payload.profile_id, payload.mod_id, payload.updates_enabled)
+                .await
+            {
+                Ok(_) => {
+                    log::info!(
+                        "Successfully toggled updates for mod {} in profile {} to updates_enabled={}",
+                        payload.mod_id,
+                        payload.profile_id,
+                        payload.updates_enabled
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    log::error!(
+                        "Failed to toggle updates for mod {} in profile {}: {}",
+                        payload.mod_id,
+                        payload.profile_id,
+                        e
+                    );
+                    Err(CommandError::from(e))
+                }
+            }
+        }
+        None => {
+            log::warn!(
+                "Mod with ID {} not found in profile {}",
+                payload.mod_id,
+                payload.profile_id
+            );
+            Err(CommandError::from(AppError::NotFound(format!(
+                "Mod with ID {} not found in profile {}",
+                payload.mod_id,
+                payload.profile_id
+            ))))
         }
     }
 }

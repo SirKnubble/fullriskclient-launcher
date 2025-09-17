@@ -106,7 +106,7 @@ use commands::nrc_commands::get_news_and_changelogs_command;
 // Import Content commands
 use commands::content_command::{
     install_content_to_profile, install_local_content_to_profile, switch_content_version,
-    toggle_content_from_profile, uninstall_content_from_profile,
+    toggle_content_from_profile, toggle_mod_updates, uninstall_content_from_profile,
 };
 
 // Import Java commands
@@ -473,6 +473,7 @@ async fn main() {
             get_modrinth_versions_by_hashes,
             uninstall_content_from_profile,
             toggle_content_from_profile,
+            toggle_mod_updates,
             install_content_to_profile,
             commands::minecraft_command::get_profile_by_name_or_uuid,
             commands::minecraft_command::add_skin_locally,

@@ -352,3 +352,15 @@ export async function uploadProfileImages(
 ): Promise<string> {
   return invoke<string>("upload_profile_images", { payload });
 }
+
+export interface ToggleModUpdatesPayload {
+  profile_id: string;
+  mod_id: string;
+  updates_enabled: boolean;
+}
+
+export async function toggleModUpdates(
+  payload: ToggleModUpdatesPayload,
+): Promise<void> {
+  return invoke<void>("toggle_mod_updates", { payload });
+}

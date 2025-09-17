@@ -1338,6 +1338,48 @@ impl ProfileManager {
         }
     }
 
+    /// Sets the updates_enabled status for a specific mod in a profile
+    pub async fn set_mod_updates_enabled(
+        &self,
+        profile_id: Uuid,
+        mod_id: Uuid,
+        updates_enabled: bool,
+    ) -> Result<()> {
+        info!(
+            "Setting mod {} updates_enabled status to {} for profile {}",
+            mod_id, updates_enabled, profile_id
+        );
+
+        let mut profiles = self.profiles.write().await;
+
+        if let Some(profile) = profiles.get_mut(&profile_id) {
+            if let Some(mod_to_update) = profile.mods.iter_mut().find(|m| m.id == mod_id) {
+                if mod_to_update.updates_enabled != updates_enabled {
+                    mod_to_update.updates_enabled = updates_enabled;
+                    drop(profiles);
+                    self.save_profiles().await?;
+                    info!(
+                        "Successfully updated mod {} updates_enabled status in profile {}",
+                        mod_id, profile_id
+                    );
+                } else {
+                    info!(
+                        "Mod {} updates_enabled status already {}. No change needed.",
+                        mod_id, updates_enabled
+                    );
+                }
+                Ok(())
+            } else {
+                Err(AppError::Other(format!(
+                    "Mod with ID {} not found in profile {}",
+                    mod_id, profile_id
+                )))
+            }
+        } else {
+            Err(AppError::ProfileNotFound(profile_id))
+        }
+    }
+
     // Remove a specific mod from a profile
     pub async fn delete_mod(&self, profile_id: Uuid, mod_id: Uuid) -> Result<()> {
         info!("Deleting mod {} from profile {}", mod_id, profile_id);
