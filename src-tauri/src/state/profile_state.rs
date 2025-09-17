@@ -327,9 +327,9 @@ impl ProfileManager {
 
         // Configure backup settings - more aggressive for profiles due to critical nature
         let backup_config = BackupConfig {
-            max_backups_per_file: 20, // Keep more backups for profiles
+            max_backups_per_file: 10, // Keep more backups for profiles
             max_backup_age_seconds: 90 * 24 * 60 * 60, // 90 days for profiles
-            min_backup_interval_seconds: 30, // Allow backups every 30 seconds for profiles
+            min_backup_interval_seconds: 60, // TEMP: Increased to 5 minutes to prevent spam during testing
         };
 
         Ok(Self {

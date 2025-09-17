@@ -62,9 +62,9 @@ pub async fn create_backup<P: AsRef<Path>>(
 
     let backup_base = ensure_backup_dir(category).await?;
 
-    // Generate backup filename with timestamp and UUID
+    // Generate backup filename with Unix timestamp and UUID
     let timestamp: DateTime<Utc> = Utc::now();
-    let ts_str = timestamp.format("%Y%m%d_%H%M%S").to_string();
+    let unix_timestamp = timestamp.timestamp(); // Unix timestamp as i64
 
     // Get original filename
     let original_name = source_path
@@ -72,11 +72,11 @@ pub async fn create_backup<P: AsRef<Path>>(
         .and_then(OsStr::to_str)
         .unwrap_or("unknown");
 
-    // Create backup filename: original_name.timestamp.uuid.backup
+    // Create backup filename: original_name.unix_timestamp.uuid.backup
     let backup_filename = format!(
         "{}.{}.{}.backup",
         original_name,
-        ts_str,
+        unix_timestamp,
         Uuid::new_v4().simple()
     );
 
@@ -86,7 +86,7 @@ pub async fn create_backup<P: AsRef<Path>>(
     if let Some(last_backup) = get_last_backup_time(source_path, category).await {
         let elapsed = timestamp.signed_duration_since(last_backup).num_seconds();
         if elapsed < config.min_backup_interval_seconds as i64 {
-            warn!(
+            info!(
                 "Skipping backup for {} - last backup was {} seconds ago (min interval: {})",
                 source_path.display(),
                 elapsed,
@@ -94,6 +94,9 @@ pub async fn create_backup<P: AsRef<Path>>(
             );
             return Ok(backup_path); // Return the path but don't create backup
         }
+    } else {
+        // Debug: Log when we can't determine last backup time
+        info!("No last backup time found for {}, proceeding with backup", source_path.display());
     }
 
     // Copy the file atomically
@@ -138,20 +141,24 @@ async fn get_last_backup_time(source_path: &Path, category: Option<&str>) -> Opt
             let path = entry.path();
             if let Some(filename) = path.file_name().and_then(OsStr::to_str) {
                 if filename.starts_with(original_name) && filename.ends_with(".backup") {
-                    // Try to parse timestamp from filename
-                    if let Some(ts_part) = filename.split('.').nth(1) {
-                        // Safely extract up to 8 characters for date parsing
-                        let date_part = ts_part.chars().take(8).collect::<String>();
-                        if let Ok(parsed) = DateTime::parse_from_str(
-                            &format!("{} 00:00:00 +00:00", date_part),
-                            "%Y%m%d %H:%M:%S %z"
-                        ).or_else(|_| {
-                            // Try alternative format
-                            DateTime::parse_from_str(ts_part, "%Y%m%d_%H%M%S")
-                        }) {
-                            let utc_time = parsed.with_timezone(&Utc);
-                            if latest_time.is_none() || utc_time > latest_time.unwrap() {
-                                latest_time = Some(utc_time);
+                    // Parse timestamp from filename
+                    // Format: original_name.unix_timestamp.uuid.backup
+                    // e.g.: profiles.json.1726585512.f5e5d94434d94be0b7616a28e0dc0fba.backup
+                    // Timestamp is at index 2 when split by '.'
+                    if let Some(ts_part) = filename.split('.').nth(2) {
+                        // Parse as Unix timestamp (i64) and convert to DateTime
+                        let parsed_time = ts_part.parse::<i64>()
+                            .ok()
+                            .and_then(|unix_ts| DateTime::from_timestamp(unix_ts, 0));
+
+                        if let Some(utc_time) = parsed_time {
+                            match latest_time {
+                                None => latest_time = Some(utc_time),
+                                Some(current_latest) => {
+                                    if utc_time > current_latest {
+                                        latest_time = Some(utc_time);
+                                    }
+                                }
                             }
                         }
                     }
