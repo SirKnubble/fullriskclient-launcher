@@ -80,16 +80,21 @@ export function GenericList<T>({
   if (isLoading) {
     if (loadingComponent) {
       return <>{loadingComponent}</>;
-    }    if (loadingItemCount && loadingItemCount > 0) {
+    }        if (loadingItemCount && loadingItemCount > 0) {
+      // For many loading items, limit to a reasonable number to avoid performance issues
+      const effectiveLoadingCount = Math.min(loadingItemCount, 20);
+
       return (
         <div
-          className={`${listContainerClassName}`}
+        className={`${listContainerClassName} h-full`}
         >
-          <ul className={ulClassName}>
-            {Array.from({ length: loadingItemCount }).map((_, index) => (
+          <Virtuoso
+            data={Array.from({ length: effectiveLoadingCount })}
+            itemContent={(index) => (
               <GenericListItemSkeleton key={`skeleton-${index}`} accentColor={effectiveAccentColor} />
-            ))}
-          </ul>
+            )}
+            style={{ height: '100%' }}
+          />
         </div>
       );    } else if (items.length === 0) {
       return (
@@ -147,17 +152,19 @@ export function GenericList<T>({
      return null; // Return nothing for empty state without background
   }
   if (!isEmpty) {
+    // Always use virtualization for better performance and consistent behavior
+    // Calculate height based on item count - min 400px, max 600px
+    const calculatedHeight = Math.min(Math.max(items.length * 60, 400), 600);
+
     return (
         <div
         className={`${listContainerClassName}`}
         >
-        <ul className={ulClassName}>
-          {items.map((item, index) => (
-            <li key={index}>
-              {renderItem(item, index)}
-            </li>
-          ))}
-        </ul>
+        <Virtuoso
+          data={items}
+          itemContent={(index) => renderItem(items[index], index)}
+          style={{ height: `${calculatedHeight}px` }}
+        />
         </div>
     );
   }
