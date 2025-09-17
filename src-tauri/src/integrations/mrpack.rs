@@ -314,6 +314,8 @@ pub async fn resolve_manifest_files(manifest: &ModrinthIndex) -> Result<Vec<Mod>
                     game_versions: Some(vec![game_version.clone()]),
                     file_name_override: None,
                     associated_loader: Some(pack_loader),
+                    modpack_origin: Some(format!("modrinth:{}", version_info.project_id)), // From modpack
+                    updates_enabled: false, // Disable updates for modpack mods (updated with pack)
                 };
 
                 info!(

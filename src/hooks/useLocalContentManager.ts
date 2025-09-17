@@ -17,8 +17,11 @@ import { getUpdateIdentifier, getContentPlatform } from '../utils/update-identif
 
 // Base type for content items managed by this hook - maps to ProfileLocalContentItem
 // We'll use ProfileLocalContentItem directly or ensure T extends it.
-export interface LocalContentItem extends ProfileLocalContentItem { 
+export interface LocalContentItem extends ProfileLocalContentItem {
   path: string;
+  // Neue Felder für ModPack-Integration
+  modpack_origin?: string | null; // "modrinth:project_id" oder "curseforge:project_id:file_id"
+  updates_enabled?: boolean | null; // null = Standard (true), true/false = explizit gesetzt
   // This can be used to extend ProfileLocalContentItem with frontend-specific fields if needed
   // For now, it will be structurally the same as ProfileLocalContentItem
 }
@@ -75,6 +78,9 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   itemsBeingUpdated: Set<string>;
   contentUpdateError: string | null;
   isUpdatingAll: boolean;
+
+  // Anzahl der tatsächlich aktualisierbaren Updates (nur mods mit enabled updates)
+  updatableContentCount: number;
 
   fetchData: (initialFetch?: boolean) => Promise<void>;
   handleToggleItemEnabled: (item: T) => Promise<void>;
@@ -703,6 +709,23 @@ export function useLocalContentManager<T extends LocalContentItem>({
     return filteredItems.length > 0 && filteredItems.every(item => selectedItemIds.has(item.filename));
   }, [filteredItems, selectedItemIds]);
 
+  // Calculate the number of actually updatable content (only mods with updates enabled)
+  const updatableContentCount = useMemo(() => {
+    let count = 0;
+    for (const item of items) {
+      const updateIdentifier = getUpdateIdentifier(item);
+      if (updateIdentifier && contentUpdates[updateIdentifier]) {
+        // Only count mods that have updates enabled (true or null/undefined)
+        const hasUpdatesEnabled = contentType === 'Mod' && item.updates_enabled !== false;
+
+        if (hasUpdatesEnabled) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [items, contentUpdates, contentType]);
+
   const handleSelectAllToggle = useCallback((isChecked: boolean) => {
     setSelectedItemIds(prev => {
       const newSet = new Set(prev);
@@ -1138,6 +1161,12 @@ export function useLocalContentManager<T extends LocalContentItem>({
       return;
     }
 
+    // 1.5. Check if this is a modpack mod (completely blocked)
+    if (contentType === 'Mod' && item.modpack_origin !== null && item.modpack_origin !== undefined) {
+      toast.error(`Cannot update ${getDisplayFileName(item)}. This mod comes from a modpack and must be updated through the modpack. Individual updates are disabled to prevent breaking changes.`);
+      return;
+    }
+
     // 2. Validate requirements for all content types
     const platform = updateVersion.source;
 
@@ -1220,7 +1249,14 @@ export function useLocalContentManager<T extends LocalContentItem>({
       // Use the same identifier logic as in checkForContentUpdates
       const updateIdentifier = getUpdateIdentifier(item);
       if (updateIdentifier && contentUpdates[updateIdentifier]) {
-        itemsToUpdateWithDetails.push({ item, version: contentUpdates[updateIdentifier] });
+        // Only include mods that have updates enabled (true or null/undefined)
+        const hasUpdatesEnabled = contentType === 'Mod' && item.updates_enabled !== false;
+
+        if (hasUpdatesEnabled) {
+          itemsToUpdateWithDetails.push({ item, version: contentUpdates[updateIdentifier] });
+        } else {
+          console.log(`Skipping ${getDisplayFileName(item)} from bulk update - UpdatesDisabled: ${!hasUpdatesEnabled}`);
+        }
       }
     }
 
@@ -1348,10 +1384,11 @@ export function useLocalContentManager<T extends LocalContentItem>({
     getItemIcon,
     getItemPlatformDisplayName,
     contentUpdates,
-    isCheckingUpdates, 
+    isCheckingUpdates,
     itemsBeingUpdated,
     contentUpdateError,
-    isUpdatingAll, 
+    isUpdatingAll,
+    updatableContentCount,
     fetchData,
     handleToggleItemEnabled,
     handleDeleteItem,

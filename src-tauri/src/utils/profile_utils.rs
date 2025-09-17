@@ -2143,6 +2143,10 @@ pub struct LocalContentItem {
     pub fallback_version: Option<String>, // Fallback Version aus dem compatibility target
     pub id: Option<String>,               // Added optional ID field
     pub associated_loader: Option<crate::state::profile_state::ModLoader>, // Added associated_loader
+
+    // Neue Felder für ModPack-Integration
+    pub modpack_origin: Option<String>, // "modrinth:project_id" oder "curseforge:project_id:file_id"
+    pub updates_enabled: Option<bool>,  // None = Standard (true), Some(true/false) = explizit gesetzt
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)] // Ensure Serialize and Deserialize are here
@@ -2297,6 +2301,8 @@ impl LocalContentLoader {
                                 fallback_version: fallback_version,
                                 id: None,
                                 associated_loader: None,
+                                modpack_origin: None, // NoRisk mods kommen nicht aus ModPacks
+                                updates_enabled: None, // Default behavior
                             });
                         }
                     }
@@ -2452,6 +2458,8 @@ impl LocalContentLoader {
                     fallback_version: mod_item.version.clone(),
                     id: Some(mod_item.id.to_string()), // Set the ID from ModProfileEntry
                     associated_loader: mod_item.associated_loader.clone(), // Populate associated_loader
+                    modpack_origin: mod_item.modpack_origin.clone(), // Übernimm ModPack-Origin
+                    updates_enabled: Some(mod_item.updates_enabled), // Übernimm Update-Einstellung
                 });
             }
         }
@@ -2572,6 +2580,8 @@ impl LocalContentLoader {
                     fallback_version: None,
                     id: None,
                     associated_loader: None,
+                    modpack_origin: None, // Lokale Dateien kommen nicht aus ModPacks
+                    updates_enabled: None, // Default behavior für lokale Dateien
                 });
             }
         }

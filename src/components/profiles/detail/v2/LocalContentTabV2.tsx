@@ -50,6 +50,7 @@ import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added 
 import * as FlagsmithService from "../../../../services/flagsmith-service"; // Added
 import { Tooltip } from "../../../ui/Tooltip"; // Added for custom tooltips
 import { ActionButton } from "../../../ui/ActionButton"; // Added for custom update button
+import { ModUpdateText, useModUpdateText } from "../../../ui/ModUpdateText"; // Added for formatted update text
 import { getUpdateIdentifier } from "../../../../utils/update-identifier-utils";
 
 /**
@@ -170,6 +171,9 @@ interface LocalContentTabV2Props<T extends LocalContentItem> {
   onBrowseContentRequest?: (browseContentType: string) => void; // Added new prop
 }
 
+// Hook for formatted update text
+const { getUpdateText } = useModUpdateText();
+
 export function LocalContentTabV2<T extends LocalContentItem>({
   profile,
   contentType,
@@ -272,6 +276,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     itemsBeingUpdated,
     contentUpdateError,
     isUpdatingAll,
+    updatableContentCount,
     checkForContentUpdates,
     handleUpdateContentItem,
     handleUpdateAllAvailableContent,
@@ -688,11 +693,6 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         ? contentUpdates[updateIdentifier]
         : null;
 
-      // Debug logging only for items that have updates available
-      if (updateAvailableVersion) {
-        console.log(`Item "${item.filename}": modrinth_info=${!!item.modrinth_info}, curseforge_info=${!!item.curseforge_info}, sha1_hash="${item.sha1_hash}", fingerprint=${item.curseforge_info?.fingerprint}, updateIdentifier="${updateIdentifier}", hasUpdate=${!!updateAvailableVersion}, updateVersion="${updateAvailableVersion.version_number}"`);
-      }
-
       const isItemOpen = openVersionDropdownId === item.filename;
 
       const isBlockedByNoRisk =
@@ -921,15 +921,38 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       // Check if update is available (used for custom tooltip rendering)
       const hasUpdateAvailable = updateAvailableVersion && !isCurrentlyUpdating && !item.norisk_info;
       let shouldShowUpdateButton = false;
+      let isUpdateButtonDimmed = false;
+      let updateButtonTooltip = "";
 
       if (hasUpdateAvailable) {
         console.log(`Update available for ${item.filename}:`, updateAvailableVersion);
         // Check if current version differs from available update
         const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
         if (currentVersionId !== updateAvailableVersion.id) {
-          console.log(`Update button will be shown for ${item.filename} (current: ${currentVersionId}, update: ${updateAvailableVersion.id})`);
-          shouldShowUpdateButton = true;
+          // Check if this mod comes from a modpack
+          const isFromModPack = item.modpack_origin !== null && item.modpack_origin !== undefined;
+
+          const currentVersion = item.modrinth_info?.version_number || item.curseforge_info?.version_number;
+
+          if (isFromModPack) {
+            // Show disabled update button for modpack mods (completely blocked)
+            shouldShowUpdateButton = true;
+            isUpdateButtonDimmed = true; // Show dimmed styling and actually disable
+            updateButtonTooltip = `This mod comes from a modpack and cannot be updated individually. Updates should be handled through the modpack.`;
+            console.log(`Update button shown and disabled for ${item.filename} - modpack mod`);
+          } else {
+            // Normal update button for non-modpack mods
+            shouldShowUpdateButton = true;
+            isUpdateButtonDimmed = false;
+            updateButtonTooltip = getUpdateText(false, updateAvailableVersion, currentVersion);
+            console.log(`Update button will be shown for ${item.filename} (current: ${currentVersionId}, update: ${updateAvailableVersion.id})`);
+          }
         }
+      }
+
+      // Debug logging only for items that have updates available
+      if (updateAvailableVersion) {
+        console.log(`Item "${item.filename}": modrinth_info=${!!item.modrinth_info}, curseforge_info=${!!item.curseforge_info}, sha1_hash="${item.sha1_hash}", fingerprint=${item.curseforge_info?.fingerprint}, updateIdentifier="${updateIdentifier}", hasUpdate=${!!updateAvailableVersion}, updateVersion="${updateAvailableVersion.version_number}", modpack_origin="${item.modpack_origin}", updates_enabled=${item.updates_enabled}, isFromModPack=${item.modpack_origin !== null && item.modpack_origin !== undefined}, buttonDisabled=${isUpdateButtonDimmed}`);
       }
 
       // Update action is handled separately with custom tooltip below
@@ -986,13 +1009,27 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
       // Render update button separately with custom tooltip if available
       const updateButtonNode = shouldShowUpdateButton ? (
-        <Tooltip content={`Update to ${updateAvailableVersion.version_number}`}>
+        <Tooltip
+          content={
+            <div className="max-w-xs">
+              {/* Use the formatted text component for rich tooltips */}
+              <ModUpdateText
+                isFromModPack={isUpdateButtonDimmed}
+                updateVersion={updateAvailableVersion}
+                currentVersion={item.modrinth_info?.version_number || item.curseforge_info?.version_number}
+                className="text-left"
+              />
+            </div>
+          }
+        >
           <ActionButton
             id="update"
             label="" // Force icon-only but keep highlight variant
             icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10]}
-            variant="highlight"
+            variant={isUpdateButtonDimmed ? "secondary" : "highlight"}
+            disabled={isUpdateButtonDimmed}
             onClick={() => handleUpdateContentItem(item, updateAvailableVersion)}
+            className={isUpdateButtonDimmed ? "opacity-50 cursor-not-allowed grayscale" : ""}
           />
         </Tooltip>
       ) : null;
@@ -1198,17 +1235,17 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                   )}
 
                 {/* Update All buttons - Only for non-NoRiskMod types */}
-                {contentType !== "NoRiskMod" && Object.keys(contentUpdates).length > 0 && (
+                {contentType !== "NoRiskMod" && updatableContentCount > 0 && (
                   <ContentActionButtons
                     actions={[
                       {
                         id: "update-all",
-                        label: isUpdatingAll ? "UPDATING ALL..." : `UPDATE ALL (${Object.keys(contentUpdates).length})`,
+                        label: isUpdatingAll ? "UPDATING ALL..." : `UPDATE ALL (${updatableContentCount})`,
                         icon: isUpdatingAll ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[14],
                         variant: "highlight" as const,
                         disabled: isUpdatingAll,
                         loading: isUpdatingAll,
-                        tooltip: `Update all ${Object.keys(contentUpdates).length} available updates`,
+                        tooltip: `Update all ${updatableContentCount} mods with enabled updates`,
                         onClick: handleUpdateAllAvailableContent,
                       },
                     ]}

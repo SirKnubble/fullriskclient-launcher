@@ -66,6 +66,13 @@ pub struct Mod {
     pub game_versions: Option<Vec<String>>, // Changed: List of supported Minecraft versions
     pub file_name_override: Option<String>, // Optional: To store the actual filename on disk if needed
     pub associated_loader: Option<ModLoader>, // Optional: Tracks the loader this mod was originally intended for
+    /// Origin modpack identifier in format: "platform:project_id[:version_id]"
+    /// Example: "modrinth:AANobbMI:tFw0iWAk" or "curseforge:12345:67890"
+    /// None for manually added mods
+    pub modpack_origin: Option<String>,
+    /// True if automatic updates are enabled for this mod (default: true)
+    #[serde(default = "default_true")]
+    pub updates_enabled: bool,
 }
 
 // New struct to uniquely identify a Norisk Pack mod within a specific context
@@ -715,6 +722,8 @@ impl ProfileManager {
                             associated_loader: loaders
                                 .clone()
                                 .and_then(|l| l.first().and_then(|s| ModLoader::from_str(s).ok())),
+                            modpack_origin: None, // Manually added mod
+                            updates_enabled: true, // Updates enabled by default
                         };
                         profile.mods.push(new_mod);
                         needs_save = true;
@@ -973,6 +982,8 @@ impl ProfileManager {
                     associated_loader: payload.loaders
                         .clone()
                         .and_then(|l| l.first().and_then(|s| ModLoader::from_str(s).ok())),
+                    modpack_origin: None, // Manually added mod
+                    updates_enabled: true, // Updates enabled by default
                 };
                 profile.mods.push(new_mod);
                 drop(profiles);

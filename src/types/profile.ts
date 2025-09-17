@@ -149,6 +149,14 @@ export interface Mod {
   game_versions: string[] | null;
   file_name_override: string | null;
   associated_loader: ModLoader | null;
+
+  /// Origin modpack identifier in format: "platform:project_id[:version_id]"
+  /// Example: "modrinth:AANobbMI:tFw0iWAk" or "curseforge:12345:67890"
+  /// None for manually added mods
+  modpack_origin?: string | null;
+
+  /// True if automatic updates are enabled for this mod (default: true)
+  updates_enabled: boolean;
 }
 
 export interface NoriskModIdentifier {
@@ -404,6 +412,9 @@ export interface LocalContentItem {
   fallback_version?: string | null; // Fallback version from compatibility target
   id?: string | null; // Added optional ID field from ModProfileEntry.id
   associated_loader?: ModLoader | null; // Added associated_loader from ModProfileEntry
+  // Neue Felder für ModPack-Integration
+  modpack_origin?: string | null; // "modrinth:project_id" oder "curseforge:project_id:file_id"
+  updates_enabled?: boolean | null; // null = Standard (true), true/false = explizit gesetzt
   // Frontend specific fields can be added here if needed, e.g., for UI state
   // local_icon_data_url?: string; // Example if we were to add this later
 }
