@@ -341,7 +341,6 @@ export function ProfileDetailViewV2({
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
-      <ModpackDebugInfo profile={profile} />
       <div className={`flex-1 ${activeMainTab === "logs" ? "flex flex-col min-h-0" : "overflow-y-auto no-scrollbar"}`}>
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">
