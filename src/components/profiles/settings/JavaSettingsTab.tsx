@@ -544,6 +544,8 @@ export function JavaSettingsTab({
                   minLabel="512 MB"
                   maxLabel={`${systemRam} MB`}
                   variant="flat"
+                  recommendedRange={[ 4096, 8192 ]}
+                  unit="MB"
                 />
                 <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
                   Recommended: {recommendedMaxRam} MB (

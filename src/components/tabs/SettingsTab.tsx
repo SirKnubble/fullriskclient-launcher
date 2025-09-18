@@ -390,6 +390,7 @@ export function SettingsTab() {
                 size="md"
                 minLabel="1"
                 maxLabel="10"
+                recommendedValue={10}
                 icon={
                   <Icon
                     icon="solar:multiple-forward-right-bold"
@@ -422,6 +423,7 @@ export function SettingsTab() {
                 size="md"
                 minLabel="1"
                 maxLabel="20"
+                recommendedValue={20}
                 icon={<Icon icon="solar:server-bold" className="w-4 h-4" />}
               />
             </div>

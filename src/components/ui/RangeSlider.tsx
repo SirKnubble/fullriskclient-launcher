@@ -30,6 +30,9 @@ interface RangeSliderProps {
   icon?: React.ReactNode;
   label?: string;
   description?: string;
+  recommendedValue?: number | number[]; // Single or multiple recommended values
+  recommendedRange?: [number, number]; // Range between two values
+  unit?: string;
 }
 
 export function RangeSlider({
@@ -50,6 +53,9 @@ export function RangeSlider({
   icon,
   label,
   description,
+  recommendedValue,
+  recommendedRange,
+  unit,
 }: RangeSliderProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [isHovered, setIsHovered] = useState(false);
@@ -99,15 +105,17 @@ export function RangeSlider({
 
   const updateVisualPosition = useCallback((newValue: number) => {
     if (!progressRef.current || !thumbRef.current) return;
-    
+
     const percentage = getPercentage(newValue);
     progressRef.current.style.width = `${percentage}%`;
     thumbRef.current.style.left = `${percentage}%`;
-    
+
     if (valueDisplayRef.current) {
-      valueDisplayRef.current.textContent = String(newValue);
+      valueDisplayRef.current.innerHTML = unit
+        ? `${newValue} <span class="text-white/70">${unit}</span>`
+        : String(newValue);
     }
-  }, [getPercentage]);
+  }, [getPercentage, unit]);
 
   const calculateValueFromMouseEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
     if (!trackRef.current) return localValue;
@@ -230,7 +238,8 @@ export function RangeSlider({
 
       <div className="mb-2">
         {showValue && (
-          <div className="flex justify-between mb-1">            {minLabel && (
+          <div className="flex justify-between mb-1">
+            {minLabel && (
               <span
                 className={cn(
                   "text-white/70 font-minecraft-ten",
@@ -239,22 +248,39 @@ export function RangeSlider({
               >
                 {minLabel}
               </span>
-            )}<div className="flex items-center gap-1">
-              <span                ref={valueDisplayRef}
+            )}
+            <div className="flex items-center gap-1">
+              <span
+                ref={valueDisplayRef}
                 className={cn(
                   "text-white font-minecraft-ten",
                   sizeConfig[size].text,
                 )}
               >
                 {localValue}
+                {unit && (
+                  <span className="text-xs text-white/70 ml-1">{unit}</span>
+                )}
               </span>
-              {localValue === max && (
+              {/* Star at recommendedValue(s) */}
+              {(recommendedValue !== undefined &&
+                (
+                  Array.isArray(recommendedValue)
+                    ? recommendedValue.includes(localValue)
+                    : localValue === recommendedValue
+                )
+              ) ||
+                (recommendedRange &&
+                  localValue >= recommendedRange[0] &&
+                  localValue <= recommendedRange[1])
+              ? (
                 <Icon
                   icon="solar:star-bold"
                   className="w-3 h-3 text-yellow-400"
                 />
-              )}
-            </div>            {maxLabel && (
+              ) : null}
+            </div>
+            {maxLabel && (
               <span
                 className={cn(
                   "text-white/70 font-minecraft-ten",
