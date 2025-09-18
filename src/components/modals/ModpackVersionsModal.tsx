@@ -5,7 +5,8 @@ import { Modal } from "../ui/Modal";
 import { Icon } from "@iconify/react";
 import { Button } from "../ui/buttons/Button";
 import type { UnifiedModpackVersionsResponse, UnifiedVersion, ModpackSwitchRequest } from "../../types/unified";
-import { UnifiedVersionType, ModPlatform } from "../../types/unified";
+import { UnifiedVersionType } from "../../types/unified";
+import type { ModPackSource } from "../../types/profile";
 import UnifiedService from "../../services/unified-service";
 import { toast } from "react-hot-toast";
 
@@ -15,7 +16,6 @@ interface ModpackVersionsModalProps {
   versions: UnifiedModpackVersionsResponse | null;
   modpackName: string;
   profileId?: string;
-  modpackSource?: ModPlatform;
   onVersionSwitch?: (version: UnifiedVersion) => void;
   onSwitchComplete?: () => void;
   isSwitching?: boolean;
@@ -78,7 +78,7 @@ function VersionItem({
 }) {
   return (
     <div
-      className={`relative p-4 rounded-lg border transition-all duration-200 ${
+      className={`relative p-3 rounded-lg border transition-all duration-200 ${
         isInstalled
           ? "bg-black/30 border-white/30 cursor-not-allowed"
           : isSelected
@@ -91,81 +91,32 @@ function VersionItem({
       } : undefined}
       onClick={() => !isInstalled && onSelect(version)}
     >
-      {/* Stats - absolute oben rechts */}
-      <div className="absolute top-3 right-3 flex items-center space-x-2 text-xs text-white/50 font-minecraft-ten">
-        {/* Downloads */}
-        <div className="flex items-center gap-0.5">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-3 w-3"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" />
-          </svg>
-          <span>{formatDownloads(version.downloads)}</span>
-        </div>
-
-        {/* Datum */}
-        <div className="flex items-center gap-0.5">
-          <Icon icon="solar:calendar-bold" className="w-3 h-3" />
-          <span>{formatDate(version.date_published)}</span>
-        </div>
+      {/* Stats - oben rechts */}
+      <div className="absolute top-2 right-2 flex items-center space-x-1 text-xs text-white/50 font-minecraft-ten">
+        <span>{formatDownloads(version.downloads)}</span>
+        <span>{formatDate(version.date_published)}</span>
       </div>
 
-      {/* Header mit Name und Installed Badge */}
-      <div className="flex items-center gap-2 mb-2 pr-32">
-        <h3 className="text-white font-minecraft-ten text-sm truncate">
-          {version.name}
-        </h3>
-        {isInstalled && (
-          <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded font-minecraft-ten uppercase">
-            Installed
-          </span>
-        )}
-      </div>
-
-      {/* Version - prominent darstellen */}
-      <div className="mb-2 pr-32">
-        <div className="flex items-center gap-2">
-          <Icon icon="solar:tag-bold" className="w-4 h-4 text-white/80" />
-          <span className="text-white font-minecraft-ten text-sm font-medium">
-            {version.version_number}
-          </span>
-          <span className={`text-xs px-2 py-0.5 rounded font-minecraft-ten uppercase ${getVersionTypeColor(version.release_type)}`}>
-            {version.release_type}
-          </span>
-        </div>
-      </div>
-
-      {version.changelog && (
-        <div className="mt-3 text-xs text-white/50 font-minecraft-ten pr-32">
-          <div
-            className="max-h-16 overflow-hidden"
-            dangerouslySetInnerHTML={{
-              __html: version.changelog.length > 200
-                ? `${version.changelog.substring(0, 200)}...`
-                : version.changelog
-            }}
-            style={{
-              // Override any default styles that might interfere with our theme
-              color: 'inherit',
-              fontSize: 'inherit',
-              fontFamily: 'inherit',
-            }}
-          />
-        </div>
-      )}
-
-      <div className="mt-3 pr-32">
-        <div className="text-xs text-white/60 font-minecraft-ten">
-          <span className="text-white/70">MC: </span>
-          <span className="text-white/80">
-            {version.game_versions.slice(0, 3).join(', ')}
-            {version.game_versions.length > 3 && (
-              <span className="text-white/50"> +{version.game_versions.length - 3} more</span>
+      {/* Hauptinhalt */}
+      <div className="flex items-center justify-between pr-20">
+        <div className="flex-1 min-w-0">
+          {/* Name und Version in einer Zeile */}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-white font-minecraft-ten text-sm font-medium truncate">
+              {version.version_number}
+            </span>
+            {isInstalled && (
+              <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded font-minecraft-ten uppercase">
+                Current
+              </span>
             )}
-          </span>
+          </div>
+
+          {/* MC Versionen */}
+          <div className="text-xs text-white/60 font-minecraft-ten">
+            MC: {version.game_versions.slice(0, 2).join(', ')}
+            {version.game_versions.length > 2 && ` +${version.game_versions.length - 2}`}
+          </div>
         </div>
       </div>
     </div>
@@ -178,7 +129,6 @@ export function ModpackVersionsModal({
   versions,
   modpackName,
   profileId,
-  modpackSource,
   onVersionSwitch,
   onSwitchComplete,
   isSwitching = false,
@@ -205,14 +155,37 @@ export function ModpackVersionsModal({
     if (!selectedVersion) return;
 
     // Check if we have all required information for the new modpack switching
-    if (profileId && modpackSource && selectedVersion.files.length > 0) {
+    if (profileId && selectedVersion.files.length > 0) {
       try {
         // Find the primary file
         const primaryFile = selectedVersion.files.find(f => f.primary) || selectedVersion.files[0];
 
+        // Create new ModPackSource based on selected version
+        let newModpackSource: ModPackSource;
+        if (selectedVersion.source === "Modrinth") {
+          newModpackSource = {
+            source: "modrinth",
+            project_id: selectedVersion.project_id,
+            version_id: selectedVersion.id,
+          };
+        } else if (selectedVersion.source === "CurseForge") {
+          // For CurseForge, we need the file_id from the primary file
+          const fileId = primaryFile.fingerprint; // CurseForge uses fingerprint as file_id
+          if (!fileId) {
+            throw new Error("CurseForge file fingerprint (file_id) not found");
+          }
+          newModpackSource = {
+            source: "curseforge",
+            project_id: parseInt(selectedVersion.project_id), // CurseForge project_id is number
+            file_id: fileId,
+          };
+        } else {
+          throw new Error(`Unsupported modpack source: ${selectedVersion.source}`);
+        }
+
         const request: ModpackSwitchRequest = {
           download_url: primaryFile.url,
-          platform: modpackSource,
+          modpack_source: newModpackSource,
           profile_id: profileId,
         };
 
@@ -315,7 +288,7 @@ export function ModpackVersionsModal({
             disabled={!selectedVersion || isSwitching}
             icon={isSwitching ? <Icon icon="solar:refresh-bold" className="animate-spin h-4 w-4" /> : <Icon icon="solar:refresh-circle-bold" className="h-4 w-4" />}
           >
-            {isSwitching ? "Switching..." : selectedVersion ? (profileId && modpackSource ? "Switch Version" : "Switch Version (Legacy)") : "Select a Version"}
+            {isSwitching ? "Switching..." : selectedVersion ? "Switch Version" : "Select a Version"}
           </Button>
         </div>
       </div>

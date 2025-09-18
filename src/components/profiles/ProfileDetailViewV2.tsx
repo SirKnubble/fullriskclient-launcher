@@ -221,7 +221,7 @@ export function ProfileDetailViewV2({
 
 
 
-    // Handler for opening export modal
+  // Handler for opening export modal
   const handleOpenExportModal = useCallback(() => {
     showModal(`export-profile-${currentProfile.id}`, (
       <ExportProfileModal
@@ -263,12 +263,11 @@ export function ProfileDetailViewV2({
         versions={modpackVersions}
         modpackName={currentProfile.name}
         profileId={currentProfile.id}
-        modpackSource={currentProfile.modpack_info?.source}
         onSwitchComplete={async () => {
           // Refresh profile data after modpack switch
           try {
             await fetchProfiles();
-            setCurrentProfile(prev => ({...prev}));
+            setCurrentProfile(prev => ({ ...prev }));
             console.log("Profile refreshed after modpack version switch");
           } catch (err) {
             console.error("Failed to refresh profile data after modpack switch:", err);
@@ -364,7 +363,7 @@ export function ProfileDetailViewV2({
       label: null,
       icon: "solar:menu-dots-bold",
       tooltip: "More options",
-            onClick: (event?: React.MouseEvent<HTMLButtonElement>) => {
+      onClick: (event?: React.MouseEvent<HTMLButtonElement>) => {
         event?.preventDefault();
         event?.stopPropagation();
 
@@ -615,7 +614,7 @@ export function ProfileDetailViewV2({
                         // Fetch the updated profile from the store
                         await fetchProfiles();
                         // Force re-render by creating a new object reference
-                        setCurrentProfile(prev => ({...prev}));
+                        setCurrentProfile(prev => ({ ...prev }));
                       } catch (err) {
                         console.error("Failed to refresh profile data:", err);
                       }
@@ -635,11 +634,10 @@ export function ProfileDetailViewV2({
 
                   <button
                     onClick={() => setActiveContentTab("mods")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
-                      activeContentTab === "mods"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "mods"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Icon icon="solar:widget-bold" className="w-5 h-5 flex-shrink-0" />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
@@ -649,11 +647,10 @@ export function ProfileDetailViewV2({
 
                   <button
                     onClick={() => setActiveContentTab("resourcepacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
-                      activeContentTab === "resourcepacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "resourcepacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Icon icon="solar:palette-bold" className="w-5 h-5 flex-shrink-0" />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
@@ -663,11 +660,10 @@ export function ProfileDetailViewV2({
 
                   <button
                     onClick={() => setActiveContentTab("datapacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
-                      activeContentTab === "datapacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "datapacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Icon icon="solar:database-bold" className="w-5 h-5 flex-shrink-0" />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
@@ -677,11 +673,10 @@ export function ProfileDetailViewV2({
 
                   <button
                     onClick={() => setActiveContentTab("shaderpacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
-                      activeContentTab === "shaderpacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "shaderpacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Icon icon="solar:sun-bold" className="w-5 h-5 flex-shrink-0" />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
@@ -691,11 +686,10 @@ export function ProfileDetailViewV2({
 
                   <button
                     onClick={() => setActiveContentTab("nrc")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
-                      activeContentTab === "nrc"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "nrc"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     <Icon icon="solar:shield-check-bold" className="w-5 h-5 flex-shrink-0" />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
@@ -717,7 +711,7 @@ export function ProfileDetailViewV2({
               />
             </div>
           )}
-          
+
           {activeMainTab === "screenshots" && (
             <div className="h-full">
               <ScreenshotsTab
@@ -730,7 +724,7 @@ export function ProfileDetailViewV2({
               />
             </div>
           )}
-          
+
           {activeMainTab === "logs" && (
             <div className="h-full">
               <LogsTab

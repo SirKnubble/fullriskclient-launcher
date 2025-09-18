@@ -16,6 +16,7 @@ import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "./ExportProfileModal";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
 import { Tooltip } from "../ui/Tooltip";
+import UnifiedService from "../../services/unified-service";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -67,6 +68,10 @@ export function ProfileCardV2({
   const contextMenuId = `profile-${profile.id}`;
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Modpack versions state for conditional rendering
+  const [modpackVersions, setModpackVersions] = useState(null);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
   
   // Profile settings store
   const { openModal } = useProfileSettingsStore();
@@ -127,6 +132,33 @@ export function ProfileCardV2({
         }
       },
     },
+    // Show modpack versions only if modpack info exists and versions are loaded
+    ...(profile.modpack_info?.source && modpackVersions ? [{
+      id: "switch_modpack",
+      label: "Modpack Versions",
+      icon: "solar:refresh-circle-bold",
+      onClick: (profile) => {
+        console.log("Switch modpack version for profile:", profile.name);
+        if (profile.modpack_info?.source) {
+          // Import ModpackVersionsModal dynamically to avoid circular imports
+          import("../modals/ModpackVersionsModal").then(({ ModpackVersionsModal }) => {
+            showModal(`modpack-versions-${profile.id}`, (
+              <ModpackVersionsModal
+                isOpen={true}
+                onClose={() => hideModal(`modpack-versions-${profile.id}`)}
+                versions={modpackVersions}
+                modpackName={profile.name}
+                profileId={profile.id}
+                onSwitchComplete={() => {
+                  console.log("Modpack version switched successfully for:", profile.name);
+                  // Optionally refresh profile data here
+                }}
+              />
+            ));
+          });
+        }
+      },
+    }] : []),
     {
       id: "delete",
       label: "Delete",
@@ -164,6 +196,22 @@ export function ProfileCardV2({
       setIsContextMenuOpen(false);
     }
   }, [openContextMenuId, contextMenuId, isContextMenuOpen]);
+
+  // Load modpack versions when profile has modpack info
+  useEffect(() => {
+    if (profile.modpack_info?.source) {
+      setIsLoadingVersions(true);
+      UnifiedService.getModpackVersions(profile.modpack_info.source)
+        .then(setModpackVersions)
+        .catch(err => {
+          console.error("Failed to load modpack versions:", err);
+          setModpackVersions(null);
+        })
+        .finally(() => setIsLoadingVersions(false));
+    } else {
+      setModpackVersions(null);
+    }
+  }, [profile.modpack_info?.source]);
 
 
 

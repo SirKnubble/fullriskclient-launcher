@@ -456,9 +456,9 @@ pub async fn switch_modpack_version_command(
     request: ModpackSwitchRequest,
 ) -> Result<ModpackSwitchResponse, CommandError> {
     log::debug!(
-        "Received switch_modpack_version command: URL={}, Platform={:?}, Profile={}",
+        "Received switch_modpack_version command: URL={}, ModPackSource={:?}, Profile={}",
         request.download_url,
-        request.platform,
+        request.modpack_source,
         request.profile_id
     );
 

@@ -56,22 +56,7 @@ class UnifiedService {
     static async switchModpackVersion(request: ModpackSwitchRequest): Promise<ModpackSwitchResponse> {
         console.log("Switching modpack version", request);
 
-        // Convert platform to ModPlatform enum if it's a ModPackSource
-        let platform: ModPlatform;
-        if (typeof request.platform === 'string') {
-            platform = request.platform as ModPlatform;
-        } else {
-            // It's a ModPackSource, extract the platform
-            platform = request.platform.source === 'modrinth' ? ModPlatform.Modrinth : ModPlatform.CurseForge;
-        }
-
-        const convertedRequest = {
-            download_url: request.download_url,
-            platform: platform,
-            profile_id: request.profile_id
-        };
-
-        return invoke("switch_modpack_version_command", { request: convertedRequest });
+        return invoke("switch_modpack_version_command", { request });
     }
 }
 

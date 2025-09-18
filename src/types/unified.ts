@@ -165,8 +165,8 @@ export interface UnifiedModpackVersionsResponse {
 export interface ModpackSwitchRequest {
   /// Download URL for the modpack file
   download_url: string;
-  /// Platform where the modpack originates from
-  platform: ModPlatform | ModPackSource;
+  /// Source information for the new modpack version
+  modpack_source: ModPackSource;
   /// Profile ID to update with the new modpack information
   profile_id: string;
 }
