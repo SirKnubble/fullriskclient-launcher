@@ -76,7 +76,8 @@ use commands::modrinth_commands::{
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
     get_modpack_versions_unified_command, get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
-    search_modrinth_projects, search_mods_unified_command, get_mod_versions_unified_command
+    search_modrinth_projects, search_mods_unified_command, get_mod_versions_unified_command,
+    switch_modpack_version_command
 };
 
 use commands::file_command::{
@@ -472,6 +473,7 @@ async fn main() {
             get_modrinth_loaders_command,
             get_modrinth_game_versions_command,
             get_modrinth_versions_by_hashes,
+            switch_modpack_version_command,
             uninstall_content_from_profile,
             toggle_content_from_profile,
             toggle_mod_updates,

@@ -1040,6 +1040,80 @@ fn determine_loader_from_curseforge_loaders(loaders: &[CurseForgeModLoader]) -> 
     }
 }
 
+/// Common trait for extracting modpack information from different manifest formats
+/// This allows uniform access to Minecraft version, loader type and loader version
+/// from both CurseForge manifests and Modrinth index files.
+///
+/// # Example
+/// ```rust,ignore
+/// // Works with both CurseForge and Modrinth manifests
+/// async fn print_modpack_info<T: ModpackManifest>(manifest: &T) {
+///     println!("MC Version: {:?}", manifest.get_minecraft_version());
+///     println!("Loader: {:?}", manifest.get_loader());
+///     println!("Loader Version: {:?}", manifest.get_loader_version());
+///
+///     // Get detailed mod information (requires API calls)
+///     match manifest.get_mods_structs().await {
+///         Ok(mods) => {
+///             println!("Found {} mods:", mods.len());
+///             for mod_info in mods {
+///                 println!("  - {} (v{})", mod_info.display_name.as_deref().unwrap_or("Unknown"), mod_info.version.as_deref().unwrap_or("Unknown"));
+///             }
+///         }
+///         Err(e) => println!("Error getting mods: {}", e),
+///     }
+/// }
+///
+/// // Usage with both manifest types:
+/// async fn process_manifest(manifest: &impl ModpackManifest) {
+///     let mc_version = manifest.get_minecraft_version().unwrap_or_else(|| "Unknown".to_string());
+///     let loader = manifest.get_loader().map(|l| format!("{:?}", l)).unwrap_or_else(|| "Vanilla".to_string());
+///
+///     println!("Modpack: MC {} with {}", mc_version, loader);
+///
+///     // This will make API calls to resolve mod details
+///     let mods = manifest.get_mods_structs().await?;
+///     println!("Contains {} mods", mods.len());
+/// }
+/// ```
+pub trait ModpackManifest {
+    /// Returns the Minecraft version if available
+    fn get_minecraft_version(&self) -> Option<String>;
+
+    /// Returns the mod loader type if available (None for Vanilla)
+    fn get_loader(&self) -> Option<ModLoader>;
+
+    /// Returns the loader version if available
+    fn get_loader_version(&self) -> Option<String>;
+
+    /// Returns a list of mods as Mod structs (requires API calls)
+    async fn get_mods_structs(&self) -> Result<Vec<Mod>>;
+}
+
+impl ModpackManifest for CurseForgeManifest {
+    fn get_minecraft_version(&self) -> Option<String> {
+        Some(self.minecraft.version.clone())
+    }
+
+    fn get_loader(&self) -> Option<ModLoader> {
+        let (loader, _) = determine_loader_from_curseforge_loaders(&self.minecraft.mod_loaders);
+        if loader == ModLoader::Vanilla {
+            None
+        } else {
+            Some(loader)
+        }
+    }
+
+    fn get_loader_version(&self) -> Option<String> {
+        let (_, version) = determine_loader_from_curseforge_loaders(&self.minecraft.mod_loaders);
+        version
+    }
+
+    async fn get_mods_structs(&self) -> Result<Vec<Mod>> {
+        resolve_curseforge_manifest_files(self).await
+    }
+}
+
 /// Processes a CurseForge modpack manifest from ZIP file and creates a potential Profile struct
 pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profile, CurseForgeManifest)> {
     info!("Processing CurseForge manifest from ZIP file: {:?}", pack_path);

@@ -7,9 +7,10 @@ use crate::integrations::modrinth::{
 };
 use crate::integrations::mrpack;
 use crate::integrations::unified_mod::{
-    check_mod_updates_unified, get_mod_versions_unified, get_modpack_versions_unified, search_mods_unified, ModPlatform,
+    check_mod_updates_unified, get_mod_versions_unified, get_modpack_versions_unified, search_mods_unified, switch_modpack_version, ModPlatform,
     UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedModVersionsParams, UnifiedModpackVersionsResponse,
     UnifiedProjectType, UnifiedSortType, UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse, UnifiedVersionResponse,
+    ModpackSwitchRequest, ModpackSwitchResponse,
 };
 use crate::state::profile_state::ModPackSource;
 use serde::Serialize;
@@ -445,5 +446,32 @@ pub async fn get_modpack_versions_unified_command(
         result.all_versions.len(),
         result.updates_available
     );
+    Ok(result)
+}
+
+/// Unified command to switch a modpack version
+/// Downloads the new modpack version and updates the profile accordingly
+#[tauri::command]
+pub async fn switch_modpack_version_command(
+    request: ModpackSwitchRequest,
+) -> Result<ModpackSwitchResponse, CommandError> {
+    log::debug!(
+        "Received switch_modpack_version command: URL={}, Platform={:?}, Profile={}",
+        request.download_url,
+        request.platform,
+        request.profile_id
+    );
+
+    let result = switch_modpack_version(request)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Modpack version switch completed successfully: MC={}, Loader={:?}, Mods={}",
+        result.minecraft_version,
+        result.loader,
+        result.mods.len()
+    );
+
     Ok(result)
 }

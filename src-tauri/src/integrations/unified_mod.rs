@@ -1,6 +1,9 @@
 use crate::integrations::curseforge;
+use crate::integrations::curseforge::ModpackManifest;
 use crate::integrations::modrinth;
-use crate::state::profile_state::ModPackSource;
+use crate::state::profile_state::{ModPackSource, ProfileManager, Profile};
+use crate::state::state_manager::State;
+use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use log::{debug, error, info, warn};
@@ -1223,5 +1226,165 @@ fn convert_curseforge_dependency_type(relation_type: u32) -> UnifiedDependencyTy
         6 => UnifiedDependencyType::Required, // Include -> Required (no direct mapping, closest is Required)
         _ => UnifiedDependencyType::Optional, // Default to optional
     }
+}
+
+/// Request structure for switching modpack versions
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModpackSwitchRequest {
+    /// Download URL for the modpack file
+    pub download_url: String,
+    /// Platform where the modpack originates from
+    pub platform: ModPlatform,
+    /// Profile ID to update with the new modpack information
+    pub profile_id: Uuid,
+}
+
+/// Response structure for modpack version switching
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ModpackSwitchResponse {
+    /// The Minecraft version extracted from the modpack
+    pub minecraft_version: String,
+    /// The mod loader type (if any)
+    pub loader: Option<crate::state::profile_state::ModLoader>,
+    /// The loader version (if any)
+    pub loader_version: Option<String>,
+    /// List of mods extracted from the modpack
+    pub mods: Vec<crate::state::profile_state::Mod>,
+}
+
+/// Extract modpack information using the common trait interface
+/// Returns the extracted information or an error if required fields are missing
+async fn extract_modpack_info<T: ModpackManifest>(manifest: &T, pack_name: &str) -> Result<(String, Option<crate::state::profile_state::ModLoader>, Option<String>, Vec<crate::state::profile_state::Mod>), crate::error::AppError> {
+    let mc_version = manifest.get_minecraft_version()
+        .ok_or_else(|| {
+            error!("Modpack '{}' is missing Minecraft version", pack_name);
+            crate::error::AppError::Other(format!("Modpack '{}' is missing Minecraft version", pack_name))
+        })?;
+
+    let loader = manifest.get_loader();
+    let loader_version = manifest.get_loader_version();
+    let mods = manifest.get_mods_structs().await.map_err(|e| {
+        error!("Failed to extract mods from modpack '{}': {}", pack_name, e);
+        crate::error::AppError::Other(format!("Failed to extract mods from modpack '{}': {}", pack_name, e))
+    })?;
+
+    info!("Modpack '{}' info - MC: {}, Loader: {:?}, Loader Version: {:?}, Mods: {}",
+          pack_name, mc_version, loader, loader_version, mods.len());
+
+    Ok((mc_version, loader, loader_version, mods))
+}
+
+/// Switch to a different version of a modpack
+/// Downloads and installs the new version while preserving profile settings
+pub async fn switch_modpack_version(request: ModpackSwitchRequest) -> Result<ModpackSwitchResponse, crate::error::AppError> {
+    info!("Switching modpack version - URL: {}, Platform: {:?}", request.download_url, request.platform);
+
+    // Create a temporary directory for the download
+    let temp_dir = tempfile::tempdir().map_err(|e| {
+        error!("Failed to create temporary directory: {}", e);
+        crate::error::AppError::Other(format!("Failed to create temporary directory: {}", e))
+    })?;
+
+    let temp_file_path = temp_dir.path().join("modpack_download.zip");
+
+    // Download the modpack file using the existing download utilities
+    info!("Downloading modpack from: {}", request.download_url);
+
+    let download_config = crate::utils::download_utils::DownloadConfig::default()
+        .with_force_overwrite(true) // Always download fresh version
+        .with_disk_space_check(true); // Check disk space before download
+
+    crate::utils::download_utils::DownloadUtils::download_file(
+        &request.download_url,
+        &temp_file_path,
+        download_config,
+    ).await.map_err(|e| {
+        error!("Failed to download modpack: {}", e);
+        e
+    })?;
+
+    info!("Successfully downloaded modpack to: {:?}", temp_file_path);
+
+    // Get the global state to access ProfileManager
+    let state = State::get().await?;
+    let profile_manager = &state.profile_manager;
+
+    // Load the current profile
+    let mut profile = profile_manager.get_profile(request.profile_id).await?;
+    info!("Loaded profile '{}' for modpack switching", profile.name);
+
+    // Process the modpack based on platform - unified approach using trait
+    let (minecraft_version, loader, loader_version, mods) = match request.platform {
+        ModPlatform::Modrinth => {
+            info!("Processing as Modrinth modpack");
+            let (_profile, manifest) = crate::integrations::mrpack::process_mrpack(temp_file_path).await
+                .map_err(|e| {
+                    error!("Failed to process Modrinth modpack: {}", e);
+                    e
+                })?;
+            extract_modpack_info(&manifest, &manifest.name).await?
+        }
+        ModPlatform::CurseForge => {
+            info!("Processing as CurseForge modpack");
+            let (_profile, manifest) = crate::integrations::curseforge::process_curseforge_pack_from_zip(&temp_file_path).await
+                .map_err(|e| {
+                    error!("Failed to process CurseForge modpack: {}", e);
+                    e
+                })?;
+            extract_modpack_info(&manifest, &manifest.name).await?
+        }
+    };
+
+    // Update the profile with the extracted information
+    info!("Updating profile with extracted modpack information");
+    profile.game_version = minecraft_version.clone();
+
+    if let Some(new_loader) = loader {
+        profile.loader = new_loader;
+    }
+
+    if let Some(new_loader_version) = loader_version.clone() {
+        profile.loader_version = Some(new_loader_version);
+    }
+
+    // Remove existing modpack mods and add new ones, preserving user-added mods
+    let mut updated_mods = Vec::new();
+
+    // Keep mods that are NOT from a modpack (user-added mods)
+    for existing_mod in &profile.mods {
+        if existing_mod.modpack_origin.is_none() {
+            info!("Keeping user-added mod: {}", existing_mod.display_name.as_deref().unwrap_or(&existing_mod.id.to_string()));
+            updated_mods.push(existing_mod.clone());
+        } else {
+            info!("Removing old modpack mod: {}", existing_mod.display_name.as_deref().unwrap_or(&existing_mod.id.to_string()));
+        }
+    }
+
+    // Add new modpack mods
+    for new_mod in &mods {
+        updated_mods.push(new_mod.clone());
+    }
+
+    profile.mods = updated_mods;
+    info!("Updated profile mods list: kept {} user mods, added {} modpack mods",
+          profile.mods.iter().filter(|m| m.modpack_origin.is_none()).count(),
+          mods.len());
+
+    // Save the updated profile
+    profile_manager.update_profile(request.profile_id, profile).await?;
+    info!("Successfully updated profile {} with new modpack version information", request.profile_id);
+
+    // Clean up temporary directory
+    drop(temp_dir);
+
+    info!("Modpack version switch completed successfully - MC: {}, Loader: {:?}, Loader Version: {:?}, Mods: {}",
+          minecraft_version, loader, loader_version, mods.len());
+
+    Ok(ModpackSwitchResponse {
+        minecraft_version,
+        loader,
+        loader_version,
+        mods,
+    })
 }
 

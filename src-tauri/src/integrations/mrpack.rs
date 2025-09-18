@@ -23,6 +23,9 @@ use tokio::io::BufReader;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use uuid::Uuid;
 
+// Import the ModpackManifest trait from curseforge integration
+use crate::integrations::curseforge::ModpackManifest;
+
 /// Represents the overall structure of a modrinth.index.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")] // Modrinth uses camelCase for this file
@@ -69,6 +72,30 @@ fn determine_loader_from_dependencies(
     } else {
         // No specific loader found, assume Vanilla
         (ModLoader::Vanilla, None)
+    }
+}
+
+impl ModpackManifest for ModrinthIndex {
+    fn get_minecraft_version(&self) -> Option<String> {
+        self.dependencies.get(MINECRAFT_DEPENDENCY).cloned()
+    }
+
+    fn get_loader(&self) -> Option<ModLoader> {
+        let (loader, _) = determine_loader_from_dependencies(&self.dependencies);
+        if loader == ModLoader::Vanilla {
+            None
+        } else {
+            Some(loader)
+        }
+    }
+
+    fn get_loader_version(&self) -> Option<String> {
+        let (_, version) = determine_loader_from_dependencies(&self.dependencies);
+        version
+    }
+
+    async fn get_mods_structs(&self) -> Result<Vec<Mod>> {
+        resolve_manifest_files(self).await
     }
 }
 
