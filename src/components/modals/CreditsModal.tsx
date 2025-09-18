@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { Modal } from "../ui/Modal";
 import { useThemeStore } from "../../store/useThemeStore";
 import { IconButton } from "../ui/buttons/IconButton";
+import { Button } from "../ui/buttons/Button";
 import { openExternalUrl } from "../../services/tauri-service";
 
 interface CreditsModalProps {
@@ -102,6 +103,18 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
                 Backend & Core
               </p>
             </div>
+          </div>
+
+          {/* Open Source Licenses Button */}
+          <div className="flex justify-center pt-4">
+            <Button
+              variant="ghost"
+              className="flex items-center gap-2 px-6 py-3 border border-[#ffffff20] hover:bg-white/5 transition-colors"
+              onClick={() => handleOpenUrl("https://blog.norisk.gg/open-source-licenses/")}
+            >
+              <Icon icon="solar:external-link-bold" className="w-5 h-5" />
+              <span className="font-minecraft text-lg lowercase">View Licenses</span>
+            </Button>
           </div>
         </div>
       </div>
