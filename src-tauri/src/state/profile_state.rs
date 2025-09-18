@@ -2634,6 +2634,9 @@ impl ProfileManager {
     pub async fn sync_standard_profiles(&self) -> Result<()> {
         info!("ProfileManager: Starting standard profiles synchronization...");
 
+        // Ensure profiles are loaded before syncing to avoid race conditions
+        self.ensure_profiles_loaded().await?;
+
         // Get standard profiles from norisk version manager
         let state = match crate::state::state_manager::State::get().await {
             Ok(state) => state,
@@ -2693,6 +2696,43 @@ impl ProfileManager {
         }
 
         info!("ProfileManager: Standard profile sync complete. Created {} new copies, updated {} existing copies", copies_created, copies_updated);
+        Ok(())
+    }
+
+    /// Ensures profiles are loaded from disk if not already loaded, performing migrations if needed.
+    /// This method is used to avoid race conditions where profile operations are called before profiles are loaded.
+    async fn ensure_profiles_loaded(&self) -> Result<()> {
+        {
+            let profiles_guard = self.profiles.read().await;
+            if profiles_guard.is_empty() {
+                info!("ProfileManager: Profiles not loaded yet, loading them now...");
+                drop(profiles_guard); // Release read lock before loading
+
+                // Load profiles from disk
+                let mut loaded_profiles = self.load_profiles_internal(&self.profiles_path.clone()).await?;
+
+                // Perform profile migrations
+                let migration_count = crate::utils::migration_utils::migrate_profiles(&mut loaded_profiles);
+
+                // Save profiles to disk if migrations were performed
+                if migration_count > 0 {
+                    info!("ProfileManager: Saving migrated profiles to disk...");
+                    // Set profiles in memory first
+                    let mut profiles_write_guard = self.profiles.write().await;
+                    *profiles_write_guard = loaded_profiles;
+                    drop(profiles_write_guard);
+
+                    // Then save to disk
+                    self.save_profiles().await?;
+                    info!("ProfileManager: Successfully saved migrated profiles.");
+                } else {
+                    let mut profiles_write_guard = self.profiles.write().await;
+                    *profiles_write_guard = loaded_profiles;
+                }
+
+                info!("ProfileManager: Profiles loaded successfully.");
+            }
+        }
         Ok(())
     }
 
@@ -3115,24 +3155,8 @@ impl PostInitializationHandler for ProfileManager {
             info!("ProfileManager: profiles.json doesn't exist yet - no backup needed at this stage");
         }
 
-        let mut loaded_profiles = self
-            .load_profiles_internal(&self.profiles_path.clone())
-            .await?;
-
-        // Perform profile migrations (now safe because we have a backup)
-        let migration_count = crate::utils::migration_utils::migrate_profiles(&mut loaded_profiles);
-        
-        // Set profiles in memory
-        let mut profiles_guard = self.profiles.write().await;
-        *profiles_guard = loaded_profiles;
-        drop(profiles_guard);
-        
-        // Save profiles to disk if migrations were performed
-        if migration_count > 0 {
-            info!("ProfileManager: Saving migrated profiles to disk...");
-            self.save_profiles().await?;
-            info!("ProfileManager: Successfully saved migrated profiles.");
-        }
+        // Load profiles with migrations (backup was already created above)
+        self.ensure_profiles_loaded().await?;
 
         // Sync standard profiles - create editable copies for each norisk_version
         if let Err(e) = self.sync_standard_profiles().await {
