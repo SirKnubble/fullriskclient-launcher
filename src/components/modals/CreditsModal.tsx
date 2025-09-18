@@ -31,7 +31,8 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
       onClose={onClose}
       width="md"
     >
-      <div className="p-6">        <div className="space-y-6">
+      <div className="p-6">
+        <div className="space-y-6">
           <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border-2 border-white/20 transition-colors">
             <div className="flex items-center gap-4">
               <div
@@ -57,7 +58,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right mr-3">
-                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide">
+                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide" title="(sirknubble did it better)">
                   UI & Frontend
                 </p>
               </div>
@@ -69,7 +70,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
                 title="Visit deadmake.dev"
               />
               <IconButton
-                icon={<span className="text-sm">🍋</span>}
+                icon={<span className="text-sm" style={{ transform: "translateY(2px)"}}>🍋</span>}
                 onClick={() => handleOpenUrl("https://fruity.dev")}
                 variant="default"
                 size="sm"
