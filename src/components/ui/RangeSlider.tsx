@@ -299,7 +299,7 @@ export function RangeSlider({
           <div
             ref={thumbRef}
             className={cn(
-              "absolute top-2 -translate-x-1/2 z-10 cursor-grab",
+              "absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-10 cursor-grab",
               isDragging && "cursor-grabbing",
               "border-2",
               radiusClass,
@@ -311,13 +311,13 @@ export function RangeSlider({
               borderColor: `${accentColor.value}`,
               left: `${getPercentage(localValue)}%`,
               transform: isDragging
-                ? "translateX(0) scale(1.1)"
-                : "translateX(0) scale(1)",
+                ? "translate(-50%, -50%) scale(1.1)"
+                : "translate(-50%, -50%) scale(1)",
             }}
           >
             <div
               className={cn("absolute inset-0 bg-gradient-to-b from-white/20 to-transparent transition-opacity duration-200", radiusClass)}
-              style={{ opacity: isHovered || isDragging ? 0.5 : 0 }}
+              style={{ opacity: isHovered || isDragging ? 1 : 0.5 }}
             />
 
             <div className="absolute inset-0 flex items-center justify-center opacity-70">
