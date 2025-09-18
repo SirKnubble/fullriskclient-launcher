@@ -17,9 +17,12 @@ import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
 import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
 import { ConfirmDeleteDialog } from "../modals/ConfirmDeleteDialog";
 import { ExportProfileModal } from "./ExportProfileModal";
+import { ModpackVersionsModal } from "../modals/ModpackVersionsModal";
 import { useProfileStore } from "../../store/profile-store";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import * as ProfileService from "../../services/profile-service";
+import UnifiedService from "../../services/unified-service";
+import type { UnifiedModpackVersionsResponse } from "../../types/unified";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
 
@@ -58,6 +61,10 @@ export function ProfileDetailViewV2({
   // Delete modal state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Modpack versions state
+  const [modpackVersions, setModpackVersions] = useState<UnifiedModpackVersionsResponse | null>(null);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
   // Global modal system
   const { showModal, hideModal } = useGlobalModal();
@@ -129,6 +136,13 @@ export function ProfileDetailViewV2({
       icon: "solar:download-bold",
       onClick: () => handleOpenExportModal(),
     },
+    // Show modpack versions only if modpack info exists and versions are loaded
+    ...(currentProfile.modpack_info && modpackVersions ? [{
+      id: "modpack-versions",
+      label: "Modpack Versions",
+      icon: "solar:archive-bold",
+      onClick: () => handleOpenModpackVersionsModal(),
+    }] : []),
     {
       id: "open-folder",
       label: "Open Folder",
@@ -239,10 +253,39 @@ export function ProfileDetailViewV2({
     openDuplicateModal(currentProfile);
   }, [currentProfile, openDuplicateModal]);
 
+  // Handler for opening modpack versions modal
+  const handleOpenModpackVersionsModal = useCallback(() => {
+    console.log("[ProfileDetailViewV2] handleOpenModpackVersionsModal called for:", currentProfile.name);
+    showModal(`modpack-versions-${currentProfile.id}`, (
+      <ModpackVersionsModal
+        isOpen={true}
+        onClose={() => hideModal(`modpack-versions-${currentProfile.id}`)}
+        versions={modpackVersions}
+        modpackName={currentProfile.name}
+      />
+    ));
+  }, [currentProfile, showModal, hideModal, modpackVersions]);
+
   // Effect to synchronize the internal currentProfile state with the profile prop
   useEffect(() => {
     setCurrentProfile(profile);
   }, [profile]);
+
+  // Effect to load modpack versions when profile has modpack info
+  useEffect(() => {
+    if (currentProfile.modpack_info) {
+      setIsLoadingVersions(true);
+      UnifiedService.getModpackVersions(currentProfile.modpack_info.source)
+        .then(setModpackVersions)
+        .catch(err => {
+          console.error("Failed to load modpack versions:", err);
+          setModpackVersions(null);
+        })
+        .finally(() => setIsLoadingVersions(false));
+    } else {
+      setModpackVersions(null);
+    }
+  }, [currentProfile.modpack_info]);
 
 
 

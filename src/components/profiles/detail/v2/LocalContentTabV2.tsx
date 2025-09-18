@@ -43,7 +43,7 @@ import { ThemedSurface } from "../../../ui/ThemedSurface";
 import { useAppDragDropStore } from "../../../../store/appStore"; // Import the store
 import { createPortal } from "react-dom";
 import { ModrinthService } from "../../../../services/modrinth-service"; // Added import
-import { UnifiedService } from "../../../../services/unified-service"; // Added import
+import UnifiedService from "../../../../services/unified-service"; // Added import
 import { EmptyState } from "../../../ui/EmptyState"; // Added import
 import { useProfileStore } from "../../../../store/profile-store"; // Added import
 import { useConfirmDialog } from "../../../../hooks/useConfirmDialog"; // Added import

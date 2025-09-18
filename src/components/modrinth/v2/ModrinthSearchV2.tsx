@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { UnifiedService } from '../../../services/unified-service';
+import UnifiedService from '../../../services/unified-service';
 import { ModrinthService } from '../../../services/modrinth-service';
 import { CurseForgeService } from '../../../services/curseforge-service';
 import type {

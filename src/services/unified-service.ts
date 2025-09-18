@@ -16,7 +16,7 @@ import type { SwitchContentVersionPayload, ContentType } from "../types/content"
 import type { LocalContentItem } from "../types/profile";
 import { invoke } from "@tauri-apps/api/core";
 
-export class UnifiedService {
+class UnifiedService {
     static async searchMods(params: UnifiedModSearchParams): Promise<UnifiedModSearchResponse> {
         return invoke<UnifiedModSearchResponse>("search_mods_unified_command", { params });
     }
@@ -51,3 +51,5 @@ export class UnifiedService {
         return invoke("switch_content_version", { payload });
     }
 }
+
+export default UnifiedService;

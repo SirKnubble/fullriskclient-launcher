@@ -9,7 +9,7 @@ import { ContentType as NrContentType } from '../types/content';
 import type { ToggleContentPayload, UninstallContentPayload, SwitchContentVersionPayload } from '../types/content';
 import { ModrinthService } from '../services/modrinth-service';
 import { CurseForgeService } from '../services/curseforge-service';
-import { UnifiedService } from '../services/unified-service';
+import UnifiedService from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
 import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion, toggleModUpdates, bulkToggleModUpdates } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';

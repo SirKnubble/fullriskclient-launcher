@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Profile } from '../types/profile';
 import type { UnifiedModpackVersionsResponse } from '../types/unified';
-import { UnifiedService } from '../services/unified-service';
+import UnifiedService from '../services/unified-service';
 import { useDebugMode } from './useDebugMode';
 import { useModUpdateText } from '../components/ui/ModUpdateText';
 
