@@ -17,6 +17,7 @@ import { ExportProfileModal } from "./ExportProfileModal";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
 import { Tooltip } from "../ui/Tooltip";
 import UnifiedService from "../../services/unified-service";
+import { useProfileStore } from "../../store/profile-store";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -149,9 +150,15 @@ export function ProfileCardV2({
                 versions={modpackVersions}
                 modpackName={profile.name}
                 profileId={profile.id}
-                onSwitchComplete={() => {
+                onSwitchComplete={async () => {
                   console.log("Modpack version switched successfully for:", profile.name);
-                  // Optionally refresh profile data here
+                  // Refresh profiles to ensure the profile prop is updated
+                  try {
+                    const { fetchProfiles } = useProfileStore.getState();
+                    await fetchProfiles();
+                  } catch (err) {
+                    console.error("Failed to refresh profiles after modpack switch:", err);
+                  }
                 }}
               />
             ));

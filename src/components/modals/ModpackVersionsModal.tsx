@@ -8,6 +8,7 @@ import type { UnifiedModpackVersionsResponse, UnifiedVersion, ModpackSwitchReque
 import { UnifiedVersionType } from "../../types/unified";
 import type { ModPackSource } from "../../types/profile";
 import UnifiedService from "../../services/unified-service";
+import * as ProfileService from "../../services/profile-service";
 import { toast } from "react-hot-toast";
 
 interface ModpackVersionsModalProps {
@@ -126,13 +127,47 @@ function VersionItem({
 export function ModpackVersionsModal({
   isOpen,
   onClose,
-  versions,
+  versions: initialVersions,
   modpackName,
   profileId,
   onVersionSwitch,
   onSwitchComplete,
   isSwitching = false,
 }: ModpackVersionsModalProps) {
+  const [versions, setVersions] = useState<UnifiedModpackVersionsResponse | null>(initialVersions);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+
+  // Load fresh versions when modal opens by loading the current profile
+  React.useEffect(() => {
+    if (isOpen && profileId) {
+      setIsLoadingVersions(true);
+
+      // Load the current profile to get the latest modpack source
+      ProfileService.getProfile(profileId)
+        .then(profile => {
+          if (profile.modpack_info?.source) {
+            return UnifiedService.getModpackVersions(profile.modpack_info.source);
+          } else {
+            throw new Error("No modpack source found in profile");
+          }
+        })
+        .then(setVersions)
+        .catch(err => {
+          console.error("Failed to load fresh modpack versions:", err);
+          setVersions(initialVersions); // fallback to initial versions
+        })
+        .finally(() => setIsLoadingVersions(false));
+    }
+  }, [isOpen, profileId, initialVersions]);
+
+  // Reset when modal closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setVersions(initialVersions);
+      setSelectedVersion(null);
+    }
+  }, [isOpen, initialVersions]);
+
   if (!isOpen || !versions) {
     return null;
   }
@@ -198,12 +233,14 @@ export function ModpackVersionsModal({
         toast.dismiss(loadingToast);
         toast.success(`Successfully switched ${modpackName} to version ${selectedVersion.version_number}!`);
 
-        // Call completion callback if provided
+        // Don't refresh here - let parent components handle the refresh
+
+        // Call completion callback if provided (wait for parent components to update their state)
         if (onSwitchComplete) {
-          onSwitchComplete();
+          await onSwitchComplete();
         }
 
-        // Close modal
+        // Close modal after parent states are updated
         onClose();
 
       } catch (error) {
@@ -229,14 +266,39 @@ export function ModpackVersionsModal({
       onClose={onClose}
       width="lg"
       className="max-h-[80vh]"
+      footer={
+        <div className="flex justify-end items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            disabled={isSwitching}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            onClick={handleSwitchVersion}
+            disabled={!selectedVersion || isSwitching}
+            icon={isSwitching ? <Icon icon="solar:refresh-bold" className="animate-spin h-4 w-4" /> : <Icon icon="solar:refresh-circle-bold" className="h-4 w-4" />}
+          >
+            {isSwitching ? "Switching..." : selectedVersion ? "Switch Version" : "Select a Version"}
+          </Button>
+        </div>
+      }
     >
       <div className="p-4">
         <div className="mb-4 text-sm text-white/70 font-minecraft-ten">
-          {versions.all_versions.length} version{versions.all_versions.length !== 1 ? 's' : ''} available
-          {versions.updates_available && (
-            <span className="ml-2 text-green-400">
-              • Updates available
-            </span>
+          {isLoadingVersions ? (
+            "Loading versions..."
+          ) : (
+            <>
+              {versions.all_versions.length} version{versions.all_versions.length !== 1 ? 's' : ''} available
+              {versions.updates_available && (
+                <span className="ml-2 text-green-400">
+                  • Updates available
+                </span>
+              )}
+            </>
           )}
         </div>
 
@@ -255,7 +317,7 @@ export function ModpackVersionsModal({
           </div>
         )}
 
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="space-y-4">
           {sortedVersions.map((version) => (
             <VersionItem
               key={version.id}
@@ -272,25 +334,6 @@ export function ModpackVersionsModal({
             No versions found for this modpack.
           </div>
         )}
-
-        {/* Footer with Switch Version Buttons */}
-        <div className="flex justify-end items-center gap-3 pt-4 border-t border-white/10">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-            disabled={isSwitching}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="default"
-            onClick={handleSwitchVersion}
-            disabled={!selectedVersion || isSwitching}
-            icon={isSwitching ? <Icon icon="solar:refresh-bold" className="animate-spin h-4 w-4" /> : <Icon icon="solar:refresh-circle-bold" className="h-4 w-4" />}
-          >
-            {isSwitching ? "Switching..." : selectedVersion ? "Switch Version" : "Select a Version"}
-          </Button>
-        </div>
       </div>
     </Modal>
   );

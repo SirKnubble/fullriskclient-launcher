@@ -267,8 +267,15 @@ export function ProfileDetailViewV2({
           // Refresh profile data after modpack switch
           try {
             await fetchProfiles();
-            setCurrentProfile(prev => ({ ...prev }));
-            console.log("Profile refreshed after modpack version switch");
+            // Force reload the current profile from the updated profiles list
+            const updatedProfiles = useProfileStore.getState().profiles;
+            const updatedProfile = updatedProfiles.find(p => p.id === currentProfile.id);
+            if (updatedProfile) {
+              setCurrentProfile(updatedProfile);
+              console.log("Profile refreshed after modpack version switch:", updatedProfile.modpack_info);
+            } else {
+              console.error("Could not find updated profile after switch");
+            }
           } catch (err) {
             console.error("Failed to refresh profile data after modpack switch:", err);
           }
@@ -282,21 +289,28 @@ export function ProfileDetailViewV2({
     setCurrentProfile(profile);
   }, [profile]);
 
-  // Effect to load modpack versions when profile has modpack info
-  useEffect(() => {
+  // Function to refresh modpack versions
+  const refreshModpackVersions = useCallback(async () => {
     if (currentProfile.modpack_info) {
       setIsLoadingVersions(true);
-      UnifiedService.getModpackVersions(currentProfile.modpack_info.source)
-        .then(setModpackVersions)
-        .catch(err => {
-          console.error("Failed to load modpack versions:", err);
-          setModpackVersions(null);
-        })
-        .finally(() => setIsLoadingVersions(false));
+      try {
+        const versions = await UnifiedService.getModpackVersions(currentProfile.modpack_info.source);
+        setModpackVersions(versions);
+      } catch (err) {
+        console.error("Failed to refresh modpack versions:", err);
+        setModpackVersions(null);
+      } finally {
+        setIsLoadingVersions(false);
+      }
     } else {
       setModpackVersions(null);
     }
   }, [currentProfile.modpack_info]);
+
+  // Effect to load modpack versions when profile has modpack info
+  useEffect(() => {
+    refreshModpackVersions();
+  }, [refreshModpackVersions]);
 
 
 
