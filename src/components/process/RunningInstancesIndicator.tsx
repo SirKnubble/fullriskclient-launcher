@@ -261,7 +261,7 @@ export function RunningInstancesIndicator({
                                 <Label
                                   variant="destructive"
                                   size="xs"
-                                  className="ml-2"
+                                  className="ml-2 h-5 text-base mt-0.5"
                                 >
                                   Crashed
                                 </Label>
@@ -271,7 +271,7 @@ export function RunningInstancesIndicator({
                                 <Label
                                   variant="warning"
                                   size="xs"
-                                  className="ml-2"
+                                  className="ml-2 h-5 text-base mt-0.5"
                                 >
                                   {process.state}
                                 </Label>
