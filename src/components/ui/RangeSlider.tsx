@@ -259,7 +259,7 @@ export function RangeSlider({
               >
                 {localValue}
                 {unit && (
-                  <span className="text-xs text-white/70 ml-1">{unit}</span>
+                  <span className="text-white/70">{unit}</span>
                 )}
               </span>
               {/* Star at recommendedValue(s) */}
