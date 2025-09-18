@@ -171,6 +171,7 @@ pub async fn get_jar_icon_test() {
     }
 }
 
+
 /// Reads the content of a file into a string, replacing invalid UTF-8 sequences.
 ///
 /// If the file doesn't exist, returns `Ok("".to_string())`.
@@ -246,13 +247,15 @@ pub async fn read_log_file_content(log_path: &Path) -> Result<String> {
                 let mut decompressed_bytes = Vec::new();
                 match tokio::io::copy(&mut decoder, &mut decompressed_bytes).await {
                     Ok(bytes_copied) => {
-                        let content = String::from_utf8_lossy(&decompressed_bytes).to_string();
+                        let raw_content = String::from_utf8_lossy(&decompressed_bytes).to_string();
+                        // Mask sensitive information before returning
+                        let safe_content = crate::utils::security_utils::mask_sensitive_data(&raw_content);
                         log::info!(
                             "Successfully read and decompressed {} bytes from gzipped log file {}",
                             bytes_copied,
                             log_path.display()
                         );
-                        Ok(content)
+                        Ok(safe_content)
                     }
                     Err(e) => {
                         log::error!(
@@ -274,9 +277,16 @@ pub async fn read_log_file_content(log_path: &Path) -> Result<String> {
             }
         }
     } else if filename.ends_with(".log") {
-        // Handle plain text file using existing function
+        // Handle plain text file using existing function, then mask sensitive data
         log::debug!("Reading plain text log file: {}", log_path.display());
-        read_file_content_lossy(log_path).await
+        match read_file_content_lossy(log_path).await {
+            Ok(raw_content) => {
+                // Mask sensitive information before returning
+                let safe_content = crate::utils::security_utils::mask_sensitive_data(&raw_content);
+                Ok(safe_content)
+            }
+            Err(e) => Err(e),
+        }
     } else {
         // Handle unsupported file type
         log::warn!(
