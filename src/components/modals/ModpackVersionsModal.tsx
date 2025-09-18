@@ -4,15 +4,20 @@ import React, { useState } from "react";
 import { Modal } from "../ui/Modal";
 import { Icon } from "@iconify/react";
 import { Button } from "../ui/buttons/Button";
-import type { UnifiedModpackVersionsResponse, UnifiedVersion } from "../../types/unified";
-import { UnifiedVersionType } from "../../types/unified";
+import type { UnifiedModpackVersionsResponse, UnifiedVersion, ModpackSwitchRequest } from "../../types/unified";
+import { UnifiedVersionType, ModPlatform } from "../../types/unified";
+import UnifiedService from "../../services/unified-service";
+import { toast } from "react-hot-toast";
 
 interface ModpackVersionsModalProps {
   isOpen: boolean;
   onClose: () => void;
   versions: UnifiedModpackVersionsResponse | null;
   modpackName: string;
+  profileId?: string;
+  modpackSource?: ModPlatform;
   onVersionSwitch?: (version: UnifiedVersion) => void;
+  onSwitchComplete?: () => void;
   isSwitching?: boolean;
 }
 
@@ -172,7 +177,10 @@ export function ModpackVersionsModal({
   onClose,
   versions,
   modpackName,
+  profileId,
+  modpackSource,
   onVersionSwitch,
+  onSwitchComplete,
   isSwitching = false,
 }: ModpackVersionsModalProps) {
   if (!isOpen || !versions) {
@@ -193,8 +201,43 @@ export function ModpackVersionsModal({
     setSelectedVersion(version);
   };
 
-  const handleSwitchVersion = () => {
-    if (selectedVersion && onVersionSwitch) {
+  const handleSwitchVersion = async () => {
+    if (!selectedVersion) return;
+
+    // Check if we have all required information for the new modpack switching
+    if (profileId && modpackSource && selectedVersion.files.length > 0) {
+      try {
+        // Find the primary file
+        const primaryFile = selectedVersion.files.find(f => f.primary) || selectedVersion.files[0];
+
+        const request: ModpackSwitchRequest = {
+          download_url: primaryFile.url,
+          platform: modpackSource,
+          profile_id: profileId,
+        };
+
+        // Show loading toast
+        const loadingToast = toast.loading(`Switching ${modpackName} to version ${selectedVersion.version_number}...`);
+
+        await UnifiedService.switchModpackVersion(request);
+
+        // Dismiss loading toast and show success
+        toast.dismiss(loadingToast);
+        toast.success(`Successfully switched ${modpackName} to version ${selectedVersion.version_number}!`);
+
+        // Call completion callback if provided
+        if (onSwitchComplete) {
+          onSwitchComplete();
+        }
+
+        // Close modal
+        onClose();
+
+      } catch (error) {
+        toast.error(`Failed to switch modpack version: ${error}`);
+      }
+    } else if (onVersionSwitch) {
+      // Fallback to old method if we don't have all required info
       onVersionSwitch(selectedVersion);
     }
   };
@@ -225,11 +268,13 @@ export function ModpackVersionsModal({
         </div>
 
         {selectedVersion ? (
-          <div
-            className="mb-4 text-xs font-minecraft-ten text-center font-medium"
-            style={{ color: `var(--accent)` }}
-          >
-            Selected: {selectedVersion.name} ({selectedVersion.version_number})
+          <div className="mb-4">
+            <div
+              className="text-xs font-minecraft-ten text-center font-medium mb-1"
+              style={{ color: `var(--accent)` }}
+            >
+              Selected: {selectedVersion.name} ({selectedVersion.version_number})
+            </div>
           </div>
         ) : (
           <div className="mb-4 text-xs text-white/50 font-minecraft-ten text-center">
@@ -270,7 +315,7 @@ export function ModpackVersionsModal({
             disabled={!selectedVersion || isSwitching}
             icon={isSwitching ? <Icon icon="solar:refresh-bold" className="animate-spin h-4 w-4" /> : <Icon icon="solar:refresh-circle-bold" className="h-4 w-4" />}
           >
-            {isSwitching ? "Switching..." : selectedVersion ? "Switch Version" : "Select a Version"}
+            {isSwitching ? "Switching..." : selectedVersion ? (profileId && modpackSource ? "Switch Version" : "Switch Version (Legacy)") : "Select a Version"}
           </Button>
         </div>
       </div>

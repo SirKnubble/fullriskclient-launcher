@@ -262,9 +262,21 @@ export function ProfileDetailViewV2({
         onClose={() => hideModal(`modpack-versions-${currentProfile.id}`)}
         versions={modpackVersions}
         modpackName={currentProfile.name}
+        profileId={currentProfile.id}
+        modpackSource={currentProfile.modpack_info?.source}
+        onSwitchComplete={async () => {
+          // Refresh profile data after modpack switch
+          try {
+            await fetchProfiles();
+            setCurrentProfile(prev => ({...prev}));
+            console.log("Profile refreshed after modpack version switch");
+          } catch (err) {
+            console.error("Failed to refresh profile data after modpack switch:", err);
+          }
+        }}
       />
     ));
-  }, [currentProfile, showModal, hideModal, modpackVersions]);
+  }, [currentProfile, showModal, hideModal, modpackVersions, fetchProfiles]);
 
   // Effect to synchronize the internal currentProfile state with the profile prop
   useEffect(() => {

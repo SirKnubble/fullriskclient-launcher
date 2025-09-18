@@ -1,3 +1,5 @@
+import type { ModLoader, Mod, ModPackSource } from './profile';
+
 export enum ModPlatform {
   Modrinth = "Modrinth",
   CurseForge = "CurseForge",
@@ -157,4 +159,26 @@ export interface UnifiedModpackVersionsResponse {
   all_versions: UnifiedVersion[];
   /// Whether updates are available for the installed version
   updates_available?: boolean;
+}
+
+/// Request structure for switching modpack versions
+export interface ModpackSwitchRequest {
+  /// Download URL for the modpack file
+  download_url: string;
+  /// Platform where the modpack originates from
+  platform: ModPlatform | ModPackSource;
+  /// Profile ID to update with the new modpack information
+  profile_id: string;
+}
+
+/// Response structure for modpack version switching
+export interface ModpackSwitchResponse {
+  /// The Minecraft version extracted from the modpack
+  minecraft_version: string;
+  /// The mod loader type (if any)
+  loader?: ModLoader;
+  /// The loader version (if any)
+  loader_version?: string;
+  /// List of mods extracted from the modpack
+  mods: Mod[];
 }
