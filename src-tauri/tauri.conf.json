@@ -74,6 +74,11 @@
     }
   },
   "bundle": {
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico"
+      }
+    },
     "macOS": {
       "entitlements": "App.entitlements",
       "exceptionDomain": "",
