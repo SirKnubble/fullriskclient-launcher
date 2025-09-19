@@ -32,6 +32,8 @@ import { openExternalUrl } from "../../services/tauri-service";
 import { openLauncherDirectory } from "../../services/tauri-service";
 import { useFlags } from "flagsmith/react";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { ColorPickerModal } from "../modals/ColorPickerModal";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
@@ -90,6 +92,7 @@ export function SettingsTab() {
   const { borderRadius, setBorderRadius } = useThemeStore();
 
   const { confirm, confirmDialog } = useConfirmDialog();
+  const { showModal, hideModal } = useGlobalModal();
 
   const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
   const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
@@ -285,8 +288,39 @@ export function SettingsTab() {
         </p>
       </div>
 
-      <div className="mt-6">
-        <ColorPicker shape="square" size="md" showCustomOption={false} />
+      <div className="mt-6 flex items-center gap-6">
+        <div className="flex-1">
+          <ColorPicker shape="square" size="md" showCustomOption={false} />
+        </div>
+
+        <button
+          onClick={() => {
+            showModal('color-picker-modal',
+              <ColorPickerModal
+                onClose={() => hideModal('color-picker-modal')}
+              />
+            );
+          }}
+          className="group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] hover:border-[#ffffff50] transition-all duration-200 cursor-pointer"
+          title="Click to open advanced color picker"
+        >
+          <div
+            className="w-8 h-8 rounded-md border-2 border-white/20 shadow-lg group-hover:scale-105 transition-transform"
+            style={{ backgroundColor: accentColor.value }}
+          />
+          <div className="flex flex-col items-start">
+            <span className="font-minecraft-ten text-base text-white/80 group-hover:text-white transition-colors">
+              Custom
+            </span>
+            <span className="text-xs text-white/60 font-minecraft-ten">
+              {accentColor.value}
+            </span>
+          </div>
+          <Icon
+            icon="solar:palette-bold"
+            className="w-5 h-5 text-white/60 group-hover:text-white transition-colors"
+          />
+        </button>
       </div>
 
 
