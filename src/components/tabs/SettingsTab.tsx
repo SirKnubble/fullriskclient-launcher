@@ -21,13 +21,15 @@ import {
 } from "../../store/quality-settings-store";
 import { cn } from "../../lib/utils";
 import { toast } from "react-hot-toast";
-import { TabLayout } from ".././ui/TabLayout";
+import { GroupTabs, type GroupTab } from ".././ui/GroupTabs";
+import { ActionButton } from ".././ui/ActionButton";
+import { Tooltip } from ".././ui/Tooltip";
+import { CompactSettingsGrid } from ".././ui/CompactSettingsGrid";
 import EffectPreviewCard from ".././EffectPreviewCard";
 import { RangeSlider } from ".././ui/RangeSlider";
 import { FullscreenEffectRenderer } from "../FullscreenEffectRenderer";
 import { openExternalUrl } from "../../services/tauri-service";
 import { openLauncherDirectory } from "../../services/tauri-service";
-import { IconButton } from ".././ui/buttons/IconButton";
 import { useFlags } from "flagsmith/react";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 
@@ -39,6 +41,31 @@ export function SettingsTab() {
   const [saving, setSaving] = useState<boolean>(false);  const [activeTab, setActiveTab] = useState<"general" | "appearance" | "advanced">(
     "general",
   );
+
+
+  // Create groups array for tabs
+  const createGroups = (): GroupTab[] => {
+    const groups: GroupTab[] = [
+      {
+        id: "general",
+        name: "General",
+        count: undefined, // No count for settings tabs
+      },
+      {
+        id: "appearance",
+        name: "Appearance",
+        count: undefined,
+      },
+      {
+        id: "advanced",
+        name: "Advanced",
+        count: undefined,
+      },
+    ];
+    return groups;
+  };
+
+  const groups = createGroups();
   const [showFullscreenPreview, setShowFullscreenPreview] = useState<boolean>(false);
   const [customColor, setCustomColor] = useState("#4f8eff");
   const contentRef = useRef<HTMLDivElement>(null);
@@ -241,203 +268,115 @@ export function SettingsTab() {
     JSON.stringify(config) !== JSON.stringify(tempConfig);
 
   const renderGeneralTab = () => (
-    <div className="space-y-6">
-      <Card variant="flat" className="p-6">
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon icon="solar:settings-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
-              Launcher Settings
-            </h3>
-          </div>
-          <p className="text-base text-white/70 font-minecraft-ten mt-2">
-            Configure basic launcher settings
-          </p>
-        </div>        <div className="space-y-4 mt-6">
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Auto Updates
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Automatically check for and download launcher updates when
-                available.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={tempConfig?.auto_check_updates || false}
-              onChange={(checked) =>
-                tempConfig &&
-                setTempConfig({ ...tempConfig, auto_check_updates: checked })
-              }
-              disabled={saving}
-              size="lg"
-            />
-          </div>
+    <div className="space-y-4">
+      {/* Section Header */}
 
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Discord Presence
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Show your current game and launcher status in Discord. Displays
-                what you're playing to friends.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={tempConfig?.enable_discord_presence || false}
-              onChange={(checked) =>
-                tempConfig &&
-                setTempConfig({
-                  ...tempConfig,
-                  enable_discord_presence: checked,
-                })
-              }
-              disabled={saving}
-              size="lg"
-            />
-          </div>
 
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Beta Updates
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Receive beta versions and pre-release updates. These may be
-                unstable and contain bugs.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={tempConfig?.check_beta_channel || false}
-              onChange={(checked) =>
-                tempConfig &&
-                setTempConfig({ ...tempConfig, check_beta_channel: checked })
-              }
-              disabled={saving}
-              size="lg"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Open Logs After Starting
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Automatically open the game logs window when launching
-                Minecraft. Useful for debugging issues.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={tempConfig?.open_logs_after_starting || false}
-              onChange={(checked) =>
-                tempConfig &&
-                setTempConfig({
-                  ...tempConfig,
-                  open_logs_after_starting: checked,
-                })
-              }
-              disabled={saving}
-              size="lg"
-            />
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Hide Window on Launch
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Automatically hide the launcher window when Minecraft starts.
-                Reduces desktop clutter during gameplay.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={tempConfig?.hide_on_process_start || false}
-              onChange={(checked) =>
-                tempConfig &&
-                setTempConfig({
-                  ...tempConfig,
-                  hide_on_process_start: checked,
-                })
-              }
-              disabled={saving}
-              size="lg"
-            />
-          </div>
-
-          <div className="p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1 mb-3">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Concurrent Downloads
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Maximum number of files downloaded simultaneously. Lower values
-                reduce bandwidth usage but slow downloads.
-              </p>
-            </div>
-            <div className="w-full px-2">
-              <RangeSlider
-                value={tempConfig.concurrent_downloads || 3}
-                onChange={handleConcurrentDownloadsChange}
-                min={1}
-                max={10}
-                step={1}
-                disabled={saving}
-                variant="flat"
-                size="md"
-                minLabel="1"
-                maxLabel="10"
-                icon={
-                  <Icon
-                    icon="solar:multiple-forward-right-bold"
-                    className="w-4 h-4"
-                  />
-                }
-              />
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
-            <div className="flex-1 mb-3">
-              <h5 className="font-minecraft text-2xl lowercase text-white">
-                Concurrent I/O Operations
-              </h5>
-              <p className="text-sm text-white/60 font-minecraft-ten mt-1">
-                Maximum number of files written to disk simultaneously. Lower
-                values reduce disk stress and I/O errors.
-              </p>
-            </div>
-            <div className="w-full px-2">
-              <RangeSlider
-                value={tempConfig.concurrent_io_limit || 10}
-                onChange={handleConcurrentIoLimitChange}
-                min={1}
-                max={20}
-                step={1}
-                disabled={saving}
-                variant="flat"
-                size="md"
-                minLabel="1"
-                maxLabel="20"
-                icon={<Icon icon="solar:server-bold" className="w-4 h-4" />}
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Settings Grid */}
+      <CompactSettingsGrid
+        settings={[
+          {
+            id: "auto-updates",
+            label: "Auto Updates",
+            tooltip: "Automatically check for and download launcher updates when available.",
+            type: "toggle",
+            value: tempConfig?.auto_check_updates || false,
+            onChange: (checked) =>
+              tempConfig &&
+              setTempConfig({ ...tempConfig, auto_check_updates: checked }),
+          },
+          {
+            id: "discord-presence",
+            label: "Discord Presence",
+            tooltip: "Show your current game and launcher status in Discord. Displays what you're playing to friends.",
+            type: "toggle",
+            value: tempConfig?.enable_discord_presence || false,
+            onChange: (checked) =>
+              tempConfig &&
+              setTempConfig({
+                ...tempConfig,
+                enable_discord_presence: checked,
+              }),
+          },
+          {
+            id: "beta-updates",
+            label: "Beta Updates",
+            tooltip: "Receive beta versions and pre-release updates. These may be unstable and contain bugs.",
+            type: "toggle",
+            value: tempConfig?.check_beta_channel || false,
+            onChange: (checked) =>
+              tempConfig &&
+              setTempConfig({ ...tempConfig, check_beta_channel: checked }),
+          },
+          {
+            id: "open-logs",
+            label: "Open Logs After Starting",
+            tooltip: "Automatically open the game logs window when launching Minecraft. Useful for debugging issues.",
+            type: "toggle",
+            value: tempConfig?.open_logs_after_starting || false,
+            onChange: (checked) =>
+              tempConfig &&
+              setTempConfig({
+                ...tempConfig,
+                open_logs_after_starting: checked,
+              }),
+          },
+          {
+            id: "hide-window",
+            label: "Hide Window on Launch",
+            tooltip: "Automatically hide the launcher window when Minecraft starts. Reduces desktop clutter during gameplay.",
+            type: "toggle",
+            value: tempConfig?.hide_on_process_start || false,
+            onChange: (checked) =>
+              tempConfig &&
+              setTempConfig({
+                ...tempConfig,
+                hide_on_process_start: checked,
+              }),
+          },
+          // Spacer for grid alignment
+          { id: "spacer", type: "spacer" },
+          {
+            id: "concurrent-downloads",
+            label: "Concurrent Downloads",
+            tooltip: "Maximum number of files downloaded simultaneously. Lower values reduce bandwidth usage but slow downloads.",
+            type: "range",
+            value: tempConfig?.concurrent_downloads || 3,
+            onChange: handleConcurrentDownloadsChange,
+            min: 1,
+            max: 10,
+            step: 1,
+            icon: "solar:multiple-forward-right-bold",
+            minLabel: "1",
+            maxLabel: "10",
+          },
+          {
+            id: "concurrent-io",
+            label: "Concurrent I/O Operations",
+            tooltip: "Maximum number of files written to disk simultaneously. Lower values reduce disk stress and I/O errors.",
+            type: "range",
+            value: tempConfig?.concurrent_io_limit || 10,
+            onChange: handleConcurrentIoLimitChange,
+            min: 1,
+            max: 20,
+            step: 1,
+            icon: "solar:server-bold",
+            minLabel: "1",
+            maxLabel: "20",
+          },
+        ]}
+        disabled={saving}
+      />
     </div>
   );
 
   const renderAppearanceTab = () => (
     <div className="space-y-6">
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:palette-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
+            <h3 className="text-3xl font-minecraft text-white">
               Accent Color
             </h3>
           </div>
@@ -450,98 +389,72 @@ export function SettingsTab() {
           <ColorPicker shape="square" size="md" showCustomOption={false} />
         </div>
 
-        <div className="mt-6 p-4 rounded-lg border border-[#ffffff20]">
-          <div className="flex items-center gap-2 mb-3">
-            <Icon icon="solar:eye-bold" className="w-5 h-5 text-white" />
-            <h4 className="text-2xl font-minecraft text-white lowercase">
-              Preview
-            </h4>
-          </div>
-          <div className="flex flex-wrap gap-4 mt-3">
-            <Button
-              icon={<Icon icon="solar:play-bold" />}
-              size="md"
-              variant="flat"
-            >
-              Play Game
-            </Button>
-            <Button
-              variant="flat-secondary"
-              icon={<Icon icon="solar:settings-bold" />}
-              size="md"
-            >
-              Settings
-            </Button>
-            <Button
-              variant="ghost"
-              icon={<Icon icon="solar:download-bold" />}
-              size="md"
-            >
-              Download
-            </Button>          </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Icon icon="solar:palette-bold" className="w-5 h-5 text-white" />
+          <h4 className="text-2xl font-minecraft text-white">
+            Custom Colors
+          </h4>
         </div>
-      </Card>
+        <p className="text-sm text-white/70 font-minecraft-ten mb-4">
+          Create your own custom accent color
+        </p>
 
-      <Card variant="flat" className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Icon icon="solar:palette-bold" className="w-5 h-5 text-white" />
-            <h4 className="text-2xl font-minecraft text-white lowercase">
-              Custom Colors
-            </h4>
-          </div>
-          <p className="text-sm text-white/70 font-minecraft-ten mb-4">
-            Create your own custom accent color
-          </p>
-          
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <Input
-                  type="text"
-                  value={customColor}
-                  onChange={(e) => setCustomColor(e.target.value)}
-                  placeholder="#RRGGBB"
-                  icon={<Icon icon="solar:palette-bold" />}
-                />
-              </div>
-              <div
-                className="w-10 h-10 rounded-md border-2 border-white/20"
-                style={{ backgroundColor: customColor }}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Input
+                type="text"
+                value={customColor}
+                onChange={(e) => setCustomColor(e.target.value)}
+                placeholder="#RRGGBB"
+                icon={<Icon icon="solar:palette-bold" />}
               />
-              <Button
-                onClick={handleCustomColorSubmit}
-                size="sm"
-                icon={<Icon icon="solar:check-circle-bold" />}
-              >
-                Apply
-              </Button>
             </div>
+            <div
+              className="w-10 h-10 rounded-md border-2 border-white/20"
+              style={{ backgroundColor: customColor }}
+            />
+            <Button
+              onClick={handleCustomColorSubmit}
+              size="sm"
+              icon={<Icon icon="solar:check-circle-bold" />}
+            >
+              Apply
+            </Button>
+          </div>
 
-            {customColorHistory.length > 0 && (
-              <div>
-                <h5 className="font-minecraft text-lg lowercase text-white/80 mb-2">
+          {customColorHistory.length > 0 && (
+            <div>
+                <h5 className="font-minecraft text-lg text-white/80 mb-2">
                   Recent Colors
                 </h5>
-                <div className="flex flex-wrap gap-2">
-                  {customColorHistory.map((color, index) => (
-                    <button
-                      key={`${color}-${index}`}
-                      onClick={() => {
-                        setCustomColor(color);
-                        setCustomAccentColor(color);
-                      }}
-                      className="w-8 h-8 rounded-md border-2 border-white/20 hover:border-white/40 transition-colors"
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>            )}          </div>
-        </Card>      <Card variant="flat" className="p-6">
+              <div className="flex flex-wrap gap-2">
+                {customColorHistory.map((color, index) => (
+                  <button
+                    key={`${color}-${index}`}
+                    onClick={() => {
+                      setCustomColor(color);
+                      setCustomAccentColor(color);
+                    }}
+                    className="w-8 h-8 rounded-md border-2 border-white/20 hover:border-white/40 transition-colors"
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:widget-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
+            <h3 className="text-3xl font-minecraft text-white">
               Border Radius
             </h3>
           </div>
@@ -553,16 +466,16 @@ export function SettingsTab() {
         <div className="mt-6">
           <RadiusPicker />
         </div>
-      </Card>
+      </div>
 
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon
               icon="solar:speedometer-medium-bold"
               className="w-6 h-6 text-white"
             />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
+            <h3 className="text-3xl font-minecraft text-white">
               Visual Quality
             </h3>
           </div>
@@ -573,11 +486,10 @@ export function SettingsTab() {
 
         <div className="grid grid-cols-3 gap-4 mt-6">
           {qualityOptions.map((option) => (
-            <Card
+            <div
               key={option.value}
-              variant="flat"
               className={cn(
-                "relative cursor-pointer transition-all duration-300 p-4",
+                "relative cursor-pointer transition-all duration-300 p-4 rounded-lg border border-[#ffffff20]",
                 qualityLevel === option.value
                   ? "ring-2 ring-white/30"
                   : "hover:bg-black/40",
@@ -586,7 +498,7 @@ export function SettingsTab() {
             >
               <div className="flex flex-col items-center gap-2">
                 <Icon icon={option.icon} className="w-8 h-8 text-white" />
-                <h5 className="font-minecraft text-xl lowercase text-white text-center">
+                <h5 className="font-minecraft text-xl text-white text-center">
                   {option.label}
                 </h5>
               </div>
@@ -599,7 +511,7 @@ export function SettingsTab() {
                   />
                 </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
 
@@ -616,7 +528,7 @@ export function SettingsTab() {
 
         <div className="mt-6 flex items-center justify-between p-3 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
           <div className="flex-1">
-            <h5 className="font-minecraft text-2xl lowercase text-white">
+            <h5 className="font-minecraft text-2xl text-white">
               Background Animations
             </h5>
             <p className="text-sm text-white/60 font-minecraft-ten mt-1">
@@ -634,13 +546,13 @@ export function SettingsTab() {
             size="lg"
           />
         </div>
-      </Card>
+      </div>
 
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:stars-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
+            <h3 className="text-3xl font-minecraft text-white">
               Background Effect
             </h3>
           </div>
@@ -673,13 +585,13 @@ export function SettingsTab() {
             </Button>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 
   const renderAdvancedTab = () => (
     <div className="space-y-6">
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:folder-bold" className="w-6 h-6 text-white" />
@@ -741,7 +653,7 @@ export function SettingsTab() {
                       multiple: false,
                       directory: true,
                     });
-                    
+
                     if (directory && tempConfig) {
                       setTempConfig({
                         ...tempConfig,
@@ -768,16 +680,16 @@ export function SettingsTab() {
                 Information
               </h4>
               <p className="text-sm text-blue-200/80 font-minecraft-ten">
-                This setting allows you to store game data on a different drive or location. 
-                Useful if your main drive is running out of space. The launcher will automatically 
+                This setting allows you to store game data on a different drive or location.
+                Useful if your main drive is running out of space. The launcher will automatically
                 handle the location change for new downloads and installations.
               </p>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
@@ -992,7 +904,7 @@ export function SettingsTab() {
               title={!isPostExitEditEnabled ? "Enable editing to modify this field" : undefined}
             />
           </div>
-        
+
         <div className="mt-6 p-4 rounded-lg border border-orange-500/30 bg-orange-900/20">
           <div className="flex items-start gap-3">
             <Icon icon="solar:danger-triangle-bold" className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
@@ -1025,10 +937,10 @@ export function SettingsTab() {
         </div>
         </div>
         )}
-      </Card>
+      </div>
 
       {canShowExperimental && (
-        <Card variant="flat" className="p-6">
+        <div>
           <div className="mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Icon icon="solar:test-tube-bold" className="w-6 h-6 text-white" />
@@ -1082,10 +994,10 @@ export function SettingsTab() {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
-      <Card variant="flat" className="p-6">
+      <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <Icon icon="solar:document-text-bold" className="w-6 h-6 text-white" />
@@ -1110,7 +1022,7 @@ export function SettingsTab() {
             <span className="font-minecraft text-lg lowercase">View Licenses</span>
           </Button>
         </div>
-      </Card>
+      </div>
     </div>
   );
 
@@ -1182,84 +1094,52 @@ export function SettingsTab() {
     }
   };
 
-  const settingsActions = (
-    <div className="flex items-center gap-3">
-      <IconButton
-        variant="ghost"
-        size="sm"
-        icon={<Icon icon="solar:folder-bold" className="w-5 h-5" />}
-        label="Open Launcher Directory"
-        onClick={async () => {
-          try {
-            await openLauncherDirectory();
-          } catch (err) {
-            console.error("Failed to open launcher directory:", err);
-            toast.error("Failed to open launcher directory: " + err);
-          }
-        }}
-      />
-    </div>
-  );
 
   return (
-    <div ref={tabRef} className="flex flex-col h-full overflow-hidden">
-      <TabLayout
-        title="Settings"
-        icon="solar:settings-bold"
-        actions={
-          <div className="flex items-center gap-3">
-            <Button
-              variant={activeTab === "general" ? "flat" : "ghost"}
-              size="md"
-              onClick={() => setActiveTab("general")}
-              className="h-[42px]"
-              icon={
-                <Icon
-                  icon="solar:settings-bold"
-                  className="w-5 h-5 text-white"
-                />
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      {/* Header with Group Tabs and Actions */}
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+        {/* Group Tabs */}
+        <GroupTabs
+          groups={groups}
+          activeGroup={activeTab}
+          onGroupChange={(groupId) => setActiveTab(groupId as "general" | "appearance" | "advanced")}
+          showAddButton={false}
+        />
+
+        {/* Header Actions */}
+        <div style={{ transform: 'translateY(-3px)' }}>
+          <ActionButton
+            id="open-directory"
+            label="OPEN DIRECTORY"
+            icon="solar:folder-bold"
+            variant="highlight"
+            tooltip="Open Launcher Directory"
+            size="sm"
+            onClick={async () => {
+              try {
+                await openLauncherDirectory();
+              } catch (err) {
+                console.error("Failed to open launcher directory:", err);
+                toast.error("Failed to open launcher directory: " + err);
               }
-            >
-              general
-            </Button>
-            <Button
-              variant={activeTab === "appearance" ? "flat" : "ghost"}
-              size="md"
-              onClick={() => setActiveTab("appearance")}
-              className="h-[42px]"
-              icon={
-                <Icon
-                  icon="solar:palette-bold"
-                  className="w-5 h-5 text-white"
-                />
-              }
-            >
-              appearance
-            </Button>
-            <Button
-              variant={activeTab === "advanced" ? "flat" : "ghost"}
-              size="md"
-              onClick={() => setActiveTab("advanced")}
-              className="h-[42px]"
-              icon={
-                <Icon
-                  icon="solar:code-bold"
-                  className="w-5 h-5 text-white"
-                />
-              }
-            >
-              advanced
-            </Button>
-            {settingsActions}
-          </div>
-        }
-      >
-        <div ref={contentRef}>{renderTabContent()}</div>
-      </TabLayout>
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Content */}
+        <div ref={contentRef}>
+          {renderTabContent()}
+        </div>
+      </div>
+
+
       {showFullscreenPreview && currentEffect && (
-        <FullscreenEffectRenderer 
-          effectId={currentEffect} 
-          onClose={() => setShowFullscreenPreview(false)} 
+        <FullscreenEffectRenderer
+          effectId={currentEffect}
+          onClose={() => setShowFullscreenPreview(false)}
         />
       )}
       {confirmDialog}
