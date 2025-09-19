@@ -360,38 +360,44 @@ export function JavaSettingsTab({
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             {editedProfile.is_standard_version ? "global memory allocated" : "memory allocated"}
           </h3>
-
-          {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
-            <div className="flex items-center justify-center py-8">
-              <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
-              <span className="text-white font-minecraft">
-                Loading settings...
-              </span>
-            </div>
-          ) : (
-            <>
-              <RangeSlider
-                value={memory.max}
-                onChange={handleMemoryChange}
-                min={512}
-                max={systemRam}
-                step={512}
-                valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
-                minLabel="512 MB"
-                maxLabel={`${systemRam} MB`}
-                variant="flat"
-              />
-              <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
-                Recommended: {recommendedMaxRam} MB (
-                {(recommendedMaxRam / 1024).toFixed(1)} GB)
-                {editedProfile.is_standard_version && (
-                  <div className="mt-1 text-accent font-minecraft-ten">
-                    ⚠ This setting applies to all standard profiles
-                  </div>
-                )}
+          <Card
+            variant="flat"
+            className="p-4 border border-white/10 bg-black/20"
+          >
+            {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
+              <div className="flex items-center justify-center py-8">
+                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
+                <span className="text-white font-minecraft">
+                  Loading settings...
+                </span>
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <RangeSlider
+                  value={memory.max}
+                  onChange={handleMemoryChange}
+                  min={512}
+                  max={systemRam}
+                  step={512}
+                  valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
+                  minLabel="512 MB"
+                  maxLabel={`${systemRam} MB`}
+                  variant="flat"
+                  recommendedRange={[ 4096, 8192 ]}
+                  unit="MB"
+                />
+                <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
+                  Recommended: {recommendedMaxRam} MB (
+                  {(recommendedMaxRam / 1024).toFixed(1)} GB)
+                  {editedProfile.is_standard_version && (
+                    <div className="mt-1 text-accent font-minecraft-ten">
+                      ⚠ This setting applies to all standard profiles
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </Card>
         </div>
       </div>
 
@@ -528,52 +534,6 @@ export function JavaSettingsTab({
         </div>
       </div>
 
-      <div ref={memoryRef} className="space-y-4">
-        <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            {editedProfile.is_standard_version ? "global memory allocated" : "memory allocated"}
-          </h3>
-          <Card
-            variant="flat"
-            className="p-4 border border-white/10 bg-black/20"
-          >
-            {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
-              <div className="flex items-center justify-center py-8">
-                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
-                <span className="text-white font-minecraft">
-                  Loading settings...
-                </span>
-              </div>
-            ) : (
-              <>
-                <RangeSlider
-                  value={memory.max}
-                  onChange={handleMemoryChange}
-                  min={512}
-                  max={systemRam}
-                  step={512}
-                  valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
-                  minLabel="512 MB"
-                  maxLabel={`${systemRam} MB`}
-                  variant="flat"
-                  recommendedRange={[ 4096, 8192 ]}
-                  unit="MB"
-                />
-                <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
-                  Recommended: {recommendedMaxRam} MB (
-                  {(recommendedMaxRam / 1024).toFixed(1)} GB)
-                  {editedProfile.is_standard_version && (
-                    <div className="mt-1 text-accent font-minecraft-ten">
-                      ⚠ This setting applies to all standard profiles
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </Card>
-        </div>
-      </div>
-
       {!editedProfile.is_standard_version && (
         <div ref={argsRef} className="space-y-4">
           <div>
@@ -605,6 +565,7 @@ export function JavaSettingsTab({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
