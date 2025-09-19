@@ -163,7 +163,7 @@ export function ColorPickerModal({ onClose, onColorSelected }: ColorPickerModalP
     <Modal
       title="Color Picker"
       onClose={onClose}
-      size="lg"
+      width="lg"
     >
       <div className="p-6 space-y-6">
         {/* Color Picker Interface */}
