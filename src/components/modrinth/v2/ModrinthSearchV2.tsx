@@ -71,6 +71,7 @@ import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
 import { useNavigate } from 'react-router-dom';
 import { useGlobalModal } from '../../../hooks/useGlobalModal';
 import { useThemeStore } from '../../../store/useThemeStore';
+import { handleIrisCheckAndShowModal, IrisRequiredModal } from '../../../utils/iris-detection.tsx';
 
 // Remove any other stray imports of uninstallContentFromProfile below this point
 
@@ -1114,7 +1115,23 @@ export function ModrinthSearchV2({
       await installContentToProfile(payload);
 
       toast.success(`Successfully installed ${targetProject.title} (${targetVersion.version_number}) to ${internalProfiles.find(p => p.id === profileId)?.name || 'profile'}`);
-      
+
+      // Check for Iris shader mod if a shader pack was installed
+      if (targetProject.project_type === 'shader') {
+        await handleIrisCheckAndShowModal(
+          targetProject.title,
+          profileId,
+          targetProject.project_id,
+          "Installation",
+          showModal,
+          hideModal,
+          () => {
+            // TODO: Implement Iris installation logic
+            console.log('🎯 User clicked "Install Iris Now"');
+          }
+        );
+      }
+
       setInstallStatus(prev => ({ ...prev, [profileId]: true }));
       
       setInstalledProjects(prev => ({
@@ -1212,6 +1229,22 @@ export function ModrinthSearchV2({
           error: (err) => `Failed to install: ${err.message || String(err)}`,
         }
       );
+
+      // Check for Iris shader mod if a shader pack was installed
+      if (project.project_type === 'shader') {
+        await handleIrisCheckAndShowModal(
+          project.title,
+          profileId,
+          project.project_id,
+          "Direct install",
+          showModal,
+          hideModal,
+          () => {
+            // TODO: Implement Iris installation logic
+            console.log('🎯 User clicked "Install Iris Now"');
+          }
+        );
+      }
 
       // Update installation status
       setInstalledProjects(prev => ({
@@ -1495,6 +1528,22 @@ export function ModrinthSearchV2({
 
       justInstalledOrToggledRef.current = true;
 
+      // Check for Iris shader mod if a shader pack was installed
+      if (project.project_type === 'shader') {
+        await handleIrisCheckAndShowModal(
+          project.title,
+          selectedProfile.id,
+          project.project_id,
+          "Direct install",
+          showModal,
+          hideModal,
+          () => {
+            // TODO: Implement Iris installation logic
+            console.log('🎯 User clicked "Install Iris Now"');
+          }
+        );
+      }
+
       if (onInstallSuccess) onInstallSuccess();
 
     } catch (error) {
@@ -1667,6 +1716,22 @@ export function ModrinthSearchV2({
         }
       );
 
+      // Check for Iris shader mod if a shader pack was installed
+      if (project.project_type === 'shader') {
+        await handleIrisCheckAndShowModal(
+          project.title,
+          profile.id,
+          project.project_id,
+          "Quick install",
+          showModal,
+          hideModal,
+          () => {
+            // TODO: Implement Iris installation logic
+            console.log('🎯 User clicked "Install Iris Now"');
+          }
+        );
+      }
+
       // Update installation status
       setInstalledProjects(prev => ({
         ...prev,
@@ -1767,7 +1832,23 @@ export function ModrinthSearchV2({
       await installContentToProfile(payload);
 
       toast.success(`Successfully installed ${quickInstallProject.title} (${bestVersion.version_number}) to ${profile.name}`);
-      
+
+      // Check for Iris shader mod if a shader pack was installed
+      if (quickInstallProject.project_type === 'shader') {
+        await handleIrisCheckAndShowModal(
+          quickInstallProject.title,
+          profileId,
+          quickInstallProject.project_id,
+          "Quick install to profile",
+          showModal,
+          hideModal,
+          () => {
+            // TODO: Implement Iris installation logic
+            console.log('🎯 User clicked "Install Iris Now"');
+          }
+        );
+      }
+
       setInstallStatus(prev => ({ ...prev, [profileId]: true }));
       
       // Update installedProjects state only if this profile is the currently selected one in the main view
