@@ -83,7 +83,10 @@ function hexToRgb(hex: string) {
 
 export function ColorPickerModal({ onClose, onColorSelected }: ColorPickerModalProps) {
   const { accentColor, setCustomAccentColor } = useThemeStore();
-  const [hsv, setHsv] = useState(() => rgbToHsv(...Object.values(hexToRgb(accentColor.value))));
+  const [hsv, setHsv] = useState(() => {
+    const rgb = hexToRgb(accentColor.value);
+    return rgbToHsv(rgb.r, rgb.g, rgb.b);
+  });
   const [hex, setHex] = useState(accentColor.value);
   const [isDraggingSaturation, setIsDraggingSaturation] = useState(false);
   const [isDraggingHue, setIsDraggingHue] = useState(false);
@@ -318,7 +321,7 @@ export function ColorPickerModal({ onClose, onColorSelected }: ColorPickerModalP
             </Button>
             <Button
               onClick={handleApply}
-              variant="primary"
+              variant="3d"
               icon={<Icon icon="solar:check-circle-bold" />}
             >
               Apply
