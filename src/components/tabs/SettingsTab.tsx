@@ -844,33 +844,32 @@ export function SettingsTab() {
         )}
       </div>
 
-
       <div>
         <div className="mb-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon icon="solar:document-text-bold" className="w-6 h-6 text-white" />
-            <h3 className="text-3xl font-minecraft text-white lowercase">
-              Third-party Licenses
-            </h3>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <Icon icon="solar:document-text-bold" className="w-6 h-6 text-white" />
+              <h3 className="text-3xl font-minecraft text-white lowercase">
+                Third-party Licenses
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                openExternalUrl("https://blog.norisk.gg/open-source-licenses/")
+              }}
+              icon={<Icon icon="solar:external-link-bold" className="w-5 h-5" />}
+            >
+              View Licenses
+            </Button>
           </div>
           <p className="text-base text-white/70 font-minecraft-ten mt-2">
             View licenses for code and components from third parties
           </p>
         </div>
-
-        <div className="flex justify-start">
-          <Button
-            variant="ghost"
-            className="flex items-center gap-2 px-6 py-3 border border-[#ffffff20] hover:bg-white/5 transition-colors"
-            onClick={() => {
-              openExternalUrl("https://blog.norisk.gg/open-source-licenses/")
-            }}
-          >
-            <Icon icon="solar:external-link-bold" className="w-5 h-5" />
-            <span className="font-minecraft text-lg lowercase">View Licenses</span>
-          </Button>
-        </div>
       </div>
+
     </div>
   );
 
