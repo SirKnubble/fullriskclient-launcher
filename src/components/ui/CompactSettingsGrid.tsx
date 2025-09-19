@@ -59,7 +59,7 @@ export function CompactSettingsGrid({
       return (
         <div
           key={setting.id}
-          className="flex items-center justify-between p-2 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors"
+          className="col-span-1 flex items-center justify-between p-2 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors"
         >
           <Tooltip content={setting.tooltip}>
             <h5 className="font-minecraft-ten text-base text-white">
