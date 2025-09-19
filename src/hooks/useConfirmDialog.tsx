@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "../components/ui/Modal";
 import { Button } from "../components/ui/buttons/Button";
@@ -32,6 +32,7 @@ export function useConfirmDialog() {
   const [inputValue, setInputValue] = useState("");
   const [isValid, setIsValid] = useState(true);
   const [resolveRef, setResolveRef] = useState<(value: any) => void>(() => {});
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -90,6 +91,12 @@ export function useConfirmDialog() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isValid]);
 
+  useEffect(() => {
+    if (isOpen && confirmButtonRef.current) {
+      confirmButtonRef.current.focus();
+    }
+  }, [isOpen]);
+
   const renderFooter = () => (
     <div className="flex justify-end gap-3">
       <Button
@@ -101,6 +108,7 @@ export function useConfirmDialog() {
         {options.cancelText || "Cancel"}
       </Button>
       <Button
+        ref={confirmButtonRef}
         variant={options.type === "danger" ? "destructive" : "default"}
         onClick={handleConfirm}
         disabled={options.type === "input" && !isValid}
