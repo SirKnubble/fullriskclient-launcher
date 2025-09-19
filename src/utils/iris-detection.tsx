@@ -4,6 +4,10 @@ import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/buttons/Button';
 import { Icon } from '@iconify/react';
 import { useThemeStore } from '../store/useThemeStore';
+import * as ContentService from '../services/content-service';
+import UnifiedService from '../services/unified-service';
+import { ModPlatform } from '../types/unified';
+import { ContentType } from '../types/content';
 
 /**
  * Checks if a profile's loader is compatible with Iris shader mod
@@ -26,6 +30,123 @@ export async function isLoaderCompatibleWithIris(profileId: string): Promise<boo
     console.warn(`[IrisDetection] Failed to check loader compatibility for profile ${profileId}:`, error);
     return false; // Assume not compatible if we can't check
   }
+}
+
+/**
+ * Automatically installs Iris shader mod to a profile
+ * Tries Modrinth first, falls back to CurseForge if needed
+ */
+export async function installIrisToProfile(profileId: string): Promise<boolean> {
+  console.log(`🚀 [IrisInstallation] Starting Iris installation for profile: ${profileId}`);
+
+  try {
+    // Get profile details to determine compatible loaders and game version
+    const profile = await ProfileService.getProfile(profileId);
+    const loader = profile.loader;
+    const gameVersion = profile.game_version;
+
+    console.log(`🔧 [IrisInstallation] Profile uses loader: ${loader}, game version: ${gameVersion}`);
+
+    // Determine compatible loaders for Iris
+    const compatibleLoaders = ['fabric', 'quilt', 'neoforge'];
+    const irisCompatibleLoaders = compatibleLoaders.filter(l => l === loader);
+
+    if (irisCompatibleLoaders.length === 0) {
+      console.warn(`❌ [IrisInstallation] No compatible loaders found for Iris in profile ${profileId}`);
+      return false;
+    }
+
+    // Try to install from Modrinth first
+    try {
+      console.log(`📦 [IrisInstallation] Attempting to install Iris from Modrinth...`);
+      const success = await installIrisFromPlatform(
+        profileId,
+        ModPlatform.Modrinth,
+        'YL57xq9U',
+        irisCompatibleLoaders,
+        gameVersion
+      );
+
+      if (success) {
+        console.log(`✅ [IrisInstallation] Successfully installed Iris from Modrinth`);
+        return true;
+      }
+    } catch (error) {
+      console.warn(`⚠️ [IrisInstallation] Modrinth installation failed, trying CurseForge:`, error);
+    }
+
+    // Fallback to CurseForge
+    try {
+      console.log(`📦 [IrisInstallation] Attempting to install Iris from CurseForge...`);
+      const success = await installIrisFromPlatform(
+        profileId,
+        ModPlatform.CurseForge,
+        '455508',
+        irisCompatibleLoaders,
+        gameVersion
+      );
+
+      if (success) {
+        console.log(`✅ [IrisInstallation] Successfully installed Iris from CurseForge`);
+        return true;
+      }
+    } catch (error) {
+      console.error(`❌ [IrisInstallation] CurseForge installation also failed:`, error);
+    }
+
+    console.error(`❌ [IrisInstallation] Failed to install Iris from any platform`);
+    return false;
+
+  } catch (error) {
+    console.error(`❌ [IrisInstallation] Failed to install Iris for profile ${profileId}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Helper function to install Iris from a specific platform
+ */
+async function installIrisFromPlatform(
+  profileId: string,
+  platform: ModPlatform,
+  projectId: string,
+  loaders: string[],
+  gameVersion: string
+): Promise<boolean> {
+  // Get the latest compatible version of Iris
+  const versionsResponse = await UnifiedService.getModVersions({
+    source: platform,
+    project_id: projectId,
+    loaders: loaders,
+    game_versions: [gameVersion],
+    limit: 1 // Get only the latest version
+  });
+
+  if (!versionsResponse.versions || versionsResponse.versions.length === 0) {
+    throw new Error(`No compatible Iris versions found for ${platform}`);
+  }
+
+  const latestVersion = versionsResponse.versions[0];
+  console.log(`📋 [IrisInstallation] Found latest Iris version: ${latestVersion.version_number} (${platform})`);
+
+  // Install the mod using ContentService
+  const installPayload = {
+    profile_id: profileId,
+    project_id: projectId,
+    version_id: latestVersion.id,
+    file_name: latestVersion.files[0].filename,
+    download_url: latestVersion.files[0].url,
+    file_hash_sha1: latestVersion.files[0].hashes?.sha1,
+    content_name: latestVersion.name || 'Iris Shaders',
+    version_number: latestVersion.version_number,
+    content_type: ContentType.Mod,
+    loaders: loaders,
+    game_versions: [gameVersion],
+    source: platform
+  };
+
+  await ContentService.installContentToProfile(installPayload);
+  return true;
 }
 
 /**
@@ -327,16 +448,48 @@ export async function handleIrisCheckAndShowModal(
           projectTitle={projectTitle}
           profileId={profileId}
           installType={installType}
-          onInstallIris={() => {
-            // Call custom install callback if provided
-            if (onInstallIris) {
-              onInstallIris();
-            } else {
-              // Default behavior: log and close modal
-              console.log('🎯 User clicked "Install Iris Now" - implement Iris installation logic here');
-            }
-            hideModal(modalId);
-          }}
+            onInstallIris={async () => {
+              try {
+                console.log('🎯 [IrisModal] User clicked "Install Iris" - starting installation...');
+
+                // Show loading state or progress indication
+                toast.loading('Installing Iris shader mod...', {
+                  id: 'iris-install',
+                  duration: 10000
+                });
+
+                // Install Iris
+                const installSuccess = await installIrisToProfile(profileId);
+
+                if (installSuccess) {
+                  toast.success('Iris successfully installed!', {
+                    id: 'iris-install',
+                    duration: 3000
+                  });
+
+                  // Call custom install callback if provided
+                  if (onInstallIris) {
+                    onInstallIris();
+                  }
+
+                  console.log('🎉 [IrisModal] Iris installation completed successfully');
+                } else {
+                  toast.error('❌ Failed to install Iris. Please try manually.', {
+                    id: 'iris-install',
+                    duration: 5000
+                  });
+                  console.error('❌ [IrisModal] Iris installation failed');
+                }
+              } catch (error) {
+                console.error('❌ [IrisModal] Error during Iris installation:', error);
+                toast.error('❌ Installation failed. Check console for details.', {
+                  id: 'iris-install',
+                  duration: 5000
+                });
+              } finally {
+                hideModal(modalId);
+              }
+            }}
           onClose={() => hideModal(modalId)}
         />,
         1200
