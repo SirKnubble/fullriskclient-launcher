@@ -177,13 +177,24 @@ impl VanillaCapeApi {
     }
 
     pub async fn equip_cape(&self, access_token: &str, cape_id: Option<&str>) -> Result<()> {
-        debug!("Equipping cape: {:?}", cape_id);
+        match cape_id {
+            Some(id) => {
+                debug!("Equipping cape: {}", id);
+                self.equip_cape_by_id(access_token, id).await
+            }
+            None => {
+                debug!("Unequipping cape");
+                self.unequip_cape(access_token).await
+            }
+        }
+    }
 
+    async fn equip_cape_by_id(&self, access_token: &str, cape_id: &str) -> Result<()> {
         let url = format!("{}/minecraft/profile/capes/active", MOJANG_API_URL);
         debug!("Request URL: {}", url);
 
         let request_body = ChangeCapeRequest {
-            cape_id: cape_id.map(|id| id.to_string()),
+            cape_id: Some(cape_id.to_string()),
         };
 
         let response = HTTP_CLIENT
@@ -194,26 +205,49 @@ impl VanillaCapeApi {
             .send()
             .await
             .map_err(|e| {
-                error!("Failed to change cape: {:?}", e);
+                error!("Failed to equip cape: {:?}", e);
                 AppError::MinecraftApi(e)
             })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            error!("Failed to change cape - {}: {}", status, error_text);
+            error!("Failed to equip cape - {}: {}", status, error_text);
             return Err(AppError::Other(format!(
-                "Failed to change cape: {} - {}",
+                "Failed to equip cape: {} - {}",
                 status, error_text
             )));
         }
 
-        if cape_id.is_some() {
-            debug!("Successfully equipped cape: {:?}", cape_id);
-        } else {
-            debug!("Successfully unequipped cape");
+        debug!("Successfully equipped cape: {}", cape_id);
+        Ok(())
+    }
+
+    async fn unequip_cape(&self, access_token: &str) -> Result<()> {
+        let url = format!("{}/minecraft/profile/capes/active", MOJANG_API_URL);
+        debug!("Request URL: {}", url);
+
+        let response = HTTP_CLIENT
+            .delete(&url)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .map_err(|e| {
+                error!("Failed to unequip cape: {:?}", e);
+                AppError::MinecraftApi(e)
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            error!("Failed to unequip cape - {}: {}", status, error_text);
+            return Err(AppError::Other(format!(
+                "Failed to unequip cape: {} - {}",
+                status, error_text
+            )));
         }
 
+        debug!("Successfully unequipped cape");
         Ok(())
     }
 
