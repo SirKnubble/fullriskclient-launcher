@@ -15,6 +15,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "@iconify/react";
 import { CapeImage } from "./CapeImage";
 import { VanillaCapeImage } from "./VanillaCapeImage";
+import { Tooltip } from "../ui/Tooltip";
 import { getPlayerProfileByUuidOrName, getCapesByHashes } from "../../services/cape-service";
 // Removed VirtuosoGrid import - using native scrolling instead
 import { useThemeStore } from "../../store/useThemeStore";
@@ -36,6 +37,7 @@ interface CapeItemDisplayProps {
   cape: CosmeticCape | VanillaCape;
   imageUrl: string;
   isCurrentlyEquipping: boolean;
+  isEquipped?: boolean;
   onEquipCape: (capeId: string) => void;
   canDelete?: boolean;
   onDeleteCapeClick?: (cape: CosmeticCape | VanillaCape, e: React.MouseEvent) => void;
@@ -51,6 +53,7 @@ function CapeItemDisplay({
   cape,
   imageUrl,
   isCurrentlyEquipping,
+  isEquipped = false,
   onEquipCape,
   canDelete,
   onDeleteCapeClick,
@@ -210,7 +213,7 @@ function CapeItemDisplay({
             width: `${displayWidth}px`,
             height: `${displayHeight}px`,
             backgroundColor: isHovered ? `${accentColor.value}20` : 'transparent',
-            borderColor: isHovered ? `${accentColor.value}60` : 'transparent',
+            borderColor: isEquipped ? accentColor.value : (isHovered ? `${accentColor.value}60` : 'transparent'),
           }}
         >
           {isVanilla ? (
@@ -226,6 +229,19 @@ function CapeItemDisplay({
               width={displayWidth}
               className="rounded-sm block"
             />
+          )}
+
+          {/* Equipped badge */}
+          {isEquipped && !isCurrentlyEquipping && (
+            <div className="absolute top-2 right-2 z-30">
+              <Tooltip content="This cape is currently equipped">
+                <Icon
+                  icon="solar:check-circle-bold"
+                  className="w-4 h-4"
+                  style={{ color: accentColor.value }}
+                />
+              </Tooltip>
+            </div>
           )}
 
           {/* Equipping overlay */}
@@ -287,6 +303,7 @@ export interface CapeListProps {
   onEquipCape: (capeHash: string) => void;
   isLoading?: boolean;
   isEquippingCapeId?: string | null;
+  equippedCapeId?: string | null;
   searchQuery?: string;
   canDelete?: boolean;
   onDeleteCape?: (cape: CosmeticCape) => void;
@@ -305,6 +322,7 @@ export function CapeList({
   onEquipCape,
   isLoading = false,
   isEquippingCapeId = null,
+  equippedCapeId = null,
   searchQuery = "",
   canDelete = false,
   onDeleteCape,
@@ -598,6 +616,7 @@ export function CapeList({
                   cape={cape}
                   imageUrl={imageUrl}
                   isCurrentlyEquipping={isEquippingCapeId === cape._id}
+                  isEquipped={false} // Favorites don't show equipped status for now
                   onEquipCape={onEquipCape}
                   canDelete={canDelete}
                   onDeleteCapeClick={handleDeleteClickInternal}
@@ -628,12 +647,14 @@ export function CapeList({
               ? (cape as VanillaCape).url
               : `https://cdn.norisk.gg/capes/prod/${(cape as CosmeticCape)._id}.png`;
             const capeId = isVanilla ? (cape as VanillaCape).id : (cape as CosmeticCape)._id;
+            const isEquipped = equippedCapeId === capeId;
             return (
               <CapeItemDisplay
                 key={capeId}
                 cape={cape}
                 imageUrl={imageUrl}
                 isCurrentlyEquipping={isEquippingCapeId === capeId}
+                isEquipped={isEquipped}
                 onEquipCape={onEquipCape}
                 canDelete={canDelete && !isVanilla}
                 onDeleteCapeClick={handleDeleteClickInternal}

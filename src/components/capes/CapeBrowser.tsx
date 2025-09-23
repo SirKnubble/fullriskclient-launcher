@@ -72,7 +72,7 @@ export function CapeBrowser(): JSX.Element {
 
   const accentColor = useThemeStore((state) => state.accentColor);
   const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
-  const { ownedCapes: vanillaCapes, isLoading: isLoadingVanilla, error: vanillaError, fetchOwnedCapes } = useVanillaCapeStore();
+  const { ownedCapes: vanillaCapes, isLoading: isLoadingVanilla, error: vanillaError, fetchOwnedCapes, equippedCape } = useVanillaCapeStore();
 
   // Computed loading states based on current filter or search
   const isLoading = useMemo(() => {
@@ -96,6 +96,16 @@ export function CapeBrowser(): JSX.Element {
     }
     return filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
   }, [filters.showOwnedOnly, filters.showVanillaOnly, isFetchingMoreMy, isFetchingMoreAll, searchQuery]);
+
+  // Computed equipped cape ID based on current tab
+  const equippedCapeId = useMemo(() => {
+    if (filters.showVanillaOnly) {
+      return equippedCape?.id || null;
+    }
+    // For NoRisk capes, we don't have equipped state yet
+    return null;
+  }, [filters.showVanillaOnly, equippedCape]);
+
   const { showModal, hideModal } = useGlobalModal();
 
   // Computed current data based on filter
@@ -112,14 +122,15 @@ export function CapeBrowser(): JSX.Element {
       }
 
       // Add "No Cape" option at the beginning
+      const hasEquippedCape = vanillaCapes.some(cape => cape.equipped);
       const noCapeOption: VanillaCape = {
         id: "no-cape",
         name: "No Cape",
         description: "Remove your equipped cape",
         url: "", // Empty URL for no cape
-        equipped: !vanillaCapes.some(cape => cape.equipped), // Equipped if no other cape is equipped
+        equipped: !hasEquippedCape, // Equipped if no other cape is equipped
         category: "special",
-        active: !vanillaCapes.some(cape => cape.equipped), // Active if no other cape is equipped
+        active: !hasEquippedCape, // Active if no other cape is equipped
       };
 
       return [noCapeOption, ...filteredCapes];
@@ -863,6 +874,7 @@ export function CapeBrowser(): JSX.Element {
               onEquipCape={handleEquipCape}
               isLoading={isLoading}
               isEquippingCapeId={isEquippingCapeId}
+              equippedCapeId={equippedCapeId}
               searchQuery={searchQuery}
               canDelete={(filters.showOwnedOnly && !!activeAccount) && !(searchQuery && searchQuery.trim() !== "") && !filters.showVanillaOnly}
               onDeleteCape={handleDeleteCapeClick}
