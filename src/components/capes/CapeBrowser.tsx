@@ -27,12 +27,13 @@ import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { SearchWithFilters } from "../ui/SearchWithFilters";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useCapeFavoritesStore } from "../../store/useCapeFavoritesStore";
+import { useVanillaCapeStore } from "../../store/useVanillaCapeStore";
+import type { VanillaCape } from "../../types/vanillaCapes";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { preloadIcons } from "../../lib/icon-utils";
 import { deleteCape } from "../../services/cape-service";
 import { toast } from "react-hot-toast";
 import { UploadCapeModal } from "./UploadCapeModal";
-import { VanillaCapeList } from "./VanillaCapeList";
 import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
 
 
@@ -59,10 +60,9 @@ export function CapeBrowser(): JSX.Element {
     timeFrame: "",
     showOwnedOnly: false,
     showFavoritesOnly: false,
+    showVanillaOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
-  type CapeType = "norisk" | "vanilla";
-  const [capeType, setCapeType] = useState<CapeType>("norisk");
 
   // Helper functions to get correct setters based on current filter
   const getCapesSetter = (showOwnedOnly: boolean) =>
@@ -70,47 +70,80 @@ export function CapeBrowser(): JSX.Element {
   const getPaginationSetter = (showOwnedOnly: boolean) =>
     showOwnedOnly ? setMyPagination : setAllPagination;
 
+  const accentColor = useThemeStore((state) => state.accentColor);
+  const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
+  const { ownedCapes: vanillaCapes, isLoading: isLoadingVanilla, error: vanillaError, fetchOwnedCapes } = useVanillaCapeStore();
+
   // Computed loading states based on current filter or search
   const isLoading = useMemo(() => {
     // When searching, always use all loading state
     if (searchQuery && searchQuery.trim() !== "") {
       return isLoadingAll;
     }
+    if (filters.showVanillaOnly) {
+      return isLoadingVanilla;
+    }
     return filters.showOwnedOnly ? isLoadingMy : isLoadingAll;
-  }, [filters.showOwnedOnly, isLoadingMy, isLoadingAll, searchQuery]);
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, isLoadingMy, isLoadingAll, isLoadingVanilla, searchQuery]);
 
   const isFetchingMore = useMemo(() => {
     // When searching, always use all fetching state
     if (searchQuery && searchQuery.trim() !== "") {
       return isFetchingMoreAll;
     }
+    if (filters.showVanillaOnly) {
+      return false; // Vanilla capes don't have pagination
+    }
     return filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
-  }, [filters.showOwnedOnly, isFetchingMoreMy, isFetchingMoreAll, searchQuery]);
-
-  const accentColor = useThemeStore((state) => state.accentColor);
-  const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, isFetchingMoreMy, isFetchingMoreAll, searchQuery]);
   const { showModal, hideModal } = useGlobalModal();
 
   // Computed current data based on filter
   const capesData = useMemo(() => {
-    // When searching, always show search results from allCapes
+    // For vanilla capes, filter by search query if present
+    if (filters.showVanillaOnly) {
+      let filteredCapes = vanillaCapes;
+
+      if (searchQuery && searchQuery.trim() !== "") {
+        const query = searchQuery.trim().toLowerCase();
+        filteredCapes = vanillaCapes.filter(cape =>
+          cape.name.toLowerCase().includes(query)
+        );
+      }
+
+      // Add "No Cape" option at the beginning
+      const noCapeOption: VanillaCape = {
+        id: "no-cape",
+        name: "No Cape",
+        description: "Remove your equipped cape",
+        url: "", // Empty URL for no cape
+        equipped: !vanillaCapes.some(cape => cape.equipped), // Equipped if no other cape is equipped
+        category: "special",
+        active: !vanillaCapes.some(cape => cape.equipped), // Active if no other cape is equipped
+      };
+
+      return [noCapeOption, ...filteredCapes];
+    }
+
+    // When searching NoRisk capes, always show search results from allCapes
     if (searchQuery && searchQuery.trim() !== "") {
       return allCapes;
     }
+
     // For favorites, let CapeList handle the filtering - just provide all available capes
     return filters.showOwnedOnly ? myCapes : allCapes;
-  }, [filters.showOwnedOnly, myCapes, allCapes, favoriteCapeIds, searchQuery]); // Add searchQuery to trigger re-render when search changes
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, myCapes, allCapes, vanillaCapes, favoriteCapeIds, searchQuery]); // Add searchQuery to trigger re-render when search changes
 
   const paginationInfo = useMemo(() => {
     // When searching, always use allPagination for search results
     if (searchQuery && searchQuery.trim() !== "") {
       return allPagination;
     }
-    if (filters.showFavoritesOnly) {
-      return null; // Favorites don't need pagination
+    if (filters.showFavoritesOnly || filters.showVanillaOnly) {
+      return null; // Favorites and vanilla capes don't need pagination
     }
     return filters.showOwnedOnly ? myPagination : allPagination;
-  }, [filters.showOwnedOnly, filters.showFavoritesOnly, myPagination, allPagination, searchQuery]);
+  }, [filters.showOwnedOnly, filters.showFavoritesOnly, filters.showVanillaOnly, myPagination, allPagination, searchQuery]);
 
   // Filter options for SearchWithFilters
   const sortOptions = [
@@ -210,15 +243,22 @@ export function CapeBrowser(): JSX.Element {
     loadMyCapes();
   }, [activeAccount]); // Run when activeAccount changes
 
+  // Load VANILLA capes when account becomes available and vanilla tab is active
+  useEffect(() => {
+    if (activeAccount && filters.showVanillaOnly && vanillaCapes.length === 0 && !isLoadingVanilla && !vanillaError) {
+      fetchOwnedCapes();
+    }
+  }, [activeAccount, filters.showVanillaOnly, vanillaCapes.length, isLoadingVanilla, vanillaError, fetchOwnedCapes]);
+
   const hasMoreItems = useMemo(() => {
-    // Search results don't have pagination
-    if (searchQuery && searchQuery.trim() !== "") {
+    // Search results and vanilla capes don't have pagination
+    if (searchQuery && searchQuery.trim() !== "" || filters.showVanillaOnly) {
       return false;
     }
     return paginationInfo
       ? paginationInfo.currentPage < paginationInfo.totalPages - 1
       : false;
-  }, [paginationInfo, searchQuery]);
+  }, [paginationInfo, searchQuery, filters.showVanillaOnly]);
 
   const fetchCapesData = useCallback(
     async (
@@ -526,7 +566,18 @@ export function CapeBrowser(): JSX.Element {
 
   const handleEquipCape = async (capeHash: string) => {
     setIsEquippingCapeId(capeHash);
-    const promise = equipCape(capeHash);
+
+    let promise;
+    if (filters.showVanillaOnly) {
+      // For vanilla capes, use the vanilla store
+      // Special handling for "no-cape" option - unequip all capes
+      const actualCapeId = capeHash === "no-cape" ? null : capeHash;
+      promise = useVanillaCapeStore.getState().equipCape(actualCapeId);
+    } else {
+      // For NoRisk capes, use the regular equip function
+      promise = equipCape(capeHash);
+    }
+
     toast.promise(promise, {
       loading: "Equipping cape...",
       success: () => {
@@ -640,49 +691,12 @@ export function CapeBrowser(): JSX.Element {
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {/* Cape Type Selector */}
-        <div className="mb-4 flex justify-end">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCapeType('norisk' as CapeType)}
-              className={`px-4 py-2 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                capeType === ('norisk' as CapeType)
-                  ? 'text-white'
-                  : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-              }`}
-              style={{
-                backgroundColor: capeType === ('norisk' as CapeType) ? `${accentColor.value}20` : undefined,
-                borderColor: capeType === ('norisk' as CapeType) ? accentColor.value : undefined,
-              }}
-            >
-              <span className="lowercase">norisk</span>
-            </button>
-
-            <button
-              onClick={() => setCapeType('vanilla' as CapeType)}
-              className={`px-4 py-2 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                capeType === ('vanilla' as CapeType)
-                  ? 'text-white'
-                  : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-              }`}
-              style={{
-                backgroundColor: capeType === ('vanilla' as CapeType) ? `${accentColor.value}20` : undefined,
-                borderColor: capeType === ('vanilla' as CapeType) ? accentColor.value : undefined,
-              }}
-            >
-              <span className="lowercase">vanilla</span>
-            </button>
-          </div>
-        </div>
-
-        {capeType === 'norisk' ? (
-          <>
-            {/* Group Tabs */}
-            <div className="mb-4">
+        {/* Group Tabs */}
+        <div className="mb-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => {
-                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false };
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
@@ -694,13 +708,13 @@ export function CapeBrowser(): JSX.Element {
                     }
                   }}
                   className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                    !filters.showOwnedOnly && !filters.showFavoritesOnly
+                    !filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
                   }`}
                   style={{
-                    backgroundColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly) ? `${accentColor.value}20` : undefined,
-                    borderColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly) ? accentColor.value : undefined,
+                    backgroundColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
                 >
                   <span className="lowercase">all</span>
@@ -709,7 +723,7 @@ export function CapeBrowser(): JSX.Element {
                 <button
                   onClick={() => {
                     if (!activeAccount) return;
-                    const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false };
+                    const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
@@ -722,13 +736,13 @@ export function CapeBrowser(): JSX.Element {
                   }}
                   disabled={!activeAccount}
                   className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                    filters.showOwnedOnly && !filters.showFavoritesOnly
+                    filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
                   } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
                   style={{
-                    backgroundColor: (filters.showOwnedOnly && !filters.showFavoritesOnly) ? `${accentColor.value}20` : undefined,
-                    borderColor: (filters.showOwnedOnly && !filters.showFavoritesOnly) ? accentColor.value : undefined,
+                    backgroundColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
                   title={!activeAccount ? "No active Minecraft account" : undefined}
                 >
@@ -737,22 +751,45 @@ export function CapeBrowser(): JSX.Element {
 
                 <button
                   onClick={() => {
-                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: true };
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: true, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
                   }}
                   className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-                    filters.showFavoritesOnly
+                    filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
                   }`}
                   style={{
-                    backgroundColor: filters.showFavoritesOnly ? `${accentColor.value}20` : undefined,
-                    borderColor: filters.showFavoritesOnly ? accentColor.value : undefined,
+                    backgroundColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
                 >
                   <span className="lowercase">favorites</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!activeAccount) return;
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false, showVanillaOnly: true };
+                    setFilters(newFilters);
+                    setSearchQuery("");
+                    setCurrentPage(0);
+                  }}
+                  disabled={!activeAccount}
+                  className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                    filters.showVanillaOnly
+                      ? 'text-white'
+                      : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+                  } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{
+                    backgroundColor: filters.showVanillaOnly ? `${accentColor.value}20` : undefined,
+                    borderColor: filters.showVanillaOnly ? accentColor.value : undefined,
+                  }}
+                  title={!activeAccount ? "No active Minecraft account" : undefined}
+                >
+                  <span className="lowercase">vanilla</span>
                 </button>
               </div>
             </div>
@@ -760,18 +797,33 @@ export function CapeBrowser(): JSX.Element {
             <div className="mb-6 pb-4 border-b border-white/10">
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <SearchWithFilters
-                    placeholder="Search player..."
-                    searchValue={searchQuery}
-                    onSearchChange={handleSearchChange}
-                    onSearchEnter={handleSearchEnter}
-                    sortOptions={sortOptions}
-                    sortValue={filters.sortBy || ""}
-                    onSortChange={handleSortChange}
-                    filterOptions={filterOptions}
-                    filterValue={filters.timeFrame || ""}
-                    onFilterChange={handleFilterChange}
-                  />
+                  {!filters.showVanillaOnly ? (
+                    <SearchWithFilters
+                      placeholder="Search player..."
+                      searchValue={searchQuery}
+                      onSearchChange={handleSearchChange}
+                      onSearchEnter={handleSearchEnter}
+                      sortOptions={sortOptions}
+                      sortValue={filters.sortBy || ""}
+                      onSortChange={handleSortChange}
+                      filterOptions={filterOptions}
+                      filterValue={filters.timeFrame || ""}
+                      onFilterChange={handleFilterChange}
+                    />
+                  ) : (
+                    <SearchWithFilters
+                      placeholder="Search vanilla cape..."
+                      searchValue={searchQuery}
+                      onSearchChange={handleSearchChange}
+                      onSearchEnter={handleSearchEnter}
+                      sortOptions={[]} // No sorting options for vanilla capes
+                      sortValue=""
+                      onSortChange={() => {}} // No-op
+                      filterOptions={[]} // No time frame filters for vanilla capes
+                      filterValue=""
+                      onFilterChange={() => {}} // No-op
+                    />
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -812,7 +864,7 @@ export function CapeBrowser(): JSX.Element {
               isLoading={isLoading}
               isEquippingCapeId={isEquippingCapeId}
               searchQuery={searchQuery}
-              canDelete={(filters.showOwnedOnly && !!activeAccount) && !(searchQuery && searchQuery.trim() !== "")}
+              canDelete={(filters.showOwnedOnly && !!activeAccount) && !(searchQuery && searchQuery.trim() !== "") && !filters.showVanillaOnly}
               onDeleteCape={handleDeleteCapeClick}
               loadMoreItems={loadMoreCapes}
               hasMoreItems={hasMoreItems}
@@ -821,11 +873,8 @@ export function CapeBrowser(): JSX.Element {
               onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
               groupFavoritesInHeader={filters.showFavoritesOnly}
               showFavoritesOnly={filters.showFavoritesOnly}
+              isVanilla={filters.showVanillaOnly}
             />
-          </>
-        ) : (
-          <VanillaCapeList isEquippingCapeId={isEquippingCapeId} />
-        )}
       </div>
     </div>
   );

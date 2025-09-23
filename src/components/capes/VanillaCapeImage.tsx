@@ -41,6 +41,17 @@ export const VanillaCapeImage = React.memo(function VanillaCapeImage({
     }
 
     if (!imageUrl) {
+      // Special handling for "No Cape" option - draw a simple colored background
+      if (ctx) {
+        // Draw a simple gray background for "No Cape"
+        ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Optional: Add a subtle border
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+      }
       setIsLoading(false);
       return;
     }

@@ -91,22 +91,20 @@ export const useVanillaCapeStore = create<VanillaCapeState>()(
           }
 
           await VanillaCapeService.equipVanillaCape(capeId);
-          
+
           set(state => ({
             ownedCapes: state.ownedCapes.map(cape => ({
               ...cape,
               equipped: cape.id === capeId
             }))
           }));
-
-          toast.success(capeId ? "Cape equipped successfully!" : "Cape unequipped successfully!");
         } catch (error) {
           set({ equippedCape: previousEquipped });
-          
+
           const errorMessage = error instanceof Error ? error.message : "Failed to equip cape";
           set({ error: errorMessage });
-          toast.error(`Failed to ${capeId ? 'equip' : 'unequip'} cape: ${errorMessage}`);
           console.error("Failed to equip vanilla cape:", error);
+          throw error; // Re-throw so the calling code can handle the error
         }
       },
 
