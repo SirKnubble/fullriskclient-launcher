@@ -12,6 +12,7 @@ export interface CapeFiltersData {
   timeFrame?: string;
   showOwnedOnly?: boolean;
   showFavoritesOnly?: boolean;
+  showVanillaOnly?: boolean;
 }
 
 interface CapeFiltersProps {
