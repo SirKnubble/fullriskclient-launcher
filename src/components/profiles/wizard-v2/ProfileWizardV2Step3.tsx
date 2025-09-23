@@ -73,7 +73,7 @@ export function ProfileWizardV2Step3({
         if (defaultGroup && !profileGroup) {
             setProfileGroup(defaultGroup);
         }
-    }, [defaultGroup, profileGroup]);
+    }, [defaultGroup]);
 
     // Update shared Minecraft folder setting when defaultGroup changes
     useEffect(() => {
