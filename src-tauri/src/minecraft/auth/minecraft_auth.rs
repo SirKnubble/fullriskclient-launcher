@@ -540,13 +540,23 @@ impl MinecraftAuthStore {
         }
 
         if force_update || maybe_update {
+            // Generate privacy-friendly hashed system identifier
+            // Hash a salt string with HWID for consistent but anonymous identification
             let hwid = IdBuilder::new(Encryption::SHA256)
                 .add_component(HWIDComponent::SystemID)
                 .build("NRC")
                 .map_err(|e| AppError::Other(format!("HWID Error {:?}", e)))?;
+
+            // Create deterministic hash by combining salt with HWID
+            use sha2::{Sha256, Digest};
+            let mut hasher = Sha256::new();
+            hasher.update(b"norisk-device-salt");
+            hasher.update(&hwid);
+            let system_id = format!("{:x}", hasher.finalize());
+
             info!(
-                "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, HWID: {}",
-                force_update, maybe_update, hwid
+                "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, SystemID: {}",
+                force_update, maybe_update, system_id
             );
 
             // Use NoRiskApi for token refresh with proper error handling
@@ -563,7 +573,7 @@ impl MinecraftAuthStore {
             );
 
             match NoRiskApi::refresh_norisk_token_v3(
-                &hwid,
+                &system_id,
                 &creds.username,
                 &creds.access_token,
                 &creds.id.to_string().replace("-", ""), // UUID without dashes
