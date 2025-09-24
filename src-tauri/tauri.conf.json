@@ -56,6 +56,7 @@
           "https://cdn.modrinth.com",
           "https://*.norisk.gg",
           "https://textures.minecraft.net",
+          "http://textures.minecraft.net",
           "https://crafatar.com",
           "https://media.forgecdn.net",
           "data:",
@@ -66,9 +67,7 @@
         "enable": true,
         "scope": {
           "requireLiteralLeadingDot": false,
-          "allow": [
-            "**/*"
-          ]
+          "allow": ["**/*"]
         }
       }
     }
@@ -102,13 +101,7 @@
       }
     },
     "active": true,
-    "targets": [
-      "app",
-      "dmg",
-      "deb",
-      "appimage",
-      "nsis"
-    ],
+    "targets": ["app", "dmg", "deb", "appimage", "nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -119,9 +112,7 @@
     "createUpdaterArtifacts": true,
     "fileAssociations": [
       {
-        "ext": [
-          "noriskpack"
-        ],
+        "ext": ["noriskpack"],
         "name": "NoriskPack File",
         "description": "NoRiskClient Modpack File"
       }
