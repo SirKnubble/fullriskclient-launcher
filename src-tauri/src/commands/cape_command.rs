@@ -1,9 +1,9 @@
 use crate::error::{AppError, CommandError};
-use crate::minecraft::api::cape_api::{CapeApi, CapesBrowseResponse, CosmeticCape};
+use crate::minecraft::api::cape_api::{CapeApi, CapeUploadResponse, CapesBrowseResponse, CosmeticCape};
 use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::state::state_manager::State;
 use log::{debug, error};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
 use uuid::Uuid;
@@ -20,6 +20,7 @@ pub struct BrowseCapesPayload {
     norisk_token: Option<String>,
     request_uuid: Option<String>,
 }
+
 
 /// Browse capes with optional parameters
 ///
@@ -571,7 +572,7 @@ pub async fn upload_cape(
     image_path: String,
     norisk_token: Option<String>,
     player_uuid: Option<Uuid>,
-) -> Result<String, CommandError> {
+) -> Result<CapeUploadResponse, CommandError> {
     debug!(
         "Command called: upload_cape with image_path: {}, player_uuid: {:?}",
         image_path, player_uuid
@@ -625,7 +626,7 @@ pub async fn upload_cape(
     // Convert image_path string to PathBuf
     let image_path_buf = PathBuf::from(image_path);
 
-    let result = cape_api
+    let response = cape_api
         .upload_cape(
             &token_to_use,
             &uuid_to_use,
@@ -636,15 +637,11 @@ pub async fn upload_cape(
         .map_err(|e| {
             debug!("Failed to upload cape: {:?}", e);
             CommandError::from(e)
-        });
+        })?;
 
-    if result.is_ok() {
-        debug!("Command completed: upload_cape");
-    } else {
-        debug!("Command failed: upload_cape");
-    }
+    debug!("Command completed: upload_cape, was_resized: {}", response.was_resized);
 
-    result
+    Ok(response)
 }
 
 /// Unequip the currently equipped cape for the active player
