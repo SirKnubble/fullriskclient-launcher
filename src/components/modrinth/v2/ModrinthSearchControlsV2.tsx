@@ -183,7 +183,7 @@ export const ModrinthSearchControlsV2: React.FC<
               title="Search CurseForge"
             >
               <img
-                src="https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium"
+                src="https://cdn.norisk.gg/misc/curseforge.webp"
                 alt="CurseForge"
                 className="w-5 h-5 object-contain"
               />

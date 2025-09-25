@@ -101,6 +101,12 @@ use commands::cape_command::{
     unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape, get_capes_by_hashes,
 };
 
+// Import vanilla cape commands
+use commands::vanilla_cape_command::{
+    get_owned_vanilla_capes, get_currently_equipped_vanilla_cape, equip_vanilla_cape,
+    get_vanilla_cape_info, refresh_vanilla_cape_data,
+};
+
 // Import NRC commands
 use commands::nrc_commands::get_news_and_changelogs_command;
 
@@ -502,7 +508,12 @@ async fn main() {
             commands::flagsmith_commands::refresh_blocked_mods_config,
             commands::nrc_commands::get_mobile_app_token,
             commands::nrc_commands::reset_mobile_app_token,
-            get_capes_by_hashes
+            get_capes_by_hashes,
+            get_owned_vanilla_capes,
+            get_currently_equipped_vanilla_cape,
+            equip_vanilla_cape,
+            get_vanilla_cape_info,
+            refresh_vanilla_cape_data
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 

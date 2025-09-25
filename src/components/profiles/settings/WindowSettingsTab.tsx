@@ -5,7 +5,7 @@ import type { Profile } from "../../../types/profile";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { Checkbox } from "../../ui/Checkbox";
 import { Label } from "../../ui/Label";
-import { Input } from "../../ui/Input";
+import { SearchStyleInput } from "../../ui/Input";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils";
 
@@ -113,40 +113,38 @@ export function WindowSettingsTab({
                 <label className="block text-xl text-white/70 font-minecraft mb-2 lowercase tracking-wide select-none">
                   width
                 </label>
-                <Input
+                <SearchStyleInput
                   type="number"
                   value={String(
-                    editedProfile.settings?.resolution?.width || 1280,
+                    editedProfile.settings?.resolution?.width || 854,
                   )}
                   onChange={(e) => {
-                    const width = Number.parseInt(e.target.value) || 1280;
+                    const width = Number.parseInt(e.target.value) || 854;
                     handleResolutionChange(
                       width,
-                      editedProfile.settings?.resolution?.height || 720,
+                      editedProfile.settings?.resolution?.height || 480,
                     );
                   }}
-                  className="text-2xl py-3"
-                  variant="flat"
+                  className="text-xl"
                 />
               </div>
               <div>
                 <label className="block text-xl text-white/70 font-minecraft mb-2 lowercase tracking-wide select-none">
                   height
                 </label>
-                <Input
+                <SearchStyleInput
                   type="number"
                   value={String(
-                    editedProfile.settings?.resolution?.height || 720,
+                    editedProfile.settings?.resolution?.height || 480,
                   )}
                   onChange={(e) => {
-                    const height = Number.parseInt(e.target.value) || 720;
+                    const height = Number.parseInt(e.target.value) || 480;
                     handleResolutionChange(
-                      editedProfile.settings?.resolution?.width || 1280,
+                      editedProfile.settings?.resolution?.width || 854,
                       height,
                     );
                   }}
-                  className="text-2xl py-3"
-                  variant="flat"
+                  className="text-xl"
                 />
               </div>
             </div>

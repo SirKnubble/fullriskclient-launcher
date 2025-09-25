@@ -904,7 +904,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         ...(itemPlatform !== 'Local' ? [{
           icon: itemPlatform === 'Modrinth'
             ? "https://cdn.modrinth.com/modrinth-new.png"
-            : "https://cdn2.unrealengine.com/egs-curseforge-overwolf-ic1-400x400-efe6f7172cef.png?resize=1&w=128&h=128&quality=medium",
+            : "https://cdn.norisk.gg/misc/curseforge.webp",
           text: itemPlatform,
           color: isDisabled ? "#6b7280" : (itemPlatform === 'Modrinth' ? "#22c55e" : "#f97316"),
           iconFilter: isDisabled ? "grayscale(100%) brightness(0.7)" : undefined

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "../ui/Modal";
 import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
 import { Button } from "../ui/buttons/Button";
@@ -18,6 +18,51 @@ interface UploadCapeModalProps {
   onCancelUpload: () => void;
 }
 
+// Utility function to resize an image to 512x256 using Canvas (only if needed)
+const resizeImageToCape = (imageUrl: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      // Check if image is already the correct size
+      if (img.naturalWidth === 512 && img.naturalHeight === 256) {
+        // Image is already correct size, return original URL
+        resolve(imageUrl);
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        reject(new Error('Could not get canvas context'));
+        return;
+      }
+
+      // Set canvas size to 512x256
+      canvas.width = 512;
+      canvas.height = 256;
+
+      // Use nearest neighbor scaling for pixel-perfect results
+      ctx.imageSmoothingEnabled = false;
+
+      // Draw the image scaled to fit 512x256
+      ctx.drawImage(img, 0, 0, 512, 256);
+
+      // Convert to data URL
+      const resizedDataUrl = canvas.toDataURL('image/png');
+      resolve(resizedDataUrl);
+    };
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image'));
+    };
+
+    img.src = imageUrl;
+  });
+};
+
 export function UploadCapeModal({
   previewImageUrl,
   previewImagePath,
@@ -30,6 +75,23 @@ export function UploadCapeModal({
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showElytraPreview, setShowElytraPreview] = useState(false);
+  const [resizedCapeUrl, setResizedCapeUrl] = useState<string | null>(null);
+
+  // Resize the cape for preview when component mounts
+  useEffect(() => {
+    const resizeCapeForPreview = async () => {
+      try {
+        const resizedUrl = await resizeImageToCape(previewImageUrl);
+        setResizedCapeUrl(resizedUrl);
+      } catch (error) {
+        console.error('Failed to resize cape for preview:', error);
+        // Fallback to original URL if resize fails
+        setResizedCapeUrl(previewImageUrl);
+      }
+    };
+
+    resizeCapeForPreview();
+  }, [previewImageUrl]);
 
   const handleConfirmUpload = async () => {
     setIsUploading(true);
@@ -37,8 +99,18 @@ export function UploadCapeModal({
     setUploadWarning(null);
 
     try {
-      await uploadCape(previewImagePath);
-      toast.success("Cape uploaded successfully!");
+      const result = await uploadCape(previewImagePath);
+
+      // Show combined success message with resize info if applicable
+      if (result.wasResized && result.originalDimensions) {
+        const [origWidth, origHeight] = result.originalDimensions;
+        toast.success(`Cape uploaded successfully! (Resized from ${origWidth}x${origHeight} to 512x256)`, {
+          duration: 5000, // Show longer for important info
+        });
+      } else {
+        toast.success("Cape uploaded successfully!");
+      }
+
       onCancelUpload(); // Close modal on success
     } catch (err: any) {
       console.error("Error uploading cape:", err);
@@ -87,7 +159,7 @@ export function UploadCapeModal({
         )}
         <div className="relative flex justify-center items-center mb-6 p-2 rounded-md aspect-[10/16] max-w-[200px] mx-auto">
           <SkinView3DWrapper
-            capeUrl={previewImageUrl}
+            capeUrl={resizedCapeUrl || previewImageUrl}
             className="w-full h-full"
             zoom={1.5}
             displayAsElytra={showElytraPreview}

@@ -462,3 +462,8 @@ input[type="text"]:not(.no-radius) {
 .dark .card:not(.no-radius) {
   border-radius: var(--border-radius) !important;
 }
+
+/* Backdrop blur which also works on Linux */
+.backdrop-blur-md-anyos {
+    backdrop-filter: blur(12px);
+}

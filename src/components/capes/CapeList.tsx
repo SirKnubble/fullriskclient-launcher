@@ -10,9 +10,12 @@ import React, {
 } from "react";
 import { useInView } from "react-intersection-observer";
 import type { CosmeticCape } from "../../types/noriskCapes";
+import type { VanillaCape } from "../../types/vanillaCapes";
 import { EmptyState } from "../ui/EmptyState";
 import { Icon } from "@iconify/react";
 import { CapeImage } from "./CapeImage";
+import { VanillaCapeImage } from "./VanillaCapeImage";
+import { Tooltip } from "../ui/Tooltip";
 import { getPlayerProfileByUuidOrName, getCapesByHashes } from "../../services/cape-service";
 // Removed VirtuosoGrid import - using native scrolling instead
 import { useThemeStore } from "../../store/useThemeStore";
@@ -31,23 +34,26 @@ import { useGlobalModal } from "../../hooks/useGlobalModal";
 // Removed ListComponent - using native grid layout instead
 
 interface CapeItemDisplayProps {
-  cape: CosmeticCape;
+  cape: CosmeticCape | VanillaCape;
   imageUrl: string;
   isCurrentlyEquipping: boolean;
+  isEquipped?: boolean;
   onEquipCape: (capeId: string) => void;
   canDelete?: boolean;
-  onDeleteCapeClick?: (cape: CosmeticCape, e: React.MouseEvent) => void;
+  onDeleteCapeClick?: (cape: CosmeticCape | VanillaCape, e: React.MouseEvent) => void;
   creatorNameCache: Map<string, string>;
   onContextMenu?: (e: React.MouseEvent) => void;
   activeAccount?: any;
   showModal?: (id: string, component: ReactNode) => void;
   hideModal?: (id: string) => void;
+  isVanilla?: boolean;
 }
 
 function CapeItemDisplay({
   cape,
   imageUrl,
   isCurrentlyEquipping,
+  isEquipped = false,
   onEquipCape,
   canDelete,
   onDeleteCapeClick,
@@ -56,6 +62,7 @@ function CapeItemDisplay({
   activeAccount,
   showModal,
   hideModal,
+  isVanilla = false,
 }: CapeItemDisplayProps) {
   const handleCapeClick = useCallback(() => {
     if (isCurrentlyEquipping || !showModal) return;
@@ -64,55 +71,65 @@ function CapeItemDisplay({
       ? `https://crafatar.com/skins/${activeAccount.id}`
       : undefined;
 
-    showModal(`cape-preview-${cape._id}`, (
+    const capeId = isVanilla ? (cape as VanillaCape).id : (cape as CosmeticCape)._id;
+    const capeUrl = isVanilla ? (cape as VanillaCape).url : `https://cdn.norisk.gg/capes/prod/${capeId}.png`;
+
+    showModal(`cape-preview-${capeId}`, (
       <Modal
         title="Cape Preview"
-        onClose={() => hideModal && hideModal(`cape-preview-${cape._id}`)}
+        onClose={() => hideModal && hideModal(`cape-preview-${capeId}`)}
         width="md"
         variant="flat"
       >
         <Cape3DPreviewWithToggle
           skinUrl={userSkinUrl}
-          capeId={cape._id}
+          capeUrl={isVanilla ? capeUrl : undefined}
+          capeId={capeId}
+          isEquipped={false}
           onEquipCape={() => {
-            onEquipCape(cape._id);
-            hideModal && hideModal(`cape-preview-${cape._id}`);
+            onEquipCape(capeId);
+            hideModal && hideModal(`cape-preview-${capeId}`);
           }}
         />
       </Modal>
     ));
-  }, [cape._id, isCurrentlyEquipping, activeAccount, showModal, hideModal, onEquipCape]);
+  }, [cape, isCurrentlyEquipping, activeAccount, showModal, hideModal, onEquipCape, isVanilla]);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [creatorLoading, setCreatorLoading] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState(false);
   const accentColor = useThemeStore((state) => state.accentColor);
-  const isFavorite = useCapeFavoritesStore((s) => s.isFavorite(cape._id));
+
+  // Only use favorites for NoRisk capes
+  const isFavorite = !isVanilla ? useCapeFavoritesStore((s) => s.isFavorite((cape as CosmeticCape)._id)) : false;
   const toggleFavoriteOptimistic = useCapeFavoritesStore((s) => s.toggleFavoriteOptimistic);
 
   useEffect(() => {
+    if (isVanilla) return; // Vanilla capes don't have creators
+
     let isMounted = true;
-    if (cape.firstSeen) {
-      if (creatorNameCache.has(cape.firstSeen)) {
-        setCreatorName(creatorNameCache.get(cape.firstSeen)!);
+    const cosmeticCape = cape as CosmeticCape;
+    if (cosmeticCape.firstSeen) {
+      if (creatorNameCache.has(cosmeticCape.firstSeen)) {
+        setCreatorName(creatorNameCache.get(cosmeticCape.firstSeen)!);
         setCreatorLoading(false);
         return;
       }
 
       setCreatorLoading(true);
-      getPlayerProfileByUuidOrName(cape.firstSeen)
+      getPlayerProfileByUuidOrName(cosmeticCape.firstSeen)
         .then((profile) => {
           if (isMounted) {
             const nameToCache =
               profile && profile.name ? profile.name : "Unknown";
             setCreatorName(nameToCache);
-            creatorNameCache.set(cape.firstSeen, nameToCache);
+            creatorNameCache.set(cosmeticCape.firstSeen, nameToCache);
           }
         })
         .catch(() => {
           if (isMounted) {
             const errorNameToCache = "Error";
             setCreatorName(errorNameToCache);
-            creatorNameCache.set(cape.firstSeen, errorNameToCache);
+            creatorNameCache.set(cosmeticCape.firstSeen, errorNameToCache);
           }
         })
         .finally(() => {
@@ -124,7 +141,7 @@ function CapeItemDisplay({
     return () => {
       isMounted = false;
     };
-  }, [cape.firstSeen, creatorNameCache]);
+  }, [cape, creatorNameCache, isVanilla]);
 
   // Use consistent dimensions like original CapeDisplay
   const displayWidth = 140;
@@ -147,31 +164,33 @@ function CapeItemDisplay({
     >
       {/* Action buttons - top right */}
       <div className={`absolute top-3 right-3 z-20 flex flex-col gap-1`}>
-        {/* Favorite button */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleFavoriteOptimistic(cape._id);
-          }}
-          className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
-          title={isFavorite ? "Unfavorite" : "Favorite"}
-          disabled={isCurrentlyEquipping}
-        >
-          <Icon
-            icon={isFavorite ? "ph:heart-fill" : "ph:heart"}
-            className="w-4 h-4"
-            style={{ color: isFavorite ? "#ef4444" : undefined }}
-          />
-        </button>
-
-        {/* Delete button (only if canDelete) */}
-        {canDelete && onDeleteCapeClick && (
+        {/* Favorite button (only for NoRisk capes) */}
+        {!isVanilla && (
           <button
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onDeleteCapeClick(cape, e);
+              toggleFavoriteOptimistic((cape as CosmeticCape)._id);
+            }}
+            className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
+            title={isFavorite ? "Unfavorite" : "Favorite"}
+            disabled={isCurrentlyEquipping}
+          >
+            <Icon
+              icon={isFavorite ? "ph:heart-fill" : "ph:heart"}
+              className="w-4 h-4"
+              style={{ color: isFavorite ? "#ef4444" : undefined }}
+            />
+          </button>
+        )}
+
+        {/* Delete button (only if canDelete and not vanilla) */}
+        {canDelete && onDeleteCapeClick && !isVanilla && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDeleteCapeClick(cape as CosmeticCape, e);
             }}
             className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-red-700/80 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
             title="Delete Cape"
@@ -194,15 +213,36 @@ function CapeItemDisplay({
             width: `${displayWidth}px`,
             height: `${displayHeight}px`,
             backgroundColor: isHovered ? `${accentColor.value}20` : 'transparent',
-            borderColor: isHovered ? `${accentColor.value}60` : 'transparent',
+            borderColor: isEquipped ? accentColor.value : (isHovered ? `${accentColor.value}60` : 'transparent'),
           }}
         >
-          <CapeImage
-            imageUrl={imageUrl}
-            part="front"
-            width={displayWidth}
-            className="rounded-sm block"
-          />
+          {isVanilla ? (
+            <VanillaCapeImage
+              imageUrl={imageUrl}
+              width={displayWidth}
+              className="rounded-sm block"
+            />
+          ) : (
+            <CapeImage
+              imageUrl={imageUrl}
+              part="front"
+              width={displayWidth}
+              className="rounded-sm block"
+            />
+          )}
+
+          {/* Equipped badge */}
+          {isEquipped && !isCurrentlyEquipping && (
+            <div className="absolute top-2 right-2 z-30">
+              <Tooltip content="This cape is currently equipped">
+                <Icon
+                  icon="solar:check-circle-bold"
+                  className="w-4 h-4"
+                  style={{ color: accentColor.value }}
+                />
+              </Tooltip>
+            </div>
+          )}
 
           {/* Equipping overlay */}
           {isCurrentlyEquipping && (
@@ -222,24 +262,35 @@ function CapeItemDisplay({
 
         {/* Cape Info */}
         <div className="flex-grow min-w-0 w-full text-center">
-          {/* Creator Name */}
+          {/* Creator Name or Cape Name */}
           <h3
             className="font-minecraft-ten text-white text-base whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case mb-1"
-            title={creatorName || cape.firstSeen}
+            title={
+              isVanilla
+                ? (cape as VanillaCape).name
+                : creatorName || (cape as CosmeticCape).firstSeen
+            }
           >
-            {creatorLoading ? "Loading..." : creatorName || "Unknown"}
+            {isVanilla
+              ? (cape as VanillaCape).name
+              : creatorLoading
+                ? "Loading..."
+                : creatorName || "Unknown"
+            }
           </h3>
 
-          {/* Usage Stats */}
-          <div className="flex items-center justify-center gap-2 text-xs font-minecraft-ten">
-            <div className="text-white/60 flex items-center gap-1">
-              <Icon
-                icon="solar:download-minimalistic-outline"
-                className="w-3 h-3 text-white/50"
-              />
-              <span>{cape.uses.toLocaleString()} uses</span>
+          {/* Usage Stats (only for NoRisk capes) */}
+          {!isVanilla && (
+            <div className="flex items-center justify-center gap-2 text-xs font-minecraft-ten">
+              <div className="text-white/60 flex items-center gap-1">
+                <Icon
+                  icon="solar:download-minimalistic-outline"
+                  className="w-3 h-3 text-white/50"
+                />
+                <span>{(cape as CosmeticCape).uses.toLocaleString()} uses</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -248,10 +299,11 @@ function CapeItemDisplay({
 
 
 export interface CapeListProps {
-  capes: CosmeticCape[];
+  capes: CosmeticCape[] | VanillaCape[];
   onEquipCape: (capeHash: string) => void;
   isLoading?: boolean;
   isEquippingCapeId?: string | null;
+  equippedCapeId?: string | null;
   searchQuery?: string;
   canDelete?: boolean;
   onDeleteCape?: (cape: CosmeticCape) => void;
@@ -262,6 +314,7 @@ export interface CapeListProps {
   onDownloadTemplate?: () => void;
   groupFavoritesInHeader?: boolean;
   showFavoritesOnly?: boolean;
+  isVanilla?: boolean;
 }
 
 export function CapeList({
@@ -269,6 +322,7 @@ export function CapeList({
   onEquipCape,
   isLoading = false,
   isEquippingCapeId = null,
+  equippedCapeId = null,
   searchQuery = "",
   canDelete = false,
   onDeleteCape,
@@ -279,6 +333,7 @@ export function CapeList({
   onDownloadTemplate,
   groupFavoritesInHeader = true,
   showFavoritesOnly = false,
+  isVanilla = false,
 }: CapeListProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
@@ -299,17 +354,19 @@ export function CapeList({
   const [favoriteCapesFetched, setFavoriteCapesFetched] = useState<Map<string, CosmeticCape>>(new Map());
 
   const favoriteCapes = useMemo(() => {
+    if (isVanilla) return []; // Vanilla capes don't have favorites
+
     // Simple approach: Filter available capes that are marked as favorites
-    const result = capes.filter(cape => favoriteCapeIds.includes(cape._id));
+    const result = (capes as CosmeticCape[]).filter(cape => favoriteCapeIds.includes(cape._id));
 
     // Also include any fetched favorites that aren't in the main capes list
     const fetchedFavorites = Array.from(favoriteCapesFetched.values()).filter(
-      cape => !capes.some(c => c._id === cape._id)
+      cape => !capes.some(c => (c as CosmeticCape)._id === cape._id)
     );
 
     const finalResult = [...result, ...fetchedFavorites];
     return finalResult;
-  }, [favoriteCapeIds, favoriteCapesFetched, capes]); // Keep capes dependency but optimize the calculation
+  }, [favoriteCapeIds, favoriteCapesFetched, capes, isVanilla]); // Keep capes dependency but optimize the calculation
 
 
   const missingFavoriteIds = useMemo(() => {
@@ -342,7 +399,7 @@ export function CapeList({
 
   // Update stable favorites only when favorite data actually changes, not when main capes change
   useEffect(() => {
-    if (favoriteCapeIds.length === 0) {
+    if (favoriteCapeIds.length === 0 || isVanilla) {
       setStableFavoriteCapes([]);
       return;
     }
@@ -373,7 +430,7 @@ export function CapeList({
     }
 
     setStableFavoriteCapes(result);
-  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched]); // Always update favorites
+  }, [favoriteCapeIds, favoriteCapes, favoriteCapesFetched, isVanilla]); // Always update favorites
 
 
   // Track if we've ever loaded capes successfully (for EmptyState logic)
@@ -405,9 +462,9 @@ export function CapeList({
 
     if (!groupFavoritesInHeader) return capes;
     // Since favorites are now rendered separately above Virtuoso, always filter them out
-    if (stableFavoriteCapes.length === 0) return capes;
+    if (stableFavoriteCapes.length === 0 || isVanilla) return capes;
     const favoriteIdsSet = new Set(stableFavoriteCapes.map(cape => cape._id));
-    return capes.filter((item) => !favoriteIdsSet.has(item._id));
+    return (capes as CosmeticCape[]).filter((item) => !favoriteIdsSet.has(item._id));
   }, [capes, stableFavoriteCapes, groupFavoritesInHeader, showFavoritesOnly]);
 
 // Removed virtuosoComponents - using native scrolling grid instead 
@@ -459,13 +516,13 @@ export function CapeList({
   );
 
   const handleDeleteClickInternal = useCallback(
-    (cape: CosmeticCape, e: React.MouseEvent) => {
+    (cape: CosmeticCape | VanillaCape, e: React.MouseEvent) => {
       e.stopPropagation();
-      if (onDeleteCape) {
-        onDeleteCape(cape);
+      if (onDeleteCape && !isVanilla) {
+        onDeleteCape(cape as CosmeticCape);
       }
     },
-    [onDeleteCape],
+    [onDeleteCape, isVanilla],
   );
 
   const handlePreview3D = useCallback(() => {
@@ -487,7 +544,11 @@ export function CapeList({
         <EmptyState
           icon="solar:hanger-wave-line-duotone"
           message={
-            showFavoritesOnly
+            isVanilla
+              ? searchQuery
+                ? `No vanilla capes found for "${searchQuery}"`
+                : "You don't own any vanilla Minecraft capes yet"
+              : showFavoritesOnly
               ? "Mark some capes as favorites by clicking the heart icon!"
               : searchQuery
               ? `No capes found for "${searchQuery}"`
@@ -538,7 +599,7 @@ export function CapeList({
     >
       <div className="flex-1 min-h-0 flex flex-col">
         {/* Render favorites separately above native grid to prevent flickering */}
-        {groupFavoritesInHeader && stableFavoriteCapes.length > 0 && !showFavoritesOnly && (
+        {groupFavoritesInHeader && stableFavoriteCapes.length > 0 && !showFavoritesOnly && !isVanilla && (
           <div
             style={{
               display: "grid",
@@ -555,6 +616,7 @@ export function CapeList({
                   cape={cape}
                   imageUrl={imageUrl}
                   isCurrentlyEquipping={isEquippingCapeId === cape._id}
+                  isEquipped={false} // Favorites don't show equipped status for now
                   onEquipCape={onEquipCape}
                   canDelete={canDelete}
                   onDeleteCapeClick={handleDeleteClickInternal}
@@ -563,6 +625,7 @@ export function CapeList({
                   activeAccount={activeAccount}
                   showModal={(id, component) => showModal(id, component)}
                   hideModal={(id) => hideModal(id)}
+                  isVanilla={isVanilla}
                 />
               );
             })}
@@ -580,21 +643,27 @@ export function CapeList({
           }}
         >
           {itemsToRender.map((cape) => {
-            const imageUrl = `https://cdn.norisk.gg/capes/prod/${cape._id}.png`;
+            const imageUrl = isVanilla
+              ? (cape as VanillaCape).url
+              : `https://cdn.norisk.gg/capes/prod/${(cape as CosmeticCape)._id}.png`;
+            const capeId = isVanilla ? (cape as VanillaCape).id : (cape as CosmeticCape)._id;
+            const isEquipped = equippedCapeId === capeId;
             return (
               <CapeItemDisplay
-                key={cape._id}
+                key={capeId}
                 cape={cape}
                 imageUrl={imageUrl}
-                isCurrentlyEquipping={isEquippingCapeId === cape._id}
+                isCurrentlyEquipping={isEquippingCapeId === capeId}
+                isEquipped={isEquipped}
                 onEquipCape={onEquipCape}
-                canDelete={canDelete}
+                canDelete={canDelete && !isVanilla}
                 onDeleteCapeClick={handleDeleteClickInternal}
                 creatorNameCache={creatorNameCacheRef.current}
                 onContextMenu={(e) => handleCapeContextMenu(cape, e)}
                 activeAccount={activeAccount}
                 showModal={(id, component) => showModal(id, component)}
                 hideModal={(id) => hideModal(id)}
+                isVanilla={isVanilla}
               />
             );
           })}
@@ -644,14 +713,21 @@ export function CapeList({
 
 function Cape3DPreviewWithToggle({
   skinUrl,
+  capeUrl,
   capeId,
-  onEquipCape
+  onEquipCape,
+  isEquipped = false
 }: {
   skinUrl?: string;
+  capeUrl?: string; // Optional - falls nicht übergeben, wird CDN URL verwendet
   capeId: string;
   onEquipCape: () => void;
+  isEquipped?: boolean; // Optional - für Vanilla Capes relevant
 }) {
   const [showElytra, setShowElytra] = useState(false);
+
+  // Verwende capeUrl falls übergeben, sonst CDN URL
+  const finalCapeUrl = capeUrl || `https://cdn.norisk.gg/capes/prod/${capeId}.png`;
 
   return (
     <div className="p-4">
@@ -672,7 +748,7 @@ function Cape3DPreviewWithToggle({
         />
         <SkinView3DWrapper
           skinUrl={skinUrl}
-          capeUrl={`https://cdn.norisk.gg/capes/prod/${capeId}.png`}
+          capeUrl={finalCapeUrl}
           enableAutoRotate={true}
           autoRotateSpeed={0.5}
           startFromBack={true}
@@ -690,9 +766,10 @@ function Cape3DPreviewWithToggle({
           size="lg"
           className="px-8"
         >
-          SELECT CAPE
+          {isEquipped ? 'UNEQUIP CAPE' : 'SELECT CAPE'}
         </Button>
       </div>
     </div>
   );
 }
+
