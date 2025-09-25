@@ -22,6 +22,8 @@ interface JavaSettingsTabProps {
   editedProfile: Profile;
   updateProfile: (updates: Partial<Profile>) => void;
   systemRam: number;
+  tempRamMb: number;
+  setTempRamMb: (value: number) => void;
 }
 
 // New type for Java Installation
@@ -37,6 +39,8 @@ export function JavaSettingsTab({
   editedProfile,
   updateProfile,
   systemRam,
+  tempRamMb,
+  setTempRamMb,
 }: JavaSettingsTabProps) {
   const [useCustomJava, setUseCustomJava] = useState(
     editedProfile.settings?.use_custom_java_path ?? false,
@@ -374,16 +378,16 @@ export function JavaSettingsTab({
             ) : (
               <>
                 <RangeSlider
-                  value={memory.max}
-                  onChange={handleMemoryChange}
+                  value={tempRamMb}
+                  onChange={setTempRamMb}
                   min={512}
                   max={systemRam}
                   step={512}
-                  valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
+                  valueLabel={`${tempRamMb} MB (${(tempRamMb / 1024).toFixed(1)} GB)`}
                   minLabel="512 MB"
                   maxLabel={`${systemRam} MB`}
                   variant="flat"
-                  recommendedRange={[ 4096, 8192 ]}
+                  recommendedRange={[4096, 8192]}
                   unit="MB"
                 />
                 <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
