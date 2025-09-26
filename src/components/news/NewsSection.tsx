@@ -34,6 +34,9 @@ export function NewsSection({ className }: NewsSectionProps) {
     isCacheValid,
   } = useNewsStore();
 
+  // Fade strength configuration (0-100%)
+  const fadeStrength = 90; // 90% opacity at bottom
+
   const loadNews = useCallback(async () => {
     // Setze nur Error zurück, aber zeige keine Loading-Animation
     // Das alte wird weiter angezeigt während wir neu laden
@@ -217,8 +220,21 @@ export function NewsSection({ className }: NewsSectionProps) {
           style={{ borderColor: `${accentColor.value}40` }}
         />
       </div>
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar relative">
         {renderContent()}
+
+        {/* Fade overlay at bottom - sticky positioned */}
+        <div
+          className="sticky bottom-0 left-0 right-0 h-20 pointer-events-none z-10"
+          style={{
+            background: `linear-gradient(to top,
+              rgba(0, 0, 0, ${(fadeStrength * 0.01)}) 0%,
+              rgba(0, 0, 0, ${(fadeStrength * 0.0075)}) 25%,
+              rgba(0, 0, 0, ${(fadeStrength * 0.005)}) 50%,
+              rgba(0, 0, 0, ${(fadeStrength * 0.0025)}) 75%,
+              rgba(0, 0, 0, 0) 100%)`,
+          }}
+        />
       </div>
     </div>
   );
