@@ -53,6 +53,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
 
   const flags = useFlags([DESIGNER_FEATURE_FLAG_NAME]);
   const showDesignerTab = flags[DESIGNER_FEATURE_FLAG_NAME]?.enabled === true;
+  const [tempRamMb, setTempRamMb] = useState(profile.settings?.memory?.max ?? 3072);
 
   useEffect(() => {
     ProfileService.getSystemRamMb()
@@ -82,6 +83,10 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   }, [isBackgroundAnimationEnabled]);
 
+  useEffect(() => {
+    setTempRamMb(profile.settings?.memory?.max ?? 3072);
+  }, [profile]);
+
   const updateProfileData = (updates: Partial<Profile>) => {
     setEditedProfile((prev) => ({ ...prev, ...updates }));
   };
@@ -110,7 +115,13 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         game_version: editedProfile.game_version,
         loader: editedProfile.loader,
         loader_version: editedProfile.loader_version || null || undefined,
-        settings: editedProfile.settings,
+        settings: {
+          ...editedProfile.settings,
+          memory: {
+            ...editedProfile.settings?.memory,
+            max: tempRamMb,
+          },
+        },
         selected_norisk_pack_id: editedProfile.selected_norisk_pack_id,
         clear_selected_norisk_pack: !editedProfile.selected_norisk_pack_id,
         group: editedProfile.group,
@@ -208,6 +219,8 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             editedProfile={editedProfile}
             updateProfile={updateProfileData}
             systemRam={systemRam}
+            tempRamMb={tempRamMb}
+            setTempRamMb={setTempRamMb}
           />
         );
       case "window":

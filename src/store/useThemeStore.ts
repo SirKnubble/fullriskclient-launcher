@@ -242,6 +242,9 @@ interface ThemeState {
   // Mod source selection
   modSource: ModPlatform;
   setModSource: (source: ModPlatform) => void;
+  // News section width
+  newsSectionWidth: number;
+  setNewsSectionWidth: (width: number) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -265,6 +268,8 @@ export const useThemeStore = create<ThemeState>()(
       openContextMenuId: null,
       // Mod source selection - defaults
       modSource: ModPlatform.Modrinth,
+      // News section width - defaults
+      newsSectionWidth: 375,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -425,6 +430,11 @@ export const useThemeStore = create<ThemeState>()(
       // Mod source selection
       setModSource: (source: ModPlatform) => {
         set({ modSource: source });
+      },
+
+      // News section width
+      setNewsSectionWidth: (width: number) => {
+        set({ newsSectionWidth: width });
       },
     }),    {
       name: "norisk-theme-storage",

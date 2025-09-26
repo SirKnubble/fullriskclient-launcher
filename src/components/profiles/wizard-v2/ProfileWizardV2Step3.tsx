@@ -15,6 +15,9 @@ import { Checkbox } from "../../ui/Checkbox";
 import { invoke } from "@tauri-apps/api/core";
 import { NoriskModEntryDefinition, NoriskModpacksConfig } from "../../../types/noriskPacks";
 
+const forbiddenChars = /[<>:"/\\|?*]/g;
+const forbiddenTrailing = /[ .]$/;
+
 interface NoriskPack {
     displayName: string;
     description: string;
@@ -70,7 +73,7 @@ export function ProfileWizardV2Step3({
         if (defaultGroup && !profileGroup) {
             setProfileGroup(defaultGroup);
         }
-    }, [defaultGroup, profileGroup]);
+    }, [defaultGroup]);
 
     // Update shared Minecraft folder setting when defaultGroup changes
     useEffect(() => {
@@ -240,7 +243,22 @@ export function ProfileWizardV2Step3({
         }
     };
 
+    // ProfileName ForbiddenCharacter Event Handler
+    const [profileCharRemoved, setProfileCharRemoved] = useState(false);
+    const [profileNameHasForbiddenEnding, setProfileNameHasForbiddenEnding] = useState(false);
 
+    const handleProfileNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const cleanValue = value.replace(forbiddenChars, "");
+
+        if (value !== cleanValue) {
+            setProfileCharRemoved(true);
+        }
+
+        setProfileNameHasForbiddenEnding(forbiddenTrailing.test(cleanValue));
+
+        setProfileName(cleanValue);
+    };
 
     const renderContent = () => {
         if (error) {
@@ -257,10 +275,20 @@ export function ProfileWizardV2Step3({
                         </label>
                         <SearchStyleInput
                             value={profileName}
-                            onChange={(e) => setProfileName(e.target.value)}
+                            onChange={handleProfileNameChange}
                             placeholder="Enter profile name..."
                             required
                         />
+                        {profileCharRemoved && (
+                            <p className="text-xs text-red-400 font-minecraft-ten mt-1">
+                                The profile name cannot contain these characters: &lt; &gt; : " / \ | ? *
+                            </p>
+                        )}
+                        {profileNameHasForbiddenEnding && (
+                            <p className="text-xs text-red-400 font-minecraft-ten mt-1">
+                                The profile name cannot end with a space or dot.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -451,7 +479,11 @@ export function ProfileWizardV2Step3({
             <Button
                 variant="success"
                 onClick={handleCreate}
-                disabled={creating || !profileName.trim()}
+                disabled={
+                    creating ||
+                    !profileName.trim() ||
+                    profileNameHasForbiddenEnding
+                }
                 size="md"
                 className="min-w-[180px] text-xl"
                 icon={
@@ -480,4 +512,4 @@ export function ProfileWizardV2Step3({
             </div>
         </Modal>
     );
-} 
+}

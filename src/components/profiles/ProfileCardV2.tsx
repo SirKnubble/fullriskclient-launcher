@@ -326,7 +326,7 @@ export function ProfileCardV2({
       label: "SETTINGS",
       icon: "solar:settings-bold",
       variant: "icon-only",
-      tooltip: "Profil Optionen",
+      tooltip: "Profile Options",
              onClick: (profile, e) => {
          e.preventDefault();
          e.stopPropagation();
@@ -380,6 +380,22 @@ export function ProfileCardV2({
               console.log("Managing mods for profile:", profile.name);
             }
           }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          if (openContextMenuId && openContextMenuId !== contextMenuId) {
+            setOpenContextMenuId(null);
+          }
+          setIsContextMenuOpen(true);
+          setOpenContextMenuId(contextMenuId);
+
+          const cardRect = e.currentTarget.getBoundingClientRect();
+          setContextMenuPosition({
+            x: e.clientX - cardRect.left,
+            y: e.clientY - cardRect.top,
+          });
         }}
       >
         {/* Standard version badge */}
@@ -586,6 +602,22 @@ export function ProfileCardV2({
             console.log("Managing mods for profile:", profile.name);
           }
         }
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (openContextMenuId && openContextMenuId !== contextMenuId) {
+          setOpenContextMenuId(null);
+        }
+        setIsContextMenuOpen(true);
+        setOpenContextMenuId(contextMenuId);
+
+        const cardRect = e.currentTarget.getBoundingClientRect();
+        setContextMenuPosition({
+          x: e.clientX - cardRect.left,
+          y: e.clientY - cardRect.top,
+        });
       }}
     >
       {/* Profile Icon */}
