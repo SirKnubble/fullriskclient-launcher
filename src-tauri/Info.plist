@@ -6,5 +6,20 @@
         <string>A Minecraft mod wants to access your camera.</string>
         <key>NSMicrophoneUsageDescription</key>
         <string>A Minecraft mod wants to access your microphone.</string>
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSExceptionDomains</key>
+            <dict>
+                <key>minecraft.net</key>
+                <dict>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+                <key>NSExceptionRequiresForwardSecrecy</key>
+                <false/>
+                </dict>
+            </dict>
+        </dict>
     </dict>
 </plist>
