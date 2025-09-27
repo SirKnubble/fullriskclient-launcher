@@ -294,6 +294,11 @@ impl MinecraftLauncher {
         // Only add token if we have credentials AND a NoRisk pack is selected in the profile
         let has_norisk_pack = profile.as_ref().and_then(|p| p.selected_norisk_pack_id.as_ref()).is_some();
 
+        // Add profile name for ingame display
+        if let Some(p) = &profile {
+            command.arg(format!("-Dnorisk.profile.name={}", p.name));
+        }
+
         if let Some(creds) = &self.credentials {
             if has_norisk_pack {
                 // Get the appropriate NoRisk token based on experimental mode setting
