@@ -218,11 +218,14 @@ pub async fn resolve_target_mods(
                             .and_then(|l| l.get(loader_str))
                         {
                             // Disabled check is handled above
+                            // Use source override from target if available, otherwise use the original source
+                            let effective_source = target.source.as_ref().unwrap_or(&mod_entry.source);
+
                             if let Some(canonical_key) =
-                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                                get_canonical_key(effective_source, &mod_entry.id)
                             {
                                 match norisk_packs::get_norisk_pack_mod_filename(
-                                    &mod_entry.source,
+                                    effective_source,
                                     target,
                                     &mod_entry.id,
                                 ) {
@@ -257,11 +260,14 @@ pub async fn resolve_target_mods(
                             .and_then(|l| l.get(loader_str))
                         {
                             // Disabled check is handled above
+                            // Use source override from target if available, otherwise use the original source
+                            let effective_source = target.source.as_ref().unwrap_or(&mod_entry.source);
+
                             if let Some(canonical_key) =
-                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                                get_canonical_key(effective_source, &mod_entry.id)
                             {
                                 match norisk_packs::get_norisk_pack_mod_filename(
-                                    &mod_entry.source,
+                                    effective_source,
                                     target,
                                     &mod_entry.id,
                                 ) {
@@ -302,12 +308,15 @@ pub async fn resolve_target_mods(
                             .and_then(|l| l.get(loader_str))
                         {
                             // Disabled check is handled above
+                            // Use source override from target if available, otherwise use the original source
+                            let effective_source = target.source.as_ref().unwrap_or(&mod_entry.source);
+
                             if let Some(canonical_key) =
-                                get_canonical_key(&mod_entry.source, &mod_entry.id)
+                                get_canonical_key(effective_source, &mod_entry.id)
                             {
                                 // Filename can be derived for Maven, or explicitly provided
                                 match norisk_packs::get_norisk_pack_mod_filename(
-                                    &mod_entry.source,
+                                    effective_source,
                                     target,
                                     &mod_entry.id,
                                 ) {

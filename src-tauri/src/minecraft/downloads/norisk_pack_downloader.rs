@@ -78,13 +78,19 @@ impl NoriskPackDownloadService {
             let display_name_opt = mod_entry.display_name.clone();
             let target_clone = compatibility_target.clone();
 
-            // --- Determine filename using the new helper function ---
-            let filename_result =
-                norisk_packs::get_norisk_pack_mod_filename(&source, &target_clone, &mod_id);
-
             download_futures.push(async move {
                 let display_name = display_name_opt.unwrap_or_else(|| mod_id.clone());
-                let identifier = target_clone.identifier; // Keep identifier for version/URL
+                let identifier = target_clone.identifier.clone(); // Keep identifier for version/URL
+
+                // --- Proceed with download logic using derived/provided filename & identifier ---
+                // Use source override from target if available, otherwise use the original source
+                let effective_source = target_clone.source.as_ref().unwrap_or(&source);
+                // Use the identifier from target (already cloned above as `identifier`)
+                let effective_identifier = identifier;
+
+                // --- Determine filename using the effective source ---
+                let filename_result =
+                    norisk_packs::get_norisk_pack_mod_filename(effective_source, &target_clone, &mod_id);
 
                 // Check if filename retrieval was successful
                 let filename = match filename_result {
@@ -97,12 +103,6 @@ impl NoriskPackDownloadService {
                 };
 
                 let target_path = cache_dir_clone.join(&filename);
-
-                // --- Proceed with download logic using derived/provided filename & identifier ---
-                // Use source override from target if available, otherwise use the original source
-                let effective_source = target_clone.source.as_ref().unwrap_or(&source);
-                // Use the identifier from target (already cloned above as `identifier`)
-                let effective_identifier = identifier;
 
                 match effective_source {
                     NoriskModSourceDefinition::Modrinth {
