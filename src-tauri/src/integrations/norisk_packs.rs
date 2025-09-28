@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::Manager; // Required for app_handle.get_window() and window.emit()
 use tokio::fs;
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::io::BufReader;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use url;
 use uuid::Uuid; // Added for env! macro // Added for URL parsing
@@ -127,6 +127,10 @@ pub struct CompatibilityTarget {
     pub identifier: String,
     /// The desired filename for the mod in the cache and mods folder (optional).
     pub filename: Option<String>,
+    /// Optional: Complete source definition to override the default source for this specific version.
+    /// This allows specifying different source types and parameters per version/loader combination.
+    #[serde(rename = "source", default)]
+    pub source: Option<NoriskModSourceDefinition>,
 }
 
 /// Type alias for the compatibility map: McVersion -> Loader -> CompatibilityTarget

@@ -99,21 +99,24 @@ impl NoriskPackDownloadService {
                 let target_path = cache_dir_clone.join(&filename);
 
                 // --- Proceed with download logic using derived/provided filename & identifier ---
-                match source {
-                    // Use the original source variable
+                // Use source override from target if available, otherwise use the original source
+                let effective_source = target_clone.source.as_ref().unwrap_or(&source);
+                // Use the identifier from target (already cloned above as `identifier`)
+                let effective_identifier = identifier;
+
+                match effective_source {
                     NoriskModSourceDefinition::Modrinth {
-                        project_id,
+                        project_id: _project_id,
                         project_slug,
                     } => {
-                        // Extract both IDs
                         let group_id = "maven.modrinth".to_string();
                         let artifact_id = project_slug;
-                        let version = identifier;
+                        let version = effective_identifier;
 
                         Self::download_maven_mod(
                             MODRINTH_MAVEN_URL.to_string(),
                             group_id,
-                            artifact_id, // Pass the corrected slug
+                            artifact_id.clone(),
                             version,
                             filename,
                             target_path,
@@ -121,21 +124,21 @@ impl NoriskPackDownloadService {
                         )
                         .await
                         .map_err(|e| {
-                            error!(
-                                "Failed cache Modrinth (as Maven) mod '{}': {}",
-                                display_name, e
-                            );
+                            error!("Failed to download Modrinth mod '{}': {}", display_name, e);
                             e
-                        })
+                        })?;
+
+                        Ok(())
                     }
                     NoriskModSourceDefinition::Maven {
                         repository_ref,
                         group_id,
                         artifact_id,
                     } => {
+                        // Get the repository URL
                         let repo_url = config
                             .repositories
-                            .get(&repository_ref)
+                            .get(repository_ref)
                             .ok_or_else(|| {
                                 AppError::Download(format!(
                                     "Repository reference '{}' not found for mod '{}'",
@@ -145,37 +148,37 @@ impl NoriskPackDownloadService {
                             .trim_end_matches('/')
                             .to_string();
 
-                        // Use gid and aid directly as they are String now
-                        let version = identifier;
-
                         Self::download_maven_mod(
                             repo_url,
-                            group_id.clone(), // Clone if needed, or use reference
+                            group_id.clone(),
                             artifact_id.clone(),
-                            version,
+                            effective_identifier,
                             filename,
                             target_path,
                             None,
                         )
                         .await
                         .map_err(|e| {
-                            error!("Failed cache Maven mod '{}': {}", display_name, e);
+                            error!("Failed to download Maven mod '{}': {}", display_name, e);
                             e
-                        })
+                        })?;
+
+                        Ok(())
                     }
                     NoriskModSourceDefinition::Url => {
-                        let download_url = identifier;
-
+                        // For URL mods, use the identifier as direct URL
                         info!(
-                            "Preparing URL mod for cache: {} ({})",
-                            display_name, filename
+                            "Downloading URL mod for cache: {} ({}) from {}",
+                            display_name, filename, effective_identifier
                         );
-                        Self::download_and_verify_file(&download_url, &target_path, None)
-                            .await
+
+                        Self::download_and_verify_file(&effective_identifier, &target_path, None).await
                             .map_err(|e| {
-                                error!("Failed cache URL mod {}: {}", display_name, e);
+                                error!("Failed to download URL mod '{}': {}", display_name, e);
                                 e
-                            })
+                            })?;
+
+                        Ok(())
                     }
                 }
             });
