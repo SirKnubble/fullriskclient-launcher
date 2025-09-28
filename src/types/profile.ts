@@ -138,7 +138,7 @@ export type ModSource =
 
 export type ModPackSource =
   | { source: "modrinth"; project_id: string; version_id: string }
-  | { source: "curseforge"; project_id: number; file_id: number };
+  | { source: "curse_forge"; project_id: number; file_id: number };
 
 export interface Mod {
   id: string;

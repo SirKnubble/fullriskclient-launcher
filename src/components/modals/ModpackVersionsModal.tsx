@@ -210,7 +210,7 @@ export function ModpackVersionsModal({
             throw new Error("CurseForge file fingerprint (file_id) not found");
           }
           newModpackSource = {
-            source: "curseforge",
+            source: "curse_forge",
             project_id: parseInt(selectedVersion.project_id), // CurseForge project_id is number
             file_id: fileId,
           };
