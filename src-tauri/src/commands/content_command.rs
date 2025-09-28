@@ -779,85 +779,55 @@ pub async fn install_content_to_profile(
             )))
         }
         profile_utils::ContentType::ResourcePack => {
-            match payload.source {
-                ModPlatform::Modrinth => {
-                    log::info!("Installing ResourcePack from Modrinth");
-                    profile_utils::add_modrinth_content_to_profile(
-                        payload.profile_id,
-                        payload.project_id,
-                        payload.version_id,
-                        payload.file_name,
-                        payload.download_url,
-                        payload.file_hash_sha1,
-                        payload.content_name,
-                        payload.version_number,
-                        profile_utils::ContentType::ResourcePack,
-                    )
-                    .await
-                    .map_err(CommandError::from)
-                }
-                ModPlatform::CurseForge => {
-                    log::info!("Installing ResourcePack from CurseForge");
-                    // TODO: Implement CurseForge ResourcePack installation
-                    Err(CommandError::from(AppError::Other(
-                        "CurseForge ResourcePack installation not yet implemented".to_string(),
-                    )))
-                }
-            }
+            log::info!("Installing ResourcePack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
+                payload.profile_id,
+                payload.project_id,
+                payload.version_id,
+                payload.file_name,
+                payload.download_url,
+                payload.file_hash_sha1,
+                payload.content_name,
+                payload.version_number,
+                profile_utils::ContentType::ResourcePack,
+                payload.source,
+            )
+            .await
+            .map_err(CommandError::from)
         }
         profile_utils::ContentType::ShaderPack => {
-            match payload.source {
-                ModPlatform::Modrinth => {
-                    log::info!("Installing ShaderPack from Modrinth");
-                    profile_utils::add_modrinth_content_to_profile(
-                        payload.profile_id,
-                        payload.project_id,
-                        payload.version_id,
-                        payload.file_name,
-                        payload.download_url,
-                        payload.file_hash_sha1,
-                        payload.content_name,
-                        payload.version_number,
-                        profile_utils::ContentType::ShaderPack,
-                    )
-                    .await
-                    .map_err(CommandError::from)
-                }
-                ModPlatform::CurseForge => {
-                    log::info!("Installing ShaderPack from CurseForge");
-                    // TODO: Implement CurseForge ShaderPack installation
-                    Err(CommandError::from(AppError::Other(
-                        "CurseForge ShaderPack installation not yet implemented".to_string(),
-                    )))
-                }
-            }
+            log::info!("Installing ShaderPack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
+                payload.profile_id,
+                payload.project_id,
+                payload.version_id,
+                payload.file_name,
+                payload.download_url,
+                payload.file_hash_sha1,
+                payload.content_name,
+                payload.version_number,
+                profile_utils::ContentType::ShaderPack,
+                payload.source,
+            )
+            .await
+            .map_err(CommandError::from)
         }
         profile_utils::ContentType::DataPack => {
-            match payload.source {
-                ModPlatform::Modrinth => {
-                    log::info!("Installing DataPack from Modrinth");
-                    profile_utils::add_modrinth_content_to_profile(
-                        payload.profile_id,
-                        payload.project_id,
-                        payload.version_id,
-                        payload.file_name,
-                        payload.download_url,
-                        payload.file_hash_sha1,
-                        payload.content_name,
-                        payload.version_number,
-                        profile_utils::ContentType::DataPack,
-                    )
-                    .await
-                    .map_err(CommandError::from)
-                }
-                ModPlatform::CurseForge => {
-                    log::info!("Installing DataPack from CurseForge");
-                    // TODO: Implement CurseForge DataPack installation
-                    Err(CommandError::from(AppError::Other(
-                        "CurseForge DataPack installation not yet implemented".to_string(),
-                    )))
-                }
-            }
+            log::info!("Installing DataPack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
+                payload.profile_id,
+                payload.project_id,
+                payload.version_id,
+                payload.file_name,
+                payload.download_url,
+                payload.file_hash_sha1,
+                payload.content_name,
+                payload.version_number,
+                profile_utils::ContentType::DataPack,
+                payload.source,
+            )
+            .await
+            .map_err(CommandError::from)
         }
     }
 }

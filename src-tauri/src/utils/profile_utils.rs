@@ -2,6 +2,7 @@ use crate::config::ProjectDirsExt;
 use crate::error::{AppError, Result};
 use crate::integrations::modrinth::{ModrinthProjectType, ModrinthVersion};
 use crate::integrations::norisk_packs;
+use crate::integrations::unified_mod::ModPlatform;
 use crate::state::profile_state::ModSource;
 use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
@@ -54,8 +55,8 @@ impl From<ModrinthProjectType> for ContentType {
     }
 }
 
-/// Adds Modrinth content (resourcepack, shaderpack, datapack) to a profile
-pub async fn add_modrinth_content_to_profile(
+/// Adds content (resourcepack, shaderpack, datapack) from Modrinth or CurseForge to a profile
+pub async fn add_content_to_profile(
     profile_id: Uuid,
     project_id: String,
     version_id: String,
@@ -65,9 +66,16 @@ pub async fn add_modrinth_content_to_profile(
     content_name: Option<String>,
     version_number: Option<String>,
     content_type: ContentType,
+    source: ModPlatform,
 ) -> Result<()> {
+    let platform_name = match source {
+        ModPlatform::Modrinth => "Modrinth",
+        ModPlatform::CurseForge => "CurseForge",
+    };
+
     info!(
-        "Adding Modrinth content to profile {}: {} ({})",
+        "Adding {} content to profile {}: {} ({})",
+        platform_name,
         profile_id,
         content_name.as_deref().unwrap_or(&file_name),
         content_type_to_string(&content_type)
@@ -96,13 +104,41 @@ pub async fn add_modrinth_content_to_profile(
     download_content(&download_url, &file_path, file_hash_sha1).await?;
 
     info!(
-        "Successfully added {} '{}' to profile {}",
+        "Successfully added {} {} '{}' to profile {}",
+        platform_name,
         content_type_to_string(&content_type),
         content_name.as_deref().unwrap_or(&file_name),
         profile_id
     );
 
     Ok(())
+}
+
+/// Adds Modrinth content (resourcepack, shaderpack, datapack) to a profile
+/// Deprecated: Use add_content_to_profile instead
+pub async fn add_modrinth_content_to_profile(
+    profile_id: Uuid,
+    project_id: String,
+    version_id: String,
+    file_name: String,
+    download_url: String,
+    file_hash_sha1: Option<String>,
+    content_name: Option<String>,
+    version_number: Option<String>,
+    content_type: ContentType,
+) -> Result<()> {
+    add_content_to_profile(
+        profile_id,
+        project_id,
+        version_id,
+        file_name,
+        download_url,
+        file_hash_sha1,
+        content_name,
+        version_number,
+        content_type,
+        ModPlatform::Modrinth,
+    ).await
 }
 
 /// Helper function to download content from a URL
