@@ -6,6 +6,7 @@ use crate::integrations::unified_mod::ModPlatform;
 use crate::state::profile_state::ModSource;
 use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
+use crate::utils::download_utils::DownloadUtils;
 use crate::utils::file_utils;
 use crate::utils::{datapack_utils, hash_utils, resourcepack_utils, shaderpack_utils};
 use async_zip::tokio::write::ZipFileWriter;
@@ -21,7 +22,7 @@ use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 use tempfile;
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt as TokioAsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::task::JoinHandle;
 
 use futures_lite::io::AsyncWriteExt;
@@ -153,70 +154,12 @@ async fn download_content(
         file_path.display()
     );
 
-    // Create a reqwest client
-    let client = reqwest::Client::new();
-
-    // Download the file
-    let response = client
-        .get(url)
-        .header(
-            "User-Agent",
-            format!(
-                "NoRiskClient-Launcher/{} (support@norisk.gg)",
-                env!("CARGO_PKG_VERSION")
-            ),
-        )
-        .send()
-        .await
-        .map_err(|e| AppError::Download(format!("Failed to download content: {}", e)))?;
-
-    if !response.status().is_success() {
-        return Err(AppError::Download(format!(
-            "Failed to download content: HTTP {}",
-            response.status()
-        )));
+    // Use DownloadUtils for robust downloading
+    if let Some(sha1) = expected_sha1 {
+        DownloadUtils::download_with_sha1(url, file_path, &sha1).await
+    } else {
+        DownloadUtils::download_simple(url, file_path).await
     }
-
-    // Get the bytes
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| AppError::Download(format!("Failed to read content bytes: {}", e)))?;
-
-    // Verify SHA1 hash if expected hash was provided
-    if let Some(expected) = expected_sha1 {
-        let hash = hash_utils::calculate_sha1_from_bytes(&bytes);
-
-        if hash != expected {
-            return Err(AppError::Download(format!(
-                "SHA1 hash mismatch. Expected: {}, Got: {}",
-                expected, hash
-            )));
-        }
-        debug!("SHA1 hash verification successful");
-    }
-
-    // Create parent directories if they don't exist
-    if let Some(parent) = file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| AppError::Io(e))?;
-        }
-    }
-
-    // Write the file
-    let mut file = fs::File::create(file_path)
-        .await
-        .map_err(|e| AppError::Io(e))?;
-
-    TokioAsyncWriteExt::write_all(&mut file, &bytes)
-        .await
-        .map_err(|e| AppError::Io(e))?;
-
-    info!("Successfully downloaded content to {}", file_path.display());
-
-    Ok(())
 }
 
 /// Helper function to get the correct directory for a specific content type
