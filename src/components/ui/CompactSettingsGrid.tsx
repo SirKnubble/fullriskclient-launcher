@@ -62,9 +62,9 @@ export function CompactSettingsGrid({
           className="col-span-1 flex items-center justify-between p-2 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors"
         >
           <Tooltip content={setting.tooltip}>
-            <h5 className="font-minecraft-ten text-base text-white">
+            <span className="font-minecraft-ten text-base text-white">
               {setting.label}
-            </h5>
+            </span>
           </Tooltip>
           <ToggleSwitch
             checked={setting.value}
@@ -84,9 +84,9 @@ export function CompactSettingsGrid({
         >
           <div className="flex flex-col gap-2">
             <Tooltip content={setting.tooltip}>
-              <h5 className="font-minecraft-ten text-base text-white text-center">
+              <span className="font-minecraft-ten text-base text-white text-center">
                 {setting.label}
-              </h5>
+              </span>
             </Tooltip>
             <RangeSlider
               value={setting.value}
