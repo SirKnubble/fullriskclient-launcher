@@ -58,6 +58,12 @@ class UnifiedService {
 
         return invoke("switch_modpack_version_command", { request });
     }
+
+    static async getCurseForgeFileChangelog(modId: number, fileId: number): Promise<string> {
+        console.log("Getting CurseForge file changelog:", { modId, fileId });
+
+        return invoke("get_curseforge_file_changelog_command", { modId, fileId });
+    }
 }
 
 export default UnifiedService;

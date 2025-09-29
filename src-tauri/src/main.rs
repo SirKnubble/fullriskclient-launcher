@@ -69,7 +69,7 @@ use commands::profile_command::{
 };
 
 // Use statements for registered commands only
-use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command};
+use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command};
 
 use commands::modrinth_commands::{
     check_modrinth_updates, check_mod_updates_unified_command, download_and_install_modrinth_modpack,
@@ -384,6 +384,7 @@ async fn main() {
             get_curseforge_mods_by_ids,
             import_curseforge_pack,
             download_and_install_curseforge_modpack_command,
+            get_curseforge_file_changelog_command,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             add_modrinth_content_to_profile,

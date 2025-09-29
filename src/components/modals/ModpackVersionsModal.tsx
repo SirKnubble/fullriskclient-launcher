@@ -12,6 +12,16 @@ import UnifiedService from "../../services/unified-service";
 import * as ProfileService from "../../services/profile-service";
 import { toast } from "react-hot-toast";
 
+// HTML sanitizer for CurseForge HTML content
+const sanitizeHtml = (html: string) => {
+  // Basic HTML sanitization - remove potentially dangerous tags
+  return html
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/<style[^>]*>.*?<\/style>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+="[^"]*"/gi, '');
+};
+
 interface ModpackVersionsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -79,6 +89,8 @@ function VersionItem({
   onSelect: (version: UnifiedVersion) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [curseforgeChangelog, setCurseforgeChangelog] = useState<string | null>(null);
+  const [isLoadingChangelog, setIsLoadingChangelog] = useState(false);
 
   const handleClick = () => {
     if (!isInstalled) {
@@ -86,10 +98,31 @@ function VersionItem({
     }
   };
 
-  const toggleExpanded = (e: React.MouseEvent) => {
+  const toggleExpanded = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // If expanding and it's a CurseForge version without changelog loaded, load it
+    if (!isExpanded && version.source === "CurseForge" && !version.changelog && !curseforgeChangelog) {
+      setIsLoadingChangelog(true);
+      try {
+        const changelog = await UnifiedService.getCurseForgeFileChangelog(
+          parseInt(version.project_id),
+          parseInt(version.id)
+        );
+        setCurseforgeChangelog(changelog);
+      } catch (error) {
+        console.error("Failed to load CurseForge changelog:", error);
+        setCurseforgeChangelog(""); // Empty string to prevent retrying
+      } finally {
+        setIsLoadingChangelog(false);
+      }
+    }
+
     setIsExpanded(!isExpanded);
   };
+
+  // Determine which changelog to show
+  const displayChangelog = version.changelog || curseforgeChangelog;
 
   return (
     <div
@@ -134,50 +167,77 @@ function VersionItem({
           </div>
 
           {/* Changelog Button */}
-          {version.changelog && (
+          {(version.changelog || version.source === "CurseForge") && (
             <button
               onClick={toggleExpanded}
               className="mt-1 flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-white/10 transition-colors font-minecraft-ten border border-white/20"
               title={isExpanded ? "Hide changelog" : "Show changelog"}
+              disabled={isLoadingChangelog}
             >
-              <Icon
-                icon={isExpanded ? "solar:alt-arrow-up-bold" : "solar:alt-arrow-down-bold"}
-                className="w-3 h-3"
-              />
-              <span className="text-white/70">Changelog</span>
+              {isLoadingChangelog ? (
+                <Icon icon="solar:refresh-circle-bold" className="w-3 h-3 animate-spin" />
+              ) : (
+                <Icon
+                  icon={isExpanded ? "solar:alt-arrow-up-bold" : "solar:alt-arrow-down-bold"}
+                  className="w-3 h-3"
+                />
+              )}
+              <span className="text-white/70">
+                {isLoadingChangelog ? "Loading..." : "Changelog"}
+              </span>
             </button>
           )}
         </div>
       </div>
 
       {/* Changelog Bereich */}
-      {isExpanded && version.changelog && (
+      {isExpanded && displayChangelog && (
         <div className="mt-3 pt-3 border-t border-white/10">
           <div className="text-xs font-minecraft-ten text-white/70 mb-2 uppercase">
             Changelog
           </div>
           <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
-            <div className="prose prose-invert prose-sm max-w-none font-minecraft-ten">
-              <ReactMarkdown
-                components={{
-                  h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-2">{children}</h3>,
-                  p: ({ children }) => <p className="text-sm text-white/90 mb-2 leading-relaxed">{children}</p>,
-                  ul: ({ children }) => <ul className="list-disc list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ol>,
-                  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                  strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
-                  em: ({ children }) => <em className="italic text-white/80">{children}</em>,
-                  code: ({ children }) => <code className="bg-black/30 px-1 py-0.5 rounded text-xs font-mono text-white/90">{children}</code>,
-                  pre: ({ children }) => <pre className="bg-black/30 p-2 rounded text-xs font-mono text-white/90 overflow-x-auto mb-2">{children}</pre>,
-                  blockquote: ({ children }) => <blockquote className="border-l-2 border-accent pl-3 italic text-white/70 my-2">{children}</blockquote>,
-                  a: ({ href, children }) => <a href={href} className="text-accent hover:text-accent/80 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
-                }}
-              >
-                {version.changelog}
-              </ReactMarkdown>
-            </div>
+            {isLoadingChangelog ? (
+              <div className="flex items-center justify-center py-4">
+                <Icon icon="solar:refresh-circle-bold" className="w-5 h-5 animate-spin text-white/50" />
+                <span className="ml-2 text-sm text-white/50 font-minecraft-ten">Loading changelog...</span>
+              </div>
+            ) : displayChangelog ? (
+              version.source === "CurseForge" ? (
+                // Render HTML for CurseForge (sanitized)
+                <div
+                  className="prose prose-invert prose-sm max-w-none font-minecraft-ten [&_*]:text-white [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:first:mt-0 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h2]:mt-3 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_h3]:mt-2 [&_p]:text-sm [&_p]:text-white/90 [&_p]:mb-2 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:list-inside [&_ul]:text-sm [&_ul]:text-white/90 [&_ul]:mb-2 [&_ul]:space-y-1 [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:text-sm [&_ol]:text-white/90 [&_ol]:mb-2 [&_ol]:space-y-1 [&_ol]:ml-4 [&_li]:leading-relaxed [&_strong]:font-bold [&_strong]:text-white [&_em]:italic [&_em]:text-white/80 [&_code]:bg-black/30 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_code]:text-white/90 [&_pre]:bg-black/30 [&_pre]:p-2 [&_pre]:rounded [&_pre]:text-xs [&_pre]:font-mono [&_pre]:text-white/90 [&_pre]:overflow-x-auto [&_pre]:mb-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-white/70 [&_blockquote]:my-2 [&_a]:text-accent [&_a]:hover:text-accent/80 [&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(displayChangelog) }}
+                />
+              ) : (
+                // Render Markdown for Modrinth
+                <div className="prose prose-invert prose-sm max-w-none font-minecraft-ten">
+                  <ReactMarkdown
+                    components={{
+                      h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-2">{children}</h3>,
+                      p: ({ children }) => <p className="text-sm text-white/90 mb-2 leading-relaxed">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ol>,
+                      li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                      strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                      em: ({ children }) => <em className="italic text-white/80">{children}</em>,
+                      code: ({ children }) => <code className="bg-black/30 px-1 py-0.5 rounded text-xs font-mono text-white/90">{children}</code>,
+                      pre: ({ children }) => <pre className="bg-black/30 p-2 rounded text-xs font-mono text-white/90 overflow-x-auto mb-2">{children}</pre>,
+                      blockquote: ({ children }) => <blockquote className="border-l-2 border-accent pl-3 italic text-white/70 my-2">{children}</blockquote>,
+                      a: ({ href, children }) => <a href={href} className="text-accent hover:text-accent/80 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                    }}
+                  >
+                    {displayChangelog}
+                  </ReactMarkdown>
+                </div>
+              )
+            ) : (
+              <div className="text-sm text-white/50 font-minecraft-ten text-center py-4">
+                No changelog available for this version.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -196,10 +256,10 @@ export function ModpackVersionsModal({
   isSwitching = false,
 }: ModpackVersionsModalProps) {
   const [versions, setVersions] = useState<UnifiedModpackVersionsResponse | null>(() => {
-    // DEBUG: Add mock changelogs to initial versions for testing with Markdown
+    // DEBUG: Add mock changelogs to initial versions for testing with Markdown (only for Modrinth)
     if (initialVersions && initialVersions.all_versions.length > 0) {
       initialVersions.all_versions.forEach((version, index) => {
-        if (!version.changelog) {
+        if (!version.changelog && version.source === "Modrinth") {
           const mockChangelogs = [
             `### Version ${version.version_number}
 
@@ -269,10 +329,10 @@ This release focuses on stability and performance improvements.
           console.log("Loaded modpack versions:", versions);
           console.log("First version has changelog:", versions.all_versions[0]?.changelog);
 
-          // DEBUG: Add mock changelogs for testing with Markdown
+          // Only add mock changelogs for Modrinth versions (CurseForge will be lazy loaded)
           if (versions && versions.all_versions.length > 0) {
             versions.all_versions.forEach((version, index) => {
-              if (!version.changelog) {
+              if (!version.changelog && version.source === "Modrinth") {
                 const mockChangelogs = [
                   `### Version ${version.version_number}
 

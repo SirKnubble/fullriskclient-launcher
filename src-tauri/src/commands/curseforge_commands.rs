@@ -1,7 +1,7 @@
 use crate::error::{AppError, CommandError};
 use crate::integrations::curseforge::{
     get_mods_by_ids, GetModsByIdsRequestBody, CurseForgeModsResponse, CurseForgeMod,
-    import_curseforge_pack_as_profile, download_and_install_curseforge_modpack
+    import_curseforge_pack_as_profile, download_and_install_curseforge_modpack, get_file_changelog
 };
 use serde::Serialize;
 use std::path::PathBuf;
@@ -89,4 +89,28 @@ pub async fn download_and_install_curseforge_modpack_command(
     );
 
     Ok(profile_id_uuid.to_string())
+}
+
+/// Get changelog for a specific CurseForge file
+/// Returns HTML formatted changelog
+#[tauri::command]
+pub async fn get_curseforge_file_changelog_command(
+    mod_id: u32,
+    file_id: u32,
+) -> Result<String, CommandError> {
+    log::debug!(
+        "Received get_curseforge_file_changelog command: mod_id={}, file_id={}",
+        mod_id, file_id
+    );
+
+    let changelog = get_file_changelog(mod_id, file_id)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Successfully retrieved CurseForge changelog for mod {}/file {} (length: {} chars)",
+        mod_id, file_id, changelog.len()
+    );
+
+    Ok(changelog)
 }

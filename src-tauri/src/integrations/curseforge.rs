@@ -761,6 +761,63 @@ pub async fn get_mod_info(mod_id: u32) -> Result<CurseForgeMod> {
     Ok(mod_response.data)
 }
 
+/// Response structure for CurseForge changelog API
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CurseForgeChangelogResponse {
+    pub data: String,
+}
+
+/// Get the changelog for a specific CurseForge file
+/// Returns HTML formatted changelog
+pub async fn get_file_changelog(mod_id: u32, file_id: u32) -> Result<String> {
+    let url = format!("{}/mods/{}/files/{}/changelog", CURSEFORGE_API_BASE_URL, mod_id, file_id);
+
+    log::info!("Getting CurseForge file changelog: mod_id={}, file_id={}", mod_id, file_id);
+
+    let response = HTTP_CLIENT
+        .get(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge file changelog: {}", e)))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        log::warn!("CurseForge file changelog API returned {}: {}", status, error_text);
+        // Return empty string instead of error for better UX when no changelog exists
+        return Ok(String::new());
+    }
+
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge changelog response: {}", e)))?;
+
+    // Parse the JSON response
+    let changelog_response: CurseForgeChangelogResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "Failed to parse CurseForge changelog JSON response: {}. Response: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            );
+            // Try to return the raw response if it's not JSON (fallback)
+            if response_text.trim().is_empty() {
+                return Ok(String::new());
+            } else {
+                return Ok(response_text);
+            }
+        }
+    };
+
+    log::debug!("Successfully retrieved changelog for file ID {} (HTML length: {} chars)", file_id, changelog_response.data.len());
+
+    Ok(changelog_response.data)
+}
+
 /// Get multiple mods by their IDs
 pub async fn get_mods_by_ids(
     mod_ids: Vec<u32>,
