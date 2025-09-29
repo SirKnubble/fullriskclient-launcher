@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Modal } from "../ui/Modal";
 import { Icon } from "@iconify/react";
 import { Button } from "../ui/buttons/Button";
@@ -77,6 +78,19 @@ function VersionItem({
   isSelected: boolean;
   onSelect: (version: UnifiedVersion) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleClick = () => {
+    if (!isInstalled) {
+      onSelect(version);
+    }
+  };
+
+  const toggleExpanded = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsExpanded(!isExpanded);
+  };
+
   return (
     <div
       className={`relative p-3 rounded-lg border transition-all duration-200 ${
@@ -90,7 +104,7 @@ function VersionItem({
         backgroundColor: `rgba(var(--accent-rgb), 0.15)`,
         borderColor: `var(--accent)`
       } : undefined}
-      onClick={() => !isInstalled && onSelect(version)}
+      onClick={handleClick}
     >
       {/* Stats - oben rechts */}
       <div className="absolute top-2 right-2 flex items-center space-x-1 text-xs text-white/50 font-minecraft-ten">
@@ -118,8 +132,55 @@ function VersionItem({
             MC: {version.game_versions.slice(0, 2).join(', ')}
             {version.game_versions.length > 2 && ` +${version.game_versions.length - 2}`}
           </div>
+
+          {/* Changelog Button */}
+          {version.changelog && (
+            <button
+              onClick={toggleExpanded}
+              className="mt-1 flex items-center gap-1 px-2 py-1 rounded text-xs hover:bg-white/10 transition-colors font-minecraft-ten border border-white/20"
+              title={isExpanded ? "Hide changelog" : "Show changelog"}
+            >
+              <Icon
+                icon={isExpanded ? "solar:alt-arrow-up-bold" : "solar:alt-arrow-down-bold"}
+                className="w-3 h-3"
+              />
+              <span className="text-white/70">Changelog</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Changelog Bereich */}
+      {isExpanded && version.changelog && (
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="text-xs font-minecraft-ten text-white/70 mb-2 uppercase">
+            Changelog
+          </div>
+          <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+            <div className="prose prose-invert prose-sm max-w-none font-minecraft-ten">
+              <ReactMarkdown
+                components={{
+                  h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-2">{children}</h3>,
+                  p: ({ children }) => <p className="text-sm text-white/90 mb-2 leading-relaxed">{children}</p>,
+                  ul: ({ children }) => <ul className="list-disc list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal list-inside text-sm text-white/90 mb-2 space-y-1 ml-4">{children}</ol>,
+                  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                  strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+                  em: ({ children }) => <em className="italic text-white/80">{children}</em>,
+                  code: ({ children }) => <code className="bg-black/30 px-1 py-0.5 rounded text-xs font-mono text-white/90">{children}</code>,
+                  pre: ({ children }) => <pre className="bg-black/30 p-2 rounded text-xs font-mono text-white/90 overflow-x-auto mb-2">{children}</pre>,
+                  blockquote: ({ children }) => <blockquote className="border-l-2 border-accent pl-3 italic text-white/70 my-2">{children}</blockquote>,
+                  a: ({ href, children }) => <a href={href} className="text-accent hover:text-accent/80 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                }}
+              >
+                {version.changelog}
+              </ReactMarkdown>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -134,13 +195,66 @@ export function ModpackVersionsModal({
   onSwitchComplete,
   isSwitching = false,
 }: ModpackVersionsModalProps) {
-  const [versions, setVersions] = useState<UnifiedModpackVersionsResponse | null>(initialVersions);
+  const [versions, setVersions] = useState<UnifiedModpackVersionsResponse | null>(() => {
+    // DEBUG: Add mock changelogs to initial versions for testing with Markdown
+    if (initialVersions && initialVersions.all_versions.length > 0) {
+      initialVersions.all_versions.forEach((version, index) => {
+        if (!version.changelog) {
+          const mockChangelogs = [
+            `### Version ${version.version_number}
+
+**An actually working version of ${version.version_number}, sorry about last time.** No changes to anything except for the pack format, same mods and fabric version as last time.
+
+> ### Status Update
+> I've been working on new tooling for Sodium Plus for a long time now. I'm in the middle of migrating some of my infrastructure to a new system, so it may be a while. In the future, these tools will allow us to update and work on Sodium Plus a lot more quickly and with much higher quality. It is important that I finish this. In the meantime, @NoSadBeHappy will be updating the pack with smaller fixes and alpha versions to support Minecraft updates. Thank you for your patience!
+> - RedstoneWizard08
+
+#### Changes:
+- Fixed compatibility with Minecraft ${version.game_versions[0] || 'latest'}
+- Updated mod dependencies
+- Performance improvements`,
+            `## What's New in ${version.version_number}
+
+### ✨ Features
+- Added new shader support
+- Improved graphics settings
+- Enhanced mod compatibility
+
+### 🐛 Bug Fixes
+- Fixed crash on startup
+- Resolved memory leaks
+- Corrected texture rendering issues
+
+### 🔧 Technical
+- Updated to Fabric ${version.loaders.includes('fabric') ? 'latest' : 'compatible'} version
+- Optimized resource loading
+- Better error handling`,
+            `# Changelog for ${version.version_number}
+
+This release focuses on stability and performance improvements.
+
+**Key Changes:**
+- **Performance**: Significant FPS improvements in heavy modpacks
+- **Compatibility**: Better support for Minecraft ${version.game_versions[0] || 'various versions'}
+- **Bug Fixes**: Various crash fixes and stability improvements
+
+> **Note**: This version requires Java 17 or higher for optimal performance.`
+          ];
+          version.changelog = mockChangelogs[index % mockChangelogs.length];
+        }
+      });
+    }
+    return initialVersions;
+  });
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
   // Load fresh versions when modal opens by loading the current profile
   React.useEffect(() => {
     if (isOpen && profileId) {
       setIsLoadingVersions(true);
+
+      console.log("Loading modpack versions for profile:", profileId);
+      console.log("Initial versions:", initialVersions);
 
       // Load the current profile to get the latest modpack source
       ProfileService.getProfile(profileId)
@@ -151,7 +265,61 @@ export function ModpackVersionsModal({
             throw new Error("No modpack source found in profile");
           }
         })
-        .then(setVersions)
+        .then(versions => {
+          console.log("Loaded modpack versions:", versions);
+          console.log("First version has changelog:", versions.all_versions[0]?.changelog);
+
+          // DEBUG: Add mock changelogs for testing with Markdown
+          if (versions && versions.all_versions.length > 0) {
+            versions.all_versions.forEach((version, index) => {
+              if (!version.changelog) {
+                const mockChangelogs = [
+                  `### Version ${version.version_number}
+
+**An actually working version of ${version.version_number}, sorry about last time.** No changes to anything except for the pack format, same mods and fabric version as last time.
+
+> ### Status Update
+> I've been working on new tooling for Sodium Plus for a long time now. I'm in the middle of migrating some of my infrastructure to a new system, so it may be a while. In the future, these tools will allow us to update and work on Sodium Plus a lot more quickly and with much higher quality. It is important that I finish this. In the meantime, @NoSadBeHappy will be updating the pack with smaller fixes and alpha versions to support Minecraft updates. Thank you for your patience!
+> - RedstoneWizard08
+
+#### Changes:
+- Fixed compatibility with Minecraft ${version.game_versions[0] || 'latest'}
+- Updated mod dependencies
+- Performance improvements`,
+                  `## What's New in ${version.version_number}
+
+### ✨ Features
+- Added new shader support
+- Improved graphics settings
+- Enhanced mod compatibility
+
+### 🐛 Bug Fixes
+- Fixed crash on startup
+- Resolved memory leaks
+- Corrected texture rendering issues
+
+### 🔧 Technical
+- Updated to Fabric ${version.loaders.includes('fabric') ? 'latest' : 'compatible'} version
+- Optimized resource loading
+- Better error handling`,
+                  `# Changelog for ${version.version_number}
+
+This release focuses on stability and performance improvements.
+
+**Key Changes:**
+- **Performance**: Significant FPS improvements in heavy modpacks
+- **Compatibility**: Better support for Minecraft ${version.game_versions[0] || 'various versions'}
+- **Bug Fixes**: Various crash fixes and stability improvements
+
+> **Note**: This version requires Java 17 or higher for optimal performance.`
+                ];
+                version.changelog = mockChangelogs[index % mockChangelogs.length];
+              }
+            });
+          }
+
+          setVersions(versions);
+        })
         .catch(err => {
           console.error("Failed to load fresh modpack versions:", err);
           setVersions(initialVersions); // fallback to initial versions
