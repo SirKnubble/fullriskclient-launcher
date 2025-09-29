@@ -323,7 +323,7 @@ export function ProfileWizardV2Step3({
                 {/* RAM Settings */}
                 <div className="space-y-3">
                     <label className="block text-base font-minecraft-ten text-white/50">
-                        Recommended RAM: 3072 mb
+                        Recommended RAM: 4096 mb
                     </label>
                     <RangeSlider
                         value={memoryMaxMb}
@@ -331,8 +331,12 @@ export function ProfileWizardV2Step3({
                         min={1024}
                         max={systemRamMb}
                         step={512}
+                        valueLabel={`${memoryMaxMb} MB (${(memoryMaxMb / 1024).toFixed(1)} GB)`}
                         minLabel="1 GB"
-                        maxLabel={`${(systemRamMb / 1024).toFixed(1)} GB`}
+                        maxLabel={`${systemRamMb} MB`}
+                        variant="flat"
+                        recommendedRange={[4096, 8192]}
+                        unit="MB"
                     />
                 </div>
 
