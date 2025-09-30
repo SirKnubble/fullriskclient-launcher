@@ -2098,7 +2098,29 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     // If effective_last_played_id is None (either initially or after validation failed)
     if effective_last_played_id.is_none() {
         info!("Last played profile ID is not set or invalid. Attempting to set a default.");
-        let new_default_id: Option<Uuid> = user_profiles.first().map(|p| p.id);
+
+        // First, try to find a standard profile marked as main version
+        let standard_profiles = state.norisk_version_manager.get_config().await.profiles;
+        let new_default_id = if !standard_profiles.is_empty() {
+            standard_profiles
+                .iter()
+                .find(|p| {
+                    p.norisk_information
+                        .as_ref()
+                        .map(|ni| ni.is_main_version)
+                        .unwrap_or(false)
+                })
+                .map(|p| p.id)
+                .or_else(|| {
+                    // No main version found in standard profiles, use first standard profile
+                    info!("No main version found in standard profiles. Using first standard profile as default.");
+                    standard_profiles.first().map(|p| p.id)
+                })
+        } else {
+            // No standard profiles available, use first user profile
+            info!("No standard profiles available. Using first user profile as default.");
+            user_profiles.first().map(|p| p.id)
+        };
 
         // Check if the determined new_default_id is different from what's in the original config.
         // This ensures we only write to config if there's an actual change.
