@@ -1658,8 +1658,9 @@ pub async fn refresh_norisk_packs() -> Result<(), CommandError> {
 }
 
 /// Fetches the latest standard version profiles from the API and updates the local cache.
+/// Returns the standard profiles for immediate use.
 #[tauri::command]
-pub async fn refresh_standard_versions() -> Result<(), CommandError> {
+pub async fn refresh_standard_versions() -> Result<Vec<Profile>, CommandError> {
     info!("Refreshing standard versions via command...");
     let state = State::get().await?;
     let config = state.config_manager.get_config().await;
@@ -1677,7 +1678,9 @@ pub async fn refresh_standard_versions() -> Result<(), CommandError> {
                 warn!("Failed to sync standard profiles after refresh: {}", e);
             }
 
-            Ok(())
+            // Return the standard profiles
+            let standard_profiles = state.norisk_version_manager.get_config().await.profiles;
+            Ok(standard_profiles)
         }
         Err(e) => {
             error!("Failed to refresh standard versions via command: {}", e);

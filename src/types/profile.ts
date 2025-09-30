@@ -169,6 +169,7 @@ export interface NoriskModIdentifier {
 export interface NoriskInformation {
   keep_local_assets: boolean;
   is_experimental: boolean;
+  is_main_version?: boolean;
 }
 
 export interface ModPackInfo {
@@ -211,6 +212,15 @@ export interface ProfileGroup {
   id: string;
   name: string;
   profiles: string[];
+}
+
+export interface VersionInfo {
+  id: string;
+  label: string;
+  icon?: string;
+  isCustom?: boolean;
+  profileId: string;
+  isMainVersion?: boolean;
 }
 
 export type ProfileFilterType = "all" | "custom" | "standard";

@@ -168,6 +168,8 @@ pub struct NoriskInformation {
     pub is_experimental: bool,
     #[serde(default = "default_true")]
     pub copy_initial_mc_data: bool,
+    #[serde(default)]
+    pub is_main_version: bool,
 }
 
 /// Information about a modpack source (Modrinth or CurseForge)
