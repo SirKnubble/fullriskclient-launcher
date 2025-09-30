@@ -49,7 +49,7 @@ export function ModpackDebugInfo({ profile }: ModpackDebugInfoProps) {
               <div>VID: {profile.modpack_info.source.version_id}</div>
             </>
           )}
-          {profile.modpack_info.source.source === 'curseforge' && (
+          {profile.modpack_info.source.source === 'curse_forge' && (
             <>
               <div>PID: {profile.modpack_info.source.project_id}</div>
               <div>FID: {profile.modpack_info.source.file_id}</div>
