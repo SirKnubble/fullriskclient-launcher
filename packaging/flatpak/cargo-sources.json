@@ -8543,14 +8543,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/whoami/whoami-1.6.0.crate",
-        "sha256": "6994d13118ab492c3c80c1f81928718159254c53c472bf9ce36f8dae4add02a7",
-        "dest": "cargo/vendor/whoami-1.6.0"
+        "url": "https://static.crates.io/crates/whoami/whoami-1.6.1.crate",
+        "sha256": "5d4a4db5077702ca3015d3d02d74974948aba2ad9e12ab7df718ee64ccd7e97d",
+        "dest": "cargo/vendor/whoami-1.6.1"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"6994d13118ab492c3c80c1f81928718159254c53c472bf9ce36f8dae4add02a7\", \"files\": {}}",
-        "dest": "cargo/vendor/whoami-1.6.0",
+        "contents": "{\"package\": \"5d4a4db5077702ca3015d3d02d74974948aba2ad9e12ab7df718ee64ccd7e97d\", \"files\": {}}",
+        "dest": "cargo/vendor/whoami-1.6.1",
         "dest-filename": ".cargo-checksum.json"
     },
     {
