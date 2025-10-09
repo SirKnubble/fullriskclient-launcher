@@ -24,10 +24,8 @@ pub fn is_flatpak() -> bool {
     is_flatpak
 }
 
-/// Checks if an update is available without downloading or installing it.
-///
-/// This function performs the same update check logic as `check_for_updates` but only
-/// returns information about available updates without triggering any downloads.
+/// Checks if an update is available and returns detailed information including the updater instance.
+/// This version provides all necessary information to proceed with download/installation without redundancy.
 ///
 /// # Arguments
 ///
@@ -36,16 +34,16 @@ pub fn is_flatpak() -> bool {
 ///
 /// # Returns
 ///
-/// * `Result<Option<UpdateInfo>>` - Information about the available update, or None if up to date.
-pub async fn check_update_available(
+/// * `Result<Option<UpdateCheckResult>>` - Detailed update information with updater instance, or None if up to date.
+pub async fn check_update_available_detailed(
     app_handle: &AppHandle,
     is_beta_channel: bool,
-) -> AppResult<Option<UpdateInfo>> {
+) -> AppResult<Option<UpdateCheckResult>> {
     let current_version = app_handle.package_info().version.to_string();
     let channel = if is_beta_channel { "Beta" } else { "Stable" };
 
     info!(
-        "Checking for available updates (Current: {}). Channel: {}",
+        "Checking for available updates (detailed) (Current: {}). Channel: {}",
         current_version, channel
     );
 
@@ -84,10 +82,10 @@ pub async fn check_update_available(
     let update_url = update_url_str.parse()
         .map_err(|e| AppError::Other(format!("Failed to parse update URL '{}': {}", update_url_str, e)))?;
 
-    let updater_result = app_handle.updater_builder().endpoints(vec![update_url]);
+    let updater_builder = app_handle.updater_builder().endpoints(vec![update_url])
+        .map_err(|e| AppError::Other(format!("Failed to set updater endpoints: {}", e)))?;
 
-    let updater = updater_result
-        .map_err(|e| AppError::Other(format!("Failed to set updater endpoints: {}", e)))?
+    let updater = updater_builder
         .build()
         .map_err(|e| AppError::Other(format!("Failed to build updater: {}", e)))?;
 
@@ -108,7 +106,13 @@ pub async fn check_update_available(
                 update.date
             );
 
-            Ok(Some(update_info))
+            let result = UpdateCheckResult {
+                update_info,
+                updater,
+                update,
+            };
+
+            Ok(Some(result))
         }
         Ok(None) => {
             info!("No update available for the {} channel.", channel);
@@ -118,6 +122,31 @@ pub async fn check_update_available(
             error!("Error during update check for {} channel: {}", channel, e);
             Err(AppError::Other(format!("Update check error: {}", e)))
         }
+    }
+}
+
+/// Checks if an update is available without downloading or installing it.
+///
+/// This function performs the same update check logic as `check_for_updates` but only
+/// returns information about available updates without triggering any downloads.
+/// This is a lightweight version that only returns UpdateInfo.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<Option<UpdateInfo>>` - Information about the available update, or None if up to date.
+pub async fn check_update_available(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<Option<UpdateInfo>> {
+    // Use the detailed version but only return the UpdateInfo part
+    match check_update_available_detailed(app_handle, is_beta_channel).await? {
+        Some(result) => Ok(Some(result.update_info)),
+        None => Ok(None),
     }
 }
 
@@ -138,6 +167,13 @@ pub struct UpdateInfo {
     pub date: Option<String>,
     pub body: Option<String>,
     pub download_url: Option<String>,
+}
+
+// Structure to hold update information along with the updater instance
+pub struct UpdateCheckResult {
+    pub update_info: UpdateInfo,
+    pub updater: tauri_plugin_updater::Updater,
+    pub update: tauri_plugin_updater::Update,
 }
 
 // Helper function to emit status updates
@@ -187,6 +223,38 @@ pub async fn create_updater_window(app_handle: &AppHandle) -> tauri::Result<Webv
 
     info!("Updater window created successfully (label: 'updater').");
     Ok(window)
+}
+
+/// Downloads and installs an available update, then restarts the application.
+/// This is a public version of handle_update for use in commands.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<(), AppError>` - Ok if update was successful, Error otherwise.
+pub async fn download_and_install_update(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<()> {
+    info!("Starting manual update download and installation process...");
+
+    // Check for available updates with detailed information
+    match check_update_available_detailed(app_handle, is_beta_channel).await? {
+        Some(update_check_result) => {
+            info!("Update available: {}. Proceeding with download...", update_check_result.update_info.version);
+
+            // Use the update object directly from the check result
+            handle_update(update_check_result.update, app_handle.clone()).await
+        }
+        None => {
+            info!("No update available to download");
+            Err(AppError::Other("No update available".to_string()))
+        }
+    }
 }
 
 /// Versucht, ein gefundenes Update herunterzuladen, zu installieren und ggf. die App neu zu starten.

@@ -301,3 +301,16 @@ pub async fn check_update_available_command(app: AppHandle) -> Result<Option<cra
     debug!("Using beta channel setting from config: {}", is_beta_channel);
     Ok(updater_utils::check_update_available(&app, is_beta_channel).await?)
 }
+
+#[tauri::command]
+pub async fn download_and_install_update_command(app: AppHandle) -> Result<(), CommandError> {
+    debug!("Executing download_and_install_update_command");
+
+    let state = State::get().await?;
+    let config = state.config_manager.get_config().await;
+    let is_beta_channel = config.check_beta_channel;
+
+    debug!("Using beta channel setting from config: {}", is_beta_channel);
+    updater_utils::download_and_install_update(&app, is_beta_channel).await?;
+    Ok(())
+}

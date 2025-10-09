@@ -168,5 +168,17 @@ export const checkUpdateAvailable = (): Promise<UpdateInfo | null> => {
   return invoke('check_update_available_command');
 };
 
+/**
+ * Downloads and installs an available application update.
+ * Uses the beta channel setting from the launcher configuration.
+ * The application will restart automatically after successful installation.
+ *
+ * @returns A promise that resolves when the update process is complete.
+ * @throws If the backend command fails or no update is available.
+ */
+export const downloadAndInstallUpdate = (): Promise<void> => {
+  return invoke('download_and_install_update_command');
+};
+
 // Re-export logging utilities for backward compatibility
 export { log as logMessage, logDebug as logMessageDebug, logInfo as logMessageInfo, logWarn as logMessageWarn, logError as logMessageError } from '../utils/logging-utils';

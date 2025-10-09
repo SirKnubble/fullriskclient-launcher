@@ -26,12 +26,14 @@ import { RetroGridEffect } from "../effects/RetroGridEffect";
 import PlainBackground from "../effects/PlainBackground";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
-import { checkUpdateAvailable } from "../../services/nrc-service";
+import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
 import type { UpdateInfo } from "../../types/updater";
 import { ProfileWizardV2Modal } from "../modals/ProfileWizardV2Modal";
 import { ProfileSettingsModal } from "../modals/ProfileSettingsModal";
 import { ProfileDuplicateModal } from "../modals/ProfileDuplicateModal";
 import { exit, relaunch } from '@tauri-apps/plugin-process';
+import { Tooltip } from "../ui/Tooltip";
+import { toast } from 'react-hot-toast';
 
 const navItems = [
   { id: "play", icon: "solar:play-bold", label: "Play" },
@@ -64,7 +66,7 @@ export function AppLayout({
   const closeRef = useRef<HTMLDivElement>(null);
   const { currentEffect } = useBackgroundEffectStore();
   const { qualityLevel } = useQualitySettingsStore();
-  const { isBackgroundAnimationEnabled, accentColor: themeAccentColor } = useThemeStore();
+  const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
 
   const getComplementaryBackground = () => {
     const hexToRgb = (hex: string) => {
@@ -349,6 +351,22 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
 
+  const handleUpdateClick = async () => {
+    try {
+      await toast.promise(
+        downloadAndInstallUpdate(),
+        {
+          loading: 'Downloading and installing update...',
+          success: 'Update installed successfully! Application will restart.',
+          error: (err) => `Update failed: ${err instanceof Error ? err.message : String(err)}`,
+        }
+      );
+    } catch (error) {
+      console.error("Failed to download and install update:", error);
+      // Toast error is already handled by the promise toast
+    }
+  };
+
   // Calculate complementary/update highlight color based on current accent
   const getUpdateHighlightColor = () => {
     const hexToRgb = (hex: string) => {
@@ -389,21 +407,31 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
       }
     };
 
-    const checkForUpdates = async () => {
-      try {
-        const updateInfo = await checkUpdateAvailable();
-        if (updateInfo) {
-          console.log("Update available:", updateInfo);
-          setAvailableUpdate(updateInfo);
-        }
-      } catch (error) {
-        console.error("Failed to check for updates:", error);
-        // Don't show error to user, just silently fail
+  const checkForUpdates = async () => {
+    try {
+      const updateInfo = await checkUpdateAvailable();
+      if (updateInfo) {
+        console.log("Update available:", updateInfo);
+        setAvailableUpdate(updateInfo);
       }
-    };
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      // Don't show error to user, just silently fail
+    }
+  };
 
     fetchVersion();
     checkForUpdates();
+
+    // Check for updates every 4 hours (4 * 60 * 60 * 1000 = 14,400,000 ms)
+    const updateCheckInterval = setInterval(() => {
+      console.log("Performing scheduled update check...");
+      checkForUpdates();
+    }, 4 * 60 * 60 * 1000);
+
+    return () => {
+      clearInterval(updateCheckInterval);
+    };
   }, []);
 
   return (
@@ -422,17 +450,29 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
         <NavigationHistory />
 
         <div className="flex flex-col items-start -mt-2.5">
-          <h1
-            className="font-minecraft text-4xl tracking-wider font-bold lowercase text-shadow"
-            style={{
-              color: availableUpdate ? getUpdateHighlightColor() : 'white',
-            }}
-            data-tauri-drag-region
-          >
-            {availableUpdate ? 'new update available' : 'noriskclient'}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              className="font-minecraft text-4xl tracking-wider font-bold lowercase text-shadow"
+              data-tauri-drag-region
+            >
+              noriskclient
+            </h1>
+            {availableUpdate && (
+              <Tooltip content={`Click to update: ${availableUpdate.version}`}>
+                <div className="cursor-pointer mt-2.5" onClick={handleUpdateClick}>
+                  <Icon
+                    icon="solar:download-minimalistic-bold"
+                    className="w-6 h-6 transition-colors"
+                    style={{
+                      color: accentColor.value,
+                    }}
+                  />
+                </div>
+              </Tooltip>
+            )}
+          </div>
           <span className="text-white/70 font-minecraft-ten text-[8px] font-normal -mt-2.5">
-            {availableUpdate ? `v${appVersion} → v${availableUpdate.version}` : `v${appVersion || "?.?.?"}`}
+            v{appVersion || "?.?.?"}
           </span>
         </div>
       </div>
