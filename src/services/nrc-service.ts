@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BlogPost } from '../types/wordPress';
+import type { UpdateInfo } from '../types/updater';
 import type { Profile } from '../types/profile';
 import { useProfileStore } from '../store/profile-store';
 import { getBlockedModsConfig } from './flagsmith-service';
@@ -154,6 +155,29 @@ export const getMobileAppToken = (): Promise<string> => {
  */
 export const resetMobileAppToken = (): Promise<string> => {
   return invoke('reset_mobile_app_token');
+};
+
+/**
+ * Checks if an application update is available.
+ * Uses the beta channel setting from the launcher configuration.
+ *
+ * @returns A promise that resolves to UpdateInfo if an update is available, or null if up to date.
+ * @throws If the backend command fails.
+ */
+export const checkUpdateAvailable = (): Promise<UpdateInfo | null> => {
+  return invoke('check_update_available_command');
+};
+
+/**
+ * Downloads and installs an available application update.
+ * Uses the beta channel setting from the launcher configuration.
+ * The application will restart automatically after successful installation.
+ *
+ * @returns A promise that resolves when the update process is complete.
+ * @throws If the backend command fails or no update is available.
+ */
+export const downloadAndInstallUpdate = (): Promise<void> => {
+  return invoke('download_and_install_update_command');
 };
 
 // Re-export logging utilities for backward compatibility

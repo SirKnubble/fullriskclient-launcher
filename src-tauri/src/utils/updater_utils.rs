@@ -5,6 +5,151 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use tauri_plugin_updater::UpdaterExt;
 use tokio::time::{sleep, Duration};
 
+/// Checks if the application is running inside a Flatpak environment.
+///
+/// Flatpak sets the environment variable FLATPAK_ID to the application ID of the running app.
+///
+/// # Returns
+///
+/// * `bool` - `true` if running in Flatpak, `false` otherwise.
+pub fn is_flatpak() -> bool {
+    let is_flatpak = std::env::var("FLATPAK_ID").is_ok();
+
+    if is_flatpak {
+        info!("Flatpak environment detected (FLATPAK_ID environment variable is set).");
+    } else {
+        info!("Not running in Flatpak environment (FLATPAK_ID environment variable not found).");
+    }
+
+    is_flatpak
+}
+
+/// Checks if an update is available and returns detailed information including the updater instance.
+/// This version provides all necessary information to proceed with download/installation without redundancy.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<Option<UpdateCheckResult>>` - Detailed update information with updater instance, or None if up to date.
+pub async fn check_update_available_detailed(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<Option<UpdateCheckResult>> {
+    let current_version = app_handle.package_info().version.to_string();
+    let channel = if is_beta_channel { "Beta" } else { "Stable" };
+
+    info!(
+        "Checking for available updates (detailed) (Current: {}). Channel: {}",
+        current_version, channel
+    );
+
+    // Determine the base part of the URL and the platform-specific segment template
+    let base_repo_url = if is_beta_channel {
+        "https://api-staging.norisk.gg/api/v1/launcher/releases-v2"
+    } else {
+        "https://api.norisk.gg/api/v1/launcher/releases-v2"
+    };
+
+    let mut platform_specific_target = "{{target}}".to_string(); // Default: Tauri replaces {{target}}
+
+    if cfg!(target_os = "linux") {
+        if std::env::var("APPIMAGE").is_ok() {
+            info!("Linux AppImage detected. Updater will use default target for manifest URL.");
+            // platform_specific_target remains "{{target}}" for AppImage
+        } else {
+            // Not an AppImage, assume .deb or similar package manager context.
+            let deb_target_identifier = "debian";
+            info!(
+                "Linux non-AppImage (e.g., .deb) detected. Modifying manifest URL to use target: {}",
+                deb_target_identifier
+            );
+            platform_specific_target = deb_target_identifier.to_string();
+        }
+    }
+
+    // Construct the final update URL string
+    let update_url_str = format!(
+        "{}/{}/{{{{arch}}}}/{{{{current_version}}}}",
+        base_repo_url, platform_specific_target
+    );
+
+    info!("Using update endpoint template: {}", update_url_str);
+
+    let update_url = update_url_str.parse()
+        .map_err(|e| AppError::Other(format!("Failed to parse update URL '{}': {}", update_url_str, e)))?;
+
+    let updater_builder = app_handle.updater_builder().endpoints(vec![update_url])
+        .map_err(|e| AppError::Other(format!("Failed to set updater endpoints: {}", e)))?;
+
+    let updater = updater_builder
+        .build()
+        .map_err(|e| AppError::Other(format!("Failed to build updater: {}", e)))?;
+
+    info!("Updater built successfully. Checking for updates...");
+
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let update_info = UpdateInfo {
+                version: update.version.clone(),
+                date: update.date.map(|d| format!("{}", d)),
+                body: update.body.clone(),
+                download_url: None, // TODO: Convert update.download_url to String
+            };
+
+            info!(
+                "Update available: Version {}, Released: {:?}",
+                update.version,
+                update.date
+            );
+
+            let result = UpdateCheckResult {
+                update_info,
+                updater,
+                update,
+            };
+
+            Ok(Some(result))
+        }
+        Ok(None) => {
+            info!("No update available for the {} channel.", channel);
+            Ok(None)
+        }
+        Err(e) => {
+            error!("Error during update check for {} channel: {}", channel, e);
+            Err(AppError::Other(format!("Update check error: {}", e)))
+        }
+    }
+}
+
+/// Checks if an update is available without downloading or installing it.
+///
+/// This function performs the same update check logic as `check_for_updates` but only
+/// returns information about available updates without triggering any downloads.
+/// This is a lightweight version that only returns UpdateInfo.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<Option<UpdateInfo>>` - Information about the available update, or None if up to date.
+pub async fn check_update_available(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<Option<UpdateInfo>> {
+    // Use the detailed version but only return the UpdateInfo part
+    match check_update_available_detailed(app_handle, is_beta_channel).await? {
+        Some(result) => Ok(Some(result.update_info)),
+        None => Ok(None),
+    }
+}
+
 // Define the payload structure for updater status events
 #[derive(Clone, Serialize)] // Add derive macros
 struct UpdaterStatusPayload {
@@ -13,6 +158,22 @@ struct UpdaterStatusPayload {
     progress: Option<u64>,
     total: Option<u64>,
     chunk: Option<u64>,
+}
+
+// Structure to hold available update information
+#[derive(Clone, Debug, Serialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub date: Option<String>,
+    pub body: Option<String>,
+    pub download_url: Option<String>,
+}
+
+// Structure to hold update information along with the updater instance
+pub struct UpdateCheckResult {
+    pub update_info: UpdateInfo,
+    pub updater: tauri_plugin_updater::Updater,
+    pub update: tauri_plugin_updater::Update,
 }
 
 // Helper function to emit status updates
@@ -62,6 +223,38 @@ pub async fn create_updater_window(app_handle: &AppHandle) -> tauri::Result<Webv
 
     info!("Updater window created successfully (label: 'updater').");
     Ok(window)
+}
+
+/// Downloads and installs an available update, then restarts the application.
+/// This is a public version of handle_update for use in commands.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri AppHandle.
+/// * `is_beta_channel` - `true` to check the beta channel, `false` for stable.
+///
+/// # Returns
+///
+/// * `Result<(), AppError>` - Ok if update was successful, Error otherwise.
+pub async fn download_and_install_update(
+    app_handle: &AppHandle,
+    is_beta_channel: bool,
+) -> AppResult<()> {
+    info!("Starting manual update download and installation process...");
+
+    // Check for available updates with detailed information
+    match check_update_available_detailed(app_handle, is_beta_channel).await? {
+        Some(update_check_result) => {
+            info!("Update available: {}. Proceeding with download...", update_check_result.update_info.version);
+
+            // Use the update object directly from the check result
+            handle_update(update_check_result.update, app_handle.clone()).await
+        }
+        None => {
+            info!("No update available to download");
+            Err(AppError::Other("No update available".to_string()))
+        }
+    }
 }
 
 /// Versucht, ein gefundenes Update herunterzuladen, zu installieren und ggf. die App neu zu starten.

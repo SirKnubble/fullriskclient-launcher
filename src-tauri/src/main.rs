@@ -108,7 +108,7 @@ use commands::vanilla_cape_command::{
 };
 
 // Import NRC commands
-use commands::nrc_commands::get_news_and_changelogs_command;
+use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command};
 
 // Import Content commands
 use commands::content_command::{
@@ -267,10 +267,16 @@ async fn main() {
 
                 info!("Attempting to retrieve launcher configuration for update check...");
                 match state::state_manager::State::get().await {
-                    Ok(state_manager_instance) => { 
+                    Ok(state_manager_instance) => {
                         let config = state_manager_instance.config_manager.get_config().await;
                         let check_beta_channel = config.check_beta_channel;
-                        let auto_check_updates_enabled = config.auto_check_updates;
+                        let mut auto_check_updates_enabled = config.auto_check_updates;
+
+                        // Disable auto-updates when running in Flatpak
+                        if updater_utils::is_flatpak() {
+                            info!("Running in Flatpak environment - disabling automatic updates (Flatpak handles updates through its own mechanism).");
+                            auto_check_updates_enabled = false;
+                        }
 
                         if auto_check_updates_enabled {
                             info!("Initiating application update check (Channel determined by config: Beta={})...", check_beta_channel);
@@ -476,6 +482,8 @@ async fn main() {
             read_file_bytes,
             get_app_version,
             get_news_and_changelogs_command,
+            check_update_available_command,
+            download_and_install_update_command,
             get_modrinth_categories_command,
             get_modrinth_loaders_command,
             get_modrinth_game_versions_command,
