@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use base64::prelude::{BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD};
 use base64::Engine;
-use byteorder::BigEndian;
+
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use log::error;
@@ -103,7 +103,7 @@ impl NoRiskCredentials {
 #[derive(Debug, Clone, Copy)]
 pub enum MinecraftAuthStep {
     GetDeviceToken,
-    SisuAuthenicate,
+    SisuAuthenticate,
     GetOAuthToken,
     RefreshOAuthToken,
     SisuAuthorize,
@@ -500,7 +500,6 @@ impl MinecraftAuthStore {
             "[Token Refresh] Starting NoRisk token refresh check for user: {}",
             creds.username
         );
-        let cred_id = creds.id;
         let mut maybe_update = false;
 
         if !force_update {
@@ -541,13 +540,23 @@ impl MinecraftAuthStore {
         }
 
         if force_update || maybe_update {
+            // Generate privacy-friendly hashed system identifier
+            // Hash a salt string with HWID for consistent but anonymous identification
             let hwid = IdBuilder::new(Encryption::SHA256)
                 .add_component(HWIDComponent::SystemID)
                 .build("NRC")
                 .map_err(|e| AppError::Other(format!("HWID Error {:?}", e)))?;
+
+            // Create deterministic hash by combining salt with HWID
+            use sha2::{Sha256, Digest};
+            let mut hasher = Sha256::new();
+            hasher.update(b"norisk-device-salt");
+            hasher.update(&hwid);
+            let system_id = format!("{:x}", hasher.finalize());
+
             info!(
-                "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, HWID: {}",
-                force_update, maybe_update, hwid
+                "[Token Refresh] Refreshing token - Force: {}, Maybe: {}, SystemID: {}",
+                force_update, maybe_update, system_id
             );
 
             // Use NoRiskApi for token refresh with proper error handling
@@ -564,7 +573,7 @@ impl MinecraftAuthStore {
             );
 
             match NoRiskApi::refresh_norisk_token_v3(
-                &hwid,
+                &system_id,
                 &creds.username,
                 &creds.access_token,
                 &creds.id.to_string().replace("-", ""), // UUID without dashes
@@ -920,8 +929,8 @@ impl MinecraftAuthStore {
 }
 
 const MICROSOFT_CLIENT_ID: &str = "00000000402b5328";
-const REDIRECT_URL: &str = "https://login.live.com/oauth20_desktop.srf";
-const REQUESTED_SCOPES: &str = "service::user.auth.xboxlive.com::MBI_SSL";
+const AUTH_REPLY_URL: &str = "https://login.live.com/oauth20_desktop.srf";
+const REQUESTED_SCOPE: &str = "service::user.auth.xboxlive.com::MBI_SSL";
 
 pub struct RequestWithDate<T> {
     pub date: DateTime<Utc>,
@@ -949,7 +958,7 @@ pub async fn device_token(
         json!({
             "Properties": {
                 "AuthMethod": "ProofOfPossession",
-                "Id": format!("{{{}}}", key.id),
+                "Id": format!("{{{}}}", key.id.to_uppercase()),
                 "DeviceType": "Win32",
                 "Version": "10.16.0",
                 "ProofKey": {
@@ -997,7 +1006,7 @@ async fn sisu_authenticate(
           "AppId": MICROSOFT_CLIENT_ID,
           "DeviceToken": token,
           "Offers": [
-            REQUESTED_SCOPES
+            REQUESTED_SCOPE
           ],
           "Query": {
             "code_challenge": challenge,
@@ -1005,13 +1014,13 @@ async fn sisu_authenticate(
             "state": generate_oauth_challenge(),
             "prompt": "select_account"
           },
-          "RedirectUri": REDIRECT_URL,
+          "RedirectUri": AUTH_REPLY_URL,
           "Sandbox": "RETAIL",
           "TokenType": "code",
           "TitleId": "1794566092",
         }),
         key,
-        MinecraftAuthStep::SisuAuthenicate,
+        MinecraftAuthStep::SisuAuthenticate,
         current_date,
     )
     .await?;
@@ -1049,8 +1058,8 @@ async fn oauth_token(code: &str, verifier: &str) -> Result<RequestWithDate<OAuth
     query.insert("code", code);
     query.insert("code_verifier", verifier);
     query.insert("grant_type", "authorization_code");
-    query.insert("redirect_uri", "https://login.live.com/oauth20_desktop.srf");
-    query.insert("scope", "service::user.auth.xboxlive.com::MBI_SSL");
+    query.insert("redirect_uri", AUTH_REPLY_URL);
+    query.insert("scope", REQUESTED_SCOPE);
 
     let res = auth_retry(|| {
         HTTP_CLIENT
@@ -1095,8 +1104,8 @@ async fn oauth_refresh(refresh_token: &str) -> Result<RequestWithDate<OAuthToken
     query.insert("client_id", "00000000402b5328");
     query.insert("refresh_token", refresh_token);
     query.insert("grant_type", "refresh_token");
-    query.insert("redirect_uri", "https://login.live.com/oauth20_desktop.srf");
-    query.insert("scope", "service::user.auth.xboxlive.com::MBI_SSL");
+    query.insert("redirect_uri", AUTH_REPLY_URL);
+    query.insert("scope", REQUESTED_SCOPE);
 
     let res = auth_retry(|| {
         HTTP_CLIENT
@@ -1444,50 +1453,25 @@ async fn send_signed_request<T: DeserializeOwned>(
         .map_err(|source| MinecraftAuthenticationError::SerializeBody { source, step })?;
     let time: u128 = { ((current_date.timestamp() as u128) + 11644473600) * 10000000 };
 
-    use byteorder::WriteBytesExt;
     let mut buffer = Vec::new();
-    buffer.write_u32::<BigEndian>(1).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
-    buffer
-        .write_u64::<BigEndian>(time as u64)
-        .map_err(
-            |source| MinecraftAuthenticationError::ConstructingSignedRequest { source, step },
-        )?;
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
+    buffer.extend_from_slice(&1_u32.to_be_bytes()[..]);
+    buffer.push(0_u8);
+    buffer.extend_from_slice(&(time as u64).to_be_bytes()[..]);
+    buffer.push(0_u8);
     buffer.extend_from_slice("POST".as_bytes());
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
+    buffer.push(0_u8);
     buffer.extend_from_slice(url_path.as_bytes());
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
+    buffer.push(0_u8);
     buffer.extend_from_slice(&auth);
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
+    buffer.push(0_u8);
     buffer.extend_from_slice(&body);
-    buffer.write_u8(0).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
+    buffer.push(0_u8);
 
     let ecdsa_sig: Signature = key.key.sign(&buffer);
 
     let mut sig_buffer = Vec::new();
-    sig_buffer.write_i32::<BigEndian>(1).map_err(|source| {
-        MinecraftAuthenticationError::ConstructingSignedRequest { source, step }
-    })?;
-    sig_buffer
-        .write_u64::<BigEndian>(time as u64)
-        .map_err(
-            |source| MinecraftAuthenticationError::ConstructingSignedRequest { source, step },
-        )?;
+    sig_buffer.extend_from_slice(&1_i32.to_be_bytes()[..]);
+    sig_buffer.extend_from_slice(&(time as u64).to_be_bytes()[..]);
     sig_buffer.extend_from_slice(&ecdsa_sig.r().to_bytes());
     sig_buffer.extend_from_slice(&ecdsa_sig.s().to_bytes());
 
@@ -1518,15 +1502,25 @@ async fn send_signed_request<T: DeserializeOwned>(
 
     let current_date = get_date_header(&headers);
 
-    let body = res
+    let text = res
         .text()
         .await
         .map_err(|source| MinecraftAuthenticationError::Request { source, step })?;
 
-    let body = serde_json::from_str(&body).map_err(|source| {
+    // Handle empty response body from Microsoft (status 400 with empty body)
+    if text.trim().is_empty() {
+        return Err(AppError::MinecraftAuthenticationError(MinecraftAuthenticationError::DeserializeResponse {
+            source: serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "Empty response body")),
+            raw: text,
+            step,
+            status_code: status,
+        }));
+    }
+
+    let body = serde_json::from_str(&text).map_err(|source| {
         MinecraftAuthenticationError::DeserializeResponse {
             source,
-            raw: body,
+            raw: text,
             step,
             status_code: status,
         }
@@ -1543,8 +1537,7 @@ fn get_date_header(headers: &HeaderMap) -> DateTime<Utc> {
         .get(reqwest::header::DATE)
         .and_then(|x| x.to_str().ok())
         .and_then(|x| DateTime::parse_from_rfc2822(x).ok())
-        .map(|x| x.with_timezone(&Utc))
-        .unwrap_or(Utc::now())
+        .map_or(Utc::now(), |x| x.with_timezone(&Utc))
 }
 
 fn generate_oauth_challenge() -> String {

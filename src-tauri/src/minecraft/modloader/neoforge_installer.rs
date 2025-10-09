@@ -2,6 +2,7 @@ use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result};
 use crate::minecraft::downloads::{NeoForgeInstallerDownloadService, NeoForgeLibrariesDownload};
 use crate::minecraft::launch::neo_forge_arguments::NeoForgeArguments;
+use crate::minecraft::launch::version::compare_versions;
 use crate::minecraft::{NeoForgeApi, NeoForgePatcher};
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::Profile;
@@ -292,6 +293,12 @@ impl NeoForgeInstaller {
 
             // Check if using neoforgeclient flag
             if neo_forge_game_arguments.contains(&"neoforgeclient".to_string()) {
+                uses_neoforgeclient = true;
+            }
+
+            // fix https://github.com/NoRiskClient/issues/issues/1616 nobody knows.. 
+            // Check if version is 21.1.170 or greater
+            if compare_versions(&target_neoforge_version, "21.1.170") != std::cmp::Ordering::Less {
                 uses_neoforgeclient = true;
             }
         } else {

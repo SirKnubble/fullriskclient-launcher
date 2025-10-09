@@ -6,6 +6,13 @@ use crate::integrations::modrinth::{
     ModrinthSearchResponse, ModrinthSortType, ModrinthVersion,
 };
 use crate::integrations::mrpack;
+use crate::integrations::unified_mod::{
+    check_mod_updates_unified, get_mod_versions_unified, get_modpack_versions_unified, search_mods_unified, switch_modpack_version, ModPlatform,
+    UnifiedModSearchParams, UnifiedModSearchResponse, UnifiedModVersionsParams, UnifiedModpackVersionsResponse,
+    UnifiedProjectType, UnifiedSortType, UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse, UnifiedVersionResponse,
+    ModpackSwitchRequest, ModpackSwitchResponse,
+};
+use crate::state::profile_state::ModPackSource;
 use serde::Serialize;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -170,12 +177,17 @@ pub async fn download_and_install_modrinth_modpack(
         file_name.clone() // Clone if already correct to ensure ownership for logging later if needed
     };
 
-    let profile_id_uuid = mrpack::download_and_process_mrpack(&download_url, &file_name_mrpack)
-        .await
-        .map_err(|e| {
-            log::error!("Failed to download and process modpack: {}", e);
-            CommandError::from(e)
-        })?;
+    let profile_id_uuid = mrpack::download_and_process_mrpack(
+            &download_url,
+            &file_name_mrpack,
+            Some(project_id),
+            Some(version_id),
+        )
+    .await
+    .map_err(|e| {
+        log::error!("Failed to download and process modpack: {}", e);
+        CommandError::from(e)
+    })?;
 
     log::info!(
         "Successfully downloaded and installed modpack \"{}\" as profile with ID: {}",
@@ -258,6 +270,27 @@ pub async fn check_modrinth_updates(
     Ok(updates)
 }
 
+/// Unified command for checking mod updates across all platforms (currently only Modrinth)
+/// This will eventually support both Modrinth and CurseForge based on item platforms
+#[tauri::command]
+pub async fn check_mod_updates_unified_command(
+    request: UnifiedUpdateCheckRequest,
+) -> Result<UnifiedUpdateCheckResponse, CommandError> {
+    log::debug!(
+        "Received check_mod_updates_unified_command for {} hashes using algorithm {}",
+        request.hashes.len(),
+        request.algorithm
+    );
+
+    let updates = check_mod_updates_unified(request)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!("Found unified updates for {} mods", updates.updates.len());
+
+    Ok(updates)
+}
+
 /// Fetches a list of all categories from Modrinth.
 #[tauri::command]
 pub async fn get_modrinth_categories_command(
@@ -333,4 +366,112 @@ pub async fn get_modrinth_versions_by_hashes(
         versions_map.len()
     );
     Ok(versions_map)
+}
+
+/// Unified mod search across both Modrinth and CurseForge platforms.
+/// This provides a single API endpoint for searching mods from multiple sources.
+#[tauri::command]
+pub async fn search_mods_unified_command(
+    params: UnifiedModSearchParams,
+) -> Result<UnifiedModSearchResponse, CommandError> {
+    log::debug!(
+        "Received search_mods_unified command: query={}, source={:?}, project_type={:?}, version={}, loader={}, limit={:?}, offset={:?}, sort={:?}, client_side={:?}, server_side={:?}",
+        params.query,
+        params.source,
+        params.project_type,
+        params.game_version.as_deref().unwrap_or("None"),
+        params.mod_loaders.as_ref().map(|l| format!("{:?}", l)).unwrap_or_else(|| "None".to_string()),
+        params.limit,
+        params.offset,
+        params.sort,
+        params.client_side_filter,
+        params.server_side_filter
+    );
+
+    let result = search_mods_unified(params)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Unified search completed: {} results found",
+        result.results.len()
+    );
+    Ok(result)
+}
+
+/// Unified command to get versions/files for a specific mod from either Modrinth or CurseForge.
+/// This provides a single API endpoint for getting mod versions from multiple sources.
+#[tauri::command]
+pub async fn get_mod_versions_unified_command(
+    params: UnifiedModVersionsParams,
+) -> Result<UnifiedVersionResponse, CommandError> {
+    log::debug!(
+        "Received get_mod_versions_unified command: source={:?}, project_id={}, loaders={:?}, game_versions={:?}, limit={:?}, offset={:?}",
+        params.source,
+        params.project_id,
+        params.loaders,
+        params.game_versions,
+        params.limit,
+        params.offset
+    );
+
+    let result = get_mod_versions_unified(params)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Unified versions fetch completed: {} versions found",
+        result.versions.len()
+    );
+    Ok(result)
+}
+
+/// Get specific modpack version and all available versions
+/// This is optimized for modpack management - gets the installed version plus all available versions
+#[tauri::command]
+pub async fn get_modpack_versions_unified_command(
+    modpack_source: ModPackSource,
+) -> Result<UnifiedModpackVersionsResponse, CommandError> {
+    log::debug!(
+        "Received get_modpack_versions_unified command: modpack_source={:?}",
+        modpack_source
+    );
+
+    let result = get_modpack_versions_unified(&modpack_source)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Modpack versions fetch completed: {} total versions, updates available: {}",
+        result.all_versions.len(),
+        result.updates_available
+    );
+    Ok(result)
+}
+
+/// Unified command to switch a modpack version
+/// Downloads the new modpack version and updates the profile accordingly
+#[tauri::command]
+pub async fn switch_modpack_version_command(
+    request: ModpackSwitchRequest,
+) -> Result<ModpackSwitchResponse, CommandError> {
+    log::debug!(
+        "Received switch_modpack_version command: URL={}, ModPackSource={:?}, Profile={}",
+        request.download_url,
+        request.modpack_source,
+        request.profile_id
+    );
+
+    let result = switch_modpack_version(request)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Modpack version switch completed successfully: MC={}, Loader={:?}, Mods={}",
+        result.minecraft_version,
+        result.loader,
+        result.mods.len()
+    );
+
+    Ok(result)
 }

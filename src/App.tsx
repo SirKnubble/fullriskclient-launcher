@@ -20,6 +20,7 @@ import {
 } from "./types/events";
 import { GlobalCrashReportModal } from "./components/modals/GlobalCrashReportModal";
 import { TermsOfServiceModal } from "./components/modals/TermsOfServiceModal";
+import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
 import { refreshNrcDataOnMount } from "./services/nrc-service";
@@ -28,6 +29,7 @@ import {
   setProfileGroupingPreference,
 } from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
+import { loadIcons } from '@iconify/react';
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
@@ -142,6 +144,54 @@ export function App() {
     refreshNrcDataOnMount();
   }, []);
 
+  // Icons beim App-Start vorladen
+  useEffect(() => {
+    const preloadIcons = async () => {
+      await loadIcons([
+        // Action Buttons
+        'solar:play-bold',
+        'solar:box-bold', 
+        'solar:settings-bold',
+        
+        // Group Tabs & Navigation
+        'solar:add-circle-bold',
+        'solar:user-id-bold',
+        'solar:widget-bold',
+        'solar:emoji-funny-circle-bold',
+        'solar:shop-bold',
+        
+        // Search & Filters
+        'solar:magnifer-bold',
+        'solar:text-bold',
+        'solar:clock-circle-bold',
+        'solar:calendar-add-bold',
+        'solar:layers-bold',
+        'solar:gamepad-bold',
+        'solar:lightbulb-bold',
+        
+        // Status & UI
+        'solar:danger-triangle-bold',
+        'solar:check-circle-bold',
+        'solar:info-circle-bold',
+        'solar:danger-circle-bold',
+        'solar:close-circle-bold',
+        
+        // Common UI Elements
+        'solar:alt-arrow-down-bold',
+        'solar:alt-arrow-up-bold',
+        'solar:refresh-bold',
+        'solar:stop-bold',
+        'solar:folder-bold',
+        'solar:download-bold',
+        'solar:upload-bold',
+        'solar:code-bold',
+        'solar:palette-bold',
+      ]);
+    };
+
+    preloadIcons().catch(console.error);
+  }, []);
+
   useEffect(() => {
     getLauncherConfig()
       .then((config) => {
@@ -196,6 +246,7 @@ export function App() {
         <GlobalToaster />
         <GlobalCrashReportModal />
         <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
+        <GlobalModalPortal />
         <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
           <Outlet context={profilesTabContext} />
         </AppLayout>

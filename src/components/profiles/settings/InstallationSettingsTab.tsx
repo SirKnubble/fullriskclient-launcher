@@ -2,24 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import type { ModLoader, Profile } from "../../../types/profile";
+import type { ModLoader, Profile, ResolvedLoaderVersion } from "../../../types/profile";
 import type { MinecraftVersion } from "../../../types/minecraft";
 import { invoke } from "@tauri-apps/api/core";
 import { StatusMessage } from "../../ui/StatusMessage";
 import { useThemeStore } from "../../../store/useThemeStore";
-import { SearchInput } from "../../ui/SearchInput";
+import { SearchWithFilters } from "../../ui/SearchWithFilters";
 import { Select } from "../../ui/Select";
 import { Card } from "../../ui/Card";
+import { Checkbox } from "../../ui/Checkbox";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../ui/buttons/Button";
-import { toast } from "react-hot-toast";
-import * as ProfileService from "../../../services/profile-service";
 
 interface InstallationSettingsTabProps {
   profile: Profile;
   editedProfile: Profile;
   updateProfile: (updates: Partial<Profile>) => void;
+  refreshTrigger?: number; // Increment this to trigger a refresh
 }
 
 type VersionType = "release" | "snapshot" | "old-beta" | "old-alpha";
@@ -28,6 +28,7 @@ export function InstallationSettingsTab({
   profile,
   editedProfile,
   updateProfile,
+  refreshTrigger,
 }: InstallationSettingsTabProps) {
   const [selectedVersionType, setSelectedVersionType] =
     useState<VersionType>("release");
@@ -40,14 +41,14 @@ export function InstallationSettingsTab({
   const [isLoadingLoaderVersions, setIsLoadingLoaderVersions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isRepairing, setIsRepairing] = useState(false);
+
+  const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
   );
   const tabRef = useRef<HTMLDivElement>(null);
   const currentInstallRef = useRef<HTMLDivElement>(null);
-  const versionTypesRef = useRef<HTMLDivElement>(null);
   const versionsRef = useRef<HTMLDivElement>(null);
   const platformsRef = useRef<HTMLDivElement>(null);
   const loaderVersionRef = useRef<HTMLDivElement>(null);
@@ -102,7 +103,6 @@ export function InstallationSettingsTab({
 
       const elements = [
         currentInstallRef.current,
-        versionTypesRef.current,
         versionsRef.current,
         platformsRef.current,
       ].filter(Boolean);
@@ -146,8 +146,11 @@ export function InstallationSettingsTab({
 
   useEffect(() => {
     if (minecraftVersions.length > 0) {
+      // Convert filter value to API format (old-beta -> old_beta)
+      const apiVersionType = selectedVersionType.replace('-', '_');
+
       const filtered = minecraftVersions
-        .filter((version) => version.type === selectedVersionType)
+        .filter((version) => version.type === apiVersionType)
         .filter((version) =>
           searchQuery
             ? version.id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -215,6 +218,54 @@ export function InstallationSettingsTab({
     fetchLoaderVersions();
   }, [editedProfile.game_version, editedProfile.loader]);
 
+  useEffect(() => {
+    async function fetchResolvedLoaderVersion() {
+      if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
+        setResolvedLoaderVersion(null);
+        return;
+      }
+
+      try {
+        const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
+          profileId: editedProfile.id,
+          minecraftVersion: editedProfile.game_version,
+        });
+        setResolvedLoaderVersion(resolved);
+      } catch (err) {
+        console.error("Failed to resolve loader version:", err);
+        setResolvedLoaderVersion(null);
+      }
+    }
+
+    fetchResolvedLoaderVersion();
+  }, [editedProfile.id, editedProfile.game_version, editedProfile.loader, editedProfile.loader_version, editedProfile.settings.use_overwrite_loader_version, editedProfile.settings.overwrite_loader_version, editedProfile.selected_norisk_pack_id]);
+
+  // Separate function that can be called externally
+  const fetchResolvedLoaderVersion = async () => {
+    if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
+      setResolvedLoaderVersion(null);
+      return;
+    }
+
+    try {
+      const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
+        profileId: editedProfile.id,
+        minecraftVersion: editedProfile.game_version,
+      });
+      setResolvedLoaderVersion(resolved);
+    } catch (err) {
+      console.error("Failed to resolve loader version:", err);
+      setResolvedLoaderVersion(null);
+    }
+  };
+
+  // Effect to refresh when parent signals a save occurred
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchResolvedLoaderVersion();
+    }
+  }, [refreshTrigger]);
+
   function isModLoaderCompatible(
     loader: string,
     minecraftVersion: string,
@@ -259,34 +310,6 @@ export function InstallationSettingsTab({
   const handleVersionTypeClick = (type: VersionType) => {
     if (selectedVersionType !== type) {
       setSelectedVersionType(type);
-      if (isBackgroundAnimationEnabled && versionTypesRef.current) {
-        const activeButton = versionTypesRef.current.querySelector(
-          `.version-type-${type}`,
-        );
-        const allButtons = versionTypesRef.current.querySelectorAll("button");
-
-        if (activeButton) {
-          gsap.to(activeButton, {
-            backgroundColor: `${accentColor.value}40`,
-            borderColor: accentColor.value,
-            color: "#ffffff",
-            duration: 0.3,
-            ease: "power2.out",
-          });
-        }
-
-        allButtons.forEach((button) => {
-          if (button !== activeButton) {
-            gsap.to(button, {
-              backgroundColor: "rgba(255,255,255,0.05)",
-              borderColor: "rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.7)",
-              duration: 0.3,
-              ease: "power2.out",
-            });
-          }
-        });
-      }
     }
   };
 
@@ -352,21 +375,20 @@ export function InstallationSettingsTab({
     }
   };
 
-  const handleRepair = async () => {
-    try {
-      setIsRepairing(true);
-      setError(null);
-      
-      await ProfileService.repairProfile(profile.id);
-      
-      toast.success("Profile repair completed successfully!");
-    } catch (err) {
-      console.error("Failed to repair profile:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(`Failed to repair profile: ${errorMessage}`);
-      toast.error(`Failed to repair profile: ${errorMessage}`);
-    } finally {
-      setIsRepairing(false);
+
+
+  const getReasonText = (reason: string): string => {
+    switch (reason) {
+      case "norisk_pack":
+        return "Forced by NoRisk Pack";
+      case "user_overwrite":
+        return "User Overwrite";
+      case "profile_default":
+        return "Profile Default";
+      case "not_resolved":
+        return "Not Resolved";
+      default:
+        return reason;
     }
   };
 
@@ -376,74 +398,76 @@ export function InstallationSettingsTab({
 
       <div ref={currentInstallRef} className="space-y-4">
         <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            currently installed
-          </h3>
-          <Card
-            variant="flat"
-            className="p-4 flex items-center justify-between border border-white/10 bg-black/20"
-          >
-            <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 flex items-center justify-center rounded-md border"
-                style={{
-                  backgroundColor: `${accentColor.value}30`,
-                  borderColor: `${accentColor.value}60`,
-                }}
-              >
-                <Icon icon="solar:widget-bold" className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <div className="text-2xl text-white font-minecraft tracking-wide lowercase">
-                  minecraft {editedProfile.game_version}
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex-1">
+              <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
+                currently installed
+              </h3>
+              <div className="flex items-center gap-3 text-sm font-minecraft-ten">
+                {/* Minecraft Version */}
+                <div className="text-white flex items-center gap-2">
+                  <img
+                    src="/icons/minecraft.png"
+                    alt="Minecraft"
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span className="font-bold">{editedProfile.game_version}</span>
                 </div>
-                <div className="text-xl text-white/70 tracking-wide lowercase">
-                  {editedProfile.loader === "vanilla"
-                    ? "vanilla"
-                    : `${editedProfile.loader} ${editedProfile.loader_version || ""}`}
+
+                <div className="w-px h-4 bg-white/30"></div>
+
+                {/* Loader Version */}
+                <div className="text-white/70 flex items-center gap-2">
+                  <img
+                    src={
+                      editedProfile.loader === "vanilla" ? "/icons/minecraft.png" :
+                      editedProfile.loader === "fabric" ? "/icons/fabric.png" :
+                      editedProfile.loader === "forge" ? "/icons/forge.png" :
+                      editedProfile.loader === "quilt" ? "/icons/quilt.png" :
+                      editedProfile.loader === "neoforge" ? "/icons/neoforge.png" :
+                      "/icons/minecraft.png"
+                    }
+                    alt={editedProfile.loader || "Vanilla"}
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span>
+                    {editedProfile.loader === "vanilla"
+                      ? "Vanilla"
+                      : `${editedProfile.loader} ${editedProfile.loader_version || ""}`.trim()}
+                  </span>
                 </div>
               </div>
             </div>
-          </Card>
+
+
+          </div>
         </div>
       </div>
 
-      <div ref={versionTypesRef} className="space-y-4">
+      <div ref={versionsRef} className="space-y-4">
         <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            version type
-          </h3>
-          <div className="flex flex-wrap">
-            {["release", "snapshot", "old-beta", "old-alpha"].map((type) => (
-              <Button
-                key={type}
-                variant={selectedVersionType === type ? "default" : "ghost"}
-                size="sm"
-                className={cn(
-                  "mr-2 mb-2 text-xl version-type-" + type,
-                  selectedVersionType === type
-                    ? "bg-accent/20 border-accent text-white"
-                    : "bg-black/20 hover:bg-black/30 border-white/10 text-white/80",
-                )}
-                onClick={() => handleVersionTypeClick(type as VersionType)}
-              >
-                {type}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <div ref={versionsRef}>
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             game version
           </h3>
           <div className="mb-3">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
+            <SearchWithFilters
+              searchValue={searchQuery}
+              onSearchChange={setSearchQuery}
               placeholder="search versions..."
-              className="w-full text-2xl py-3"
-              variant="flat"
+              className="w-full"
+              showSort={false}
+              showFilter={true}
+              filterOptions={[
+                { value: "release", label: "Release", icon: "solar:filter-bold" },
+                { value: "snapshot", label: "Snapshot", icon: "solar:filter-bold" },
+                { value: "old-beta", label: "Old Beta", icon: "solar:filter-bold" },
+                { value: "old-alpha", label: "Old Alpha", icon: "solar:filter-bold" },
+              ]}
+              filterValue={selectedVersionType}
+              onFilterChange={(value) => {
+                const versionType = value as VersionType;
+                handleVersionTypeClick(versionType);
+              }}
             />
           </div>
 
@@ -488,8 +512,10 @@ export function InstallationSettingsTab({
                           editedProfile.game_version === version
                             ? "bg-accent/20 border-accent text-white"
                             : "bg-black/20 hover:bg-black/30 border-white/10 text-white/80 hover:text-white",
+                          profile.is_standard_version && "cursor-not-allowed opacity-50"
                         )}
-                        onClick={() => handleGameVersionClick(version)}
+                        onClick={() => !profile.is_standard_version && handleGameVersionClick(version)}
+                        disabled={profile.is_standard_version ? true : false}
                       >
                         {version}
                       </Button>
@@ -558,6 +584,26 @@ export function InstallationSettingsTab({
         {editedProfile.loader !== "vanilla" && (
           <div ref={loaderVersionRef}>
             <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">{`${editedProfile.loader} version`}</h3>
+            
+            {resolvedLoaderVersion && (
+              <Card
+                variant="flat"
+                className="p-3 mb-4 border border-white/10 bg-black/20"
+              >
+                <div className="text-xs text-white/90 font-minecraft-ten">
+                  Current Loader Version: {" "}
+                  <span className="text-white font-bold">
+                    {resolvedLoaderVersion.version || "Not Set"}
+                  </span>
+                  {resolvedLoaderVersion.reason !== "profile_default" && (
+                    <span className="text-white/70 ml-2">
+                      ({getReasonText(resolvedLoaderVersion.reason)})
+                    </span>
+                  )}
+                </div>
+              </Card>
+            )}
+            
             {isLoadingLoaderVersions ? (
               <Card
                 variant="flat"
@@ -574,19 +620,41 @@ export function InstallationSettingsTab({
                 </div>
               </Card>
             ) : loaderVersions.length > 0 ? (
-              <Select
-                value={editedProfile.loader_version || ""}
-                onChange={(value) => updateProfile({ loader_version: value })}
-                options={[
-                  { value: "", label: "select a version" },
-                  ...loaderVersions.map((version) => ({
-                    value: version,
-                    label: version,
-                  })),
-                ]}
-                className="text-2xl py-3"
-                variant="flat"
-              />
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <Checkbox
+                    checked={editedProfile.settings.use_overwrite_loader_version}
+                    onChange={(e) => updateProfile({
+                      settings: {
+                        ...editedProfile.settings,
+                        use_overwrite_loader_version: e.target.checked
+                      }
+                    })}
+                    label={`Use Custom ${editedProfile.loader.charAt(0).toUpperCase() + editedProfile.loader.slice(1)} Version`}
+                    size="md"
+                  />
+                  
+                  <Select
+                    value={editedProfile.settings.overwrite_loader_version || ""}
+                    onChange={(value) => updateProfile({
+                      settings: {
+                        ...editedProfile.settings,
+                        overwrite_loader_version: value
+                      }
+                    })}
+                    options={[
+                      { value: "", label: "Select Custom Version" },
+                      ...loaderVersions.map((version) => ({
+                        value: version,
+                        label: version,
+                      })),
+                    ]}
+                    className="text-2xl py-3"
+                    variant="flat"
+                    disabled={!editedProfile.settings.use_overwrite_loader_version}
+                  />
+                </div>
+              </div>
             ) : (
               <Card
                 variant="flat"
@@ -600,42 +668,7 @@ export function InstallationSettingsTab({
         )}
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            repair profile
-          </h3>
-          <Card
-            variant="flat"
-            className="p-4 border border-white/10 bg-black/20"
-          >
-            <div className="flex flex-col space-y-3">
-              <p className="text-xs text-white/70 font-minecraft-ten tracking-wide select-none">
-                Repairs the profile installation by redownloading missing or corrupted files.
-              </p>
-              <Button
-                onClick={handleRepair}
-                disabled={isRepairing || isLoadingVersions || isLoadingLoaderVersions}
-                variant="secondary"
-                icon={
-                  isRepairing ? (
-                    <Icon
-                      icon="solar:refresh-bold"
-                      className="w-5 h-5 animate-spin text-white"
-                    />
-                  ) : (
-                    <Icon icon="solar:shield-check-bold" className="w-5 h-5 text-white" />
-                  )
-                }
-                size="md"
-                className="text-2xl w-fit"
-              >
-                {isRepairing ? "repairing..." : "repair profile"}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      </div>
+
     </div>
   );
 }

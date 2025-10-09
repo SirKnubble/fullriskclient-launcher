@@ -67,7 +67,7 @@ export function ProfileCard({
 
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/profiles/${profile.id}`);
+    navigate(`/profilesv2/${profile.id}`);
     if (onSettingsNavigation) {
       setTimeout(() => {
         onSettingsNavigation();

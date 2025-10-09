@@ -93,6 +93,18 @@ impl State {
         );
 
         initial_state_arc
+            .norisk_version_manager
+            .on_state_ready(app.clone())
+            .await?;
+        log::info!("State::init - NoriskVersionManager post-initialization complete.");
+
+        initial_state_arc
+            .norisk_pack_manager
+            .on_state_ready(app.clone())
+            .await?;
+        log::info!("State::init - NoriskPackManager post-initialization complete.");
+
+        initial_state_arc
             .profile_manager
             .on_state_ready(app.clone())
             .await?;
@@ -103,18 +115,6 @@ impl State {
             .on_state_ready(app.clone())
             .await?;
         log::info!("State::init - ProcessManager post-initialization complete.");
-
-        initial_state_arc
-            .norisk_pack_manager
-            .on_state_ready(app.clone())
-            .await?;
-        log::info!("State::init - NoriskPackManager post-initialization complete.");
-
-        initial_state_arc
-            .norisk_version_manager
-            .on_state_ready(app.clone())
-            .await?;
-        log::info!("State::init - NoriskVersionManager post-initialization complete.");
 
         initial_state_arc
             .skin_manager

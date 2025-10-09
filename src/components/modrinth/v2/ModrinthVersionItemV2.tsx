@@ -4,18 +4,18 @@ import React, { useEffect, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import type {
   ModrinthSearchHit,
-  ModrinthVersion,
 } from "../../../types/modrinth";
+import type { UnifiedVersion } from "../../../types/unified";
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
 import { Icon } from "@iconify/react";
-import { Button } from "../../ui/buttons/Button";
+import { ActionButton } from "../../ui/ActionButton";
 import { TagBadge } from "../../ui/TagBadge";
 import { gsap } from "gsap";
 import { useIsFirstRender } from "../../../hooks/useIsFirstRender";
 
 interface ModrinthVersionItemV2Props {
-  version: ModrinthVersion;
+  version: UnifiedVersion;
   project: ModrinthSearchHit;
   versionStatus: ContentInstallStatus | null;
   isInstalling?: boolean;
@@ -26,23 +26,23 @@ interface ModrinthVersionItemV2Props {
   onMouseLeave: () => void;
   onInstallClick: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onDeleteClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
   onInstallModpackVersionAsProfileClick?: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   selectedProfileId?: string | null;
 }
@@ -52,7 +52,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     version,
     project,
     versionStatus,
-    isInstalling = false,
+    isInstalling: externalIsInstalling = false,
     isInstallingModpackVersion = false,
     accentColor,
     isHovered,
@@ -67,7 +67,48 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     const isModpack = project.project_type === "modpack";
     const cardRef = useRef<HTMLDivElement>(null);
     const [isCardHovered, setIsCardHovered] = useState(false);
+    const [localIsInstalling, setLocalIsInstalling] = useState(false);
+    const [installationStartTime, setInstallationStartTime] = useState<number | null>(null);
     const isFirstRender = useIsFirstRender();
+
+    // Use local state or external state
+    const isInstalling = localIsInstalling || externalIsInstalling;
+
+    // If external state becomes true and we don't have local state, synchronize
+    useEffect(() => {
+      if (externalIsInstalling && !localIsInstalling && !installationStartTime) {
+        console.log('External state became true, synchronizing local state');
+        setLocalIsInstalling(true);
+        setInstallationStartTime(Date.now());
+      }
+    }, [externalIsInstalling, localIsInstalling, installationStartTime]);
+
+    // Keep local state active for at least 3 seconds after installation starts
+    useEffect(() => {
+      if (localIsInstalling && installationStartTime) {
+        const timer = setTimeout(() => {
+          console.log('Minimum display time (3s) passed, resetting local state');
+          setLocalIsInstalling(false);
+          setInstallationStartTime(null);
+        }, 3000); // 3 seconds minimum display time
+
+        return () => clearTimeout(timer);
+      }
+    }, [localIsInstalling, installationStartTime]); // Remove externalIsInstalling from dependencies
+
+    // Reset local state when version changes
+    useEffect(() => {
+      setLocalIsInstalling(false);
+      setInstallationStartTime(null);
+    }, [version.id]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+      return () => {
+        setLocalIsInstalling(false);
+        setInstallationStartTime(null);
+      };
+    }, []);
 
     const handleMouseEnterLocal = () => {
       onMouseEnter(version.id);
@@ -105,19 +146,26 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     }, [isCardHovered, accentColor, isFirstRender]);
 
     const handleButtonClick = () => {
-      if (isInstalling) return;
+    console.log('Button clicked, localIsInstalling:', localIsInstalling, 'externalIsInstalling:', externalIsInstalling);
+    if (isInstalling) return;
 
-      if (isModpack && onInstallModpackVersionAsProfileClick) {
-        onInstallModpackVersionAsProfileClick(project, version);
-      } else if (!isModpack) {
-        onInstallClick(project, version);
-      } else {
-        console.warn(
-          "onInstallModpackVersionAsProfileClick is not defined for modpack version item",
-        );
-        onInstallClick(project, version);
-      }
-    };
+    // Set local installing state immediately for instant UI feedback
+    setLocalIsInstalling(true);
+    setInstallationStartTime(Date.now());
+
+    console.log('Started installation at:', Date.now());
+
+    if (isModpack && onInstallModpackVersionAsProfileClick) {
+      onInstallModpackVersionAsProfileClick(project, version);
+    } else if (!isModpack) {
+      onInstallClick(project, version);
+    } else {
+      console.warn(
+        "onInstallModpackVersionAsProfileClick is not defined for modpack version item",
+      );
+      onInstallClick(project, version);
+    }
+  };
 
     const handleDeleteButtonClick = () => {
       if (onDeleteClick && !isModpack && selectedProfileId) {
@@ -176,73 +224,28 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     };
 
     let buttonText = "Install";
-    let buttonIcon: React.ReactNode = null;
-    let buttonVariant: "default" | "success" | "secondary" = "success";
+    let buttonVariant: "primary" | "secondary" = "primary";
     let buttonDisabled = false;
 
     if (project.project_type === "modpack" && isInstallingModpackVersion) {
       buttonText = "Installing...";
-      buttonIcon = (
-        <svg
-          className="animate-spin mr-2 h-4 w-4 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      );
       buttonVariant = "secondary";
       buttonDisabled = true;
     } else if (isInstalling) {
       buttonText = "Installing...";
-      buttonIcon = (
-        <svg
-          className="animate-spin mr-2 h-4 w-4 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      );
       buttonVariant = "secondary";
       buttonDisabled = true;
     } else if (versionStatus && versionStatus.is_installed) {
       if (versionStatus?.is_included_in_norisk_pack && !isModpack) {
         buttonText = "In Pack";
-        buttonVariant = "default";
+        buttonVariant = "secondary";
         buttonDisabled = true;
       } else if (versionStatus?.is_installed && !isModpack) {
         buttonText = "Installed";
         buttonDisabled = true;
       } else if (isModpack && !versionStatus?.is_installed) {
         buttonText = "Install";
-        buttonVariant = "success";
+        buttonVariant = "primary";
         buttonDisabled = false;
       }
     }
@@ -341,7 +344,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                     </TagBadge>
                   )}
                 <TagBadge className="flex-shrink-0">
-                  {version.version_type}
+                  {version.release_type}
                 </TagBadge>
                 {version.game_versions.length > 0 &&
                   version.game_versions.slice(0, 5).map((gv) => (
@@ -372,45 +375,41 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
                     (versionStatus?.is_included_in_norisk_pack &&
                       versionStatus?.norisk_pack_item_details &&
                       onToggleEnableClick)) && (
-                    <Button
+                    <ActionButton
                       onClick={handleToggleEnableButtonClick}
-                      size="xs"
-                      shadowDepth="short"
+                      size="sm"
                       variant={
-                        versionStatus.is_enabled ? "warning" : "secondary"
+                        versionStatus.is_enabled ? "highlight" : "secondary"
                       }
-                      className="min-w-[80px] justify-center"
-                    >
-                      {versionStatus.is_enabled ? "Active" : "Disabled"}
-                    </Button>
+                      label={versionStatus.is_enabled ? "Active" : "Disabled"}
+                      className="min-w-[80px]"
+                      icon="solar:settings-bold"
+                    />
                   )}
                 {selectedProfileId &&
                   versionStatus?.is_installed &&
                   !isModpack &&
                   onDeleteClick && (
-                    <Button
+                    <ActionButton
                       onClick={handleDeleteButtonClick}
-                      size="xs"
-                      shadowDepth="short"
+                      size="sm"
                       variant="destructive"
-                      className="min-w-[80px] justify-center"
-                    >
-                      Delete
-                    </Button>
+                      label="Delete"
+                      className="min-w-[80px]"
+                      icon="solar:trash-bin-minimalistic-bold"
+                    />
                   )}
                 {(!selectedProfileId || !versionStatus?.is_installed) && (
-                  <Button
+                  <ActionButton
                     onClick={handleButtonClick}
-                    size="xs"
-                    shadowDepth="short"
+                    size="sm"
                     variant={buttonVariant}
                     disabled={buttonDisabled || isInstalling}
-                    className="min-w-[80px] justify-center"
-                    icon={buttonIcon}
-                    iconPosition="left"
-                  >
-                    {buttonText}
-                  </Button>
+                    className="min-w-[80px]"
+                    icon={isInstalling || isInstallingModpackVersion ? "solar:refresh-bold" : "solar:download-minimalistic-bold"}
+                    iconClassName={(isInstalling || isInstallingModpackVersion) ? "animate-spin-slow" : ""}
+                    label={buttonText}
+                  />
                 )}
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "./buttons/Button";
+import { ActionButton } from "./ActionButton";
 import { GenericList } from "./GenericList";
 import { useThemeStore } from "../../store/useThemeStore";
 import { preloadIcons } from "../../lib/icon-utils";
@@ -66,50 +67,38 @@ export function GenericContentTab<T>({
   const effectiveLoadingItemCount = showSkeletons ? loadingItemCount : 0;
 
   return (
-    <div className="h-full flex flex-col select-none p-4">
-      <div
-        className="flex items-center justify-between mb-3 p-3 rounded-lg border backdrop-blur-sm flex-wrap gap-y-2 gap-x-4"
-        style={{
-          backgroundColor: `${accentColor}10`,
-          borderColor: `${accentColor}30`,
-        }}
-      >        <div className="flex items-center gap-3 flex-grow min-w-0">
+    <div className="flex flex-col select-none pt-[7px]">
+      {/* Header with search, actions etc. */}
+      <div className="flex items-center justify-between mb-1 gap-2">
+        <div className="flex items-center gap-2 flex-grow min-w-0">
           {primaryLeftActions}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {primaryRightActions}
           {!primaryRightActions && onRefreshData && (
-            <Button
+            <ActionButton
               onClick={onRefreshData}
               disabled={isLoading}
-              variant="secondary"
+              variant="text"
               size="sm"
-              icon={isLoading ? <Icon icon={GENERIC_CONTENT_TAB_DEFAULT_ICONS[0]} className="w-4 h-4 animate-spin" /> : <Icon icon="solar:refresh-outline" className="w-4 h-4" />}
-              title="Refresh"
+              icon={isLoading ? GENERIC_CONTENT_TAB_DEFAULT_ICONS[0] : "solar:refresh-outline"}
+              tooltip="Refresh"
             />
           )}
         </div>
-      </div>      {(showSecondaryActionsBar || secondaryLeftActions || secondaryRightActions) && showSecondaryActionsBar !== false && (
-        <>
-          <div 
-            className="h-px my-2"
-            style={{ backgroundColor: `${accentColor}30` }}
-          />
-          <div
-            className="flex items-center justify-between mb-4 p-3 rounded-lg border backdrop-blur-sm flex-wrap gap-y-2 gap-x-4"
-            style={{              backgroundColor: `${accentColor}08`,
-              borderColor: `${accentColor}20`,
-            }}
-          >
-            <div className="flex items-center gap-3 flex-grow min-w-0">
-              {secondaryLeftActions}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {secondaryRightActions}
-            </div>
+      </div>
+
+      {/* Secondary actions bar */}
+      {(showSecondaryActionsBar || secondaryLeftActions || secondaryRightActions) && showSecondaryActionsBar !== false && (
+        <div className="flex items-center justify-between mb-1 px-1 py-1 gap-2">
+          <div className="flex items-center gap-2 flex-grow min-w-0">
+            {secondaryLeftActions}
           </div>
-        </>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {secondaryRightActions}
+          </div>
+        </div>
       )}
 
       <GenericList<T>

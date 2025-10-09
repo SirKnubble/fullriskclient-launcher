@@ -1,6 +1,7 @@
 pub mod cape_command;
 pub mod config_commands;
 pub mod content_command;
+pub mod curseforge_commands;
 pub mod file_command;
 pub mod flagsmith_commands;
 pub mod java_command;
@@ -11,3 +12,4 @@ pub mod nrc_commands;
 pub mod path_commands;
 pub mod process_command;
 pub mod profile_command;
+pub mod vanilla_cape_command;

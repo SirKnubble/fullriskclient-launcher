@@ -68,7 +68,7 @@ export function GenericList<T>({
   searchQuery = "",
   accentColor = "#FFFFFF",
   listContainerClassName = "",
-  ulClassName = "divide-y divide-white/10",
+  ulClassName = "space-y-2",
   showEmptyState = true,
 }: GenericListProps<T>) {
   const effectiveAccentColor = accentColor || "#FFFFFF";
@@ -80,22 +80,21 @@ export function GenericList<T>({
   if (isLoading) {
     if (loadingComponent) {
       return <>{loadingComponent}</>;
-    }    if (loadingItemCount && loadingItemCount > 0) {
+    }        if (loadingItemCount && loadingItemCount > 0) {
+      // For many loading items, limit to a reasonable number to avoid performance issues
+      const effectiveLoadingCount = Math.min(loadingItemCount, 20);
+
       return (
         <div
-          className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-          style={{
-            backgroundColor: `${effectiveAccentColor}08`,
-            borderColor: `${effectiveAccentColor}20`,
-          }}
+        className={`${listContainerClassName} h-full`}
         >
-          <div className="h-full overflow-y-auto custom-scrollbar">
-            <ul className={ulClassName}>
-              {Array.from({ length: loadingItemCount }).map((_, index) => (
-                <GenericListItemSkeleton key={`skeleton-${index}`} accentColor={effectiveAccentColor} />
-              ))}
-            </ul>
-          </div>
+          <Virtuoso
+            data={Array.from({ length: effectiveLoadingCount })}
+            itemContent={(index) => (
+              <GenericListItemSkeleton key={`skeleton-${index}`} accentColor={effectiveAccentColor} />
+            )}
+            style={{ height: '100%' }}
+          />
         </div>
       );    } else if (items.length === 0) {
       return (
@@ -103,13 +102,23 @@ export function GenericList<T>({
           icon={emptyStateIcon}
           message={emptyStateMessage}
           description={emptyStateDescription}
+          action={emptyStateAction}
         />
       );
     }
   }  if (error && errorComponent) {
     return <>{errorComponent(error)}</>;
   }
-  if (error) {
+  if (error && showEmptyState) {
+    return (
+      <EmptyState
+        icon={emptyStateIcon || GENERIC_LIST_DEFAULT_ICONS[0]}
+        message={emptyStateMessage || ""}
+        description={emptyStateDescription || error}
+        action={emptyStateAction}
+      />
+    );
+  } else if (error) {
     return (
       <div
         className="p-3 flex items-center gap-2 mb-4 rounded-lg border"
@@ -117,7 +126,8 @@ export function GenericList<T>({
           backgroundColor: `rgba(220, 38, 38, 0.1)`,
           borderColor: `rgba(220, 38, 38, 0.3)`,
         }}
-      >        <Icon
+      >
+        <Icon
           icon={GENERIC_LIST_DEFAULT_ICONS[0]}
           className="w-5 h-5 text-red-400"
         />
@@ -132,43 +142,29 @@ export function GenericList<T>({
     return (
       <EmptyState
         icon={emptyStateIcon}
-        message={searchQuery ? emptyStateMessage : "no items found"}
-        description={searchQuery ? "Try a different search term." : emptyStateDescription}
+        message={emptyStateMessage || ""}
+        description={emptyStateDescription || (searchQuery ? "Try a different search term." : "")}
         action={emptyStateAction}
       />
     );
   }
   if (isEmpty && !isLoading && !error && !showEmptyState) {
-     return (
-        <div
-            className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-            style={{
-                backgroundColor: `${effectiveAccentColor}08`,
-                borderColor: `${effectiveAccentColor}20`,
-            }}
-        >            <div className="h-full overflow-y-auto custom-scrollbar">
-                <ul className={ulClassName}>
-                </ul>
-            </div>
-        </div>
-     );
+     return null; // Return nothing for empty state without background
   }
   if (!isEmpty) {
+    // Always use virtualization for better performance and consistent behavior
+    // Calculate height based on item count - min 400px, max 600px
+    const calculatedHeight = Math.min(Math.max(items.length * 60, 400), 600);
+
     return (
         <div
-        className={`flex-1 min-h-0 overflow-hidden rounded-lg border backdrop-blur-sm ${listContainerClassName}`}
-        style={{
-            backgroundColor: `${effectiveAccentColor}08`,
-            borderColor: `${effectiveAccentColor}20`,
-        }}
+        className={`${listContainerClassName}`}
         >
         <Virtuoso
-            style={{ height: '100%' }} 
-            data={items}            itemContent={(index, item) => {
-                return renderItem(item, index);
-            }}
-            className="custom-scrollbar"
-          />
+          data={items}
+          itemContent={(index) => renderItem(items[index], index)}
+          style={{ height: `${calculatedHeight}px` }}
+        />
         </div>
     );
   }

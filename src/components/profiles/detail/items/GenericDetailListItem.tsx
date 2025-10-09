@@ -2,7 +2,7 @@
 
 import React, { ReactNode, useState } from 'react';
 import { Icon } from '@iconify/react'; // For default icons if needed
-import { Checkbox } from '../../../ui/Checkbox'; // Assuming Checkbox is in ui folder
+import { CheckboxV2 } from '../../../ui/CheckboxV2'; // New checkbox with ActionButton styling
 
 export interface GenericDetailListItemProps {
   id: string;
@@ -12,7 +12,13 @@ export interface GenericDetailListItemProps {
   iconNode?: ReactNode;
   title: ReactNode;
   descriptionNode?: ReactNode;
-  badgesNode?: ReactNode;
+  infoItems?: Array<{
+    icon?: string;
+    text: string;
+    color?: string;
+    iconFilter?: string;
+  }>;
+  isDisabled?: boolean;
 
   mainActionNode?: ReactNode; // e.g., Enable/Disable button
   updateActionNode?: ReactNode; // e.g., Update button
@@ -21,6 +27,9 @@ export interface GenericDetailListItemProps {
   // These will be grouped together.
   deleteActionNode?: ReactNode;
   moreActionsTriggerNode?: ReactNode;
+  
+  // Alternative: Single actions component (takes precedence over individual action nodes)
+  actionsNode?: ReactNode;
   
   // Dropdown content, controlled by the parent via a prop or visibility toggle from moreActionsTriggerNode
   dropdownNode?: ReactNode; 
@@ -37,11 +46,13 @@ export function GenericDetailListItem({
   iconNode,
   title,
   descriptionNode,
-  badgesNode,
+  infoItems,
+  isDisabled = false,
   mainActionNode,
   updateActionNode,
   deleteActionNode,
   moreActionsTriggerNode,
+  actionsNode,
   dropdownNode,
   isDropdownVisible,
   accentColor = '#FFFFFF', // Default accent if not provided
@@ -55,66 +66,88 @@ export function GenericDetailListItem({
 
   return (
     <div 
-      className="relative flex items-center p-3 transition-colors duration-150 rounded-lg border group focus-within:border-[var(--accent-color-soft)]"
-      style={{
-        backgroundColor: isHovered ? `${accentColor}15` : `${accentColor}08`,
-        borderColor: isHovered ? `${accentColor}40` : `${accentColor}20`,
-      }}
+      className="relative flex items-center gap-4 p-3 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Checkbox Area */}
-      <div className="mr-3 flex-shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          customSize="sm"
+      <div className="flex-shrink-0 self-center" onClick={(e) => e.stopPropagation()}>
+        <CheckboxV2
+          size="sm"
           checked={isSelected}
-          onChange={(e) => onSelectionChange(e.target.checked)}
-          aria-label={`Select item ${typeof title === 'string' ? title : id}`}
+          onChange={(checked) => onSelectionChange(checked)}
+          tooltip={`Select item ${typeof title === 'string' ? title : id}`}
         />
       </div>
 
-      {/* Icon Area - Updated size */}
+      {/* Icon Area - Smaller and more compact with ProfileCardV2 styling */}
       <div 
-        className="relative w-24 h-24 flex-shrink-0 rounded-md overflow-hidden mr-4 border-2 border-b-4"
+        className={`relative w-16 h-16 flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border-2 transition-all duration-200 ${isDisabled ? 'opacity-50 grayscale' : ''}`}
         style={{
-          backgroundColor: `${accentColor}10`,
-          borderColor: `${accentColor}30`,
-          borderBottomColor: `${accentColor}40`,
+          backgroundColor: isHovered ? `${accentColor}20` : 'transparent',
+          borderColor: isHovered ? `${accentColor}60` : 'transparent',
         }}
       >
         {displayIconNode}
       </div>
 
       {/* Content Area - Title, Description, Badges */}
-      <div className="flex-grow overflow-hidden flex flex-col min-w-0 pr-3 h-24">
-        <div className="font-minecraft-ten text-base tracking-wide truncate text-white" title={typeof title === 'string' ? title : undefined}>
+      <div className="flex-1 min-w-0">
+        <h3 
+          className={`font-minecraft-ten text-sm whitespace-nowrap overflow-hidden text-ellipsis normal-case mb-1 ${isDisabled ? 'text-white/50 line-through' : 'text-white'}`}
+          title={typeof title === 'string' ? title : undefined}
+        >
           {title}
-        </div>
+        </h3>
         {descriptionNode && (
-          <div className="text-white/70 text-xs truncate mt-0.5 font-minecraft-ten flex-grow flex items-center">
-            <div>
-              {descriptionNode}
-            </div>
+          <div className={`text-xs font-minecraft-ten mb-1 ${isDisabled ? 'text-white/40' : 'text-white/70'}`}>
+            {descriptionNode}
           </div>
         )}
-        {badgesNode && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-auto pt-1.5">
-            {badgesNode}
+        {infoItems && infoItems.length > 0 && (
+          <div className="flex items-center gap-2 text-xs font-minecraft-ten">
+            {infoItems.map((item, index) => (
+              <React.Fragment key={index}>
+                {index > 0 && <div className="w-px h-3 bg-white/30"></div>}
+                <div className="flex items-center gap-1" style={{ color: item.color || '#ffffff70' }}>
+                  {item.icon && (
+                    <img
+                      src={item.icon}
+                      alt=""
+                      className={`w-3 h-3 object-contain ${isDisabled ? 'opacity-50 grayscale' : ''}`}
+                      style={item.iconFilter ? { filter: item.iconFilter } : undefined}
+                    />
+                  )}
+                  <span>{item.text}</span>
+                </div>
+              </React.Fragment>
+            ))}
           </div>
         )}
       </div>
 
       {/* Actions Area - Main Action, Update, Other Actions */}
-      <div className="flex flex-col sm:flex-row items-center justify-end gap-2 ml-auto flex-shrink-0 pl-2 relative">
-        {updateActionNode}
-        {mainActionNode}
-        {/* Group for delete and more actions */}
-        {(deleteActionNode || moreActionsTriggerNode) && (
-          <div className="flex items-center gap-1 relative">
-            {deleteActionNode}
-            {moreActionsTriggerNode}
-            {isDropdownVisible && dropdownNode} 
-          </div>
+      <div className="flex items-center gap-2 flex-shrink-0 relative">
+        {actionsNode ? (
+          // Use single actions component if provided
+          <>
+            {actionsNode}
+            {isDropdownVisible && dropdownNode}
+          </>
+        ) : (
+          // Use individual action nodes (legacy)
+          <>
+            {updateActionNode}
+            {mainActionNode}
+            {/* Group for delete and more actions */}
+            {(deleteActionNode || moreActionsTriggerNode) && (
+              <div className="flex items-center gap-0.5 relative">
+                {deleteActionNode}
+                {moreActionsTriggerNode}
+                {isDropdownVisible && dropdownNode} 
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

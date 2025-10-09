@@ -239,10 +239,10 @@ export function LogViewerDisplay({
   }
 
   return (
-    <>
+    <div className="h-full flex flex-col">
       <div
         ref={controlsRef}
-        className="p-3 rounded-lg border backdrop-blur-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-3"
+        className="p-3 rounded-lg border backdrop-blur-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-3 flex-shrink-0"
         style={{
           borderColor: headerBorderColor,
           backgroundColor: headerBgColor,
@@ -361,7 +361,7 @@ export function LogViewerDisplay({
       </div>
 
       <div
-        className="flex-1 rounded-lg border backdrop-blur-sm overflow-hidden mb-3"
+        className="flex-1 min-h-0 rounded-lg border backdrop-blur-sm overflow-hidden mb-3"
         style={{
           backgroundColor: contentBgColor,
           borderColor: contentBorderColor,
@@ -533,6 +533,6 @@ export function LogViewerDisplay({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -46,11 +46,20 @@ export function ProfileIcon({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showLoading, setShowLoading] = useState(false);
+  const [hasLoadedImage, setHasLoadedImage] = useState(false);
+  const [imageOpacity, setImageOpacity] = useState(0);
 
   useEffect(() => {
     const resolveImageUrlWithService = async () => {
       if (banner?.source) {
         setIsLoading(true);
+        
+        // Verzögerte Anzeige der Loading-Animation um Flackern zu vermeiden
+        const loadingTimeout = setTimeout(() => {
+          setShowLoading(true);
+        }, 100); // 100ms Verzögerung
+        
         try {
           const resolvedPathOrUrl = await ProfileService.resolveImagePath(
             banner.source,
@@ -65,13 +74,24 @@ export function ProfileIcon({
             if (resolvedPathOrUrl) { 
               const assetUrl = await convertFileSrc(resolvedPathOrUrl);
               setImageUrl(assetUrl + '?v=' + Date.now()); // Cache busting
+              setHasLoadedImage(true);
+              // Fade-in mit kleiner Verzögerung für smooth transition
+              setTimeout(() => setImageOpacity(1), 50);
             } else {
                 setImageUrl(null);
+                setHasLoadedImage(false);
+                setImageOpacity(0);
             }
           } else {
             // For URL or Base64, the resolvedPathOrUrl is already the final URL
             // No cache buster needed here as these are not typical file path caching scenarios
             setImageUrl(resolvedPathOrUrl);
+            setHasLoadedImage(!!resolvedPathOrUrl);
+            if (resolvedPathOrUrl) {
+              setTimeout(() => setImageOpacity(1), 50);
+            } else {
+              setImageOpacity(0);
+            }
           }
         } catch (error) {
           console.error(
@@ -80,12 +100,19 @@ export function ProfileIcon({
             error,
           );
           setImageUrl(null);
+          setHasLoadedImage(false);
+          setImageOpacity(0);
         } finally {
+          clearTimeout(loadingTimeout);
           setIsLoading(false);
+          setShowLoading(false);
         }
       } else {
         setImageUrl(null);
         setIsLoading(false);
+        setShowLoading(false);
+        setHasLoadedImage(false);
+        setImageOpacity(0);
       }
     };
 
@@ -109,6 +136,9 @@ export function ProfileIcon({
 
       if (typeof selectedPath === "string" && selectedPath) {
         setIsUpdating(true);
+        setShowLoading(true);
+        setHasLoadedImage(false); // Reset während Upload
+        setImageOpacity(0);
         try {
           await ProfileService.uploadProfileImages({
             profileId: profileId,
@@ -122,6 +152,7 @@ export function ProfileIcon({
           toast.error("Could not update profile icon.");
         } finally {
           setIsUpdating(false);
+          setShowLoading(false);
         }
       }
     } catch (error) {
@@ -135,11 +166,12 @@ export function ProfileIcon({
   }, [isEditable, isLoading, isUpdating, profileId, onSuccessfulUpdate]);
 
   const canBeClicked = isEditable && !isLoading && !isUpdating;
-  const displaySpinner = isLoading || isUpdating;
+  const displaySpinner = showLoading || isUpdating;
 
   const effectiveIconClassName = cn(iconClassName, displaySpinner && "opacity-50");
   const displayPlaceholderIcon = displaySpinner ? "eos-icons:loading" : placeholderIcon;
-  const hasImage = imageUrl && !displaySpinner;
+  const hasImage = imageUrl && hasLoadedImage && !isLoading;
+  const shouldShowPlaceholder = !banner?.source && !isLoading;
   
   const baseContainerClasses = "flex items-center justify-center flex-shrink-0 transition-all duration-200 ease-in-out relative group overflow-hidden";
 
@@ -186,9 +218,10 @@ export function ProfileIcon({
             src={imageUrl!}
             alt={profileName ? `${profileName} icon` : "Profile Icon"}
             className={cn(
-                "w-full h-full object-cover transition-opacity duration-200",
+                "w-full h-full object-cover transition-opacity duration-300",
                 canBeClicked && "group-hover:opacity-60"
             )}
+            style={{ opacity: imageOpacity }}
           />
           {canBeClicked && (
              <div className={cn(
@@ -199,13 +232,19 @@ export function ProfileIcon({
             </div>
           )}
         </>
-      ) : (
+      ) : displaySpinner ? (
         <Icon 
-            icon={displayPlaceholderIcon} 
+            icon="eos-icons:loading" 
             className={cn(effectiveIconClassName, placeholderFinalIconClassName)} 
             style={placeholderIconStyle}
         />
-      )}
+      ) : shouldShowPlaceholder ? (
+        <Icon 
+            icon={placeholderIcon} 
+            className={cn(effectiveIconClassName, placeholderFinalIconClassName)} 
+            style={placeholderIconStyle}
+        />
+      ) : null}
     </div>
   );
 } 

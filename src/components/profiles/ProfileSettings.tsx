@@ -8,17 +8,17 @@ import { GeneralSettingsTab } from "./settings/GeneralSettingsTab";
 import { InstallationSettingsTab } from "./settings/InstallationSettingsTab";
 import { JavaSettingsTab } from "./settings/JavaSettingsTab";
 import { WindowSettingsTab } from "./settings/WindowSettingsTab";
-import { ExportSettingsTab } from "./settings/ExportSettingsTab";
+import { NRCTab } from "./settings/NRCTab";
+
 import { useProfileStore } from "../../store/profile-store";
 import * as ProfileService from "../../services/profile-service";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import { toast } from "react-hot-toast";
-import { Card } from "../ui/Card";
-import { cn } from "../../lib/utils";
 import { useFlags } from 'flagsmith/react';
 import { DesignerSettingsTab } from './settings/DesignerSettingsTab';
+import { cn } from "../../lib/utils";
 
 interface ProfileSettingsProps {
   profile: Profile;
@@ -30,30 +30,30 @@ type SettingsTab =
   | "installation"
   | "java"
   | "window"
-  | "export_options"
+  | "nrc"
   | "designer";
 
 const DESIGNER_FEATURE_FLAG_NAME = "show_keep_local_assets";
 
 export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const { updateProfile, deleteProfile } = useProfileStore();
-  const [activeTab, setActiveTab] = useState<SettingsTab>(
-    profile.is_standard_version ? "java" : "general"
-  );
+  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [editedProfile, setEditedProfile] = useState<Profile>({ ...profile });
   const [currentProfile, setCurrentProfile] = useState<Profile>({ ...profile });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [systemRam, setSystemRam] = useState<number>(8192);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const accentColor = useThemeStore((state) => state.accentColor);
+  const { accentColor } = useThemeStore();
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
   );
 
   const flags = useFlags([DESIGNER_FEATURE_FLAG_NAME]);
   const showDesignerTab = flags[DESIGNER_FEATURE_FLAG_NAME]?.enabled === true;
+  const [tempRamMb, setTempRamMb] = useState(profile.settings?.memory?.max ?? 3072);
 
   useEffect(() => {
     ProfileService.getSystemRamMb()
@@ -83,6 +83,10 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   }, [isBackgroundAnimationEnabled]);
 
+  useEffect(() => {
+    setTempRamMb(profile.settings?.memory?.max ?? 3072);
+  }, [profile]);
+
   const updateProfileData = (updates: Partial<Profile>) => {
     setEditedProfile((prev) => ({ ...prev, ...updates }));
   };
@@ -111,15 +115,24 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         game_version: editedProfile.game_version,
         loader: editedProfile.loader,
         loader_version: editedProfile.loader_version || null || undefined,
-        settings: editedProfile.settings,
+        settings: {
+          ...editedProfile.settings,
+          memory: {
+            ...editedProfile.settings?.memory,
+            max: tempRamMb,
+          },
+        },
         selected_norisk_pack_id: editedProfile.selected_norisk_pack_id,
         clear_selected_norisk_pack: !editedProfile.selected_norisk_pack_id,
         group: editedProfile.group,
+        clear_group: !editedProfile.group,
         description: editedProfile.description,
         norisk_information: editedProfile.norisk_information,
+        use_shared_minecraft_folder: editedProfile.use_shared_minecraft_folder,
       });
 
       toast.success("Profile saved successfully!");
+      setRefreshTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to save profile:", err);
       toast.error("Failed to save profile. Please try again.");
@@ -157,19 +170,15 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   };
 
-  const baseTabConfig = profile.is_standard_version
-    ? [
-        { id: "java", label: "Java", icon: "solar:code-bold" },
-      ]
-    : [
-        { id: "general", label: "General", icon: "solar:settings-bold" },
-        { id: "installation", label: "Installation", icon: "solar:download-bold" },
-        { id: "java", label: "Java", icon: "solar:code-bold" },
-        { id: "window", label: "Window", icon: "solar:widget-bold" },
-        { id: "export_options", label: "Export", icon: "solar:export-bold" },
-      ];
+  const baseTabConfig = [
+    { id: "general", label: "General", icon: "solar:settings-bold" },
+    { id: "installation", label: "Installation", icon: "solar:download-bold" },
+    { id: "java", label: "JAVA & Memory", icon: "solar:code-bold" },
+    { id: "window", label: "Window", icon: "solar:widget-bold" },
+    { id: "nrc", label: "NRC", icon: "solar:gamepad-bold" },
+  ];
 
-  const tabConfig = (showDesignerTab && !profile.is_standard_version)
+  const tabConfig = showDesignerTab
     ? [
         ...baseTabConfig,
         { id: "designer", label: "Designer", icon: "solar:palette-bold" },
@@ -180,11 +189,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     if (activeTab === "designer" && !showDesignerTab) {
       setActiveTab("general");
     }
-    // For standard profiles, ensure only java tab is active
-    if (profile.is_standard_version && activeTab !== "java") {
-      setActiveTab("java");
-    }
-  }, [activeTab, showDesignerTab, profile.is_standard_version]);
+  }, [activeTab, showDesignerTab]);
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -205,6 +210,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             profile={profile}
             editedProfile={editedProfile}
             updateProfile={updateProfileData}
+            refreshTrigger={refreshTrigger}
           />
         );
       case "java":
@@ -213,6 +219,8 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             editedProfile={editedProfile}
             updateProfile={updateProfileData}
             systemRam={systemRam}
+            tempRamMb={tempRamMb}
+            setTempRamMb={setTempRamMb}
           />
         );
       case "window":
@@ -222,8 +230,16 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
             updateProfile={updateProfileData}
           />
         );
-      case "export_options":
-        return <ExportSettingsTab profile={profile} onClose={onClose} />;
+      case "nrc":
+        return (
+          <NRCTab
+            profile={profile}
+            editedProfile={editedProfile}
+            updateProfile={updateProfileData}
+            onRefresh={handleRefresh}
+          />
+        );
+
       case "designer":
         if (showDesignerTab) {
           return (
@@ -247,29 +263,27 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         size="md"
         className="text-2xl"
       >
-        {profile.is_standard_version ? "close" : "cancel"}
+        cancel
       </Button>
-      {!profile.is_standard_version && (
-        <Button
-          variant="default"
-          onClick={handleSave}
-          disabled={isSaving}
-          size="md"
-          className="text-2xl"
-        >
-          {isSaving ? (
-            <div className="flex items-center gap-3">
-              <Icon
-                icon="solar:refresh-bold"
-                className="w-6 h-6 animate-spin text-white"
-              />
-              <span>saving...</span>
-            </div>
-          ) : (
-            "save changes"
-          )}
-        </Button>
-      )}
+      <Button
+        variant="default"
+        onClick={handleSave}
+        disabled={isSaving}
+        size="md"
+        className="text-2xl"
+      >
+        {isSaving ? (
+          <div className="flex items-center gap-3">
+            <Icon
+              icon="solar:refresh-bold"
+              className="w-6 h-6 animate-spin text-white"
+            />
+            <span>saving...</span>
+          </div>
+        ) : (
+          "save changes"
+        )}
+      </Button>
     </div>
   );
 
@@ -289,60 +303,79 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     }
   };
 
-  return (    <Modal
-      title={
-        profile.is_standard_version 
-          ? `java settings: ${profile.name}` 
-          : `profile settings: ${profile.name}`
-      }
+  return (
+    <Modal
+      title={`profile settings: ${profile.name}`}
       onClose={onClose}
       width="xl"
       footer={renderFooter()}
-    ><div className="flex h-[500px] overflow-hidden">
-        <Card
+      className="h-[650px] min-h-[550px] flex flex-col"
+    >
+      <div className="flex h-full">
+        <div
           ref={sidebarRef}
-          className="w-64 overflow-y-auto custom-scrollbar bg-black/20 border border-white/10 p-4"
-          variant="flat"
+          className="w-64 flex flex-col"
         >
-          <div className="space-y-3">
+          <div className="space-y-0 flex-1">
             {tabConfig.map((tab) => {
               const isActive = activeTab === tab.id;
 
               return (
                 <div key={tab.id} className="w-full">
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    size="lg"
+                  <button
                     className={cn(
-                      "w-full text-left justify-start p-3 transition-all duration-200",
+                      "w-full text-left p-3 transition-all duration-200 rounded-none relative border-0 outline-none",
                       isActive
-                        ? "bg-black/30 border-accent border-b-[3px] hover:bg-black/30"
-                        : "bg-transparent hover:bg-black/20 border-transparent",
+                        ? "border-l-2 shadow-sm text-white"
+                        : "bg-transparent border-transparent text-white/70 hover:text-white",
                     )}
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: `${accentColor.value}10`, // 60% opacity
+                            borderLeftColor: accentColor.value,
+                            color: "white"
+                          }
+                        : {
+                            "--hover-bg": `${accentColor.value}33` // 20% opacity for hover
+                          } as any
+                    }
                     onClick={() => handleTabClick(tab.id)}
                   >
                     <div className="flex items-center gap-3">
                       <Icon
                         icon={tab.icon}
                         className={cn(
-                          "w-6 h-6",
-                          isActive ? "text-accent" : "text-white/70",
+                          "w-6 h-6 transition-colors duration-200",
+                          isActive ? "" : "text-white/50",
                         )}
+                        style={isActive ? { color: accentColor.value } : {}}
                       />
-                      <span className="font-minecraft text-3xl lowercase">
+                      <span
+                        className={cn(
+                          "font-minecraft text-3xl lowercase transition-colors duration-200",
+                          isActive ? "font-medium" : "",
+                        )}
+                        style={isActive ? { color: accentColor.value } : {}}
+                      >
                         {tab.label}
                       </span>
                     </div>
-                  </Button>
+                  </button>
                 </div>
               );
             })}
           </div>
-        </Card>
+        </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Vertical separator line */}
+        <div className="flex items-center">
+          <div className="border-l border-white/10 mx-4 my-3 h-[85%]"></div>
+        </div>
+
+        <div className="flex-1 flex flex-col">
           <div
-            className="flex-1 p-5 overflow-y-auto custom-scrollbar"
+            className="flex-1 py-2 pl-0 pr-4 overflow-y-auto custom-scrollbar"
             ref={contentRef}
           >
             {renderTabContent()}

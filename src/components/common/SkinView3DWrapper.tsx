@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 interface SkinView3DWrapperProps {
   skinUrl?: string | null;
   capeUrl?: string | null;
+  skinVariant?: 'classic' | 'slim';
   className?: string;
   width?: number;
   height?: number;
@@ -19,11 +20,17 @@ interface SkinView3DWrapperProps {
 }
 
 
-const DEFAULT_STEVE_SKIN_URL = 'https://api.mineatar.com/skin/Steve'; 
+const DEFAULT_STEVE_SKIN_URL = 'https://api.mineatar.com/skin/Steve';
+
+// Helper function to convert skin variant to skinview3d model
+const getModelType = (variant: 'classic' | 'slim' = 'classic') => {
+  return variant === 'slim' ? 'slim' : 'default';
+};
 
 export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
   skinUrl,
   capeUrl,
+  skinVariant = 'classic',
   className,
   width: propWidth,
   height: propHeight,
@@ -33,6 +40,12 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
   autoRotateSpeed = 1.0,
   startFromBack = false,
 }) => {
+  console.log("[SkinView3D] Component props:", {
+    skinUrl: skinUrl ? (typeof skinUrl === 'string' ? skinUrl.substring(0, 50) + "..." : skinUrl) : null,
+    skinVariant,
+    enableAutoRotate,
+    zoom
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const skinViewerRef = useRef<skinview3d.SkinViewer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -49,7 +62,18 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
       height: determineHeight,
       skin: skinUrl === null ? undefined : (skinUrl || DEFAULT_STEVE_SKIN_URL),
     });
+
     skinViewerRef.current = viewer;
+
+    // Load skin with model based on skinVariant prop
+    const modelType = getModelType(skinVariant);
+    if (skinUrl === null) {
+      viewer.loadSkin(null);
+    } else if (skinUrl) {
+      viewer.loadSkin(skinUrl, { model: modelType });
+    } else if (DEFAULT_STEVE_SKIN_URL) {
+      viewer.loadSkin(DEFAULT_STEVE_SKIN_URL, { model: modelType });
+    }
 
     if (capeUrl) {
       viewer.loadCape(capeUrl, displayAsElytra ? { backEquipment: "elytra" } : undefined);
@@ -93,14 +117,25 @@ export const SkinView3DWrapper: React.FC<SkinView3DWrapperProps> = ({
  
   useEffect(() => {
     if (skinViewerRef.current) {
+      const modelType = getModelType(skinVariant);
       if (skinUrl === null) {
-        
-        skinViewerRef.current.loadSkin(DEFAULT_STEVE_SKIN_URL);
+        skinViewerRef.current.loadSkin(null);
       } else if (skinUrl) {
-        skinViewerRef.current.loadSkin(skinUrl);
+        skinViewerRef.current.loadSkin(skinUrl, { model: modelType });
+      } else {
+        skinViewerRef.current.loadSkin(DEFAULT_STEVE_SKIN_URL, { model: modelType });
       }
     }
   }, [skinUrl]);
+
+  // Separate useEffect for skinVariant changes only
+  useEffect(() => {
+    if (skinViewerRef.current && skinUrl) {
+      const modelType = getModelType(skinVariant);
+      console.log(`[SkinView3D] Changing model to: ${modelType} for variant: ${skinVariant}`);
+      skinViewerRef.current.loadSkin(skinUrl, { model: modelType });
+    }
+  }, [skinVariant]);
 
   useEffect(() => {
     if (skinViewerRef.current) {

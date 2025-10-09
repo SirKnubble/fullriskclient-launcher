@@ -1,15 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "react-hot-toast";
 import {
   browseCapes,
-  deleteCape,
   downloadTemplateAndOpenExplorer,
   equipCape,
   getPlayerCapes,
   unequipCape,
-  uploadCape,
 } from "../../services/cape-service";
 import type {
   BrowseCapesOptions,
@@ -17,8 +14,8 @@ import type {
   GetPlayerCapesPayloadOptions,
   PaginationInfo,
 } from "../../types/noriskCapes";
-import { ADD_CAPE_PLACEHOLDER_ID, CapeList } from "./CapeList";
-import { CapeFilters, type CapeFiltersData } from "./CapeFilters";
+import { CapeList } from "./CapeList";
+import type { CapeFiltersData } from "./CapeFilters";
 import { Icon } from "@iconify/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -27,16 +24,31 @@ import { SkinView3DWrapper } from "../common/SkinView3DWrapper";
 import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
-import { TabLayout } from "../ui/TabLayout";
+import { SearchWithFilters } from "../ui/SearchWithFilters";
+import { useThemeStore } from "../../store/useThemeStore";
+import { useCapeFavoritesStore } from "../../store/useCapeFavoritesStore";
+import { useVanillaCapeStore } from "../../store/useVanillaCapeStore";
+import type { VanillaCape } from "../../types/vanillaCapes";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { preloadIcons } from "../../lib/icon-utils";
+import { deleteCape } from "../../services/cape-service";
+import { toast } from "react-hot-toast";
+import { UploadCapeModal } from "./UploadCapeModal";
+import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
 
-export function CapeBrowser() {
-  const [capesData, setCapesData] = useState<CosmeticCape[]>([]);
-  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFetchingMore, setIsFetchingMore] = useState(false);
+
+
+export function CapeBrowser(): JSX.Element {
+  // Separate state for ALL capes and MY CAPES
+  const [allCapes, setAllCapes] = useState<CosmeticCape[]>([]);
+  const [myCapes, setMyCapes] = useState<CosmeticCape[]>([]);
+  const [allPagination, setAllPagination] = useState<PaginationInfo | null>(null);
+  const [myPagination, setMyPagination] = useState<PaginationInfo | null>(null);
+  // Separate loading states for ALL and MY CAPES
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+  const [isLoadingMy, setIsLoadingMy] = useState(false);
+  const [isFetchingMoreAll, setIsFetchingMoreAll] = useState(false);
+  const [isFetchingMoreMy, setIsFetchingMoreMy] = useState(false);
   const [isEquippingCapeId, setIsEquippingCapeId] = useState<string | null>(
     null,
   );
@@ -47,28 +59,217 @@ export function CapeBrowser() {
     sortBy: "",
     timeFrame: "",
     showOwnedOnly: false,
+    showFavoritesOnly: false,
+    showVanillaOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Helper functions to get correct setters based on current filter
+  const getCapesSetter = (showOwnedOnly: boolean) =>
+    showOwnedOnly ? setMyCapes : setAllCapes;
+  const getPaginationSetter = (showOwnedOnly: boolean) =>
+    showOwnedOnly ? setMyPagination : setAllPagination;
+
+  const accentColor = useThemeStore((state) => state.accentColor);
+  const { favoriteCapeIds, isFavorite } = useCapeFavoritesStore();
+  const { ownedCapes: vanillaCapes, isLoading: isLoadingVanilla, error: vanillaError, fetchOwnedCapes, equippedCape } = useVanillaCapeStore();
+
+  // Computed loading states based on current filter or search
+  const isLoading = useMemo(() => {
+    // When searching, always use all loading state
+    if (searchQuery && searchQuery.trim() !== "") {
+      return isLoadingAll;
+    }
+    if (filters.showVanillaOnly) {
+      return isLoadingVanilla;
+    }
+    return filters.showOwnedOnly ? isLoadingMy : isLoadingAll;
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, isLoadingMy, isLoadingAll, isLoadingVanilla, searchQuery]);
+
+  const isFetchingMore = useMemo(() => {
+    // When searching, always use all fetching state
+    if (searchQuery && searchQuery.trim() !== "") {
+      return isFetchingMoreAll;
+    }
+    if (filters.showVanillaOnly) {
+      return false; // Vanilla capes don't have pagination
+    }
+    return filters.showOwnedOnly ? isFetchingMoreMy : isFetchingMoreAll;
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, isFetchingMoreMy, isFetchingMoreAll, searchQuery]);
+
+  // Computed equipped cape ID based on current tab
+  const equippedCapeId = useMemo(() => {
+    if (filters.showVanillaOnly) {
+      return equippedCape?.id || null;
+    }
+    // For NoRisk capes, we don't have equipped state yet
+    return null;
+  }, [filters.showVanillaOnly, equippedCape]);
+
+  const { showModal, hideModal } = useGlobalModal();
+
+  // Computed current data based on filter
+  const capesData = useMemo(() => {
+    // For vanilla capes, filter by search query if present
+    if (filters.showVanillaOnly) {
+      let filteredCapes = vanillaCapes;
+
+      if (searchQuery && searchQuery.trim() !== "") {
+        const query = searchQuery.trim().toLowerCase();
+        filteredCapes = vanillaCapes.filter(cape =>
+          cape.name.toLowerCase().includes(query)
+        );
+      }
+
+      // Add "No Cape" option at the beginning
+      const hasEquippedCape = vanillaCapes.some(cape => cape.equipped);
+      const noCapeOption: VanillaCape = {
+        id: "no-cape",
+        name: "No Cape",
+        description: "Remove your equipped cape",
+        url: "", // Empty URL for no cape
+        equipped: !hasEquippedCape, // Equipped if no other cape is equipped
+        category: "special",
+        active: !hasEquippedCape, // Active if no other cape is equipped
+      };
+
+      return [noCapeOption, ...filteredCapes];
+    }
+
+    // When searching NoRisk capes, always show search results from allCapes
+    if (searchQuery && searchQuery.trim() !== "") {
+      return allCapes;
+    }
+
+    // For favorites, let CapeList handle the filtering - just provide all available capes
+    return filters.showOwnedOnly ? myCapes : allCapes;
+  }, [filters.showOwnedOnly, filters.showVanillaOnly, myCapes, allCapes, vanillaCapes, favoriteCapeIds, searchQuery]); // Add searchQuery to trigger re-render when search changes
+
+  const paginationInfo = useMemo(() => {
+    // When searching, always use allPagination for search results
+    if (searchQuery && searchQuery.trim() !== "") {
+      return allPagination;
+    }
+    if (filters.showFavoritesOnly || filters.showVanillaOnly) {
+      return null; // Favorites and vanilla capes don't need pagination
+    }
+    return filters.showOwnedOnly ? myPagination : allPagination;
+  }, [filters.showOwnedOnly, filters.showFavoritesOnly, filters.showVanillaOnly, myPagination, allPagination, searchQuery]);
+
+  // Filter options for SearchWithFilters
+  const sortOptions = [
+    { value: "", label: "Newest", icon: "solar:sort-by-time-linear" },
+    { value: "oldest", label: "Oldest", icon: "mdi:arrow-up-bold-circle-outline" },
+    { value: "mostUsed", label: "Most Used", icon: "solar:heart-bold" },
+  ];
+
+  const filterOptions = [
+    { value: "", label: "All Time", icon: "solar:calendar-mark-linear" },
+    { value: "weekly", label: "Weekly", icon: "mdi:calendar-week-outline" },
+    { value: "monthly", label: "Monthly", icon: "solar:calendar-date-linear" },
+  ];
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewImagePath, setPreviewImagePath] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [showElytraPreview, setShowElytraPreview] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [capeToDelete, setCapeToDelete] = useState<CosmeticCape | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Helper function to format error messages
+  const formatErrorMessage = (error: string): string => {
+    const detailsIndex = error.indexOf("Details:");
+    if (detailsIndex !== -1) {
+      return error.substring(detailsIndex + 8).trim(); // +8 to skip "Details:"
+    }
+    return error; // Fallback to original error if "Details:" not found
+  };
+
+  // Helper function to determine if error is a warning (contains "In Review")
+  const isWarningMessage = (error: string): boolean => {
+    return error.toLowerCase().includes("in review");
+  };
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isLoadingRef = useRef(false);
   const { activeAccount } = useMinecraftAuthStore();
 
   useEffect(() => {
     preloadIcons(["solar:add-square-bold-duotone"]);
   }, []);
 
-  const hasMoreItems = paginationInfo
-    ? paginationInfo.currentPage < paginationInfo.totalPages - 1
-    : false;
+  // Initial load for ALL capes
+  useEffect(() => {
+    const loadAllCapes = async () => {
+      if (allCapes.length > 0 || isLoadingAll) return;
+
+      try {
+        setIsLoadingAll(true);
+        const browseOptions: BrowseCapesOptions = {
+          page: 0,
+          page_size: 20,
+          sort_by: undefined,
+          time_frame: undefined,
+        };
+        const response = await browseCapes(browseOptions);
+        setAllCapes(response.capes);
+        setAllPagination(response.pagination);
+      } catch (error) {
+        console.error("Failed to load ALL capes:", error);
+      } finally {
+        setIsLoadingAll(false);
+      }
+    };
+
+    loadAllCapes();
+  }, []); // Only run once on mount
+
+  // Load MY capes when account becomes available
+  useEffect(() => {
+    const loadMyCapes = async () => {
+      if (!activeAccount || myCapes.length > 0 || isLoadingMy) return;
+
+      try {
+        setIsLoadingMy(true);
+        const playerCapesOptions: GetPlayerCapesPayloadOptions = {
+          player_identifier: activeAccount.id,
+        };
+        const response = await getPlayerCapes(playerCapesOptions);
+        setMyCapes(response);
+        setMyPagination({
+          currentPage: 0,
+          pageSize: response.length,
+          totalItems: response.length,
+          totalPages: 1,
+        });
+      } catch (error) {
+        console.error("Failed to load MY capes:", error);
+      } finally {
+        setIsLoadingMy(false);
+      }
+    };
+
+    loadMyCapes();
+  }, [activeAccount]); // Run when activeAccount changes
+
+  // Load VANILLA capes when account becomes available and vanilla tab is active
+  useEffect(() => {
+    if (activeAccount && filters.showVanillaOnly && vanillaCapes.length === 0 && !isLoadingVanilla && !vanillaError) {
+      fetchOwnedCapes();
+    }
+  }, [activeAccount, filters.showVanillaOnly, vanillaCapes.length, isLoadingVanilla, vanillaError, fetchOwnedCapes]);
+
+  const hasMoreItems = useMemo(() => {
+    // Search results and vanilla capes don't have pagination
+    if (searchQuery && searchQuery.trim() !== "" || filters.showVanillaOnly) {
+      return false;
+    }
+    return paginationInfo
+      ? paginationInfo.currentPage < paginationInfo.totalPages - 1
+      : false;
+  }, [paginationInfo, searchQuery, filters.showVanillaOnly]);
 
   const fetchCapesData = useCallback(
     async (
@@ -77,49 +278,64 @@ export function CapeBrowser() {
       currentSearchQuery: string,
       append = false,
     ) => {
-      console.log("[CapeBrowser] fetchCapesData called with:", {
-        pageToFetch,
-        currentFilters,
-        currentSearchQuery,
-        append,
-      });
+      // Prevent concurrent requests
+      if (isLoadingRef.current) {
+        return;
+      }
+
+      isLoadingRef.current = true;
+
       if (append) {
-        setIsFetchingMore(true);
+        if (currentFilters.showOwnedOnly) {
+          setIsFetchingMoreMy(true);
+        } else {
+          setIsFetchingMoreAll(true);
+        }
       } else {
-        setIsLoading(true);
+        if (currentFilters.showOwnedOnly) {
+          setIsLoadingMy(true);
+        } else {
+          setIsLoadingAll(true);
+        }
       }
 
       try {
         let response;
-        if (currentFilters.showOwnedOnly && activeAccount) {
-          console.log(
-            "[CapeBrowser] Fetching capes for active account:",
-            activeAccount.username,
-          );
+        const currentActiveAccount = useMinecraftAuthStore.getState().activeAccount;
+
+        // Priority: Search > Owned Only > Browse All
+        if (currentSearchQuery && currentSearchQuery.trim() !== "") {
+          // Search for player capes - this should work regardless of current tab
           const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-            player_identifier: activeAccount.id,
+            player_identifier: currentSearchQuery.trim(),
           };
           response = await getPlayerCapes(playerCapesOptions);
-          setCapesData(response);
-          setPaginationInfo({
+
+          // Always use the "all" setters for search results since we're searching globally
+          setAllCapes(response);
+          setAllPagination({
             currentPage: 0,
             pageSize: response.length,
             totalItems: response.length,
             totalPages: 1,
           });
-        } else if (currentSearchQuery && currentSearchQuery.trim() !== "") {
+        } else if (currentFilters.showOwnedOnly && currentActiveAccount) {
+          // Load user's own capes
           const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-            player_identifier: currentSearchQuery.trim(),
+            player_identifier: currentActiveAccount.id,
           };
           response = await getPlayerCapes(playerCapesOptions);
-          setCapesData(response);
-          setPaginationInfo({
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+          setCapes(response);
+          setPagination({
             currentPage: 0,
             pageSize: response.length,
             totalItems: response.length,
             totalPages: 1,
           });
         } else {
+          // Browse all capes
           const browseOptions: BrowseCapesOptions = {
             page: pageToFetch,
             page_size: 20,
@@ -131,10 +347,22 @@ export function CapeBrowser() {
                 : currentFilters.timeFrame,
           };
           response = await browseCapes(browseOptions);
-          setCapesData((prevActualCapes) =>
-            append ? [...prevActualCapes, ...response.capes] : response.capes,
-          );
-          setPaginationInfo(response.pagination);
+
+          // Get the correct setters based on current filter
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+
+          // Update data with proper state management
+          setCapes((prevActualCapes) => {
+            const newCapes = append ? [...prevActualCapes, ...response.capes] : response.capes;
+            // Check if the data is actually different
+            if (prevActualCapes.length === newCapes.length &&
+                prevActualCapes.every((cape, index) => cape._id === newCapes[index]._id)) {
+              return prevActualCapes; // Return same reference to prevent re-render
+            }
+            return newCapes;
+          });
+          setPagination(response.pagination);
         }
       } catch (err: any) {
         console.error("Error fetching capes:", err);
@@ -142,82 +370,225 @@ export function CapeBrowser() {
           err?.message || "Failed to load capes. Please try again later.";
         toast.error(errorMessage);
         if (!append) {
-          setCapesData([]);
+          const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
+          const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
+          setCapes([]);
+          setPagination(null);
         }
       } finally {
+        isLoadingRef.current = false;
         if (append) {
-          setIsFetchingMore(false);
+          if (currentFilters.showOwnedOnly) {
+            setIsFetchingMoreMy(false);
+          } else {
+            setIsFetchingMoreAll(false);
+          }
         } else {
-          setIsLoading(false);
+          if (currentFilters.showOwnedOnly) {
+            setIsLoadingMy(false);
+          } else {
+            setIsLoadingAll(false);
+          }
         }
       }
     },
-    [activeAccount],
+    [], // Stable callback
   );
 
+  // Handle filter/search changes that require reloading data
   useEffect(() => {
-    console.log(
-      "[CapeBrowser] Filter/Search useEffect. CurrentPage will be reset to 0 by handlers.",
-    );
-    if (currentPage === 0) {
-      fetchCapesData(0, filters, searchQuery, false);
-    }
-  }, [filters, searchQuery, fetchCapesData]);
+    const handleFilterChange = async () => {
+      if (isLoadingRef.current) return;
 
+      // For sort/filter changes, reload the current view
+      if (currentPage === 0) {
+        const currentData = filters.showOwnedOnly ? myCapes : allCapes;
+        if (currentData.length > 0) {
+          if (filters.showOwnedOnly) {
+            setIsLoadingMy(true);
+          } else {
+            setIsLoadingAll(true);
+          }
+          try {
+            await fetchCapesData(0, filters, searchQuery, false);
+          } catch (error) {
+            console.error("Failed to reload data:", error);
+          } finally {
+            if (filters.showOwnedOnly) {
+              setIsLoadingMy(false);
+            } else {
+              setIsLoadingAll(false);
+            }
+          }
+        }
+      }
+    };
+
+    handleFilterChange();
+  }, [filters.sortBy, filters.timeFrame]); // Only trigger on actual filter changes
+
+  // Pagination useEffect
   useEffect(() => {
-    if (currentPage > 0) {
-      console.log(
-        `[CapeBrowser] CurrentPage changed to ${currentPage}, fetching more items.`,
-      );
-      fetchCapesData(currentPage, filters, searchQuery, true);
-    }
-  }, [currentPage, fetchCapesData]);
+    const handlePagination = async () => {
+      if (currentPage > 0 && !isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsFetchingMoreMy(true);
+        } else {
+          setIsFetchingMoreAll(true);
+        }
+        try {
+          await fetchCapesData(currentPage, filters, searchQuery, true);
+        } catch (error) {
+          console.error("Failed to load more data:", error);
+        } finally {
+          if (filters.showOwnedOnly) {
+            setIsFetchingMoreMy(false);
+          } else {
+            setIsFetchingMoreAll(false);
+          }
+        }
+      }
+    };
+
+    handlePagination();
+  }, [currentPage]);
 
   const loadMoreCapes = useCallback(() => {
     if (hasMoreItems && !isFetchingMore) {
-      console.log(
-        "[CapeBrowser] loadMoreCapes called. Current page:",
-        currentPage,
-        "Pagination:",
-        paginationInfo,
-      );
       setCurrentPage((prevPage) => prevPage + 1);
     }
   }, [hasMoreItems, isFetchingMore, paginationInfo, currentPage]);
 
-  const handleFilterChange = (newFilters: CapeFiltersData) => {
-    const hasMajorFilterChanged =
-      newFilters.sortBy !== filters.sortBy ||
-      newFilters.timeFrame !== filters.timeFrame ||
-      newFilters.showOwnedOnly !== filters.showOwnedOnly;
+  const handleSortChange = (value: string) => {
+    const newFilters = { ...filters, sortBy: value || undefined };
+    const hasMajorFilterChanged = newFilters.sortBy !== filters.sortBy;
 
     setFilters(newFilters);
     if (hasMajorFilterChanged) {
       setSearchQuery("");
       setCurrentPage(0);
+      // Trigger reload with new sort filter
+      if (!isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsLoadingMy(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingMy(false);
+          });
+        } else if (!filters.showFavoritesOnly) {
+          setIsLoadingAll(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingAll(false);
+          });
+        }
+      }
     } else if (currentPage !== 0) {
       setCurrentPage(0);
     }
   };
 
-  const handleSearchSubmit = (term: string) => {
-    const newSearchQuery = term.trim();
-    setSearchQuery(newSearchQuery);
-    setCurrentPage(0);
+  const handleFilterChange = (value: string) => {
+    const newFilters = { ...filters, timeFrame: value || undefined };
+    const hasMajorFilterChanged = newFilters.timeFrame !== filters.timeFrame;
+
+    setFilters(newFilters);
+    if (hasMajorFilterChanged) {
+      setSearchQuery("");
+      setCurrentPage(0);
+      // Trigger reload with new time frame filter
+      if (!isLoadingRef.current) {
+        if (filters.showOwnedOnly) {
+          setIsLoadingMy(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingMy(false);
+          });
+        } else if (!filters.showFavoritesOnly) {
+          setIsLoadingAll(true);
+          fetchCapesData(0, newFilters, "", false).finally(() => {
+            setIsLoadingAll(false);
+          });
+        }
+      }
+    } else if (currentPage !== 0) {
+      setCurrentPage(0);
+    }
   };
+
+  const handleSearchChange = (value: string) => {
+    const previousValue = searchQuery;
+    setSearchQuery(value);
+
+    // If search is being cleared (from non-empty to empty), immediately reload default capes
+    if (previousValue.trim() !== "" && value.trim() === "") {
+      setCurrentPage(0);
+      // Clear search results and trigger reload of default capes
+      setAllCapes([]);
+      setAllPagination(null);
+      // Force a reload by triggering search with empty value
+      if (!isLoadingRef.current) {
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingAll(false);
+        });
+      }
+    }
+  };
+
+  const handleSearchEnter = (value: string) => {
+    // Immediately trigger search when Enter is pressed
+    // This bypasses the debouncing for instant search
+    if (!isLoadingRef.current) {
+      fetchCapesData(0, filters, value, false);
+    }
+  };
+
 
   const refreshCurrentView = () => {
     console.log("[CapeBrowser] Refreshing current view...");
-    if (currentPage === 0) {
-      fetchCapesData(0, filters, searchQuery, false);
-    } else {
-      setCurrentPage(0);
+    // Clear current view data and reload
+    setCurrentPage(0);
+
+    if (!isLoadingRef.current) {
+      if (searchQuery && searchQuery.trim() !== "") {
+        // When searching, clear search results and reload
+        setAllCapes([]);
+        setAllPagination(null);
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, searchQuery, false).finally(() => {
+          setIsLoadingAll(false);
+        });
+      } else if (filters.showOwnedOnly) {
+        setMyCapes([]);
+        setMyPagination(null);
+        setIsLoadingMy(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingMy(false);
+        });
+      } else if (!filters.showFavoritesOnly) {
+        setAllCapes([]);
+        setAllPagination(null);
+        setIsLoadingAll(true);
+        fetchCapesData(0, filters, "", false).finally(() => {
+          setIsLoadingAll(false);
+        });
+      }
+      // Favorites don't need clearing as they're computed from existing data
     }
   };
 
   const handleEquipCape = async (capeHash: string) => {
     setIsEquippingCapeId(capeHash);
-    const promise = equipCape(capeHash);
+
+    let promise;
+    if (filters.showVanillaOnly) {
+      // For vanilla capes, use the vanilla store
+      // Special handling for "no-cape" option - unequip all capes
+      const actualCapeId = capeHash === "no-cape" ? null : capeHash;
+      promise = useVanillaCapeStore.getState().equipCape(actualCapeId);
+    } else {
+      // For NoRisk capes, use the regular equip function
+      promise = equipCape(capeHash);
+    }
+
     toast.promise(promise, {
       loading: "Equipping cape...",
       success: () => {
@@ -246,30 +617,23 @@ export function CapeBrowser() {
   };
 
   const handleDeleteCapeClick = (cape: CosmeticCape) => {
-    setCapeToDelete(cape);
-    setShowDeleteModal(true);
-  };
-
-  const handleCancelDelete = () => {
-    setCapeToDelete(null);
-    setShowDeleteModal(false);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!capeToDelete) return;
-    setIsDeleting(true);
-    try {
-      await deleteCape(capeToDelete._id);
-      toast.success("Cape deleted successfully!");
-      refreshCurrentView();
-      setShowDeleteModal(false);
-      setCapeToDelete(null);
-    } catch (err: any) {
-      console.error("Error deleting cape:", err);
-      toast.error(`Failed to delete cape: ${err.message || "Unknown error"}`);
-    } finally {
-      setIsDeleting(false);
-    }
+    showModal('delete-cape-modal', (
+      <ConfirmDeletionModal
+        capeToDelete={cape}
+        onConfirmDelete={async () => {
+          try {
+            await deleteCape(cape._id);
+            toast.success("Cape deleted successfully!");
+            refreshCurrentView();
+            hideModal('delete-cape-modal');
+          } catch (err: any) {
+            console.error("Error deleting cape:", err);
+            toast.error(`Failed to delete cape: ${err.message || "Unknown error"}`);
+          }
+        }}
+        onCancelDelete={() => hideModal('delete-cape-modal')}
+      />
+    ));
   };
 
   const handleUploadClick = async () => {
@@ -286,10 +650,20 @@ export function CapeBrowser() {
         const imageUrl = convertFileSrc(filePath);
         setPreviewImageUrl(imageUrl);
         setShowPreviewModal(true);
+
+        // Show modal using global modal system
+        showModal('upload-cape-modal', (
+          <UploadCapeModal
+            previewImageUrl={imageUrl}
+            previewImagePath={filePath}
+            formatErrorMessage={formatErrorMessage}
+            isWarningMessage={isWarningMessage}
+            onCancelUpload={handleCancelUpload}
+          />
+        ));
       } catch (err: any) {
         console.error("Error creating preview URL:", err);
         toast.error(`Couldn't preview file: ${err.message || "Unknown error"}`);
-        handleConfirmUpload(filePath);
       }
     } catch (err: any) {
       console.error("Error selecting cape file:", err);
@@ -300,31 +674,16 @@ export function CapeBrowser() {
   };
 
   const handleCancelUpload = () => {
+    hideModal('upload-cape-modal');
     setPreviewImagePath(null);
     setPreviewImageUrl(null);
     setShowPreviewModal(false);
     setShowElytraPreview(false);
+    setUploadError(null);
+    setUploadWarning(null);
+    setIsUploading(false);
   };
 
-  const handleConfirmUpload = async (filePath?: string) => {
-    const path = filePath || previewImagePath;
-    if (!path) return;
-    setIsUploading(true);
-    try {
-      await uploadCape(path);
-      toast.success("Cape uploaded successfully!");
-      refreshCurrentView();
-      setShowPreviewModal(false);
-      setPreviewImagePath(null);
-      setPreviewImageUrl(null);
-      setShowElytraPreview(false);
-    } catch (err: any) {
-      console.error("Error uploading cape:", err);
-      toast.error(`Failed to upload cape: ${err.message || "Unknown error"}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleDownloadTemplate = async () => {
     const promise = downloadTemplateAndOpenExplorer();
@@ -337,138 +696,198 @@ export function CapeBrowser() {
   };
 
   const capesForList = useMemo(() => {
-    const items: (CosmeticCape | { _id: typeof ADD_CAPE_PLACEHOLDER_ID })[] = [
-      ...capesData,
-    ];
-    if (activeAccount) {
-      items.unshift({ _id: ADD_CAPE_PLACEHOLDER_ID });
-    }
-    return items;
-  }, [capesData, activeAccount]);
-
-  const actionButtons = (
-    <CapeFilters
-      onFilterChange={handleFilterChange}
-      currentFilters={filters}
-      onSearchSubmit={handleSearchSubmit}
-    />
-  );
+    return capesData; // Return the same reference if data hasn't changed
+  }, [capesData]);
 
   return (
-    <TabLayout
-      title="Capes"
-      icon="ph:paint-roller-bold"
-      actions={actionButtons}
-    >
-      <CapeList
-        capes={capesForList}
-        onEquipCape={handleEquipCape}
-        isLoading={isLoading}
-        isEquippingCapeId={isEquippingCapeId}
-        searchQuery={searchQuery}
-        canDelete={filters.showOwnedOnly && !!activeAccount}
-        onDeleteCape={handleDeleteCapeClick}
-        loadMoreItems={loadMoreCapes}
-        hasMoreItems={hasMoreItems}
-        isFetchingMore={isFetchingMore}
-        onTriggerUpload={activeAccount ? handleUploadClick : undefined}
-        onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
-        groupFavoritesInHeader={!filters.showOwnedOnly}
-      />
-
-      {previewImageUrl && previewImagePath && showPreviewModal && (
-        <Modal
-          title="Preview & Upload Cape"
-          onClose={handleCancelUpload}
-          closeOnClickOutside={true}
-          width="md"
-          variant="flat"
-        >
-          <div className="p-4">
-            <p className="text-white/80 mb-4 text-center font-minecraft-ten">
-              Does this look correct? If so, hit upload!
-            </p>
-            <div className="relative flex justify-center items-center mb-6 p-2 rounded-md aspect-[10/16] max-w-[200px] mx-auto">
-              <SkinView3DWrapper
-                capeUrl={previewImageUrl}
-                className="w-full h-full"
-                zoom={1.5}
-                displayAsElytra={showElytraPreview}
-              />
-              <IconButton
-                onClick={() => setShowElytraPreview(!showElytraPreview)}
-                variant="ghost"
-                size="sm"
-                className="absolute top-2 right-2 z-10"
-                icon={
-                  <Icon
-                    icon={
-                      showElytraPreview
-                        ? "ph:airplane-tilt-fill"
-                        : "ph:airplane-tilt-duotone"
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Group Tabs */}
+        <div className="mb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false, showVanillaOnly: false };
+                    setFilters(newFilters);
+                    setSearchQuery("");
+                    setCurrentPage(0);
+                    if (!isLoadingRef.current) {
+                      setIsLoadingAll(true);
+                      fetchCapesData(0, newFilters, "", false).finally(() => {
+                        setIsLoadingAll(false);
+                      });
                     }
-                    className="w-5 h-5"
-                  />
-                }
-                title={showElytraPreview ? "Show as Cape" : "Show as Elytra"}
-              />
-            </div>
-            <div className="flex justify-center gap-4">
-              <Button
-                onClick={() => handleConfirmUpload()}
-                variant="flat"
-                disabled={isUploading}
-                size="lg"
-              >
-                {isUploading ? "Uploading..." : "Upload Cape"}
-              </Button>
-              <Button
-                onClick={handleCancelUpload}
-                variant="flat-secondary"
-                disabled={isUploading}
-                size="lg"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+                  }}
+                  className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                    !filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
+                      ? 'text-white'
+                      : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+                  }`}
+                  style={{
+                    backgroundColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
+                  }}
+                >
+                  <span className="lowercase">all</span>
+                </button>
 
-      {showDeleteModal && capeToDelete && (
-        <Modal
-          title="Confirm Deletion"
-          onClose={handleCancelDelete}
-          width="sm"
-          variant="flat"
-        >
-          <div className="p-4">
-            <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-              Are you sure you want to delete the cape{" "}
-              <span style={{ color: "var(--accent)" }}>{capeToDelete._id}</span>
-              ? This action cannot be undone.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button
-                onClick={handleConfirmDelete}
-                variant="destructive"
-                disabled={isDeleting}
-                size="md"
-              >
-                {isDeleting ? "Deleting..." : "Delete Cape"}
-              </Button>
-              <Button
-                onClick={handleCancelDelete}
-                variant="flat-secondary"
-                disabled={isDeleting}
-                size="md"
-              >
-                Cancel
-              </Button>
+                <button
+                  onClick={() => {
+                    if (!activeAccount) return;
+                    const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false, showVanillaOnly: false };
+                    setFilters(newFilters);
+                    setSearchQuery("");
+                    setCurrentPage(0);
+                    if (!isLoadingRef.current && activeAccount) {
+                      setIsLoadingMy(true);
+                      fetchCapesData(0, newFilters, "", false).finally(() => {
+                        setIsLoadingMy(false);
+                      });
+                    }
+                  }}
+                  disabled={!activeAccount}
+                  className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                    filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
+                      ? 'text-white'
+                      : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+                  } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{
+                    backgroundColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
+                  }}
+                  title={!activeAccount ? "No active Minecraft account" : undefined}
+                >
+                  <span className="lowercase">my capes</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: true, showVanillaOnly: false };
+                    setFilters(newFilters);
+                    setSearchQuery("");
+                    setCurrentPage(0);
+                  }}
+                  className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                    filters.showFavoritesOnly && !filters.showVanillaOnly
+                      ? 'text-white'
+                      : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+                  }`}
+                  style={{
+                    backgroundColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
+                    borderColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
+                  }}
+                >
+                  <span className="lowercase">favorites</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (!activeAccount) return;
+                    const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false, showVanillaOnly: true };
+                    setFilters(newFilters);
+                    setSearchQuery("");
+                    setCurrentPage(0);
+                  }}
+                  disabled={!activeAccount}
+                  className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                    filters.showVanillaOnly
+                      ? 'text-white'
+                      : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
+                  } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  style={{
+                    backgroundColor: filters.showVanillaOnly ? `${accentColor.value}20` : undefined,
+                    borderColor: filters.showVanillaOnly ? accentColor.value : undefined,
+                  }}
+                  title={!activeAccount ? "No active Minecraft account" : undefined}
+                >
+                  <span className="lowercase">vanilla</span>
+                </button>
+              </div>
             </div>
-          </div>
-        </Modal>
-      )}
-    </TabLayout>
+            {/* Search & Filters */}
+            <div className="mb-6 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  {!filters.showVanillaOnly ? (
+                    <SearchWithFilters
+                      placeholder="Search player..."
+                      searchValue={searchQuery}
+                      onSearchChange={handleSearchChange}
+                      onSearchEnter={handleSearchEnter}
+                      sortOptions={sortOptions}
+                      sortValue={filters.sortBy || ""}
+                      onSortChange={handleSortChange}
+                      filterOptions={filterOptions}
+                      filterValue={filters.timeFrame || ""}
+                      onFilterChange={handleFilterChange}
+                    />
+                  ) : (
+                    <SearchWithFilters
+                      placeholder="Search vanilla cape..."
+                      searchValue={searchQuery}
+                      onSearchChange={handleSearchChange}
+                      onSearchEnter={handleSearchEnter}
+                      sortOptions={[]} // No sorting options for vanilla capes
+                      sortValue=""
+                      onSortChange={() => {}} // No-op
+                      filterOptions={[]} // No time frame filters for vanilla capes
+                      filterValue=""
+                      onFilterChange={() => {}} // No-op
+                    />
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3">
+                  {activeAccount && (
+                    <>
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                        title="Download Cape Template"
+                      >
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <Icon icon="solar:download-bold" className="w-4 h-4" />
+                        </div>
+                        <span>template</span>
+                      </button>
+
+                      <button
+                        onClick={handleUploadClick}
+                        className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                        title="Upload Cape"
+                      >
+                        <div className="w-4 h-4 flex items-center justify-center">
+                          <Icon icon="solar:upload-bold" className="w-4 h-4" />
+                        </div>
+                        <span>upload</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Cape List */}
+            <CapeList
+              capes={capesForList}
+              onEquipCape={handleEquipCape}
+              isLoading={isLoading}
+              isEquippingCapeId={isEquippingCapeId}
+              equippedCapeId={equippedCapeId}
+              searchQuery={searchQuery}
+              canDelete={(filters.showOwnedOnly && !!activeAccount) && !(searchQuery && searchQuery.trim() !== "") && !filters.showVanillaOnly}
+              onDeleteCape={handleDeleteCapeClick}
+              loadMoreItems={loadMoreCapes}
+              hasMoreItems={hasMoreItems}
+              isFetchingMore={isFetchingMore}
+              onTriggerUpload={activeAccount ? handleUploadClick : undefined}
+              onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
+              groupFavoritesInHeader={filters.showFavoritesOnly}
+              showFavoritesOnly={filters.showFavoritesOnly}
+              isVanilla={filters.showVanillaOnly}
+            />
+      </div>
+    </div>
   );
 }

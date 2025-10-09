@@ -6,16 +6,135 @@ pub mod quilt_installer;
 use crate::config::ProjectDirsExt;
 use crate::error::Result;
 use crate::state::profile_state::{ModLoader, Profile};
+use crate::integrations::norisk_packs::NoriskModpacksConfig;
 use async_trait::async_trait;
 use fabric_installer::FabricInstaller;
 use forge_installer::ForgeInstaller;
 use neoforge_installer::NeoForgeInstaller;
 use quilt_installer::QuiltInstaller;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResolvedLoaderVersion {
+    pub version: Option<String>,
+    pub reason: LoaderVersionReason,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoaderVersionReason {
+    ProfileDefault,
+    NoriskPack,
+    UserOverwrite,
+    NotResolved,
+}
 
 pub struct ModloaderFactory;
 
 impl ModloaderFactory {
+    /// Resolves the loader version to use for a profile, considering Norisk pack policies and user overrides
+    pub async fn resolve_loader_version(
+        profile: &Profile,
+        minecraft_version: &str,
+        norisk_pack_config: Option<&NoriskModpacksConfig>,
+    ) -> ResolvedLoaderVersion {
+        if profile.loader == ModLoader::Vanilla {
+            return ResolvedLoaderVersion {
+                version: None,
+                reason: LoaderVersionReason::ProfileDefault,
+            };
+        }
+
+        // 1. Check for user overwrite first (highest priority)
+        if profile.settings.use_overwrite_loader_version {
+            if let Some(overwrite_version) = &profile.settings.overwrite_loader_version {
+                if !overwrite_version.is_empty() {
+                    return ResolvedLoaderVersion {
+                        version: Some(overwrite_version.clone()),
+                        reason: LoaderVersionReason::UserOverwrite,
+                    };
+                }
+            }
+        }
+
+        // 2. Check for Norisk pack policy
+        if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
+            if let Some(config) = norisk_pack_config {
+                if let Ok(resolved_pack) = config.get_resolved_pack_definition(selected_pack_id) {
+                    if let Some(policy) = &resolved_pack.loader_policy {
+                        let loader_key = profile.loader.as_str();
+                        let mut resolved_version: Option<String> = None;
+                        
+                        // Helper to read version from a loader map
+                        let get_ver = |m: &std::collections::HashMap<String, crate::integrations::norisk_packs::LoaderSpec>| {
+                            m.get(loader_key).and_then(|s| s.version.clone())
+                        };
+                        
+                        // 1) Exact MC version match
+                        if let Some(loader_map) = policy.by_minecraft.get(minecraft_version) {
+                            resolved_version = get_ver(loader_map);
+                        }
+                        
+                        // 2) Wildcard pattern like "1.21.*"
+                        if resolved_version.is_none() {
+                            for (pat, loader_map) in &policy.by_minecraft {
+                                if pat.ends_with(".*") {
+                                    let prefix = &pat[..pat.len() - 2];
+                                    if minecraft_version.starts_with(prefix) {
+                                        resolved_version = get_ver(loader_map);
+                                        if resolved_version.is_some() { break; }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 3) Prefix match (e.g., "1.21")
+                        if resolved_version.is_none() {
+                            for (pat, loader_map) in &policy.by_minecraft {
+                                if !pat.ends_with(".*") && minecraft_version.starts_with(pat) {
+                                    resolved_version = get_ver(loader_map);
+                                    if resolved_version.is_some() { break; }
+                                }
+                            }
+                        }
+                        
+                        // 4) Default fallback
+                        if resolved_version.is_none() {
+                            resolved_version = policy
+                                .default
+                                .get(loader_key)
+                                .and_then(|s| s.version.clone());
+                        }
+
+                        if let Some(version) = resolved_version {
+                            return ResolvedLoaderVersion {
+                                version: Some(version),
+                                reason: LoaderVersionReason::NoriskPack,
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Fall back to profile's default loader version
+        if let Some(profile_version) = &profile.loader_version {
+            if !profile_version.is_empty() {
+                return ResolvedLoaderVersion {
+                    version: Some(profile_version.clone()),
+                    reason: LoaderVersionReason::ProfileDefault,
+                };
+            }
+        }
+
+        // 4. No version resolved
+        ResolvedLoaderVersion {
+            version: None,
+            reason: LoaderVersionReason::NotResolved,
+        }
+    }
+
     pub fn create_installer(
         modloader: &ModLoader,
         java_path: PathBuf,

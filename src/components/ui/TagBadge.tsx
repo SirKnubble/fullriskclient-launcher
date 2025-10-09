@@ -19,7 +19,7 @@ export interface TagBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   iconElement?: React.ReactNode;
-  variant?: ComponentVariant | "inactive" | "flat";
+  variant?: ComponentVariant | "inactive" | "flat" | "filter";
   size?: ComponentSize;
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   disabled?: boolean;
@@ -93,17 +93,25 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
           text: "#f3f4f6",
         };
       }
+      if (variant === "filter") {
+        return {
+          main: accentColor.value,
+          light: accentColor.value,
+          dark: accentColor.value,
+          text: "#ffffff",
+        };
+      }
       return getVariantColors(variant as ComponentVariant, accentColor);
     };    const getSizeClasses = () => {
       switch (size) {
         case "sm":
-          return "px-2 py-1 rounded-md min-h-[15px]";
+          return "px-1.5 py-0.5 rounded-sm min-h-[12px]";
         case "lg":
-          return "px-4 py-1.5 rounded-md min-h-[36px]";
+          return "px-3 py-1 rounded-md min-h-[28px]";
         case "xl":
-          return "px-5 py-2 rounded-md min-h-[44px]";
+          return "px-4 py-1.5 rounded-md min-h-[36px]";
         default:
-          return "px-2 py-1 rounded-md min-h-[15px]";
+          return "px-1.5 py-0.5 rounded-sm min-h-[12px]";
       }
     };    const variantStyles = getVariantStyles();
     const sizeClasses = getSizeClasses();
@@ -115,7 +123,7 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const getTextSizeClass = () => {
       switch (size) {
         case "sm":
-          return "text-[0.9em]";
+          return "text-[0.75em]";
         case "lg":
           return "text-base";
         case "xl":
@@ -128,12 +136,16 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
     const customStyling =
       variant === "flat"
         ? {
-            borderWidth: "1px",
-            borderBottomWidth: "2px",
-            backgroundColor: `${variantStyles.main}30`,
-            borderColor: `${variantStyles.main}80`,
-            borderBottomColor: isHovered ? variantStyles.light : variantStyles.dark,
+            backgroundColor: `${variantStyles.main}20`,
             boxShadow: "none",
+          }
+        : variant === "destructive"
+        ? {
+            backgroundColor: "#dc262620",
+            borderWidth: "1px",
+            borderStyle: "solid",
+            borderColor: "#dc262680",
+            color: "#ffffff",
           }
         : {};    const { 
       onCopy, 
@@ -155,11 +167,11 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
         className,
       ),
       style: {
-        backgroundColor: `${variantStyles.main}30`,
-        borderWidth: "1px",
-        borderStyle: "solid",
-        borderColor: `${variantStyles.main}80`,
-        color: variantStyles.text,
+        backgroundColor: variant === "filter" ? `${variantStyles.main}30` : variant === "destructive" ? undefined : `${variantStyles.main}15`,
+        borderWidth: variant === "filter" ? "1px" : variant === "destructive" ? undefined : "0px",
+        borderStyle: variant === "filter" ? "solid" : variant === "destructive" ? undefined : "none",
+        borderColor: variant === "filter" ? `${variantStyles.main}80` : variant === "destructive" ? undefined : "transparent",
+        color: variant === "filter" ? variantStyles.text : variant === "destructive" ? undefined : "#a1a1aa", // text-zinc-400
         filter: isHovered && isClickable && !disabled ? "brightness(1.1)" : "brightness(1)",
         ...customStyling
       },
@@ -178,7 +190,7 @@ export const TagBadge = forwardRef<HTMLElement, TagBadgeProps>(
           }}
         >
           {iconElement && (
-            <span className="flex-shrink-0 w-3 h-3 flex items-center justify-center" aria-hidden="true">
+            <span className="flex-shrink-0 w-2.5 h-2.5 flex items-center justify-center" aria-hidden="true">
               {iconElement}
             </span>
           )}

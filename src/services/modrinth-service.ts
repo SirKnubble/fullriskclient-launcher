@@ -12,6 +12,10 @@ import type {
   ModrinthLoader,
   ModrinthGameVersion,
 } from "../types/modrinth";
+import type {
+  UnifiedModVersionsParams,
+  UnifiedVersionResponse,
+} from "../types/unified";
 import { invoke } from "@tauri-apps/api/core";
 
 export class ModrinthService {
@@ -131,5 +135,13 @@ export class ModrinthService {
         // hashAlgorithm: "sha1", // Not needed as backend command defaults/is specific to sha1
       },
     );
+  }
+
+  static async getModVersionsUnified(
+    params: UnifiedModVersionsParams,
+  ): Promise<UnifiedVersionResponse> {
+    return invoke<UnifiedVersionResponse>("get_mod_versions_unified_command", {
+      params,
+    });
   }
 }

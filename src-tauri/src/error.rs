@@ -185,6 +185,9 @@ pub enum AppError {
     #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
+    #[error("Image processing error: {0}")]
+    ImageProcessingError(String),
+
     #[error("Insufficient disk space on {path:?}. Required: {required_mb} MB, Available: {available_mb} MB, Shortfall: {shortfall_mb} MB")]
     InsufficientDiskSpace {
         path: std::path::PathBuf,

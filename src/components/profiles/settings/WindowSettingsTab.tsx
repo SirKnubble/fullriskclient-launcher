@@ -5,8 +5,7 @@ import type { Profile } from "../../../types/profile";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { Checkbox } from "../../ui/Checkbox";
 import { Label } from "../../ui/Label";
-import { Input } from "../../ui/Input";
-import { Card } from "../../ui/Card";
+import { SearchStyleInput } from "../../ui/Input";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils";
 
@@ -109,49 +108,43 @@ export function WindowSettingsTab({
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
             resolution
           </h3>
-          <Card
-            variant="flat"
-            className="p-4 border border-white/10 bg-black/20"
-          >
-            <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-xl text-white/70 font-minecraft mb-2 lowercase tracking-wide select-none">
                   width
                 </label>
-                <Input
+                <SearchStyleInput
                   type="number"
                   value={String(
-                    editedProfile.settings?.resolution?.width || 1280,
+                    editedProfile.settings?.resolution?.width || 854,
                   )}
                   onChange={(e) => {
-                    const width = Number.parseInt(e.target.value) || 1280;
+                    const width = Number.parseInt(e.target.value) || 854;
                     handleResolutionChange(
                       width,
-                      editedProfile.settings?.resolution?.height || 720,
+                      editedProfile.settings?.resolution?.height || 480,
                     );
                   }}
-                  className="text-2xl py-3"
-                  variant="flat"
+                  className="text-xl"
                 />
               </div>
               <div>
                 <label className="block text-xl text-white/70 font-minecraft mb-2 lowercase tracking-wide select-none">
                   height
                 </label>
-                <Input
+                <SearchStyleInput
                   type="number"
                   value={String(
-                    editedProfile.settings?.resolution?.height || 720,
+                    editedProfile.settings?.resolution?.height || 480,
                   )}
                   onChange={(e) => {
-                    const height = Number.parseInt(e.target.value) || 720;
+                    const height = Number.parseInt(e.target.value) || 480;
                     handleResolutionChange(
-                      editedProfile.settings?.resolution?.width || 1280,
+                      editedProfile.settings?.resolution?.width || 854,
                       height,
                     );
                   }}
-                  className="text-2xl py-3"
-                  variant="flat"
+                  className="text-xl"
                 />
               </div>
             </div>
@@ -184,14 +177,13 @@ export function WindowSettingsTab({
               ))}
             </div>
 
-            <Checkbox
-              checked={editedProfile.settings?.fullscreen || false}
-              onChange={(e) => handleFullscreenChange(e.target.checked)}
-              label="fullscreen"
-              className="text-2xl"
-              variant="flat"
-            />
-          </Card>
+          <Checkbox
+            checked={editedProfile.settings?.fullscreen || false}
+            onChange={(e) => handleFullscreenChange(e.target.checked)}
+            label="fullscreen"
+            className="text-2xl"
+            variant="flat"
+          />
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use tauri::Manager; // Required for app_handle.get_window() and window.emit()
 use tokio::fs;
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufReader};
+use tokio::io::BufReader;
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 use url;
 use uuid::Uuid; // Added for env! macro // Added for URL parsing
@@ -64,6 +64,19 @@ pub struct NoriskPackDefinition {
     /// Optional: Policy controlling loader version per MC version/loader.
     #[serde(rename = "loaderPolicy", default)]
     pub loader_policy: Option<LoaderPolicy>,
+    /// Optional: StartUpHelper configuration for this pack.
+    #[serde(rename = "startupHelper", default)]
+    pub startup_helper: Option<StartUpHelper>,
+}
+
+/// Configuration for copying additional files from the noriskclient/new directory
+/// to new profiles when using this modpack.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct StartUpHelper {
+    /// List of relative paths to copy from noriskclient/new/ to the profile directory.
+    /// Only files/directories that don't already exist in the target are copied.
+    /// Supports both files (e.g., "options.txt") and directories (e.g., "saves").
+    pub additional_paths: Vec<String>,
 }
 
 /// Defines a single mod entry within a Norisk pack definition.
@@ -114,6 +127,10 @@ pub struct CompatibilityTarget {
     pub identifier: String,
     /// The desired filename for the mod in the cache and mods folder (optional).
     pub filename: Option<String>,
+    /// Optional: Complete source definition to override the default source for this specific version.
+    /// This allows specifying different source types and parameters per version/loader combination.
+    #[serde(rename = "source", default)]
+    pub source: Option<NoriskModSourceDefinition>,
 }
 
 /// Type alias for the compatibility map: McVersion -> Loader -> CompatibilityTarget
@@ -873,6 +890,7 @@ impl NoriskModpacksConfig {
             assets: base_definition.assets.clone(), // Added missing field
             is_experimental: base_definition.is_experimental, // Added missing field
             loader_policy: resolved_loader_policy, // RESOLVED loader policy
+            startup_helper: base_definition.startup_helper.clone(), // Added missing field
         })
     }
 

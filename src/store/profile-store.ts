@@ -10,6 +10,7 @@ import type { FileNode } from "../types/fileSystem";
 
 interface ProfileState {
   profiles: Profile[];
+  standardProfiles: Profile[];
   loading: boolean;
   error: string | null;
   selectedProfile: Profile | null;
@@ -42,6 +43,7 @@ interface ProfileState {
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
   profiles: [],
+  standardProfiles: [],
   loading: true,
   error: null,
   selectedProfile: null,

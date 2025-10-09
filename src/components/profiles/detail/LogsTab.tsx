@@ -263,8 +263,8 @@ export function LogsTab({
   }, []);
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col select-none p-4">
-      <div className="h-full flex flex-col">
+    <div ref={containerRef} className="h-full flex flex-col select-none">
+      <div className="flex-1 min-h-0 flex flex-col">
         <LogViewerDisplay
           isLoading={isLoadingList || isLoadingContent}
           error={errorList || errorContent}

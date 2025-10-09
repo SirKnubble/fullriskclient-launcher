@@ -687,7 +687,6 @@ export function NoRiskModsTabV2({
 
       return (
         <GenericDetailListItem
-          key={mod.id}
           id={mod.id}
           isSelected={selectedModIds.has(mod.id)}
           onSelectionChange={(checked) =>
@@ -696,7 +695,6 @@ export function NoRiskModsTabV2({
           iconNode={itemIconNode}
           title={itemTitle}
           descriptionNode={itemDescriptionNode}
-          badgesNode={itemBadgesNode}
           mainActionNode={itemMainActionNode}
           accentColor={accentColor.value}
         />

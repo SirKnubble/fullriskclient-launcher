@@ -54,11 +54,13 @@ const ScreenshotGridItemComponent: React.FC<ScreenshotGridItemProps> = ({
       ref={itemRef}
       onClick={handleItemClick}
       className={cn(
-        "relative w-full rounded-md overflow-hidden cursor-pointer aspect-video bg-black/20",
+        "relative w-full rounded-md overflow-hidden cursor-pointer bg-black/20",
         "transition-opacity duration-300 ease-out",
         isBackgroundAnimationEnabled ? "animate-fadeInUpItem" : "",
       )}
       style={{
+        aspectRatio: "16/9", // Force exact 16:9 ratio
+        minWidth: "0", // Prevent flex/grid overflow
         animationDelay: animationDelay,
       }}
     >
@@ -73,11 +75,15 @@ const ScreenshotGridItemComponent: React.FC<ScreenshotGridItemProps> = ({
           src={previewSrc}
           alt={screenshot.filename}
           className={cn(
-            "absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out",
+            "absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out",
             isImageTagLoaded ? "opacity-100" : "opacity-0"
           )}
           onError={handleImageTagError}
           onLoad={handleImageTagLoad}
+          style={{
+            objectFit: "cover",
+            objectPosition: "center center",
+          }}
         />
       )}
 

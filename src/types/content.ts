@@ -1,5 +1,7 @@
 import { NoriskModIdentifier, type LocalContentItem as ProfileLocalContentItem } from "./profile";
 import type { ModrinthVersion } from "./modrinth";
+import { ModPlatform, type UnifiedVersion } from "./unified";
+import type { CurseForgeFile } from "./curseforge";
 
 /**
  * Payload for uninstalling content from a profile.
@@ -54,11 +56,13 @@ export interface InstallContentPayload {
   file_name: string;
   download_url: string;
   file_hash_sha1?: string;
+  file_fingerprint?: number; // CurseForge fingerprint for update checking
   content_name?: string;
   version_number?: string;
   content_type: ContentType; // Using the ContentType enum
   loaders?: string[];
   game_versions?: string[];
+  source: ModPlatform; // Added source to distinguish Modrinth/CurseForge
 }
 
 /**
@@ -79,7 +83,35 @@ export interface SwitchContentVersionPayload {
   profile_id: string; // Uuid
   content_type: ContentType; // Backend ContentType enum
   current_item_details?: ProfileLocalContentItem | null; // Pass the whole item from frontend
-  new_modrinth_version_details?: ModrinthVersion | null;
+  new_version_details: UnifiedVersion; // Unified version details for any platform
 }
 
-// Represents a NoriskMod item as expected by the backend for add/remove operations 
+/**
+ * Payload for toggling mod update settings for a single mod.
+ * Mirrors the Rust struct `ToggleModUpdatesPayload`.
+ */
+export interface ToggleModUpdatesPayload {
+  profile_id: string; // UUID
+  mod_id: string; // UUID of the mod
+  updates_enabled: boolean; // Whether updates should be enabled for this mod
+}
+
+/**
+ * Payload for bulk toggling mod update settings for multiple mods.
+ * Mirrors the Rust struct `BulkToggleModUpdatesPayload`.
+ */
+export interface BulkToggleModUpdatesPayload {
+  profile_id: string; // UUID
+  mod_updates: BulkModUpdateEntry[]; // Array of mod update entries
+}
+
+/**
+ * Single entry for bulk mod update operations.
+ * Mirrors the Rust struct `BulkModUpdateEntry`.
+ */
+export interface BulkModUpdateEntry {
+  mod_id: string; // UUID of the mod
+  updates_enabled: boolean; // Whether updates should be enabled for this mod
+}
+
+// Represents a NoriskMod item as expected by the backend for add/remove operations

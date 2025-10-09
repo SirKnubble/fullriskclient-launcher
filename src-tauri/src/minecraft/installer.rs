@@ -53,6 +53,7 @@ pub async fn install_minecraft_version(
     credentials: Option<Credentials>,
     quick_play_singleplayer: Option<String>,
     quick_play_multiplayer: Option<String>,
+    migration_info: Option<crate::utils::profile_utils::MigrationInfo>,
 ) -> Result<()> {
     // Convert string modloader to ModLoader enum
     let modloader_enum = match modloader_str {
@@ -102,6 +103,38 @@ pub async fn install_minecraft_version(
         info!("[InstallTest] Randomly decided NOT to throw test error. Proceeding normally.");
     }
     // <--- END HARDCODED TEST ERROR --- >
+
+    // Execute migration if provided
+    if let Some(migration) = &migration_info {
+        info!("[Launch] Executing migration before installation: {:?}", migration);
+
+        // Execute the migration (detailed progress events are sent from within execute_group_migration)
+        match crate::utils::profile_utils::execute_group_migration(migration.clone(), Some(profile.id)).await {
+            Ok(_) => {
+                info!("[Launch] Migration completed successfully");
+            }
+            Err(e) => {
+                error!("[Launch] Migration failed: {:?}", e);
+
+                // Send migration failed event
+                let migration_failed_payload = crate::state::event_state::EventPayload {
+                    event_id: uuid::Uuid::new_v4(),
+                    event_type: crate::state::event_state::EventType::MigrationFailed,
+                    target_id: Some(profile.id),
+                    message: format!("Migration failed: {:?}", e),
+                    progress: Some(0.0),
+                    error: Some(format!("{:?}", e)),
+                };
+
+                if let Err(e) = state.event_state.emit(migration_failed_payload).await {
+                    warn!("[Launch] Failed to emit migration failed event: {}", e);
+                }
+
+                // Return the error to stop the launch process
+                return Err(e);
+            }
+        }
+    }
 
     if let Some(world) = &quick_play_singleplayer {
         info!(
@@ -253,7 +286,26 @@ pub async fn install_minecraft_version(
         .calculate_instance_path_for_profile(profile)?;
     std::fs::create_dir_all(&game_directory)?;
 
-    // --- NEW: Copy initial data from default Minecraft installation ---
+    // --- NEW: Copy StartUpHelper data FIRST ---
+    info!("\nChecking for StartUpHelper data to import...");
+
+    // Load NoriskPackDefinition if a pack is selected
+    let norisk_pack = if let Some(pack_id) = &profile.selected_norisk_pack_id {
+        let config = state.norisk_pack_manager.get_config().await;
+        config.get_resolved_pack_definition(pack_id).ok()
+    } else {
+        None
+    };
+
+    if let Err(e) = mc_utils::copy_startup_helper_data(profile, &game_directory, norisk_pack.as_ref()).await {
+        // We will only log a warning because this is not a critical step for launching the game.
+        // The installation can proceed even if this fails.
+        warn!("Failed to import StartUpHelper data (non-critical error): {}", e);
+    }
+    info!("StartUpHelper data import check complete.");
+    // --- END NEW ---
+
+    // --- Copy initial data from default Minecraft installation ---
     info!("\nChecking for user data to import...");
     if let Err(e) =
         mc_utils::copy_initial_data_from_default_minecraft(profile, &game_directory).await
@@ -263,7 +315,6 @@ pub async fn install_minecraft_version(
         warn!("Failed to import user data (non-critical error): {}", e);
     }
     info!("User data import check complete.");
-    // --- END NEW ---
 
     // Emit libraries download event
     let libraries_event_id = emit_progress_event(
@@ -404,64 +455,32 @@ pub async fn install_minecraft_version(
 
     // Install modloader using the factory
     if modloader_enum != ModLoader::Vanilla {
-        // Resolve loader version from Norisk pack policy if available
+        // Resolve loader version using the new modloader factory method
         let mut install_profile = profile.clone();
-        if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
-            let config_now: NoriskModpacksConfig = state.norisk_pack_manager.get_config().await;
-            if let Ok(resolved_pack) = config_now.get_resolved_pack_definition(selected_pack_id) {
-                if let Some(policy) = &resolved_pack.loader_policy {
-                        let loader_key = modloader_enum.as_str();
-                        let mut resolved_version: Option<String> = None;
-                        // Helper to read version from a loader map
-                        let get_ver = |m: &std::collections::HashMap<String, crate::integrations::norisk_packs::LoaderSpec>| {
-                            m.get(loader_key).and_then(|s| s.version.clone())
-                        };
-                        // 1) Exact MC version match
-                        if let Some(loader_map) = policy.by_minecraft.get(version_id) {
-                            resolved_version = get_ver(loader_map);
-                        }
-                        // 2) Wildcard pattern like "1.21.*"
-                        if resolved_version.is_none() {
-                            for (pat, loader_map) in &policy.by_minecraft {
-                                if pat.ends_with(".*") {
-                                    let prefix = &pat[..pat.len() - 2];
-                                    if version_id.starts_with(prefix) {
-                                        resolved_version = get_ver(loader_map);
-                                        if resolved_version.is_some() { break; }
-                                    }
-                                }
-                            }
-                        }
-                        // 3) Prefix match (e.g., "1.21")
-                        if resolved_version.is_none() {
-                            for (pat, loader_map) in &policy.by_minecraft {
-                                if !pat.ends_with(".*") && version_id.starts_with(pat) {
-                                    resolved_version = get_ver(loader_map);
-                                    if resolved_version.is_some() { break; }
-                                }
-                            }
-                        }
-                        // 4) Default fallback
-                        if resolved_version.is_none() {
-                            resolved_version = policy
-                                .default
-                                .get(loader_key)
-                                .and_then(|s| s.version.clone());
-                        }
+        let config_now: NoriskModpacksConfig = state.norisk_pack_manager.get_config().await;
+        let resolved_loader = crate::minecraft::modloader::ModloaderFactory::resolve_loader_version(
+            profile,
+            version_id,
+            Some(&config_now),
+        ).await;
 
-                        if let Some(ver) = resolved_version {
-                            info!(
-                                "Applying loader version '{}' from pack policy '{}' for MC {} ({:?})",
-                                ver,
-                                selected_pack_id,
-                                version_id,
-                                modloader_enum
-                            );
-                            install_profile.loader_version = Some(ver);
-                        }
-                    }
-                }
-            }
+        if let Some(version) = resolved_loader.version {
+            let reason_str = match resolved_loader.reason {
+                crate::minecraft::modloader::LoaderVersionReason::NoriskPack => "Norisk pack policy",
+                crate::minecraft::modloader::LoaderVersionReason::UserOverwrite => "user overwrite",
+                crate::minecraft::modloader::LoaderVersionReason::ProfileDefault => "profile default",
+                crate::minecraft::modloader::LoaderVersionReason::NotResolved => "not resolved",
+            };
+            
+            info!(
+                "Applying loader version '{}' from {} for MC {} ({:?})",
+                version,
+                reason_str,
+                version_id,
+                modloader_enum
+            );
+            install_profile.loader_version = Some(version);
+        }
 
         let modloader_installer = ModloaderFactory::create_installer_with_config(
             &modloader_enum,

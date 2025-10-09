@@ -1,4 +1,5 @@
 import { ContentType } from "./content";
+import { ModPlatform } from "./unified";
 
 export type ModLoader = "vanilla" | "forge" | "fabric" | "quilt" | "neoforge";
 export type ProfileState =
@@ -7,6 +8,17 @@ export type ProfileState =
   | "installed"
   | "running"
   | "error";
+
+export type LoaderVersionReason = 
+  | "profile_default"
+  | "norisk_pack"
+  | "user_overwrite"
+  | "not_resolved";
+
+export interface ResolvedLoaderVersion {
+  version: string | null;
+  reason: LoaderVersionReason;
+}
 
 interface ImageSourceBase {
   type: "url" | "relativePath" | "relativeProfile" | "absolutePath" | "base64";
@@ -62,15 +74,18 @@ export interface WindowSize {
 export interface ProfileSettings {
   java_path: string | null;       // Option<String> -> string | null
   use_custom_java_path: boolean; // Added boolean flag
+  use_overwrite_loader_version: boolean; // Added boolean flag for loader version overwrite
+  overwrite_loader_version: string | null; // Option<String> -> string | null
   memory: MemorySettings;
   resolution: WindowSize | null;
   fullscreen: boolean;
   extra_game_args: string[];           // Vec<String> -> string[] (Renamed from extra_args)
   custom_jvm_args: string | null;   // Option<String> -> string | null (New)
+  quick_play_path: string | null;   // Option<String> -> string | null (Quick Play path)
 }
 
 interface ModSourceBase {
-  type: "local" | "url" | "maven" | "embedded" | "modrinth";
+  type: "local" | "url" | "maven" | "embedded" | "modrinth" | "curseforge";
 }
 
 export interface ModSourceLocal extends ModSourceBase {
@@ -104,12 +119,26 @@ export interface ModSourceModrinth extends ModSourceBase {
   file_hash_sha1: string | null;
 }
 
+export interface ModSourceCurseForge extends ModSourceBase {
+  type: "curseforge";
+  project_id: string;
+  file_id: string;
+  file_name: string;
+  download_url: string;
+  file_hash_sha1: string | null;
+}
+
 export type ModSource =
   | ModSourceLocal
   | ModSourceUrl
   | ModSourceMaven
   | ModSourceEmbedded
-  | ModSourceModrinth;
+  | ModSourceModrinth
+  | ModSourceCurseForge;
+
+export type ModPackSource =
+  | { source: "modrinth"; project_id: string; version_id: string }
+  | { source: "curse_forge"; project_id: number; file_id: number };
 
 export interface Mod {
   id: string;
@@ -120,6 +149,14 @@ export interface Mod {
   game_versions: string[] | null;
   file_name_override: string | null;
   associated_loader: ModLoader | null;
+
+  /// Origin modpack identifier in format: "platform:project_id[:version_id]"
+  /// Example: "modrinth:AANobbMI:tFw0iWAk" or "curseforge:12345:67890"
+  /// None for manually added mods
+  modpack_origin?: string | null;
+
+  /// True if automatic updates are enabled for this mod (default: true)
+  updates_enabled: boolean;
 }
 
 export interface NoriskModIdentifier {
@@ -132,6 +169,12 @@ export interface NoriskModIdentifier {
 export interface NoriskInformation {
   keep_local_assets: boolean;
   is_experimental: boolean;
+  is_main_version?: boolean;
+}
+
+export interface ModPackInfo {
+  source: ModPackSource;
+  file_hash?: string | null;
 }
 
 export interface CustomModInfo {
@@ -156,17 +199,28 @@ export interface Profile {
   disabled_norisk_mods_detailed: NoriskModIdentifier[];
   source_standard_profile_id: string | null;
   group: string | null;
+  use_shared_minecraft_folder: boolean;
   is_standard_version: boolean;
   description: string | null;
   banner: ProfileBanner | null;
   background: ProfileBanner | null;
   norisk_information: NoriskInformation | null;
+  modpack_info?: ModPackInfo | null;
 }
 
 export interface ProfileGroup {
   id: string;
   name: string;
   profiles: string[];
+}
+
+export interface VersionInfo {
+  id: string;
+  label: string;
+  icon?: string;
+  isCustom?: boolean;
+  profileId: string;
+  isMainVersion?: boolean;
 }
 
 export type ProfileFilterType = "all" | "custom" | "standard";
@@ -177,6 +231,7 @@ export interface CreateProfileParams {
   loader: string;
   loader_version?: string;
   selected_norisk_pack_id?: string;
+  use_shared_minecraft_folder?: boolean;
 }
 
 export interface UpdateProfileParams {
@@ -187,6 +242,8 @@ export interface UpdateProfileParams {
   settings?: ProfileSettings;
   selected_norisk_pack_id?: string;
   group?: string | null;
+  clear_group?: boolean;
+  use_shared_minecraft_folder?: boolean;
   description?: string | null;
   clear_selected_norisk_pack?: boolean;
   banner?: ProfileBanner | null;
@@ -197,6 +254,7 @@ export interface UpdateProfileParams {
 export interface CopyProfileParams {
   source_profile_id: string;
   new_profile_name: string;
+  use_shared_minecraft_folder?: boolean;
   include_files?: string[];
 }
 
@@ -339,20 +397,34 @@ export interface GenericModrinthInfo {
   download_url?: string | null; // Making it optional as in Rust struct
 }
 
+export interface GenericCurseForgeInfo {
+  project_id: string;
+  file_id: string;
+  name: string;
+  version_number: string;
+  download_url?: string | null; // Making it optional as in Rust struct
+  fingerprint?: number; // CurseForge file fingerprint for update checking
+}
+
 export interface LocalContentItem {
   filename: string;
-  path_str: string; 
+  path_str: string;
   sha1_hash?: string | null;
   file_size: number; // u64 in Rust maps to number in TS
   is_disabled: boolean;
   is_directory: boolean;
-  content_type: ContentType; 
+  content_type: ContentType;
   modrinth_info?: GenericModrinthInfo | null;
+  curseforge_info?: GenericCurseForgeInfo | null;
+  platform?: ModPlatform | null; // Platform this mod came from
   source_type?: string | null; // For identifying "custom" mods
   norisk_info?: NoriskModIdentifier | null; // Identifier for NoRiskMods
   fallback_version?: string | null; // Fallback version from compatibility target
   id?: string | null; // Added optional ID field from ModProfileEntry.id
   associated_loader?: ModLoader | null; // Added associated_loader from ModProfileEntry
+  // Neue Felder für ModPack-Integration
+  modpack_origin?: string | null; // "modrinth:project_id" oder "curseforge:project_id:file_id"
+  updates_enabled?: boolean | null; // null = Standard (true), true/false = explizit gesetzt
   // Frontend specific fields can be added here if needed, e.g., for UI state
   // local_icon_data_url?: string; // Example if we were to add this later
 }
@@ -363,4 +435,13 @@ export interface LoadItemsParams {
   content_type: ContentType; // Enum: ResourcePack, ShaderPack, DataPack
   calculate_hashes: boolean;
   fetch_modrinth_data: boolean;
+}
+
+// --- Migration types ---
+export type MigrationDirection = "None" | "FromGroupToInstance" | "FromInstanceToGroup";
+
+export interface MigrationInfo {
+  direction: MigrationDirection;
+  source_path?: string | null;
+  target_path?: string | null;
 }

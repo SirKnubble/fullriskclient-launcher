@@ -13,7 +13,7 @@ use log::{debug, error, info, warn};
 use serde::Deserialize;
 use serde::Serialize; // Added Serialize directly
                       // To represent NBT Compound
-use futures::future::try_join_all;
+use futures::future::{join_all, try_join_all};
 use std::env;
 use std::io::{Cursor, Read}; // Needed for reading NBT from bytes and decompression
 use std::net::SocketAddr;
@@ -30,12 +30,13 @@ use uuid::Uuid;
 
 // --- New Helper Imports for Skin Fetching ---
 use crate::minecraft::dto::minecraft_profile::{
-    MinecraftProfile, TextureInfo, TextureMetadata, TexturesData, TexturesDictionary,
+    MinecraftProfile, TexturesData,
 }; // Assuming these are public
-use crate::minecraft::dto::skin_payloads::SkinModelVariant; // Added import for new Enum
+use crate::minecraft::dto::skin_payloads::{
+    SkinModelVariant, SkinSource,
+}; // Added imports for SkinSource and related types
 use crate::utils::path_utils;
 use base64::{decode as base64_decode_str, encode as base64_encode_bytes};
-use std::path::Path;
 
 // --- End New Helper Imports ---
 
@@ -86,6 +87,38 @@ struct VersionData {
     #[serde(rename = "Name")]
     name: Option<String>,
     // Add Id and Snapshot if needed later
+}
+
+/// Helper function to check if a Minecraft version is legacy (< 1.13)
+/// This is useful for determining path structures and compatibility
+pub fn is_legacy_minecraft_version(mc_version: &str) -> bool {
+    let mc_version_parts: Vec<&str> = mc_version.split('.').collect();
+    
+    if mc_version_parts.is_empty() {
+        return false;
+    }
+    
+    // Parse major version
+    let major = match mc_version_parts[0].parse::<u32>() {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    
+    match major {
+        1 if mc_version_parts.len() > 1 => {
+            let minor = match mc_version_parts[1].parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => return false,
+            };
+            
+            // Minecraft 1.12.x and below are considered legacy
+            minor < 13
+        }
+        // Anything below 1.x is definitely legacy
+        0 => true,
+        // Anything 2.x and above is definitely not legacy
+        _ => false,
+    }
 }
 
 /// Returns the path to the default .minecraft directory based on OS
@@ -560,7 +593,7 @@ async fn emit_reuse_progress(
 }
 
 /// Helper function to emit progress events for the initial data copy
-async fn emit_copy_progress(
+pub async fn emit_copy_progress(
     state: &State,
     profile_id: Uuid,
     message: &str,
@@ -580,9 +613,54 @@ async fn emit_copy_progress(
     Ok(())
 }
 
+/// Copies StartUpHelper data from the noriskclient/new directory to a new profile's directory.
+/// This runs only if the profile is a standard version and its directory is empty.
+/// This method is called BEFORE the standard Minecraft data copy.
+/// The source directory is determined relative to default_profile_path() for proper
+/// integration with custom launcher directory configurations.
+pub async fn copy_startup_helper_data(
+    profile: &crate::state::profile_state::Profile,
+    profile_dir: &PathBuf,
+    norisk_pack: Option<&crate::integrations::norisk_packs::NoriskPackDefinition>,
+) -> Result<()> {
+    let profile_id = profile.id;
+    info!(
+        "[{}] Checking if StartUpHelper data should be imported for profile '{}'...",
+        profile_id, profile.name
+    );
+
+    // Condition 2: Only copy into an empty directory.
+    // A non-existent directory is also considered empty.
+    if profile_dir.exists() {
+        let mut entries = fs::read_dir(profile_dir).await?;
+        if entries.next_entry().await?.is_some() {
+            info!(
+                "[{}] Profile directory is not empty. Skipping StartUpHelper data import.",
+                profile_id
+            );
+            return Ok(());
+        }
+    }
+
+    info!(
+        "[{}] Profile is a standard version with an empty directory. Proceeding with StartUpHelper data import.",
+        profile_id
+    );
+
+    // Copy StartUpHelper files
+    if let Err(e) = copy_startup_helper_files(profile, profile_dir, norisk_pack).await {
+        warn!("Failed to copy StartUpHelper files: {}", e);
+        // Don't fail the entire process if StartUpHelper copy fails
+    }
+
+    info!("[{}] StartUpHelper data copy completed.", profile_id);
+    Ok(())
+}
+
 /// Copies initial user data (saves, options, etc.) from the default .minecraft directory
 /// to a new profile's directory.
 /// This runs only if the profile is a standard version and its directory is empty.
+/// This method is called AFTER the StartUpHelper data copy.
 pub async fn copy_initial_data_from_default_minecraft(
     profile: &crate::state::profile_state::Profile,
     profile_dir: &PathBuf,
@@ -772,6 +850,193 @@ pub async fn copy_initial_data_from_default_minecraft(
     info!("[{}] Initial data copy finished.", profile_id);
     if let Some(s) = &state {
         emit_copy_progress(s, profile_id, "User data import complete.", 1.0, None).await?;
+    }
+
+    Ok(())
+}
+
+/// Copies additional files specified in StartUpHelper from noriskclient/new/ directory
+/// to the profile directory. Only copies files that don't already exist.
+/// This runs BEFORE the standard Minecraft data copy to allow StartUpHelper files
+/// to be overridden by standard MC files if needed.
+/// The source directory is determined relative to default_profile_path() to ensure
+/// proper integration with custom launcher directories.
+pub async fn copy_startup_helper_files(
+    profile: &crate::state::profile_state::Profile,
+    profile_dir: &PathBuf,
+    norisk_pack: Option<&crate::integrations::norisk_packs::NoriskPackDefinition>,
+) -> Result<()> {
+    let profile_id = profile.id;
+
+    // Check if StartUpHelper is configured in NoriskPack
+    let startup_helper = match norisk_pack {
+        Some(pack) => match pack.startup_helper.as_ref() {
+            Some(helper) => helper,
+            None => {
+                debug!("[{}] No StartUpHelper configured in pack, skipping.", profile_id);
+                return Ok(());
+            }
+        },
+        None => {
+            debug!("[{}] No NoriskPack selected, skipping StartUpHelper.", profile_id);
+            return Ok(());
+        }
+    };
+
+    // Check if additional_paths is empty
+    if startup_helper.additional_paths.is_empty() {
+        debug!("[{}] StartUpHelper has no additional paths configured, skipping.", profile_id);
+        return Ok(());
+    }
+
+    let paths_count = startup_helper.additional_paths.len();
+    info!(
+        "[{}] StartUpHelper found {} additional paths to copy.",
+        profile_id,
+        paths_count
+    );
+
+    // Get the noriskclient/new directory path
+    let default_profile_path = crate::state::profile_state::default_profile_path();
+    let norisk_dir = default_profile_path
+        .join("noriskclient")
+        .join("new");
+
+    if !norisk_dir.exists() {
+        info!(
+            "[{}] NoRiskClient new directory not found at: {}, skipping StartUpHelper.",
+            profile_id,
+            norisk_dir.display()
+        );
+        return Ok(());
+    }
+
+    info!(
+        "[{}] Found NoRiskClient new directory at: {}",
+        profile_id,
+        norisk_dir.display()
+    );
+
+    // Get state for progress reporting
+    let state = match State::get().await {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!(
+                "[{}] Couldn't get state for StartUpHelper progress: {}",
+                profile_id, e
+            );
+            None
+        }
+    };
+
+    if let Some(s) = &state {
+        emit_copy_progress(
+            s,
+            profile_id,
+            "Copying StartUpHelper files...",
+            0.95,
+            None,
+        )
+        .await?;
+    }
+
+    let semaphore = match &state {
+        Some(s) => s.io_semaphore.clone(),
+        None => {
+            // Fallback: create a semaphore with reasonable limits
+            std::sync::Arc::new(tokio::sync::Semaphore::new(10))
+        }
+    };
+
+    let mut copy_tasks = Vec::new();
+
+    for relative_path in &startup_helper.additional_paths {
+        let src_path = norisk_dir.join(relative_path);
+        let dest_path = profile_dir.join(relative_path);
+        let sem_clone = semaphore.clone();
+
+        let task = async move {
+            // Check if destination already exists
+            if fs::try_exists(&dest_path).await.unwrap_or(false) {
+                debug!(
+                    "[{}] StartUpHelper destination already exists: {}",
+                    profile_id,
+                    dest_path.display()
+                );
+                return Ok(());
+            }
+
+            // Check if source exists
+            if !fs::try_exists(&src_path).await.unwrap_or(false) {
+                debug!(
+                    "[{}] StartUpHelper source not found: {}",
+                    profile_id,
+                    src_path.display()
+                );
+                return Ok(());
+            }
+
+            // Create parent directories if needed
+            if let Some(parent) = dest_path.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent).await?;
+                }
+            }
+
+            let metadata = fs::metadata(&src_path).await?;
+            if metadata.is_dir() {
+                // Copy directory recursively - function handles its own parallelism
+                path_utils::copy_dir_recursively(&src_path, &dest_path, sem_clone).await?;
+                info!(
+                    "[{}] StartUpHelper copied directory: {} -> {}",
+                    profile_id,
+                    src_path.display(),
+                    dest_path.display()
+                );
+            } else {
+                // Copy single file
+                let _permit = sem_clone.acquire().await?;
+                fs::copy(&src_path, &dest_path).await?;
+                info!(
+                    "[{}] StartUpHelper copied file: {} -> {}",
+                    profile_id,
+                    src_path.display(),
+                    dest_path.display()
+                );
+            }
+
+            Ok::<(), AppError>(())
+        };
+
+        copy_tasks.push(task);
+    }
+
+    // Execute all copy tasks
+    let results = futures::future::join_all(copy_tasks).await;
+    let mut copied_count = 0;
+    let mut error_count = 0;
+
+    for result in results {
+        match result {
+            Ok(_) => copied_count += 1,
+            Err(e) => {
+                error!("[{}] StartUpHelper copy error: {}", profile_id, e);
+                error_count += 1;
+            }
+        }
+    }
+
+    info!(
+        "[{}] StartUpHelper copy summary: {} files copied, {} errors",
+        profile_id, copied_count, error_count
+    );
+
+    if let Some(s) = &state {
+        let message = format!(
+            "StartUpHelper files copied: {} files, {} errors",
+            copied_count, error_count
+        );
+        emit_copy_progress(s, profile_id, &message, 1.0, None).await?;
     }
 
     Ok(())
@@ -1488,4 +1753,75 @@ pub fn extract_skin_info_from_profile(
         profile.name, skin_url, skin_variant, profile_name
     );
     Ok((skin_url, skin_variant, profile_name))
+}
+
+/// Extracts base64 encoded image data from various SkinSource types.
+/// This function handles all the logic for fetching and encoding skin data from different sources.
+///
+/// # Arguments
+/// * `source` - The SkinSource containing the data source information
+///
+/// # Returns
+/// Returns a Result containing the base64 encoded image data or an AppError
+pub async fn get_base64_from_skin_source(source: &SkinSource) -> Result<String> {
+    match source {
+        SkinSource::Profile(profile_data) => {
+            debug!(
+                "[MC Utils] Processing Profile source for query: {}",
+                profile_data.query
+            );
+            // Import the MinecraftApiService here to avoid circular dependencies
+            use crate::minecraft::api::mc_api::MinecraftApiService;
+
+            let api_service = MinecraftApiService::new();
+            let profile = api_service
+                .get_profile_by_name_or_uuid(&profile_data.query)
+                .await?;
+
+            let (skin_url, _, _) = extract_skin_info_from_profile(&profile)?;
+            fetch_image_as_base64(&skin_url).await
+        }
+        SkinSource::Url(url_data) => {
+            debug!(
+                "[MC Utils] Processing URL source: {}",
+                url_data.url
+            );
+            fetch_image_as_base64(&url_data.url).await
+        }
+        SkinSource::FilePath(filepath_data) => {
+            debug!(
+                "[MC Utils] Processing FilePath source: {}",
+                filepath_data.path
+            );
+
+            let mut corrected_path_string = filepath_data.path.clone();
+            if cfg!(windows) {
+                // Example: /C:/Users/username -> C:/Users/username
+                if corrected_path_string.starts_with("/")
+                    && corrected_path_string.len() > 2
+                    && corrected_path_string.chars().nth(2) == Some(':')
+                {
+                    corrected_path_string.remove(0);
+                }
+            }
+            let corrected_path = PathBuf::from(corrected_path_string);
+            debug!(
+                "[MC Utils] Using corrected path for reading: {:?}",
+                corrected_path
+            );
+
+            let file_content = tokio::fs::read(&corrected_path).await.map_err(|e| {
+                error!(
+                    "[MC Utils] Failed to read skin file from path {:?}: {}",
+                    corrected_path, e
+                );
+                AppError::Io(e)
+            })?;
+            Ok(base64_encode_bytes(&file_content))
+        }
+        SkinSource::Base64(base64_content_data) => {
+            debug!("[MC Utils] Processing Base64 source");
+            Ok(base64_content_data.base64_content.clone())
+        }
+    }
 }

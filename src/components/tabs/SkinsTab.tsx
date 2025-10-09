@@ -15,18 +15,15 @@ import { IconButton } from "../ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
 import { StatusMessage } from "../ui/StatusMessage";
 import { SkinViewer } from "../launcher/SkinViewer";
-import { Modal } from "../ui/Modal";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useSkinStore } from "../../store/useSkinStore";
 import { toast } from "react-hot-toast";
-import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Input } from "../ui/Input";
-import { RadioButton } from "../ui/RadioButton";
-import { TabLayout } from "../ui/TabLayout";
+import { SearchWithFilters } from "../ui/SearchWithFilters";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { AddSkinModal } from "../modals/AddSkinModal";
 import { cn } from "../../lib/utils";
-import { Card } from "../ui/Card";
 
 const SkinPreview = memo(
   ({
@@ -57,6 +54,7 @@ const SkinPreview = memo(
       event: React.MouseEvent<HTMLButtonElement>,
     ) => void;
   }) => {
+    const [isHovered, setIsHovered] = useState(false);
     const accentColor = useThemeStore((state) => state.accentColor);
     const isBackgroundAnimationEnabled = useThemeStore(
       (state) => state.isBackgroundAnimationEnabled,
@@ -157,92 +155,134 @@ const SkinPreview = memo(
       : "";
 
     return (
-      <div key={skin.id} style={animationStyle} className={animationClasses}>
-        <Card
-          className={cn(
-            "relative p-4 pt-1 pb-2 h-[380px] flex flex-col text-center group",
-            "transition-all duration-300 ease-out hover:scale-105 hover:z-10",
-            isDisabled ? "opacity-60 pointer-events-none" : "",
+      <div
+        key={skin.id}
+        style={{
+          ...animationStyle,
+          backgroundColor: isHovered ? `${accentColor.value}20` : undefined,
+          borderColor: isHovered ? `${accentColor.value}60` : undefined,
+        }}
+        className={cn(
+          "relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 cursor-pointer",
+          animationClasses,
+          isDisabled ? "opacity-60 pointer-events-none" : ""
+        )}
+        onClick={() =>
+          !isDisabled && !isApplied && !isSelected && onClick(skin)
+        }
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Action buttons - top right */}
+        <div className="absolute top-3 right-3 z-20 flex flex-col gap-1">
+          {onEditSkin && (
+            <button
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onEditSkin(skin, event);
+              }}
+              className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
+              title="Edit skin properties"
+              disabled={isDisabled}
+            >
+              <Icon icon="solar:pen-bold" className="w-4 h-4" />
+            </button>
           )}
-          variant={isSelected ? "flat" : "flat"}
-          onClick={() =>
-            !isDisabled && !isApplied && !isSelected && onClick(skin)
-          }
-        >
-          <p
-            className="font-minecraft text-white lowercase truncate text-3xl transition-transform duration-300 ease-out group-hover:scale-110"
-            title={skin.name}
-          >
-            {skin.name}
-          </p>
 
-          <div className="h-64 flex relative pt-2 pb-2 flex-grow items-center justify-center transition-transform duration-300 ease-out group-hover:scale-105">
+          {onDeleteSkin && (
+            <button
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onDeleteSkin(skin.id, skin.name, event);
+              }}
+              className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-red-700/80 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
+              title="Delete skin"
+              disabled={isDisabled}
+            >
+              <Icon
+                icon="solar:trash-bin-trash-bold"
+                className="w-4 h-4"
+              />
+            </button>
+          )}
+        </div>
+
+        {/* Skin content */}
+        <div className="flex flex-col items-center gap-3 relative z-10 w-full">
+          {/* Skin Image */}
+          <div
+            className="relative flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border border-transparent transition-all duration-300 ease-out"
+            style={{
+              width: "140px",
+              height: "280px",
+            }}
+          >
             {isRenderLoading && canShowSpinner ? (
-              <div className="w-12 h-12 border-4 border-t-transparent border-[var(--accent)] rounded-full animate-spin"></div>
+              <div className="flex flex-col items-center justify-center space-y-2">
+                <div className="w-8 h-8 border-4 border-t-transparent border-[var(--accent)] rounded-full animate-spin"></div>
+                <p className="font-minecraft text-xs text-white/70 lowercase">Loading...</p>
+              </div>
             ) : !isRenderLoading ? (
               <SkinViewer
                 skinUrl={starlightRenderUrl || ""}
-                width={130}
-                height={260}
-                className="mx-auto"
+                width={140}
+                height={280}
+                className="rounded-sm block"
               />
             ) : null}
-          </div>
 
-          <div className="flex items-center justify-between mt-auto">
-            <p className="text-white/60 font-minecraft lowercase text-2xl transition-transform duration-300 ease-out group-hover:scale-110">
-              {skin.variant === "slim" ? "Slim" : "Classic"}
-            </p>
-
-            {isApplied && (
-              <span className="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm font-minecraft flex items-center transition-transform duration-300 ease-out group-hover:scale-110">
-                <Icon icon="solar:check-circle-bold" className="w-4 h-4 mr-1" />
-                Applied
-              </span>
+            {/* Applying overlay */}
+            {isDisabled && (
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg">
+                <Icon
+                  icon="solar:refresh-bold"
+                  className="w-8 h-8 animate-spin mb-1"
+                  style={{ color: accentColor.value }}
+                />
+                <span className="font-minecraft text-xs text-white lowercase">
+                  Applying
+                </span>
+              </div>
             )}
           </div>
 
-          {isDisabled && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-20 transition-opacity duration-300 ease-in-out">
-              <div className="w-20 h-20 border-4 border-t-transparent border-white rounded-full animate-spin mb-4 transition-all duration-300"></div>
-              <span className="font-minecraft text-2xl text-white lowercase animate-pulse transition-all duration-300">
-                Applying...
-              </span>
+          {/* Skin Info */}
+          <div className="flex-grow min-w-0 w-full text-center">
+            {/* Skin Name */}
+            <h3
+              className="font-minecraft-ten text-white text-base whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case mb-1"
+              title={skin.name}
+            >
+              {skin.name}
+            </h3>
+
+            {/* Skin Variant & Applied Status */}
+            <div className="flex items-center justify-center gap-2 text-xs font-minecraft-ten">
+              <div className="text-white/60 flex items-center gap-1">
+                <Icon
+                  icon="solar:palette-bold"
+                  className="w-3 h-3 text-white/50"
+                />
+                <span>{skin.variant === "slim" ? "Slim" : "Classic"}</span>
+              </div>
+
+              {isApplied && (
+                <>
+                  <div className="w-px h-3 bg-white/30"></div>
+                  <div className="text-green-400 flex items-center gap-1">
+                    <Icon
+                      icon="solar:check-circle-bold"
+                      className="w-3 h-3"
+                    />
+                    <span>Applied</span>
+                  </div>
+                </>
+              )}
             </div>
-          )}
-
-          <div className="absolute bottom-1.5 right-1.5 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out group-hover:scale-110">
-            {onEditSkin && (
-              <IconButton
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onEditSkin(skin, event);
-                }}
-                title="Edit skin properties"
-                disabled={isDisabled}
-                size="xs"
-                variant="secondary"
-                icon={<Icon icon="solar:pen-bold" className="w-4 h-4" />}
-              />
-            )}
-
-            {onDeleteSkin && (
-              <IconButton
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDeleteSkin(skin.id, skin.name, event);
-                }}
-                title="Delete skin"
-                disabled={isDisabled}
-                size="xs"
-                variant="destructive"
-                icon={
-                  <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
-                }
-              />
-            )}
           </div>
-        </Card>
+        </div>
       </div>
     );
   },
@@ -250,9 +290,11 @@ const SkinPreview = memo(
 
 const AddSkinCard = memo(
   ({ index, onClick }: { index: number; onClick: () => void }) => {
+    const [isHovered, setIsHovered] = useState(false);
     const isBackgroundAnimationEnabled = useThemeStore(
       (state) => state.isBackgroundAnimationEnabled,
     );
+    const accentColor = useThemeStore((state) => state.accentColor);
 
     const animationStyle = isBackgroundAnimationEnabled
       ? { animationDelay: `${index * 0.075}s` }
@@ -265,265 +307,68 @@ const AddSkinCard = memo(
       <div
         key={`add-skin-${index}`}
         style={animationStyle}
-        className={animationClasses}
+        className={cn(
+          "relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-dashed border-white/10 hover:border-white/30 transition-all duration-200 cursor-pointer",
+          animationClasses
+        )}
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        <Card
-          className="relative p-4 pt-1 pb-2 h-[380px] flex flex-col text-center group cursor-pointer border-dashed transition-all duration-300 ease-out hover:scale-105 hover:z-10"
-          variant="flat"
-          onClick={onClick}
-        >
-          <p className="font-minecraft text-white lowercase truncate text-3xl transition-transform duration-300 ease-out group-hover:scale-110">
-            Add New Skin
-          </p>
-
-          <div className="h-64 flex relative pt-2 pb-2 flex-grow items-center justify-center transition-transform duration-300 ease-out group-hover:scale-105">
+        {/* Skin content */}
+        <div className="flex flex-col items-center gap-3 relative z-10 w-full">
+          {/* Skin Image */}
+          <div
+            className="relative flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border border-transparent transition-all duration-300 ease-out"
+            style={{
+              width: "140px",
+              height: "280px",
+            }}
+          >
             <SkinViewer
               skinUrl="/skins/default_skin_full.png"
-              width={130}
-              height={260}
-              className="mx-auto opacity-70 group-hover:opacity-100 transition-opacity"
+              width={140}
+              height={280}
+              className="rounded-sm block opacity-70 hover:opacity-100 transition-opacity"
             />
+
+            {/* Plus icon overlay */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Icon
+                icon="solar:add-circle-bold"
+                className="w-12 h-12 text-white/70 hover:text-white transition-colors"
+                style={{ color: isHovered ? accentColor.value : undefined }}
+              />
+            </div>
           </div>
 
-          <p className="text-white/60 font-minecraft lowercase text-2xl mt-auto transition-transform duration-300 ease-out group-hover:scale-110">
-            Upload or import a skin
-          </p>
-        </Card>
+          {/* Skin Info */}
+          <div className="flex-grow min-w-0 w-full text-center">
+            {/* Skin Name */}
+            <h3
+              className="font-minecraft-ten text-white text-base whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case mb-1"
+              title="Add New Skin"
+            >
+              Add New Skin
+            </h3>
+
+            {/* Description */}
+            <div className="flex items-center justify-center gap-2 text-xs font-minecraft-ten">
+              <div className="text-white/60 flex items-center gap-1">
+                <Icon
+                  icon="solar:upload-bold"
+                  className="w-3 h-3 text-white/50"
+                />
+                <span>Upload or import</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   },
 );
 
-const EditSkinModal = memo(
-  ({
-    skin,
-    cancel,
-    saveSkin,
-    addSkin,
-    localSkinsLoading,
-  }: {
-    skin?: MinecraftSkin;
-    cancel: () => void;
-    saveSkin: (skin: MinecraftSkin) => Promise<void>;
-    addSkin: (
-      skinInput: string,
-      targetName: string,
-      targetVariant: SkinVariant,
-      description?: string | null,
-    ) => Promise<void>;
-    localSkinsLoading: boolean;
-  }) => {
-    const [name, setName] = useState<string>(skin?.name ?? "");
-    const [variant, setVariant] = useState<SkinVariant>(
-      skin?.variant ?? "classic",
-    );
-    const [skinInput, setSkinInput] = useState<string>("");
-    const accentColor = useThemeStore((state) => state.accentColor);
-
-    const handleOpenFileUpload = async () => {
-      try {
-        const selectedFile = await open({
-          multiple: false,
-          directory: false,
-          filters: [
-            {
-              name: "Skin Image",
-              extensions: ["png"],
-            },
-          ],
-          title: "Select Skin File (.png)",
-        });
-
-        if (typeof selectedFile === "string") {
-          setSkinInput(selectedFile);
-          toast.success("File selected: " + selectedFile.split(/[\\/]/).pop());
-        } else if (selectedFile === null) {
-          console.log("User cancelled file selection.");
-        }
-      } catch (error) {
-        console.error("Error opening file dialog:", error);
-        toast.error(
-          "Failed to open file dialog. Ensure Tauri dialog plugin is configured.",
-        );
-      }
-    };
-
-    const finishEditingSkin = async () => {
-      if (skin) {
-        await saveSkin({
-          ...skin,
-          name,
-          variant,
-        });
-      } else {
-        const trimmedInput = skinInput.trim();
-        if (!trimmedInput) {
-          toast.error(
-            "Skin source (Username, UUID, URL, or File Path) cannot be empty.",
-          );
-          return;
-        }
-
-        let targetName = "";
-        const looksLikeHttpUrl = /^(https?):\/\//i.test(trimmedInput);
-        const isLikelyFilePath = (input: string): boolean => {
-          if (input.startsWith("file://")) return true;
-          const hasPathSeparators = /[\\/]/.test(input);
-          const isHttp = /^(https?):\/\//i.test(input);
-          return hasPathSeparators && !isHttp;
-        };
-
-        if (looksLikeHttpUrl) {
-          try {
-            const url = new URL(trimmedInput);
-            const pathnameParts = url.pathname
-              .split("/")
-              .filter((part) => part.length > 0);
-            targetName = pathnameParts.pop() || url.hostname || "Web_Skin";
-            if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
-              targetName = targetName.substring(0, targetName.lastIndexOf("."));
-            }
-          } catch (e) {
-            targetName = "Invalid_Web_Skin_Url";
-            console.error("Error parsing HTTP URL for name:", e);
-          }
-        } else if (isLikelyFilePath(trimmedInput)) {
-          let pathForNameExtraction = trimmedInput;
-          if (trimmedInput.startsWith("file://")) {
-            try {
-              const tempUrl = new URL(trimmedInput);
-              pathForNameExtraction = decodeURIComponent(tempUrl.pathname);
-            } catch (e) {
-              console.error(
-                "Error parsing file:// URL for name extraction:",
-                e,
-              );
-            }
-          }
-          const pathParts = pathForNameExtraction.split(/[\\/]/);
-          targetName = pathParts.pop() || "File_Skin";
-          if (targetName.match(/\.(png|jpg|jpeg|gif)$/i)) {
-            targetName = targetName.substring(0, targetName.lastIndexOf("."));
-          }
-        } else {
-          targetName = trimmedInput;
-        }
-
-        if (!targetName.trim()) {
-          targetName = "Unnamed_Skin";
-          console.warn(
-            "Derived target name was empty, falling back to Unnamed_Skin for input:",
-            trimmedInput,
-          );
-        }
-
-        await addSkin(trimmedInput, targetName, variant, null);
-      }
-    };
-
-    return (
-      <Modal
-        title={`${skin ? "Edit Skin Properties" : "Add Skin"}`}
-        onClose={cancel}
-        variant="flat"
-        footer={
-          <div className="flex gap-3 justify-center">
-            <Button
-              variant="flat"
-              onClick={finishEditingSkin}
-              disabled={localSkinsLoading}
-              size="sm"
-            >
-              {localSkinsLoading ? "Saving..." : "Save Changes"}
-            </Button>
-            <Button
-              variant="flat-secondary"
-              onClick={cancel}
-              disabled={localSkinsLoading}
-              size="sm"
-            >
-              Cancel
-            </Button>
-          </div>
-        }
-      >
-        <div className="p-4 space-y-4">
-          {skin && (
-            <div>
-              <label className="block font-minecraft text-3xl text-white/80 lowercase mb-2">
-                Skin Name
-              </label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter skin name"
-                disabled={localSkinsLoading}
-                size="md"
-                variant="flat"
-              />
-            </div>
-          )}
-
-          {!skin && (
-            <div className="space-y-2">
-              <label className="block font-minecraft text-3xl text-white/80 lowercase">
-                Skin
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  id="skinInputField"
-                  value={skinInput}
-                  onChange={(e) => setSkinInput(e.target.value)}
-                  placeholder="Copy by username, UUID or download from URL"
-                  disabled={localSkinsLoading}
-                  size="md"
-                  variant="flat"
-                  className="flex-grow"
-                />
-                <IconButton
-                  onClick={handleOpenFileUpload}
-                  title="Upload Skin from file"
-                  disabled={localSkinsLoading}
-                  size="md"
-                  variant="flat-secondary"
-                  icon={<Icon icon="solar:folder-bold" className="w-5 h-5" />}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="pt-2">
-            <p className="font-minecraft text-3xl text-white/80 lowercase mb-4">
-              Skin Variant
-            </p>
-            <div className="flex flex-col space-y-3">
-              <RadioButton
-                name="editSkinVariant"
-                value="classic"
-                checked={variant === "classic"}
-                onChange={() => setVariant("classic")}
-                disabled={localSkinsLoading}
-                label="Classic (Steve)"
-                size="md"
-                shadowDepth="none"
-              />
-              <RadioButton
-                name="editSkinVariant"
-                value="slim"
-                checked={variant === "slim"}
-                onChange={() => setVariant("slim")}
-                disabled={localSkinsLoading}
-                label="Slim (Alex)"
-                size="md"
-                shadowDepth="none"
-              />
-            </div>
-          </div>
-        </div>
-      </Modal>
-    );
-  },
-);
 
 export function SkinsTab() {
   const {
@@ -532,6 +377,7 @@ export function SkinsTab() {
     error: accountError,
     initializeAccounts,
   } = useMinecraftAuthStore();
+  const { showModal, hideModal } = useGlobalModal();
   const { selectedSkinId, setSelectedSkinId } = useSkinStore();
   const [skinData, setSkinData] = useState<MinecraftProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -540,9 +386,6 @@ export function SkinsTab() {
   const [localSkinsError, setLocalSkinsError] = useState<string | null>(null);
   const [selectedLocalSkin, setSelectedLocalSkin] =
     useState<MinecraftSkin | null>(null);
-  const [modalLoading, setModalLoading] = useState<boolean>(false);
-  const [isEditingSkin, setIsEditingSkin] = useState<boolean>(false);
-  const [editingSkin, setEditingSkin] = useState<MinecraftSkin | null>(null);
   const [search, setSearch] = useState<string>("");
   const [currentSkinId, setCurrentSkinId] = useState<string | null>(null);
 
@@ -592,7 +435,7 @@ export function SkinsTab() {
       }
     } catch (err) {
       console.error("Error loading skin data:", err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err.message));
     } finally {
       setLoading(false);
     }
@@ -645,18 +488,18 @@ export function SkinsTab() {
     event?: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event?.stopPropagation();
-    setEditingSkin(skin);
-    setIsEditingSkin(true);
-  };
-
-  const cancelEditSkin = () => {
-    setEditingSkin(null);
-    setIsEditingSkin(false);
+    showModal('add-skin-modal', (
+      <AddSkinModal
+        skin={skin}
+        onSave={saveSkin}
+        onAdd={addSkin}
+        isLoading={localSkinsLoading}
+      />
+    ));
   };
 
   const saveSkin = async (skin: MinecraftSkin) => {
     if (!skin) return;
-    setLocalSkinsLoading(true);
 
     try {
       const updatedSkin = await MinecraftSkinService.updateSkinProperties(
@@ -666,25 +509,19 @@ export function SkinsTab() {
       );
 
       if (updatedSkin) {
-        toast.success(`Successfully updated skin: ${updatedSkin.name}`);
         setLocalSkins((prevSkins) =>
           prevSkins.map((s) => (s.id === updatedSkin.id ? updatedSkin : s)),
         );
         if (selectedLocalSkin?.id === updatedSkin.id) {
           setSelectedLocalSkin(updatedSkin);
         }
-        setIsEditingSkin(false);
-        setEditingSkin(null);
+        hideModal('add-skin-modal');
       } else {
-        setLocalSkinsError("Skin not found. It may have been deleted.");
-        setEditingSkin(null);
-        setIsEditingSkin(false);
+        toast.error("Skin not found. It may have been deleted.");
       }
     } catch (err) {
       console.error("Error updating skin properties:", err);
-      setLocalSkinsError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLocalSkinsLoading(false);
+      toast.error(err instanceof Error ? err.message : String(err.message));
     }
   };
 
@@ -694,7 +531,6 @@ export function SkinsTab() {
     targetVariant: SkinVariant,
     description?: string | null,
   ) => {
-    setModalLoading(true);
     try {
       const newSkin = await MinecraftSkinService.addSkinLocally(
         skinInput,
@@ -702,19 +538,15 @@ export function SkinsTab() {
         targetVariant,
         description,
       );
-      toast.success(`Successfully added skin: ${newSkin.name}`);
       setLocalSkins((prevSkins) =>
         [...prevSkins, newSkin].sort((a, b) => a.name.localeCompare(b.name)),
       );
-      setIsEditingSkin(false);
-      setEditingSkin(null);
+      hideModal('add-skin-modal');
     } catch (err) {
       console.error("Error adding new skin:", err);
       const errorMessage =
         err instanceof Error ? err.message : String(err.message);
       toast.error(`Failed to add skin: ${errorMessage}`);
-    } finally {
-      setModalLoading(false);
     }
   };
 
@@ -783,7 +615,7 @@ export function SkinsTab() {
       await loadSkinData();
     } catch (err) {
       console.error("Error applying local skin:", err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(err instanceof Error ? err.message : String(err.message));
     } finally {
       setLoading(false);
     }
@@ -794,33 +626,45 @@ export function SkinsTab() {
     return skin.id === currentSkinId;
   };
 
-  // Add skin button for the TabLayout
+  // Add skin button
   const addSkinButton = (
-    <Button
+    <button
       onClick={() => startEditSkin(null)}
-      variant="flat"
-      size="md"
-      className="h-[42px]"
-      icon={<Icon icon="solar:add-circle-bold" className="w-5 h-5" />}
-      iconPosition="left"
+      className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+      title="Add Skin"
       disabled={!activeAccount}
     >
-      ADD SKIN
-    </Button>
+      <div className="w-4 h-4 flex items-center justify-center">
+        <Icon icon="solar:add-circle-bold" className="w-4 h-4" />
+      </div>
+      <span>add skin</span>
+    </button>
   );
 
   return (
-    <TabLayout
-      title="Skins"
-      icon="solar:user-id-bold"
-      search={{
-        value: search,
-        onChange: setSearch,
-        placeholder: "Search skins...",
-      }}
-      actions={addSkinButton}
-    >
-      <div className="space-y-8">
+    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        {/* Search & Filters */}
+        <div className="mb-6 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <SearchWithFilters
+                placeholder="Search skins..."
+                searchValue={search}
+                onSearchChange={setSearch}
+                onSearchEnter={() => {}} // Optional: implement instant search
+              />
+            </div>
+
+            {/* Action Button */}
+            <div className="flex items-center gap-3">
+              {activeAccount && addSkinButton}
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="space-y-8">
         {accountLoading ? (
           <p className="text-white/70 font-minecraft text-xl text-center py-4">
             Loading account...
@@ -838,29 +682,20 @@ export function SkinsTab() {
         ) : (
           <>
             <div className="space-y-5 text-center">
-              {localSkinsLoading && !editingSkin ? (
+              {localSkinsLoading ? (
                 <p className="text-white/70 font-minecraft text-xl text-center py-4">
                   Loading skins...
                 </p>
-              ) : localSkinsError && !editingSkin ? (
+              ) : localSkinsError ? (
                 <StatusMessage
                   type="error"
                   className="font-minecraft text-lg"
                   message={localSkinsError}
                 />
               ) : !localSkinsLoading &&
-                localSkins.length === 0 &&
-                !localSkinsError &&
-                !editingSkin ? (
-                <p className="text-white/70 italic font-minecraft text-lg">
-                  No local skins found. Upload skins to add them to your
-                  library.
-                </p>
-              ) : !localSkinsLoading &&
                 localSkins.length > 0 &&
                 filteredSkins.length === 0 &&
-                !localSkinsError &&
-                !editingSkin ? (
+                !localSkinsError ? (
                 <p className="text-white/70 italic font-minecraft text-lg">
                   No skins match your search. Try a different search term.
                 </p>
@@ -889,17 +724,9 @@ export function SkinsTab() {
             </div>
           </>
         )}
-      </div>
+        </div>
 
-      {isEditingSkin && (
-        <EditSkinModal
-          skin={editingSkin}
-          cancel={cancelEditSkin}
-          saveSkin={saveSkin}
-          addSkin={addSkin}
-          localSkinsLoading={modalLoading}
-        />
-      )}
-    </TabLayout>
+      </div>
+    </div>
   );
 }

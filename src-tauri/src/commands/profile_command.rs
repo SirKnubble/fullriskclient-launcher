@@ -1,10 +1,12 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, CommandError};
+use crate::integrations::curseforge;
 use crate::integrations::modrinth::ModrinthVersion;
 use crate::integrations::mrpack;
 use crate::integrations::norisk_packs::NoriskModpacksConfig;
 use crate::integrations::norisk_versions::NoriskVersionsConfig;
 use crate::minecraft::installer;
+use crate::minecraft::modloader::{ModloaderFactory, ResolvedLoaderVersion};
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState,
@@ -14,9 +16,9 @@ use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
 use crate::utils::path_utils::find_unique_profile_segment;
 use crate::utils::profile_utils::{
-    CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
+    check_for_group_migration, CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
     GenericModrinthInfo, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
-    LocalContentLoader as ProfileUtilLocalContentLoader, ScreenshotInfo,
+    LocalContentLoader as ProfileUtilLocalContentLoader, MigrationInfo, ScreenshotInfo,
 };
 use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
@@ -44,9 +46,10 @@ pub struct CreateProfileParams {
     loader: String,
     loader_version: Option<String>,
     selected_norisk_pack_id: Option<String>,
+    use_shared_minecraft_folder: Option<bool>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct UpdateProfileParams {
     name: Option<String>,
     game_version: Option<String>,
@@ -55,6 +58,8 @@ pub struct UpdateProfileParams {
     settings: Option<ProfileSettings>,
     selected_norisk_pack_id: Option<String>,
     group: Option<String>,
+    clear_group: Option<bool>,
+    use_shared_minecraft_folder: Option<bool>,
     clear_selected_norisk_pack: Option<bool>,
     norisk_information: Option<crate::state::profile_state::NoriskInformation>,
 }
@@ -64,6 +69,7 @@ pub struct UpdateProfileParams {
 pub struct CopyProfileParams {
     source_profile_id: Uuid,
     new_profile_name: String,
+    use_shared_minecraft_folder: Option<bool>,
     // Option um nur bestimmte Dateien zu kopieren
     include_files: Option<Vec<PathBuf>>,
 }
@@ -137,12 +143,14 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         selected_norisk_pack_id: params.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: HashSet::new(),
         source_standard_profile_id: None,
+        use_shared_minecraft_folder: params.use_shared_minecraft_folder.unwrap_or(false),
         group: None,
         description: None,
         banner: None,
         background: None,
         is_standard_version: false,
         norisk_information: None,
+        modpack_info: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;
@@ -154,12 +162,14 @@ pub async fn launch_profile(
     id: Uuid,
     quick_play_singleplayer: Option<String>,
     quick_play_multiplayer: Option<String>,
+    migration_info: Option<profile_utils::MigrationInfo>,
 ) -> Result<(), CommandError> {
     log::info!(
-        "[Command] launch_profile called for ID: {}. QuickPlay Single: {:?}, QuickPlay Multi: {:?}",
+        "[Command] launch_profile called for ID: {}. QuickPlay Single: {:?}, QuickPlay Multi: {:?}, Migration: {:?}",
         id,
         quick_play_singleplayer,
-        quick_play_multiplayer
+        quick_play_multiplayer,
+        migration_info.is_some()
     );
 
     let state = State::get().await?;
@@ -246,22 +256,45 @@ pub async fn launch_profile(
     let profile_id = profile.id; // Store profile ID for later use
     let profile_clone = profile.clone();
 
+    // Determine Quick Play parameters - use profile settings if none provided
+    let (final_quick_play_sp, final_quick_play_mp) = if quick_play_singleplayer.is_none() && quick_play_multiplayer.is_none() {
+        // Check profile's quick_play_path setting
+        if let Some(quick_play_path) = &profile.settings.quick_play_path {
+            if quick_play_path.contains('.') {
+                // Contains dot, assume it's a server address (multiplayer)
+                info!("Using profile's quick_play_path as multiplayer server: {}", quick_play_path);
+                (None, Some(quick_play_path.clone()))
+            } else {
+                // No dot, assume it's a world name (singleplayer)
+                info!("Using profile's quick_play_path as singleplayer world: {}", quick_play_path);
+                (Some(quick_play_path.clone()), None)
+            }
+        } else {
+            // No Quick Play configured
+            (None, None)
+        }
+    } else {
+        // Use explicitly provided parameters
+        (quick_play_singleplayer, quick_play_multiplayer)
+    };
+
     // Clone Quick Play parameters for the spawned task
-    let quick_play_sp_clone = quick_play_singleplayer.clone();
-    let quick_play_mp_clone = quick_play_multiplayer.clone();
+    let quick_play_sp_clone = final_quick_play_sp.clone();
+    let quick_play_mp_clone = final_quick_play_mp.clone();
+    let migration_info_clone = migration_info.clone();
 
     // Log if Quick Play is being used
-    if quick_play_singleplayer.is_some() {
+    if final_quick_play_sp.is_some() {
         info!(
             "Launching profile {} with Quick Play singleplayer: {}",
             id,
-            quick_play_singleplayer.as_ref().unwrap()
+            final_quick_play_sp.as_ref().unwrap()
         );
-    } else if quick_play_multiplayer.is_some() {
+    } else if final_quick_play_mp.is_some() {
         info!(
             "Launching profile {} with Quick Play multiplayer: {}",
             id,
-            quick_play_multiplayer.as_ref().unwrap()
+            final_quick_play_mp.as_ref().unwrap()
         );
     }
 
@@ -274,6 +307,7 @@ pub async fn launch_profile(
             credentials,
             quick_play_sp_clone,
             quick_play_mp_clone,
+            migration_info_clone,
         )
         .await;
 
@@ -431,6 +465,97 @@ pub async fn update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
     }
 }
 
+/// Checks if mods directory migration is needed based on profile changes
+fn needs_mods_migration(
+    original_profile: &Profile, 
+    updated_profile: &Profile, 
+    params: &UpdateProfileParams
+) -> Result<bool, CommandError> {
+    // Only check for actual path-affecting changes for regular user profiles
+    
+    // Check if group actually changed (affects shared path)
+    let group_changed = if params.clear_group == Some(true) {
+        // Clearing group: changed if profile had a group before
+        original_profile.group.is_some()
+    } else if let Some(new_group) = &params.group {
+        // Setting new group: changed if different from current group
+        original_profile.group.as_deref() != Some(new_group)
+    } else {
+        // No group change requested
+        false
+    };
+    
+    // Check if use_shared_minecraft_folder setting changed 
+    let shared_setting_changed = params.use_shared_minecraft_folder.is_some();
+    
+    // Only migrate if we actually changed something that affects the mods path
+    let migration_needed = if group_changed || shared_setting_changed {
+        // Recalculate if shared folder usage would change
+        let original_uses_shared = original_profile.should_use_shared_minecraft_folder();
+        let updated_uses_shared = updated_profile.should_use_shared_minecraft_folder();
+        
+        // Migration needed if shared folder usage actually changed
+        original_uses_shared != updated_uses_shared
+    } else {
+        // No path-affecting changes, no migration needed
+        false
+    };
+    
+    info!(
+        "Migration check for profile {}: group_changed={}, shared_setting_changed={} -> migration_needed={}",
+        original_profile.id,
+        group_changed,
+        shared_setting_changed,
+        migration_needed
+    );
+    
+    Ok(migration_needed)
+}
+
+/// Migrates mods directory from old path to new path
+async fn migrate_mods_directory(old_path: &std::path::Path, new_path: &std::path::Path) -> Result<(), CommandError> {
+    use tokio::fs;
+    
+    // Skip if paths are the same
+    if old_path == new_path {
+        info!("Mods paths are identical, skipping migration");
+        return Ok(());
+    }
+    
+    // Check if old directory exists
+    if !old_path.exists() {
+        info!("Old mods directory {:?} doesn't exist, nothing to migrate", old_path);
+        return Ok(());
+    }
+    
+    info!("Starting mods migration from {:?} to {:?}", old_path, new_path);
+    
+    // Remove new directory if it already exists to ensure clean migration
+    if new_path.exists() {
+        info!("Removing existing new mods directory: {:?}", new_path);
+        fs::remove_dir_all(new_path).await.map_err(|e| {
+            CommandError::from(AppError::Io(e))
+        })?;
+    }
+    
+    // Get state to access semaphore
+    let state = State::get().await?;
+    let io_semaphore = state.io_semaphore.clone();
+    
+    // Use the existing copy_dir_recursively function from path_utils
+    path_utils::copy_dir_recursively(old_path, new_path, io_semaphore).await.map_err(|e| {
+        CommandError::from(AppError::Other(format!("Failed to copy mods directory: {}", e)))
+    })?;
+    
+    // Remove old directory after successful copy
+    fs::remove_dir_all(old_path).await.map_err(|e| {
+        CommandError::from(AppError::Io(e))
+    })?;
+    
+    info!("Successfully migrated mods from {:?} to {:?}", old_path, new_path);
+    Ok(())
+}
+
 // Helper function to contain the actual logic and allow for ? operator
 async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(), CommandError> {
     info!(
@@ -439,6 +564,10 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
     );
     let state = State::get().await?;
     let mut profile = state.profile_manager.get_profile(id).await?;
+    
+    // Get original profile for migration check and clone params for later use
+    let original_profile = state.profile_manager.get_profile(id).await?;
+    let params_for_migration = params.clone();
 
     if let Some(name) = &params.name {
         // Borrow params.name
@@ -481,10 +610,19 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
         // No change to selected_norisk_pack_id if neither clear is true nor a new value is provided
     }
 
-    if let Some(new_group) = &params.group {
-        // Borrow params.group
+    // Handle group based on clear_group and new value
+    if params.clear_group == Some(true) {
+        info!("Clearing group for profile {}", id);
+        profile.group = None;
+    } else if let Some(new_group) = &params.group {
         info!("Updating group to: {}", new_group);
         profile.group = Some(new_group.clone());
+    }
+
+    // Handle use_shared_minecraft_folder
+    if let Some(use_shared) = params.use_shared_minecraft_folder {
+        info!("Updating use_shared_minecraft_folder to: {}", use_shared);
+        profile.use_shared_minecraft_folder = use_shared;
     }
 
     // Handle norisk_information
@@ -502,6 +640,39 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
             "norisk_information not provided or explicitly null, keeping existing: {:?}",
             profile.norisk_information
         );
+    }
+
+    // Check if mods directory location needs to change (using the params copy from above)
+    let mods_migration_needed = needs_mods_migration(&original_profile, &profile, &params_for_migration)?;
+    
+    if mods_migration_needed {
+        info!("Mods directory migration needed for profile {}", id);
+        
+        // Get old and new mods paths
+        let old_mods_path = if original_profile.is_standard_version || !original_profile.should_use_shared_minecraft_folder() {
+            state.profile_manager.get_profile_mods_path_single(&original_profile)?
+        } else {
+            state.profile_manager.get_profile_mods_path_shared(&original_profile)?
+        };
+        
+        let new_mods_path = if profile.is_standard_version || !profile.should_use_shared_minecraft_folder() {
+            state.profile_manager.get_profile_mods_path_single(&profile)?
+        } else {
+            state.profile_manager.get_profile_mods_path_shared(&profile)?
+        };
+        
+        // Only migrate if paths are actually different
+        if old_mods_path != new_mods_path {
+            info!(
+                "Migrating mods from {:?} to {:?} for profile {}",
+                old_mods_path, new_mods_path, id
+            );
+            
+            // Perform the migration
+            migrate_mods_directory(&old_mods_path, &new_mods_path).await?;
+        } else {
+            info!("Mods paths are identical, skipping migration for profile {}", id);
+        }
     }
 
     state.profile_manager.update_profile(id, profile).await?;
@@ -524,6 +695,29 @@ pub async fn repair_profile(id: Uuid) -> Result<(), CommandError> {
     repair_utils::repair_profile(id).await?;
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn resolve_loader_version(
+    profile_id: Uuid,
+    minecraft_version: String,
+) -> Result<ResolvedLoaderVersion, CommandError> {
+    info!(
+        "Executing resolve_loader_version command for profile {} with MC version {}",
+        profile_id, minecraft_version
+    );
+    
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+    let norisk_pack_config = state.norisk_pack_manager.get_config().await;
+    
+    let resolved = ModloaderFactory::resolve_loader_version(
+        &profile,
+        &minecraft_version,
+        Some(&norisk_pack_config),
+    ).await;
+    
+    Ok(resolved)
 }
 
 #[tauri::command]
@@ -913,8 +1107,8 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         app_handle
             .dialog()
             .file()
-            .add_filter("Modpack Files", &["mrpack", "noriskpack"])
-            .set_title("Select Modpack File (.mrpack or .noriskpack)")
+            .add_filter("Modpack Files", &["mrpack", "noriskpack", "zip"])
+            .set_title("Select Modpack File (.mrpack, .noriskpack, or .zip)")
             .blocking_pick_file() // Use the blocking version for single file selection
     })
     .await
@@ -946,12 +1140,16 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         let new_profile_id = match file_extension.as_deref() {
             Some("mrpack") => {
                 log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-                mrpack::import_mrpack_as_profile(file_path_buf).await?
+                mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
             }
             Some("noriskpack") => {
                 log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
                 crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf)
                     .await?
+            }
+            Some("zip") => {
+                log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
+                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
             }
             _ => {
                 log::error!(
@@ -959,7 +1157,7 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
                     file_path_buf
                 );
                 return Err(CommandError::from(AppError::Other(
-                    "Invalid file type selected. Please select a .mrpack or .noriskpack file."
+                    "Invalid file type selected. Please select a .mrpack, .noriskpack, or .zip file."
                         .to_string(),
                 )));
             }
@@ -1019,11 +1217,15 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
     let new_profile_id = match file_extension.as_deref() {
         Some("mrpack") => {
             log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-            mrpack::import_mrpack_as_profile(file_path_buf).await?
+            mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
         }
         Some("noriskpack") => {
             log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
             crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf).await?
+        }
+        Some("zip") => {
+            log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
+            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
         }
         _ => {
             log::error!(
@@ -1031,7 +1233,7 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
                 file_path_buf
             );
             return Err(CommandError::from(AppError::Other(
-                "Invalid file type selected. Please select a .mrpack or .noriskpack file."
+                "Invalid file type selected. Please select a .mrpack, .noriskpack, or .zip file."
                     .to_string(),
             )));
         }
@@ -1290,11 +1492,13 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
         source_standard_profile_id: source_profile.source_standard_profile_id,
         group: source_profile.group.clone(),
+        use_shared_minecraft_folder: params.use_shared_minecraft_folder.unwrap_or(source_profile.should_use_shared_minecraft_folder()),
         is_standard_version: false,
         description: source_profile.description.clone(),
         norisk_information: source_profile.norisk_information.clone(),
         banner: source_profile.banner.clone(),
         background: source_profile.background.clone(),
+        modpack_info: source_profile.modpack_info.clone(),
     };
 
     // 6. Erstelle das neue Profilverzeichnis
@@ -1454,8 +1658,9 @@ pub async fn refresh_norisk_packs() -> Result<(), CommandError> {
 }
 
 /// Fetches the latest standard version profiles from the API and updates the local cache.
+/// Returns the standard profiles for immediate use.
 #[tauri::command]
-pub async fn refresh_standard_versions() -> Result<(), CommandError> {
+pub async fn refresh_standard_versions() -> Result<Vec<Profile>, CommandError> {
     info!("Refreshing standard versions via command...");
     let state = State::get().await?;
     let config = state.config_manager.get_config().await;
@@ -1467,7 +1672,15 @@ pub async fn refresh_standard_versions() -> Result<(), CommandError> {
     {
         Ok(_) => {
             info!("Successfully refreshed standard versions via command.");
-            Ok(())
+
+            // Sync standard profiles after successful refresh
+            if let Err(e) = state.profile_manager.sync_standard_profiles().await {
+                warn!("Failed to sync standard profiles after refresh: {}", e);
+            }
+
+            // Return the standard profiles
+            let standard_profiles = state.norisk_version_manager.get_config().await.profiles;
+            Ok(standard_profiles)
         }
         Err(e) => {
             error!("Failed to refresh standard versions via command: {}", e);
@@ -1862,56 +2075,51 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     info!("Executing get_all_profiles_and_last_played command");
     let state = State::get().await?;
 
-    // 1. Fetch User Profiles
+    // Fetch User Profiles (includes editable copies of standard profiles)
     let user_profiles = state.profile_manager.list_profiles().await?;
 
-    // 2. Fetch Standard Norisk Profiles
-    let norisk_versions_config = state.norisk_version_manager.get_config().await;
-    let standard_profiles = norisk_versions_config.profiles; // This is Vec<Profile>
-
-    // 3. Combine Profiles
-    let mut all_profiles_combined = user_profiles.clone();
-    all_profiles_combined.extend(standard_profiles.clone());
-
-    // Deduplicate based on ID, preferring user profiles if IDs clash (highly unlikely with UUIDs but safe)
-    // This is a more robust way to combine, though simple concatenation is often fine.
-    let mut unique_profiles_map: HashMap<Uuid, Profile> = HashMap::new();
-    for profile in standard_profiles.iter() {
-        unique_profiles_map.insert(profile.id, profile.clone());
-    }
-    for profile in user_profiles.iter() {
-        // User profiles overwrite standard if same ID
-        unique_profiles_map.insert(profile.id, profile.clone());
-    }
-    let all_profiles_final: Vec<Profile> = unique_profiles_map.values().cloned().collect();
-
-    // 4. Handle `last_played_profile_id`
+    // Handle `last_played_profile_id`
     let mut launcher_config = state.config_manager.get_config().await;
     let mut effective_last_played_id = launcher_config.last_played_profile;
     let mut config_needs_update = false;
 
     // Validate existing last_played_profile_id
     if let Some(id_to_check) = effective_last_played_id {
-        let exists = all_profiles_final.iter().any(|p| p.id == id_to_check);
+        let exists = user_profiles.iter().any(|p| p.id == id_to_check);
         if !exists {
             info!(
                 "Last played profile ID {} no longer exists. Marking for reset.",
                 id_to_check
             );
             effective_last_played_id = None; // Mark for reset logic below
-                                             // The actual launcher_config.last_played_profile will be updated if a new default is found or it's set to None
         }
     }
 
     // If effective_last_played_id is None (either initially or after validation failed)
     if effective_last_played_id.is_none() {
         info!("Last played profile ID is not set or invalid. Attempting to set a default.");
-        let new_default_id: Option<Uuid> = if !standard_profiles.is_empty() {
-            standard_profiles.first().map(|p| p.id)
-        } else if !user_profiles.is_empty() {
-            user_profiles.first().map(|p| p.id)
+
+        // First, try to find a standard profile marked as main version
+        let standard_profiles = state.norisk_version_manager.get_config().await.profiles;
+        let new_default_id = if !standard_profiles.is_empty() {
+            standard_profiles
+                .iter()
+                .find(|p| {
+                    p.norisk_information
+                        .as_ref()
+                        .map(|ni| ni.is_main_version)
+                        .unwrap_or(false)
+                })
+                .map(|p| p.id)
+                .or_else(|| {
+                    // No main version found in standard profiles, use first standard profile
+                    info!("No main version found in standard profiles. Using first standard profile as default.");
+                    standard_profiles.first().map(|p| p.id)
+                })
         } else {
-            None
+            // No standard profiles available, use first user profile
+            info!("No standard profiles available. Using first user profile as default.");
+            user_profiles.first().map(|p| p.id)
         };
 
         // Check if the determined new_default_id is different from what's in the original config.
@@ -1939,7 +2147,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     }
 
     Ok(AllProfilesAndLastPlayed {
-        all_profiles: all_profiles_final,
+        all_profiles: user_profiles,
         last_played_profile_id: effective_last_played_id,
     })
 }
@@ -1993,6 +2201,21 @@ pub async fn get_local_content(
         }
     }
 }
+
+/// Checks if a group migration is needed for a profile
+#[tauri::command]
+pub async fn check_for_group_migration_command(profile_id: Uuid) -> Result<MigrationInfo, CommandError> {
+    info!(
+        "Executing check_for_group_migration command for profile {}",
+        profile_id
+    );
+
+    // Call the utility function and cache result
+    let migration_info = profile_utils::check_for_group_migration(profile_id).await?;
+    info!("Group migration check result for profile {}: {:?}", profile_id, migration_info);
+    Ok(migration_info)
+}
+
 
 #[tauri::command]
 pub async fn purge_trash(max_age_seconds: Option<u64>) -> Result<u64, CommandError> {

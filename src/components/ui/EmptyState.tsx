@@ -83,14 +83,11 @@ export function EmptyState({
     <div
       ref={containerRef}
       className={cn(
-        "flex flex-col items-center justify-center rounded-lg backdrop-blur-sm",
+        "flex flex-col items-center justify-center",
         compact ? "p-4" : "p-8",
         fullHeight ? "h-full w-full" : "auto",
         className,
       )}
-      style={{
-        backgroundColor: `${accentColor.value}10`,
-      }}
     >
       <div
         style={{
@@ -117,7 +114,7 @@ export function EmptyState({
         </div>        <p
           className={cn(
             "text-white lowercase text-center mb-2",
-            compact ? "text-lg" : "text-xl",
+            compact ? "text-xl" : "text-2xl",
           )}
         >
           {message}
@@ -127,7 +124,7 @@ export function EmptyState({
           <p
             className={cn(
               "text-white/70 lowercase text-center max-w-md",
-              compact ? "text-base mb-4" : "text-lg mb-6",
+              compact ? "text-2xl mb-4" : "text-2xl mb-6",
             )}
           >
             {description}
@@ -135,8 +132,8 @@ export function EmptyState({
         )}
 
         {action && isDelayedContentVisible && (
-          <div 
-            className="mt-4"
+          <div
+            className="mt-2"
             style={{
               opacity: isDelayedContentVisible ? 1 : 0,
               transition: "opacity 0.5s ease-in-out 0.1s"

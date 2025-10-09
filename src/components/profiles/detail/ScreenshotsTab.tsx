@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useInView } from "react-intersection-observer";
 import { Icon } from "@iconify/react";
 import type {
   Profile,
@@ -15,14 +16,17 @@ import type {
 import { useThemeStore } from "../../../store/useThemeStore";
 import { gsap } from "gsap";
 import { cn } from "../../../lib/utils"; // Assuming you have a cn utility
-import { Select, type SelectOption } from "../../ui/Select"; // Import Select and SelectOption
+import { SearchWithFilters } from "../../ui/SearchWithFilters";
+import type { DropdownOption } from "../../ui/CustomDropdown";
 import { EmptyState } from "../../ui/EmptyState"; // Import EmptyState
 import { invoke } from "@tauri-apps/api/core"; // Import invoke
 import { ScreenshotGridItem } from "./ScreenshotGridItem"; // Import ScreenshotGridItem
+
 import { VirtuosoGrid } from "react-virtuoso"; // Added import
 import { ThemedSurface } from "../../ui/ThemedSurface"; // Added import
 import { getImagePreview as getImgPreviewServiceCall } from "../../../services/tauri-service"; // Import service
 import type { ImagePreviewPayload } from "../../../types/fileSystem"; // Import types
+import { ProfileScreenshotModal } from "../ProfileScreenshotModal";
 
 interface ScreenshotItem {
   id: string;
@@ -44,18 +48,85 @@ interface ScreenshotsTabProps {
 // color: `hsl(${i * 45}, 65%, 60%)`, // Adjusted color spread
 // }));
 
-const sortOptions: SelectOption[] = [
+const sortOptions: DropdownOption[] = [
   {
     value: "newest",
     label: "newest first",
-    icon: <Icon icon="solar:sort-amount-down-bold-duotone" />,
+    icon: "solar:arrow-down-bold",
   },
   {
     value: "oldest",
     label: "oldest first",
-    icon: <Icon icon="solar:sort-amount-up-bold-duotone" />,
+    icon: "solar:arrow-up-bold",
   },
 ];
+
+// Simple lazy loading screenshot item
+function LazyScreenshotItem({
+  screenshot,
+  index,
+  isBackgroundAnimationEnabled,
+  onItemClick,
+}: {
+  screenshot: ActualScreenshotInfo;
+  index: number;
+  isBackgroundAnimationEnabled: boolean;
+  onItemClick: (screenshot: ActualScreenshotInfo) => void;
+}) {
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    rootMargin: "50px",
+  });
+
+  const loadPreview = useCallback(async () => {
+    if (previewSrc || isLoading || hasError) return;
+    
+    setIsLoading(true);
+    try {
+      const payload = {
+        path: screenshot.path,
+        width: 320,
+        height: 180, // 16:9 aspect ratio (320/180 = 1.777...)
+        quality: 80, // Slightly higher quality
+      };
+      const response = await getImgPreviewServiceCall(payload);
+      const imageType = screenshot.filename.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+      const src = `data:image/${imageType};base64,${response.base64_image}`;
+      setPreviewSrc(src);
+    } catch (err) {
+      console.error(`Failed to load preview for ${screenshot.path}:`, err);
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [screenshot.path, screenshot.filename, previewSrc, isLoading, hasError]);
+
+  useEffect(() => {
+    if (inView) {
+      loadPreview();
+    }
+  }, [inView, loadPreview]);
+
+  return (
+    <div ref={ref}>
+      <ThemedSurface className="flex p-0 transition-transform duration-300 ease-out hover:scale-105 active:scale-95">
+        <ScreenshotGridItem
+          screenshot={screenshot}
+          isBackgroundAnimationEnabled={isBackgroundAnimationEnabled}
+          itemIndex={index}
+          onItemClick={onItemClick}
+          previewSrc={previewSrc}
+          isLoading={isLoading}
+          hasError={hasError}
+        />
+      </ThemedSurface>
+    </div>
+  );
+}
 
 const ITEMS_PER_PAGE = 16; // 4 columns * 4 rows, changed from 8
 
@@ -91,6 +162,9 @@ export function ScreenshotsTab({
   isActive = true, // Assuming it's active when rendered by ProfileDetailView logic
   onOpenScreenshotModal, // Destructure the new prop
 }: ScreenshotsTabProps) {
+  const [selectedScreenshot, setSelectedScreenshot] = useState<ActualScreenshotInfo | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
@@ -132,7 +206,7 @@ export function ScreenshotsTab({
     };
 
     fetchScreenshots();
-  }, [profile.id, profile]); // Added profile to dependency array
+  }, [profile.id, profile, refreshTrigger]); // Added refreshTrigger to dependency array
 
   const sortedScreenshots = useMemo(() => {
     let sorted = [...rawScreenshots];
@@ -252,38 +326,23 @@ export function ScreenshotsTab({
     <>
       <div
         ref={containerRef}
-        className="h-full flex flex-col select-none p-4 gap-4"
+        className="h-full flex flex-col select-none"
       >
-        {/* Header with styling similar to WorldsTab action bar */}
-        <div
-          className="flex items-center justify-end gap-4 mb-4 p-3 rounded-lg border backdrop-blur-sm"
-          style={{
-            backgroundColor: `${accentColor.value}10`,
-            borderColor: `${accentColor.value}30`,
-          }}
-        >
-          <div className="w-full max-w-xs sm:max-w-[200px]">
-            <Select
-              value={sortOrder}
-              onChange={setSortOrder}
-              options={sortOptions}
-              size="md"
-              disabled={
-                isLoading ||
-                (!isLoading && !error && sortedScreenshots.length === 0)
-              } // Disable if loading or no items
-            />
-          </div>
+        {/* Header without border/background like WorldsTab */}
+        <div className="flex items-center gap-4 mb-4 flex-shrink-0">
+          <SearchWithFilters
+            placeholder="search screenshots..."
+            searchIcon="solar:magnifer-bold"
+            sortOptions={sortOptions}
+            sortValue={sortOrder}
+            onSortChange={setSortOrder}
+            showFilter={false}
+            className="w-full max-w-md"
+          />
         </div>
 
-        {/* New main content wrapper with its own background */}
-        <div
-          className="flex-1 overflow-hidden rounded-lg border flex flex-col"
-          style={{
-            backgroundColor: `${accentColor.value}10`,
-            borderColor: `${accentColor.value}30`,
-          }}
-        >
+        {/* Main content wrapper */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isLoading && (
             <EmptyState
               icon="solar:gallery-send-bold-duotone"
@@ -334,22 +393,37 @@ export function ScreenshotsTab({
           )}
 
           {!isLoading && !error && sortedScreenshots.length > 0 && (
-            <>
-              <VirtuosoGrid
-                style={{ height: "100%" }} // Ensure VirtuosoGrid takes available space
-                totalCount={sortedScreenshots.length}
-                components={{
-                  List: VirtuosoGridList,
-                  Item: VirtuosoGridItemWrapper,
-                  Header: () => <div style={{ height: "0.75rem" }} />,
-                  Footer: () => <div style={{ height: "1.5rem" }} />,
-                }}
-                itemContent={memoizedItemContent}
-              />
-            </>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-4 p-3">
+                {sortedScreenshots.map((screenshot, index) => (
+                  <LazyScreenshotItem
+                    key={screenshot.path}
+                    screenshot={screenshot}
+                    index={index}
+                    isBackgroundAnimationEnabled={isBackgroundAnimationEnabled}
+                    onItemClick={(screenshot) => {
+                      setSelectedScreenshot(screenshot);
+                      setIsModalOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
+      
+      {/* Screenshot Modal */}
+      <ProfileScreenshotModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        screenshot={selectedScreenshot}
+        onScreenshotDeleted={(deletedPath) => {
+          // Refresh screenshots list when one is deleted
+          setRefreshTrigger(prev => prev + 1);
+          setIsModalOpen(false);
+        }}
+      />
     </>
   );
 }

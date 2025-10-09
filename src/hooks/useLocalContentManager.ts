@@ -3,17 +3,25 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import type { Profile, LocalContentItem as ProfileLocalContentItem, GenericModrinthInfo as ProfileGenericModrinthInfo, LoadItemsParams } from '../types/profile';
 import type { ModrinthVersion, ModrinthBulkUpdateRequestBody, ModrinthHashAlgorithm, ResourcePackModrinthInfo, ShaderPackModrinthInfo, DataPackModrinthInfo } from '../types/modrinth';
+import type { UnifiedUpdateCheckRequest, UnifiedUpdateCheckResponse, UnifiedVersion } from '../types/unified';
+import { ModPlatform } from '../types/unified';
 import { ContentType as NrContentType } from '../types/content';
 import type { ToggleContentPayload, UninstallContentPayload, SwitchContentVersionPayload } from '../types/content';
 import { ModrinthService } from '../services/modrinth-service';
+import { CurseForgeService } from '../services/curseforge-service';
+import UnifiedService from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
-import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion } from '../services/content-service';
+import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion, toggleModUpdates, bulkToggleModUpdates } from '../services/content-service';
 import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
+import { getUpdateIdentifier, getContentPlatform } from '../utils/update-identifier-utils';
 
 // Base type for content items managed by this hook - maps to ProfileLocalContentItem
 // We'll use ProfileLocalContentItem directly or ensure T extends it.
-export interface LocalContentItem extends ProfileLocalContentItem { 
+export interface LocalContentItem extends ProfileLocalContentItem {
   path: string;
+  // Neue Felder für ModPack-Integration
+  modpack_origin?: string | null; // "modrinth:project_id" oder "curseforge:project_id:file_id"
+  updates_enabled?: boolean | null; // null = Standard (true), true/false = explizit gesetzt
   // This can be used to extend ProfileLocalContentItem with frontend-specific fields if needed
   // For now, it will be structurally the same as ProfileLocalContentItem
 }
@@ -59,13 +67,20 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   itemToDeleteForDialog: T | null;
 
   modrinthIcons: Record<string, string | null>;
+  curseforgeIcons: Record<string, string | null>;
   localArchiveIcons: Record<string, string | null>;
 
-  contentUpdates: Record<string, ModrinthVersion | null>;
+  getItemIcon: (item: T) => string | null;
+  getItemPlatformDisplayName: (item: T) => string;
+
+  contentUpdates: Record<string, UnifiedVersion | null>;
   isCheckingUpdates: boolean;
   itemsBeingUpdated: Set<string>;
   contentUpdateError: string | null;
   isUpdatingAll: boolean;
+
+  // Anzahl der tatsächlich aktualisierbaren Updates (nur mods mit enabled updates)
+  updatableContentCount: number;
 
   fetchData: (initialFetch?: boolean) => Promise<void>;
   handleToggleItemEnabled: (item: T) => Promise<void>;
@@ -75,9 +90,13 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   handleOpenItemFolder: (item: T) => void;
 
   checkForContentUpdates: (currentProfile?: Profile, currentItems?: T[]) => Promise<void>;
-  handleUpdateContentItem: (item: T, updateVersion: ModrinthVersion, suppressOwnToast?: boolean) => Promise<void>;
+  handleUpdateContentItem: (item: T, updateVersion: UnifiedVersion, suppressOwnToast?: boolean) => Promise<void>;
   handleUpdateAllAvailableContent: () => Promise<void>;
-  handleSwitchContentVersion: (item: T, newVersion: ModrinthVersion) => Promise<void>;
+  handleSwitchContentVersion: (item: T, newVersion: UnifiedVersion) => Promise<void>;
+
+  // Mod update toggle methods
+  handleToggleItemUpdatesEnabled: (item: T) => Promise<void>;
+  handleBatchToggleSelectedUpdatesEnabled: (updatesEnabled: boolean) => Promise<void>;
 }
 
 // Helper to map LocalContentType (UI string) to NrContentType (backend enum string)
@@ -97,8 +116,6 @@ function mapBackendItemToFrontendType<T extends LocalContentItem>(rawItem: Profi
   // rawItem is typed as ProfileLocalContentItem (from types/profile.ts)
   // It has fields like: filename, path_str, ..., norisk_identifier, fallback_version
   // The actual object from Rust via invoke might have `norisk_info` field instead of `norisk_identifier` being populated.
-  console.log(`mapBackendItemToFrontendType: Raw item from backend - PathStr: ${rawItem.path_str}, Filename: ${rawItem.filename}`);
-
   const outputItem = {
     ...rawItem, // Spread all properties from rawItem (which is typed as ProfileLocalContentItem)
     path: rawItem.path_str, // Add/override path using path_str from ProfileLocalContentItem // Fallback to the typed norisk_identifier if norisk_info isn't there
@@ -107,7 +124,6 @@ function mapBackendItemToFrontendType<T extends LocalContentItem>(rawItem: Profi
   // Optional: For cleanliness, if T is not expected to have path_str, we could delete it.
   // However, LocalContentItem (the type T extends) currently inherits path_str from ProfileLocalContentItem.
   // delete (outputItem as any).path_str;
-  console.log(`mapBackendItemToFrontendType: Mapped item - Path: ${outputItem.path}, Filename: ${outputItem.filename}`);
   return outputItem as T;
 }
 
@@ -239,10 +255,68 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const [isDialogActionLoading, setIsDialogActionLoading] = useState(false);
 
   const [modrinthIcons, setModrinthIcons] = useState<Record<string, string | null>>({});
+  const [curseforgeIcons, setCurseforgeIcons] = useState<Record<string, string | null>>({});
   const [localArchiveIcons, setLocalArchiveIcons] = useState<Record<string, string | null>>({});
+
+  // Helper function to determine which platform to use for an item
+  const getItemPlatform = useCallback((item: T): 'modrinth' | 'curseforge' | 'local' => {
+    // If platform is explicitly set, use that
+    if (item.platform) {
+      return item.platform === 'Modrinth' ? 'modrinth' : 'curseforge';
+    }
+
+    // Fallback: check if we have info from both platforms
+    if (item.modrinth_info && item.curseforge_info) {
+      // If both are available, prefer the one with more complete info
+      // This is a heuristic - could be improved based on your needs
+      return item.modrinth_info.project_id ? 'modrinth' : 'curseforge';
+    }
+
+    // Single platform info
+    if (item.modrinth_info) return 'modrinth';
+    if (item.curseforge_info) return 'curseforge';
+
+    // No platform info available
+    return 'local';
+  }, []);
+
+  // Helper function to get the appropriate icon for an item
+  const getItemIcon = useCallback((item: T): string | null => {
+    const platform = getItemPlatform(item);
+
+    switch (platform) {
+      case 'modrinth':
+        if (item.modrinth_info?.project_id) {
+          return modrinthIcons[item.modrinth_info.project_id] || null;
+        }
+        break;
+      case 'curseforge':
+        if (item.curseforge_info?.project_id) {
+          return curseforgeIcons[item.curseforge_info.project_id] || null;
+        }
+        break;
+      case 'local':
+        return localArchiveIcons[item.path] || null;
+    }
+
+    // Fallback to local archive icon
+    return localArchiveIcons[item.path] || null;
+  }, [getItemPlatform, modrinthIcons, curseforgeIcons, localArchiveIcons]);
+
+  // Helper function to get platform display name
+  const getItemPlatformDisplayName = useCallback((item: T): string => {
+    const platform = getItemPlatform(item);
+
+    switch (platform) {
+      case 'modrinth': return 'Modrinth';
+      case 'curseforge': return 'CurseForge';
+      case 'local': return 'Local';
+      default: return 'Unknown';
+    }
+  }, [getItemPlatform]);
   const [hashesToFetchModrinthDetailsFor, setHashesToFetchModrinthDetailsFor] = useState<string[] | null>(null);
 
-  const [contentUpdates, setContentUpdates] = useState<Record<string, ModrinthVersion | null>>({});
+  const [contentUpdates, setContentUpdates] = useState<Record<string, UnifiedVersion>>({});
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [itemsBeingUpdated, setItemsBeingUpdated] = useState<Set<string>>(new Set());
   const [contentUpdateError, setContentUpdateError] = useState<string | null>(null);
@@ -444,8 +518,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (activeDropdownId && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        const moreActionsButton = (event.target as HTMLElement).closest(`[data-item-id="${activeDropdownId}"] [title~="More"]`);
-        if (!moreActionsButton) {
+        // Check if the click was on the "More Actions" button or any of its children
+        const clickedElement = event.target as HTMLElement;
+        const isMoreActionsButton = clickedElement.closest(`button[title="More Actions"], button[aria-label="More Actions"]`);
+        if (!isMoreActionsButton) {
           setActiveDropdownId(null);
         }
       }
@@ -463,7 +539,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
 
       const projectIdsToFetch = items
-        .filter(item => item.modrinth_info?.project_id && modrinthIcons[item.modrinth_info.project_id] === undefined)
+        .filter(item => {
+          const platform = getItemPlatform(item);
+          return platform === 'modrinth' && item.modrinth_info?.project_id && modrinthIcons[item.modrinth_info.project_id] === undefined;
+        })
         .map(item => item.modrinth_info!.project_id!)
       const uniqueProjectIds = [...new Set(projectIdsToFetch)];
 
@@ -490,7 +569,56 @@ export function useLocalContentManager<T extends LocalContentItem>({
       }
     };
     fetchModrinthIcons();
-  }, [items]); 
+  }, [items, getItemPlatform]);
+
+  // Fetch CurseForge icons
+  useEffect(() => {
+    const fetchCurseForgeIcons = async () => {
+      if (!items || items.length === 0) {
+        setCurseforgeIcons({});
+        return;
+      }
+
+      const projectIdsToFetch = items
+        .filter(item => {
+          const platform = getItemPlatform(item);
+          return platform === 'curseforge' && item.curseforge_info?.project_id && curseforgeIcons[item.curseforge_info.project_id] === undefined;
+        })
+        .map(item => item.curseforge_info!.project_id!)
+        .map(id => parseInt(id, 10)) // Convert string to number
+        .filter(id => !isNaN(id)); // Filter out invalid IDs
+
+      const uniqueProjectIds = [...new Set(projectIdsToFetch)];
+
+      if (uniqueProjectIds.length > 0) {
+        try {
+          const modsResponse = await CurseForgeService.getModsByIds(uniqueProjectIds);
+          const newIcons: Record<string, string | null> = {};
+
+          if (modsResponse && modsResponse.data) {
+            modsResponse.data.forEach(mod => {
+              if (mod && mod.id && mod.logo) {
+                newIcons[mod.id.toString()] = mod.logo.url || null;
+              } else if (mod && mod.id) {
+                // Mod exists but has no logo
+                newIcons[mod.id.toString()] = null;
+              }
+            });
+          } else {
+            console.warn("[useLocalContentManager] CurseForgeService.getModsByIds did not return expected structure. Received:", modsResponse);
+          }
+
+          setCurseforgeIcons(prevIcons => ({ ...prevIcons, ...newIcons }));
+        } catch (err) {
+          console.error("[useLocalContentManager] Failed to fetch CurseForge mod details for icons:", err);
+          const errorIcons: Record<string, string | null> = {};
+          uniqueProjectIds.forEach(id => { errorIcons[id.toString()] = null; });
+          setCurseforgeIcons(prevIcons => ({ ...prevIcons, ...errorIcons }));
+        }
+      }
+    };
+    fetchCurseForgeIcons();
+  }, [items, getItemPlatform]);
 
   // Fetch local archive icons
   useEffect(() => {
@@ -586,6 +714,24 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const areAllFilteredSelected = useMemo(() => {
     return filteredItems.length > 0 && filteredItems.every(item => selectedItemIds.has(item.filename));
   }, [filteredItems, selectedItemIds]);
+
+  // Calculate the number of actually updatable content (only mods with updates enabled)
+  const updatableContentCount = useMemo(() => {
+    let count = 0;
+    for (const item of items) {
+      const updateIdentifier = getUpdateIdentifier(item);
+      if (updateIdentifier && contentUpdates[updateIdentifier]) {
+        // Only count mods that have updates enabled (default to true if null/undefined)
+        const updatesEnabledDefault = item.updates_enabled ?? true;
+        const hasUpdatesEnabled = contentType === 'Mod' && updatesEnabledDefault !== false;
+
+        if (hasUpdatesEnabled) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [items, contentUpdates, contentType]);
 
   const handleSelectAllToggle = useCallback((isChecked: boolean) => {
     setSelectedItemIds(prev => {
@@ -809,38 +955,118 @@ export function useLocalContentManager<T extends LocalContentItem>({
       setContentUpdates({});
       return;
     }
-    const itemsWithHashes = currentItems.filter(item => item.modrinth_info && item.sha1_hash);
-    if (itemsWithHashes.length === 0) {
+
+    // Sammle alle Items die entweder einen sha1_hash (Modrinth) oder fingerprint (CurseForge) haben
+    const itemsWithIdentifiers = currentItems.filter(item =>
+      item.sha1_hash || (item.curseforge_info?.fingerprint !== undefined)
+    );
+
+    if (itemsWithIdentifiers.length === 0) {
       setContentUpdates({});
       return;
     }
-    const hashes = itemsWithHashes.map(item => item.sha1_hash!);
+
+    // Erstelle Identifier-Mapping: für jeden Item einen eindeutigen String-Identifier
+    const itemIdentifiers: Array<{ item: T; identifier: string; platform: ModPlatform }> = [];
+
+    for (const item of itemsWithIdentifiers) {
+      // Use centralized utility function for consistent identifier logic
+      const identifier = getUpdateIdentifier(item);
+      const platform = getContentPlatform(item) === 'CurseForge' ? ModPlatform.CurseForge : ModPlatform.Modrinth;
+
+      if (identifier) {
+        itemIdentifiers.push({ item, identifier, platform });
+      }
+    }
+
+    const hashes = itemIdentifiers.map(({ identifier }) => identifier);
+
+    // Sammle Plattform-Informationen für jeden Identifier
+    const hashPlatforms: Record<string, ModPlatform> = {};
+    const hashFingerprints: Record<string, number> = {};
+
+    for (const { identifier, platform, item } of itemIdentifiers) {
+      hashPlatforms[identifier] = platform;
+
+      // Sammle CurseForge Fingerprints wenn verfügbar
+      if (platform === ModPlatform.CurseForge && item.curseforge_info?.fingerprint) {
+        hashFingerprints[identifier] = item.curseforge_info.fingerprint;
+      }
+    }
+
     setIsCheckingUpdates(true);
     setContentUpdateError(null);
     console.log("Current Items:", currentItems);
+    console.log("Hash platforms:", hashPlatforms);
+
     try {
-      const requestBody: ModrinthBulkUpdateRequestBody = {
+      const request: UnifiedUpdateCheckRequest = {
         hashes,
-        algorithm: "sha1" as ModrinthHashAlgorithm,
+        algorithm: "sha1",
         loaders: (contentType === 'Mod' || contentType === 'NoRiskMod') && currentProfile.loader ? [currentProfile.loader] : [],
         game_versions: [currentProfile.game_version],
+        hash_platforms: hashPlatforms, // Neue Plattform-Mapping
+        hash_fingerprints: Object.keys(hashFingerprints).length > 0 ? hashFingerprints : undefined,
       };
-      const updates = await invoke<Record<string, ModrinthVersion | null>>(
-        "check_modrinth_updates", 
-        { request: requestBody } 
-      );
-      const filteredUpdates: Record<string, ModrinthVersion> = {};
-      const itemsByHash = new Map<string, T>();
-      for (const item of itemsWithHashes) {
-        if(item.sha1_hash) itemsByHash.set(item.sha1_hash, item);
+
+      // Verwende den UnifiedService
+      const updates: UnifiedUpdateCheckResponse = await UnifiedService.checkModUpdates(request);
+
+      // Debug logging
+      console.log('=== UPDATE CHECK DEBUG ===');
+      console.log('Available update keys:', Object.keys(updates.updates));
+      console.log('Sample updates:');
+      Object.entries(updates.updates).slice(0, 3).forEach(([key, update]) => {
+        console.log(`  Key: "${key}" -> ${update.version_number} (${update.source})`);
+      });
+
+      const filteredUpdates: Record<string, UnifiedVersion> = {};
+      const itemsByIdentifier = new Map<string, T>();
+
+      // Erstelle Mapping von Identifier zu Item
+      for (const { item, identifier } of itemIdentifiers) {
+        itemsByIdentifier.set(identifier, item);
       }
-      for (const [hash, versionInfo] of Object.entries(updates)) {
-        const item = itemsByHash.get(hash);
-        if (item && versionInfo && versionInfo.id && 
-           ((item.modrinth_info && item.modrinth_info.version_id !== versionInfo.id) || !item.modrinth_info)) {
-          filteredUpdates[hash] = versionInfo;
+
+      console.log('=== FILTERING DEBUG ===');
+      console.log('Items by identifier keys:', Array.from(itemsByIdentifier.keys()));
+      console.log('Update keys to process:', Object.keys(updates.updates));
+
+      for (const [identifier, unifiedVersion] of Object.entries(updates.updates)) {
+        const item = itemsByIdentifier.get(identifier);
+        console.log(`Processing update key "${identifier}": item found = ${!!item}`);
+        if (item) {
+          console.log(`  Item: ${item.filename}, platform: ${item.platform}, has curseforge_info: ${!!item.curseforge_info}, fingerprint: ${item.curseforge_info?.fingerprint}, sha1_hash: ${item.sha1_hash}`);
+        } else {
+          // Try to find item with different identifier formats
+          console.log(`  Looking for item with fingerprint ${identifier}...`);
+          const foundByFingerprint = items.find(i => i.curseforge_info?.fingerprint?.toString() === identifier);
+          if (foundByFingerprint) {
+            console.log(`  Found by fingerprint: ${foundByFingerprint.filename}`);
+          } else {
+            console.log(`  No item found with fingerprint ${identifier}`);
+          }
+        }
+
+        if (item && unifiedVersion && unifiedVersion.id) {
+          // Vergleiche die aktuelle Version mit der verfügbaren Update-Version
+          const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
+          console.log(`Comparing versions for ${item.filename}: current=${currentVersionId} (${typeof currentVersionId}), update=${unifiedVersion.id} (${typeof unifiedVersion.id})`);
+          if (currentVersionId !== unifiedVersion.id) {
+            console.log(`Found update for ${item.filename}: ${currentVersionId} -> ${unifiedVersion.id}`);
+            // Verwende UnifiedVersion direkt ohne Konvertierung
+            filteredUpdates[identifier] = unifiedVersion as UnifiedVersion;
+          } else {
+            console.log(`No update needed for ${item.filename}: versions match (${currentVersionId})`);
+          }
+        } else {
+          console.log(`Skipping update for key "${identifier}": item=${!!item}, unifiedVersion=${!!unifiedVersion}, unifiedVersion.id=${unifiedVersion?.id}`);
         }
       }
+
+      console.log('Filtered updates result:', Object.keys(filteredUpdates));
+
+      console.log("Filtered updates:", filteredUpdates);
       setContentUpdates(filteredUpdates);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -852,121 +1078,133 @@ export function useLocalContentManager<T extends LocalContentItem>({
     }
   }, [profile, items, contentType]);
 
-  const handleUpdateContentItem = useCallback(async (item: T, updateVersion: ModrinthVersion, suppressOwnToast: boolean = false) => {
+  // Common function for switching content versions
+  const performContentVersionSwitch = useCallback(async (
+    item: T,
+    newVersion: UnifiedVersion,
+    options: {
+      removeUpdateNotification?: boolean;
+      isUpdateOperation?: boolean;
+    } = {}
+  ): Promise<T> => {
+    // Use the unified service method - backend handles all platform logic
+    await UnifiedService.switchContentVersion(
+      profile.id,
+      mapUiContentTypeToBackend(contentType),
+      item,
+      newVersion
+    );
+
+    // After successful invoke, create the updated item for the frontend state.
+    const primaryFile = newVersion.files.find(f => f.primary) || newVersion.files[0];
+    if (!primaryFile) throw new Error(`${options.isUpdateOperation ? 'Updated' : 'Switched'} version details are missing a primary file.`);
+
+    const newSha1 = primaryFile.hashes.sha1 || null;
+    const newFilename = primaryFile.filename;
+    const oldPath = item.path;
+    const pathSeparator = oldPath.includes('/') ? '/' : '\\';
+    const dirPath = oldPath.substring(0, oldPath.lastIndexOf(pathSeparator));
+    const newPath = `${dirPath}${pathSeparator}${newFilename}`;
+
+    // Plattform-spezifische Info-Updates
+    const platform = newVersion.source;
+    let updatedModrinthInfo = item.modrinth_info;
+    let updatedCurseForgeInfo = item.curseforge_info;
+
+    if (platform === 'Modrinth') {
+      updatedModrinthInfo = {
+        ...(item.modrinth_info || {}),
+        project_id: newVersion.project_id,
+        version_id: newVersion.id,
+        name: newVersion.name,
+        version_number: newVersion.version_number,
+        download_url: primaryFile.url,
+      };
+    } else if (platform === 'CurseForge') {
+      updatedCurseForgeInfo = {
+        ...(item.curseforge_info || {}),
+        project_id: newVersion.project_id,
+        file_id: newVersion.id,
+        name: newVersion.name,
+        version_number: newVersion.version_number,
+        download_url: primaryFile.url,
+      };
+    }
+
+    const updatedItem: T = {
+      ...item, // Start with the old item to preserve path etc.
+      filename: newFilename,
+      path: newPath,
+      path_str: newPath,
+      is_disabled: false,
+      sha1_hash: newSha1,
+      fallback_version: newVersion.version_number,
+      modrinth_info: updatedModrinthInfo,
+      curseforge_info: updatedCurseForgeInfo,
+    };
+
+    // Update the main items list with the new item data
+    setItems(prevItems => prevItems.map(i => i.filename === item.filename ? updatedItem : i));
+
+    // Remove update notification if requested
+    if (options.removeUpdateNotification) {
+      const updateIdentifier = getUpdateIdentifier(item);
+      if (updateIdentifier) {
+        setContentUpdates(prev => {
+          const newUpdates = { ...prev };
+          delete newUpdates[updateIdentifier];
+          return newUpdates;
+        });
+      }
+    }
+
+    return updatedItem;
+  }, [profile, contentType, setItems, setContentUpdates]);
+
+  const handleUpdateContentItem = useCallback(async (item: T, updateVersion: UnifiedVersion, suppressOwnToast: boolean = false) => {
     // 1. Initial checks
     if (!profile) {
       toast.error("Profile missing, cannot update.");
       return;
     }
 
-    let command = "";
-    let payload: any;
-    let isModUpdateById = false;
-
-    // 2. Determine command, payload, and handle unsupported scenarios
-    if (contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info) {
-      if (!item.modrinth_info) { 
-          toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a Modrinth mod. Cannot update.`);
-          return;
-      }
-      command = "update_modrinth_mod_version";
-      payload = {
-        profileId: profile.id,
-        modInstanceId: item.id,
-        newVersionDetails: updateVersion,
-      };
-      isModUpdateById = true;
-      console.log(`[${contentType}] Using update_modrinth_mod_version for item ID: ${item.id}`);
-    } else {
-      if (!item.path) {
-          toast.error(`Item path missing for ${getDisplayFileName(item)}, cannot update.`);
-          return;
-      }
-      // For non-ID based updates (assets or fallback mods), modrinth_info and sha1_hash are crucial.
-      if (!item.modrinth_info || !item.sha1_hash) {
-          toast.error(`Item ${getDisplayFileName(item)} is not linked to Modrinth correctly or missing hash, cannot auto-update.`);
-          return;
-      }
-
-      payload = { profileId: profile.id, newVersionDetails: updateVersion };
-      const itemPayloadKey = contentType.toLowerCase(); 
-      payload[itemPayloadKey] = item; 
-
-      switch (contentType) {
-        case 'ShaderPack': command = "update_shaderpack_from_modrinth"; break;
-        case 'ResourcePack': command = "update_resourcepack_from_modrinth"; break;
-        case 'DataPack': command = "update_datapack_from_modrinth"; break;
-        case 'Mod':
-          // For custom/local mods (no id) use the generic switch_content_version path
-          command = "switch_content_version";
-          payload = {
-            payload: {
-              profile_id: profile.id,
-              content_type: mapUiContentTypeToBackend(contentType),
-              current_item_details: { ...item, path_str: item.path },
-              new_modrinth_version_details: updateVersion,
-            },
-          };
-          break;
-        default:
-          toast.error(`Unsupported content type for update: ${contentType}`);
-          return;
-      }
-      console.log(`[${contentType}] Using generic update command: ${command} for item: ${item.filename}`);
+    // 1.5. Check if this is a modpack mod (completely blocked)
+    if (contentType === 'Mod' && item.modpack_origin !== null && item.modpack_origin !== undefined) {
+      toast.error(`Cannot update ${getDisplayFileName(item)}. This mod comes from a modpack and must be updated through the modpack. Individual updates are disabled to prevent breaking changes.`);
+      return;
     }
 
-    if (!command) { // Should ideally be caught by earlier checks
-        toast.error(`Could not determine update action for ${getDisplayFileName(item)}.`);
-        return;
+    // 2. Validate requirements for all content types
+    const platform = updateVersion.source;
+
+    // Basic validation for all content types
+    if (!item.path && !(contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info)) {
+      toast.error(`Item path missing for ${getDisplayFileName(item)}, cannot update.`);
+      return;
     }
+
+    // Platform-specific validation
+    if (platform === 'Modrinth' && contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info && !item.modrinth_info) {
+      toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a Modrinth mod. Cannot update.`);
+      return;
+    }
+
+    if (platform === 'CurseForge' && contentType === 'Mod' && item.id && !item.source_type && !item.norisk_info && !item.curseforge_info) {
+      toast.error(`Mod ${getDisplayFileName(item)} is not recognized as a CurseForge mod. Cannot update.`);
+      return;
+    }
+
+    console.log(`[${contentType}] Updating ${getDisplayFileName(item)} to version ${updateVersion.version_number} (${platform})`);
 
     // 3. Setup for the operation
     setItemsBeingUpdated(prev => new Set(prev).add(item.filename));
     setContentUpdateError(null);
 
     const promiseAction = async () => {
-      await invoke(command, payload); // Core operation
-
-      // After successful invoke, create the updated item for the frontend state.
-      const primaryFile = updateVersion.files.find(f => f.primary) || updateVersion.files[0];
-      if (!primaryFile) throw new Error("Updated version details are missing a primary file.");
-
-      const newSha1 = primaryFile.hashes?.sha1 || null;
-      const newFilename = primaryFile.filename;
-      const oldPath = item.path;
-      const pathSeparator = oldPath.includes('/') ? '/' : '\\';
-      const dirPath = oldPath.substring(0, oldPath.lastIndexOf(pathSeparator));
-      const newPath = `${dirPath}${pathSeparator}${newFilename}`;
-
-      const updatedItem: T = {
-          ...item, // Start with the old item to preserve path etc.
-          filename: newFilename,
-          path: newPath,
-          path_str: newPath,
-          is_disabled: false,
-          sha1_hash: newSha1,
-          fallback_version: updateVersion.version_number,
-          modrinth_info: {
-              ...(item.modrinth_info || {}),
-              project_id: updateVersion.project_id,
-              version_id: updateVersion.id,
-              name: updateVersion.name,
-              version_number: updateVersion.version_number,
-              download_url: primaryFile.url,
-          },
-      };
-
-      // Update the main items list with the new item data
-      setItems(prevItems => prevItems.map(i => i.filename === item.filename ? updatedItem : i));
-      
-      // Remove the update notification
-      if (item.sha1_hash) {
-          setContentUpdates(prev => {
-              const newUpdates = { ...prev };
-              delete newUpdates[item.sha1_hash!];
-              return newUpdates;
-          });
-      }
+      await performContentVersionSwitch(item, updateVersion, {
+        removeUpdateNotification: true,
+        isUpdateOperation: true
+      });
     };
 
     // 4. Execute with toast.promise and cleanup
@@ -977,14 +1215,14 @@ export function useLocalContentManager<T extends LocalContentItem>({
         await toast.promise(
           promiseAction(),
           {
-            loading: `Updating ${getDisplayFileName(item)} to ${updateVersion.version_number}...`,
-            success: `Successfully updated ${getDisplayFileName(item)} to ${updateVersion.version_number}!`,
-            error: (err: any) => {
-              console.error(`Failed to update ${contentType} for ${getDisplayFileName(item)}:`, err);
-              const displayName = getDisplayFileName(item);
-              const errorMsg = err?.message || (typeof err === 'string' ? err : "An unknown error occurred during the update.");
-              return `Failed to update ${displayName}: ${errorMsg}`;
-            }
+        loading: `Updating ${getDisplayFileName(item)} to ${updateVersion.version_number}...`,
+        success: `Successfully updated ${getDisplayFileName(item)} to ${updateVersion.version_number}!`,
+        error: (err: any) => {
+          console.error(`Failed to update ${contentType} for ${getDisplayFileName(item)} (${platform}):`, err);
+          const displayName = getDisplayFileName(item);
+          const errorMsg = err?.message || (typeof err === 'string' ? err : "An unknown error occurred during the update.");
+          return `Failed to update ${displayName}: ${errorMsg}`;
+        }
           },
           {
             success: {
@@ -1008,15 +1246,24 @@ export function useLocalContentManager<T extends LocalContentItem>({
         return newSet;
       });
     }
-  }, [profile, contentType, getDisplayFileName, setItemsBeingUpdated, setContentUpdateError, setContentUpdates]);
+  }, [profile, contentType, getDisplayFileName, setItemsBeingUpdated, setContentUpdateError, setContentUpdates, performContentVersionSwitch]);
 
   const handleUpdateAllAvailableContent = useCallback(async () => {
     if (Object.keys(contentUpdates).length === 0 || !profile) return;
     
-    const itemsToUpdateWithDetails: {item: T, version: ModrinthVersion}[] = [];
-    for (const item of items) { 
-      if (item.sha1_hash && contentUpdates[item.sha1_hash]) {
-        itemsToUpdateWithDetails.push({ item, version: contentUpdates[item.sha1_hash]! });
+    const itemsToUpdateWithDetails: {item: T, version: UnifiedVersion}[] = [];
+    for (const item of items) {
+      // Use the same identifier logic as in checkForContentUpdates
+      const updateIdentifier = getUpdateIdentifier(item);
+      if (updateIdentifier && contentUpdates[updateIdentifier]) {
+        // Only include mods that have updates enabled (true or null/undefined)
+        const hasUpdatesEnabled = contentType === 'Mod' && item.updates_enabled !== false;
+
+        if (hasUpdatesEnabled) {
+          itemsToUpdateWithDetails.push({ item, version: contentUpdates[updateIdentifier] });
+        } else {
+          console.log(`Skipping ${getDisplayFileName(item)} from bulk update - UpdatesDisabled: ${!hasUpdatesEnabled}`);
+        }
       }
     }
 
@@ -1033,7 +1280,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
     
     for (const { item, version } of itemsToUpdateWithDetails) {
       try {
-        await handleUpdateContentItem(item, version, true); // suppressOwnToast
+        await handleUpdateContentItem(item, version, true); // suppressOwnToast - version ist jetzt UnifiedVersion
         succeededCount++;
         toast.loading(`Updating ${succeededCount}/${totalCount} ${contentType}s...`, { id: toastId });
       } catch(err) {
@@ -1069,49 +1316,18 @@ export function useLocalContentManager<T extends LocalContentItem>({
         // and cause the "Update All" button to reappear incorrectly.
         // A manual refresh will catch any brand new updates.
     }
-  }, [profile, items, contentUpdates, contentType, getDisplayFileName, handleUpdateContentItem]);
+  }, [profile, items, contentUpdates, contentType, getDisplayFileName, handleUpdateContentItem, performContentVersionSwitch]);
 
-  const handleSwitchContentVersion = useCallback(async (item: T, newVersion: ModrinthVersion) => {
+  const handleSwitchContentVersion = useCallback(async (item: T, newVersion: UnifiedVersion) => {
     if (!profile) {
       toast.error("Cannot switch version: Missing profile.");
       return;
     }
-    
-    const payload: SwitchContentVersionPayload = {
-      profile_id: profile.id,
-      content_type: mapUiContentTypeToBackend(contentType),
-      current_item_details: {
-        ...item,
-        path_str: item.path,
-      },
-      new_modrinth_version_details: newVersion,
-    };
 
     const promiseAction = async () => {
-      await switchContentVersion(payload);
-
-      const primaryFile = newVersion.files.find(f => f.primary) || newVersion.files[0];
-      if (!primaryFile) throw new Error("Switched version details are missing a primary file.");
-
-      const newSha1 = primaryFile.hashes?.sha1 || null;
-      const newFilename = primaryFile.filename;
-      const oldPath = item.path;
-      const pathSeparator = oldPath.includes('/') ? '/' : '\\';
-      const dirPath = oldPath.substring(0, oldPath.lastIndexOf(pathSeparator));
-      const newPath = `${dirPath}${pathSeparator}${newFilename}`;
-
-      const updatedItem: T = {
-        ...item,
-        filename: newFilename,
-        path: newPath,
-        path_str: newPath,
-        is_disabled: false,
-        sha1_hash: newSha1,
-        fallback_version: newVersion.version_number,
-        modrinth_info: { ...(item.modrinth_info || {}), project_id: newVersion.project_id, version_id: newVersion.id, name: newVersion.name, version_number: newVersion.version_number, download_url: primaryFile.url },
-      };
-
-      setItems(prevItems => prevItems.map(i => i.filename === item.filename ? updatedItem : i));
+      await performContentVersionSwitch(item, newVersion, {
+        isUpdateOperation: false
+      });
     };
 
     await toast.promise(
@@ -1128,7 +1344,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
       },
     );
 
-  }, [profile, contentType, getDisplayFileName]);
+  }, [profile, contentType, getDisplayFileName, performContentVersionSwitch]);
 
   useEffect(() => {
     // Check for updates only after the initial full loading process for the current profile is complete,
@@ -1142,6 +1358,125 @@ export function useLocalContentManager<T extends LocalContentItem>({
   // Note: We are intentionally omitting `items` from this dependency array to prevent re-checking on every toggle.
   // `checkForContentUpdates` is a useCallback that itself depends on `items`, so it will use the latest `items` when called.
   // The `isInitialLoadProcessComplete` flag is the primary gate for this effect.
+
+  // Toggle updates enabled for a single item
+  const handleToggleItemUpdatesEnabled = useCallback(async (item: T) => {
+    if (!profile) {
+      toast.error("Cannot toggle update checks: Missing profile.");
+      return;
+    }
+
+    if (!item.id) {
+      toast.error(`Cannot toggle update checks: ${getDisplayFileName(item)} has no valid ID.`);
+      return;
+    }
+
+    const currentUpdatesEnabled = item.updates_enabled ?? true; // Default to true if null
+    const newUpdatesEnabled = !currentUpdatesEnabled;
+
+    const promiseAction = async () => {
+      await toggleModUpdates({
+        profile_id: profile.id,
+        mod_id: item.id,
+        updates_enabled: newUpdatesEnabled,
+      });
+
+      // Update local state immediately for better UX
+      setItems(prevItems =>
+        prevItems.map(prevItem =>
+          prevItem.id === item.id
+            ? { ...prevItem, updates_enabled: newUpdatesEnabled }
+            : prevItem
+        )
+      );
+    };
+
+    await toast.promise(
+      promiseAction(),
+      {
+        loading: `${newUpdatesEnabled ? 'Enabling' : 'Disabling'} update checks for ${getDisplayFileName(item)}...`,
+        success: `Update checks ${newUpdatesEnabled ? 'enabled' : 'disabled'} for ${getDisplayFileName(item)}.`,
+        error: (err) => `Failed to toggle update checks: ${err.message?.toString() || 'Unknown error'}`,
+      },
+      {
+        success: {
+          duration: 700,
+        },
+      },
+    );
+
+  }, [profile, getDisplayFileName]);
+
+  // Bulk toggle updates enabled for selected items
+  const handleBatchToggleSelectedUpdatesEnabled = useCallback(async (updatesEnabled: boolean) => {
+    if (!profile) {
+      toast.error("Cannot toggle update checks: Missing profile.");
+      return;
+    }
+
+    if (selectedItemIds.size === 0) {
+      toast.error("No items selected.");
+      return;
+    }
+
+    // Find the selected items
+    const selectedItems = items.filter(item => selectedItemIds.has(item.filename));
+
+    if (selectedItems.length === 0) {
+      toast.error("Selected items not found.");
+      return;
+    }
+
+    const promiseAction = async () => {
+      // Filter out items without valid IDs and prepare bulk update payload
+      const validItems = selectedItems.filter(item => item.id);
+      if (validItems.length === 0) {
+        throw new Error("No valid items found with IDs for update check toggle");
+      }
+
+      const modUpdates = validItems.map(item => ({
+        mod_id: item.id,
+        updates_enabled: updatesEnabled,
+      }));
+
+      await bulkToggleModUpdates({
+        profile_id: profile.id,
+        mod_updates: modUpdates,
+      });
+
+      // Update local state immediately for better UX (only for valid items)
+      setItems(prevItems =>
+        prevItems.map(prevItem =>
+          validItems.some(validItem => validItem.filename === prevItem.filename)
+            ? { ...prevItem, updates_enabled: updatesEnabled }
+            : prevItem
+        )
+      );
+
+      // Clear selection after successful operation
+      setSelectedItemIds(new Set());
+    };
+
+    await toast.promise(
+      promiseAction(),
+      {
+        loading: `${updatesEnabled ? 'Enabling' : 'Disabling'} update checks for ${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}...`,
+        success: `Update checks ${updatesEnabled ? 'enabled' : 'disabled'} for ${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}.`,
+        error: (err) => `Failed to toggle update checks: ${err.message || 'Unknown error'}`,
+      },
+      {
+        success: {
+          duration: 700,
+        },
+      },
+    ).catch((err) => {
+      // If we get an error about valid items, show a more specific message
+      if (err.message && err.message.includes('No valid items found')) {
+        toast.error('Cannot toggle update checks: Selected items do not have valid IDs');
+      }
+    });
+
+  }, [profile, selectedItemIds, items]);
 
   return {
     items,
@@ -1170,12 +1505,16 @@ export function useLocalContentManager<T extends LocalContentItem>({
     handleCloseDeleteDialog,
     itemToDeleteForDialog,
     modrinthIcons,
+    curseforgeIcons,
     localArchiveIcons,
+    getItemIcon,
+    getItemPlatformDisplayName,
     contentUpdates,
-    isCheckingUpdates, 
+    isCheckingUpdates,
     itemsBeingUpdated,
     contentUpdateError,
-    isUpdatingAll, 
+    isUpdatingAll,
+    updatableContentCount,
     fetchData,
     handleToggleItemEnabled,
     handleDeleteItem,
@@ -1186,5 +1525,9 @@ export function useLocalContentManager<T extends LocalContentItem>({
     handleUpdateContentItem,
     handleUpdateAllAvailableContent,
     handleSwitchContentVersion,
+
+    // Mod update toggle methods
+    handleToggleItemUpdatesEnabled,
+    handleBatchToggleSelectedUpdatesEnabled,
   };
 } 

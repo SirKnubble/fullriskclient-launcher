@@ -5,6 +5,7 @@ import type {
   ModrinthSearchHit,
   ModrinthVersion,
 } from '../../../types/modrinth';
+import type { UnifiedVersion } from '../../../types/unified';
 import { Icon } from '@iconify/react';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/buttons/Button';
@@ -19,7 +20,7 @@ interface ModrinthQuickInstallModalV2Props {
   isOpen: boolean;
   onClose: () => void;
   project: ModrinthSearchHit | null;
-  versions: ModrinthVersion[] | null;
+  versions: UnifiedVersion[] | null;
   isLoading: boolean;
   error: string | null;
   profiles: any[]; // Replace 'any' with actual Profile type
@@ -27,15 +28,15 @@ interface ModrinthQuickInstallModalV2Props {
   installStatus: Record<string, boolean>;
   installingProfiles: Record<string, boolean>;
   onInstallToProfile: (profileId: string) => void;
-  onUninstallClick?: (profileId: string, project: ModrinthSearchHit, version: ModrinthVersion) => Promise<void>;
+  onUninstallClick?: (profileId: string, project: ModrinthSearchHit, version: UnifiedVersion) => Promise<void>;
   findBestVersionForProfile: (
     profile: any, // Replace 'any' with Profile type
-    versions: ModrinthVersion[],
-  ) => ModrinthVersion | null;
+    versions: UnifiedVersion[],
+  ) => UnifiedVersion | null;
   onInstallToNewProfile: (
     profileName: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     sourceProfileIdToCopy: string | null, // Added
   ) => Promise<void>;
 }

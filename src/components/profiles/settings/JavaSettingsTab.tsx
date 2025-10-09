@@ -22,6 +22,8 @@ interface JavaSettingsTabProps {
   editedProfile: Profile;
   updateProfile: (updates: Partial<Profile>) => void;
   systemRam: number;
+  tempRamMb: number;
+  setTempRamMb: (value: number) => void;
 }
 
 // New type for Java Installation
@@ -37,6 +39,8 @@ export function JavaSettingsTab({
   editedProfile,
   updateProfile,
   systemRam,
+  tempRamMb,
+  setTempRamMb,
 }: JavaSettingsTabProps) {
   const [useCustomJava, setUseCustomJava] = useState(
     editedProfile.settings?.use_custom_java_path ?? false,
@@ -248,7 +252,7 @@ export function JavaSettingsTab({
   }
   
   // Use global memory settings for standard profiles, profile settings for custom profiles
-  const memory = editedProfile.is_standard_version 
+  const memory = editedProfile.is_standard_version
     ? (globalMemorySettings || { min: 1024, max: recommendedMaxRam })
     : (editedProfile.settings?.memory || { min: 1024, max: recommendedMaxRam });
 
@@ -355,27 +359,55 @@ export function JavaSettingsTab({
 
   return (
     <div ref={tabRef} className="space-y-6 select-none">
-      {editedProfile.is_standard_version && (
-        <Card variant="flat" className="p-4 border border-yellow-500/30 bg-yellow-500/10">
-          <div className="flex items-start gap-3">
-            <Icon icon="solar:info-circle-bold" className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-yellow-100 font-minecraft-ten leading-relaxed">
-              <p className="mb-2 font-semibold">You are editing a standard profile template.</p>
-              <p>
-                Standard profiles are designed to provide a stable, working baseline. 
-                To fully customize settings, add mods, or make other changes, please <strong>clone this profile</strong> first. 
-                This ensures you always have a functional standard version to fall back to.
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-      {!editedProfile.is_standard_version && (
-        <div ref={javaInstallRef} className="space-y-4">
+      <div ref={memoryRef} className="space-y-4">
         <div>
           <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            java installation
+            {editedProfile.is_standard_version ? "global memory allocated" : "memory allocated"}
           </h3>
+          <Card
+            variant="flat"
+            className="p-4 border border-white/10 bg-black/20"
+          >
+            {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
+              <div className="flex items-center justify-center py-8">
+                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
+                <span className="text-white font-minecraft">
+                  Loading settings...
+                </span>
+              </div>
+            ) : (
+              <>
+                <RangeSlider
+                  value={tempRamMb}
+                  onChange={setTempRamMb}
+                  min={512}
+                  max={systemRam}
+                  step={512}
+                  valueLabel={`${tempRamMb} MB (${(tempRamMb / 1024).toFixed(1)} GB)`}
+                  minLabel="512 MB"
+                  maxLabel={`${systemRam} MB`}
+                  variant="flat"
+                  recommendedRange={[4096, 8192]}
+                  unit="MB"
+                />
+                <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
+                  Recommended: {recommendedMaxRam} MB (
+                  {(recommendedMaxRam / 1024).toFixed(1)} GB)
+                  {editedProfile.is_standard_version && (
+                    <div className="mt-1 text-accent font-minecraft-ten">
+                      ⚠ This setting applies to all standard profiles
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+      </div>
+
+      <div ref={javaInstallRef} className="space-y-4">
+        <div>
+
           <div className="mb-3">
             <Checkbox
               checked={useCustomJava}
@@ -387,10 +419,7 @@ export function JavaSettingsTab({
           </div>
 
           {!useCustomJava && (
-            <Card
-              variant="flat"
-              className="p-4 mt-3 border border-white/10 bg-black/20"
-            >
+            <div className="mt-3">
               <div className="text-2xl text-white font-minecraft mb-2 lowercase tracking-wide select-none">
                 using launcher default java
               </div>
@@ -398,14 +427,11 @@ export function JavaSettingsTab({
               <div className="text-xs text-white/70 font-minecraft-ten break-all lowercase tracking-wide select-none">
                 The launcher will use its bundled Java or a system-wide default.
               </div>
-            </Card>
+            </div>
           )}
 
           {useCustomJava && (
-            <Card
-              variant="flat"
-              className="p-5 mt-3 space-y-4 custom-java-input border border-white/10 bg-black/20"
-            >
+            <div className="mt-3 space-y-4">
               {isDetectingJava && (
                 <div className="flex items-center text-white/70 font-minecraft">
                   <Icon
@@ -456,10 +482,7 @@ export function JavaSettingsTab({
                   <h4 className="text-xs text-white/70 font-minecraft-ten mb-2 tracking-wide">
                     Detected Java Installations (click to use):
                   </h4>
-                  <Card
-                    variant="flat"
-                    className="max-h-40 overflow-y-auto custom-scrollbar space-y-1 p-2 border border-white/10 bg-black/10"
-                  >
+                  <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1 p-2 bg-black/10 rounded-lg">
                     {detectedJavaInstallations.map((java) => (
                       <button
                         key={java.path}
@@ -487,7 +510,7 @@ export function JavaSettingsTab({
                         </span>
                       </button>
                     ))}
-                  </Card>
+                  </div>
                 </div>
               )}
 
@@ -510,62 +533,15 @@ export function JavaSettingsTab({
               >
                 {isValidatingJavaPath ? "Testing..." : "Test & Use Path"}
               </Button>
-            </Card>
+            </div>
           )}
-        </div>
-      </div>
-      )}
-
-      <div ref={memoryRef} className="space-y-4">
-        <div>
-          <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-            {editedProfile.is_standard_version ? "global memory allocated" : "memory allocated"}
-          </h3>
-          <Card
-            variant="flat"
-            className="p-4 border border-white/10 bg-black/20"
-          >
-            {(editedProfile.is_standard_version && (isLoadingGlobalMemory || !globalMemorySettings)) || !isSystemRamLoaded ? (
-              <div className="flex items-center justify-center py-8">
-                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
-                <span className="text-white font-minecraft">
-                  Loading settings...
-                </span>
-              </div>
-            ) : (
-              <>
-                <RangeSlider
-                  value={memory.max}
-                  onChange={handleMemoryChange}
-                  min={512}
-                  max={systemRam}
-                  step={512}
-                  valueLabel={`${memory.max} MB (${(memory.max / 1024).toFixed(1)} GB)`}
-                  minLabel="512 MB"
-                  maxLabel={`${systemRam} MB`}
-                  variant="flat"
-                />
-                <div className="mt-3 text-xs text-white/70 tracking-wide font-minecraft-ten">
-                  Recommended: {recommendedMaxRam} MB (
-                  {(recommendedMaxRam / 1024).toFixed(1)} GB)
-                  {editedProfile.is_standard_version && (
-                    <div className="mt-1 text-accent font-minecraft-ten">
-                      ⚠ This setting applies to all standard profiles
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </Card>
         </div>
       </div>
 
       {!editedProfile.is_standard_version && (
         <div ref={argsRef} className="space-y-4">
           <div>
-            <h3 className="text-3xl font-minecraft text-white mb-3 lowercase">
-              java arguments
-            </h3>
+            
           <div className="mb-3">
             <Checkbox
               checked={useCustomArgs}
@@ -577,10 +553,7 @@ export function JavaSettingsTab({
           </div>
 
           {useCustomArgs && (
-            <Card
-              variant="flat"
-              className="p-4 border border-white/10 bg-black/20 custom-args-textarea"
-            >
+            <div className="custom-args-textarea">
               <TextArea
                 value={editedProfile.settings?.custom_jvm_args || ""}
                 onChange={(e) => handleJavaArgsChange(e.target.value)}
@@ -592,7 +565,7 @@ export function JavaSettingsTab({
                 Arguments should be separated by spaces. Example: -Xmx4G
                 -XX:+UseG1GC
               </p>
-            </Card>
+            </div>
           )}
         </div>
       </div>

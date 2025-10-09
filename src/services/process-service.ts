@@ -25,8 +25,9 @@ export async function killMinecraft(profileId: string): Promise<void> {
 
 export async function launch(
   id: string,
-  quickPlaySingleplayer?: string, 
-  quickPlayMultiplayer?: string
+  quickPlaySingleplayer?: string,
+  quickPlayMultiplayer?: string,
+  migrationInfo?: any
 ): Promise<void> {
   // Guard: If experimental mode is enabled in settings, require feature flag to be enabled
   try {
@@ -46,10 +47,11 @@ export async function launch(
     );
   }
 
-  return invoke<void>("launch_profile", { 
-    id, 
-    quickPlaySingleplayer, 
-    quickPlayMultiplayer 
+  return invoke<void>("launch_profile", {
+    id,
+    quickPlaySingleplayer,
+    quickPlayMultiplayer,
+    migrationInfo
   });
 }
 

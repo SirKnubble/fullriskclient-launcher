@@ -1,7 +1,10 @@
 use crate::commands::file_command; // Added import for file_command
 use crate::error::{AppError, CommandError};
 use crate::integrations::modrinth::ModrinthVersion; // Added for new payload
+use crate::integrations::curseforge::CurseForgeFile; // Added for CurseForge support
+use crate::integrations::unified_mod::UnifiedVersion; // Added for unified version support
 use crate::state::profile_state::ModSource;
+use crate::integrations::unified_mod::ModPlatform; // Import unified ModPlatform
 use crate::state::state_manager::State as AppStateManager;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::hash_utils; // For calculate_sha1
@@ -20,17 +23,19 @@ use uuid::Uuid;
 // Updated InstallContentPayload struct
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InstallContentPayload {
-    profile_id: Uuid,
-    project_id: String,
-    version_id: String,
-    file_name: String,
-    download_url: String,
-    file_hash_sha1: Option<String>,
-    content_name: Option<String>, // Used as mod_name for mods
-    version_number: Option<String>,
-    content_type: profile_utils::ContentType, // Use ContentType from profile_utils
-    loaders: Option<Vec<String>>,             // Added loaders
-    game_versions: Option<Vec<String>>,       // Added game_versions
+    pub profile_id: Uuid,
+    pub project_id: String,
+    pub version_id: String,
+    pub file_name: String,
+    pub download_url: String,
+    pub file_hash_sha1: Option<String>,
+    pub file_fingerprint: Option<u64>,           // CurseForge fingerprint for update checking
+    pub content_name: Option<String>, // Used as mod_name for mods
+    pub version_number: Option<String>,
+    pub content_type: profile_utils::ContentType, // Use ContentType from profile_utils
+    pub loaders: Option<Vec<String>>,             // Added loaders
+    pub game_versions: Option<Vec<String>>,       // Added game_versions
+    pub source: ModPlatform,                      // Added source to distinguish Modrinth/CurseForge
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,20 +58,36 @@ async fn uninstall_content_by_sha1_internal(
         .get_profile(profile_id)
         .await?;
 
-    // Part 1: Remove Modrinth mod entries
+    // Part 1: Remove Modrinth and CurseForge mod entries
     let mut mod_ids_to_remove: Vec<Uuid> = Vec::new();
     for mod_entry in &profile.mods {
-        if let ModSource::Modrinth {
-            file_hash_sha1: Some(mod_hash),
-            ..
-        } = &mod_entry.source
-        {
-            if mod_hash == sha1_to_delete {
-                mod_ids_to_remove.push(mod_entry.id);
-                log::debug!(
-                    "Internal: Found Modrinth entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
-                    mod_entry.id, profile_id, sha1_to_delete
-                );
+        match &mod_entry.source {
+            ModSource::Modrinth {
+                file_hash_sha1: Some(mod_hash),
+                ..
+            } => {
+                if mod_hash == sha1_to_delete {
+                    mod_ids_to_remove.push(mod_entry.id);
+                    log::debug!(
+                        "Internal: Found Modrinth entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
+                        mod_entry.id, profile_id, sha1_to_delete
+                    );
+                }
+            }
+            ModSource::CurseForge {
+                file_hash_sha1: Some(mod_hash),
+                ..
+            } => {
+                if mod_hash == sha1_to_delete {
+                    mod_ids_to_remove.push(mod_entry.id);
+                    log::debug!(
+                        "Internal: Found CurseForge entry for deletion by SHA1: ID={}, ProfileID={}, SHA1={}",
+                        mod_entry.id, profile_id, sha1_to_delete
+                    );
+                }
+            }
+            _ => {
+                // Skip other mod sources
             }
         }
     }
@@ -81,7 +102,7 @@ async fn uninstall_content_by_sha1_internal(
                 .await
             {
                 log::error!(
-                    "Internal: Failed to remove Modrinth entry {} (SHA1: {}) from profile {}: {}",
+                    "Internal: Failed to remove mod entry {} (SHA1: {}) from profile {}: {}",
                     mod_id,
                     sha1_to_delete,
                     profile_id,
@@ -130,7 +151,7 @@ async fn uninstall_content_by_sha1_internal(
                     };
                 }
 
-                for (dir_name, asset_dir_path) in dirs_to_scan {
+                for (_dir_name, asset_dir_path) in dirs_to_scan {
                     if asset_dir_path.exists() && asset_dir_path.is_dir() {
                         match fs::read_dir(&asset_dir_path).await {
                             Ok(mut entries) => {
@@ -346,16 +367,18 @@ pub async fn toggle_content_from_profile(
     let mut asset_files_toggled_count = 0;
     let mut asset_file_toggle_errors = false;
 
-    // --- Phase 1: Toggle Modrinth Mod Entries (in profile.mods list) ---
+    // --- Phase 1: Toggle Modrinth and CurseForge Mod Entries (in profile.mods list) ---
     // Always check mods if SHA1 is provided, as it's a primary place for managed content.
     // If content_type is explicitly Mod, we'd primarily expect a hit here.
     // If content_type is an asset, a mod might still share a SHA1 if manually placed or due to other reasons.
     for mod_entry in profile.mods.iter() {
-        if let ModSource::Modrinth {
-            file_hash_sha1: Some(mod_hash),
-            ..
-        } = &mod_entry.source
-        {
+        let mod_hash = match &mod_entry.source {
+            ModSource::Modrinth { file_hash_sha1: Some(hash), .. } => Some(hash),
+            ModSource::CurseForge { file_hash_sha1: Some(hash), .. } => Some(hash),
+            _ => None,
+        };
+
+        if let Some(mod_hash) = mod_hash {
             if mod_hash == &current_sha1_hash {
                 if mod_entry.enabled == payload.enabled {
                     log::info!("Mod entry {} in profile {} is already state enabled={}. Skipping DB update.", mod_entry.id, payload.profile_id, payload.enabled);
@@ -720,75 +743,92 @@ pub async fn install_content_to_profile(
     payload: InstallContentPayload,
 ) -> Result<(), CommandError> {
     log::info!(
-        "Executing install_content_to_profile for profile {} with content type {:?}",
+        "Executing install_content_to_profile for profile {} with content type {:?} from source {:?}",
         payload.profile_id,
-        payload.content_type
+        payload.content_type,
+        payload.source
     );
 
     match payload.content_type {
         profile_utils::ContentType::Mod => {
-            log::info!(
-                "Attempting to install mod using profile_command::add_modrinth_mod_to_profile"
-            );
-            crate::commands::profile_command::add_modrinth_mod_to_profile(
+            match payload.source {
+                ModPlatform::Modrinth | ModPlatform::CurseForge => {
+                    let platform_name = match payload.source {
+                        ModPlatform::Modrinth => "Modrinth",
+                        ModPlatform::CurseForge => "CurseForge",
+                    };
+
+                    log::info!(
+                        "Attempting to install mod from {} using ProfileManager::add_mod_from_payload",
+                        platform_name
+                    );
+
+                    // Get profile manager from state
+                    let state = crate::state::state_manager::State::get().await?;
+                    let profile_manager = &state.profile_manager;
+
+                    // Use the new unified method for both platforms with dependency installation
+                    profile_manager.add_mod_from_payload(&payload, true).await.map_err(CommandError::from)
+                }
+            }
+        }
+        profile_utils::ContentType::NoRiskMod => {
+            log::info!("NoRiskMod installation is not supported via this unified command");
+            Err(CommandError::from(AppError::Other(
+                "NoRiskMod installation not supported via this command".to_string(),
+            )))
+        }
+        profile_utils::ContentType::ResourcePack => {
+            log::info!("Installing ResourcePack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
                 payload.profile_id,
                 payload.project_id,
                 payload.version_id,
                 payload.file_name,
                 payload.download_url,
                 payload.file_hash_sha1,
-                payload.content_name, // Maps to mod_name
+                payload.content_name,
                 payload.version_number,
-                payload.loaders,       // Pass loaders
-                payload.game_versions, // Pass game_versions
+                profile_utils::ContentType::ResourcePack,
+                payload.source,
             )
             .await
+            .map_err(CommandError::from)
         }
-        profile_utils::ContentType::ResourcePack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::ResourcePack,
-        )
-        .await
-        .map_err(CommandError::from),
-        profile_utils::ContentType::ShaderPack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::ShaderPack,
-        )
-        .await
-        .map_err(CommandError::from),
-        profile_utils::ContentType::DataPack => profile_utils::add_modrinth_content_to_profile(
-            payload.profile_id,
-            payload.project_id,
-            payload.version_id,
-            payload.file_name,
-            payload.download_url,
-            payload.file_hash_sha1,
-            payload.content_name,
-            payload.version_number,
-            profile_utils::ContentType::DataPack,
-        )
-        .await
-        .map_err(CommandError::from),
-        _ => {
-            log::error!("Unsupported content type: {:?}", payload.content_type);
-            Err(CommandError::from(AppError::Other(
-                "Unsupported content type".to_string(),
-            )))
-        } // No default needed as ContentType from profile_utils is an enum and all variants are handled
+        profile_utils::ContentType::ShaderPack => {
+            log::info!("Installing ShaderPack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
+                payload.profile_id,
+                payload.project_id,
+                payload.version_id,
+                payload.file_name,
+                payload.download_url,
+                payload.file_hash_sha1,
+                payload.content_name,
+                payload.version_number,
+                profile_utils::ContentType::ShaderPack,
+                payload.source,
+            )
+            .await
+            .map_err(CommandError::from)
+        }
+        profile_utils::ContentType::DataPack => {
+            log::info!("Installing DataPack from {:?}", payload.source);
+            profile_utils::add_content_to_profile(
+                payload.profile_id,
+                payload.project_id,
+                payload.version_id,
+                payload.file_name,
+                payload.download_url,
+                payload.file_hash_sha1,
+                payload.content_name,
+                payload.version_number,
+                profile_utils::ContentType::DataPack,
+                payload.source,
+            )
+            .await
+            .map_err(CommandError::from)
+        }
     }
 }
 
@@ -1056,116 +1096,90 @@ pub async fn install_local_content_to_profile(
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SwitchContentVersionPayload {
-    profile_id: Uuid,
-    content_type: profile_utils::ContentType,
-    current_item_details: Option<profile_utils::LocalContentItem>, // Pass the whole item
-    new_modrinth_version_details: Option<ModrinthVersion>, // Full details of the new version
+    pub profile_id: Uuid,
+    pub content_type: profile_utils::ContentType,
+    pub current_item_details: Option<profile_utils::LocalContentItem>, // Pass the whole item
+    pub new_version_details: UnifiedVersion, // Unified version details for any platform
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ToggleModUpdatesPayload {
+    pub profile_id: Uuid,
+    pub mod_id: Uuid,
+    pub updates_enabled: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BulkToggleModUpdatesPayload {
+    pub profile_id: Uuid,
+    pub mod_updates: Vec<BulkModUpdateEntry>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BulkModUpdateEntry {
+    pub mod_id: Uuid,
+    pub updates_enabled: bool,
 }
 
 #[tauri::command]
 pub async fn switch_content_version(
     payload: SwitchContentVersionPayload,
 ) -> Result<(), CommandError> {
-    let new_version_details = payload.new_modrinth_version_details.ok_or_else(|| {
-        AppError::InvalidInput("Missing new_modrinth_version_details in payload.".to_string())
-    })?;
-
-    let current_item = payload.current_item_details.ok_or_else(|| {
+    let current_item_details = payload.current_item_details.as_ref().ok_or_else(|| {
         AppError::InvalidInput("Missing current_item_details in payload.".to_string())
     })?;
 
     log::info!(
         "Attempting to switch content version for item '{}' (ContentType: {:?}, ID: {:?}) in profile {}",
-        current_item.filename,
-        payload.content_type, // Use content_type from top-level payload for clarity
-        current_item.id,
+        current_item_details.filename.clone(),
+        payload.content_type,
+        current_item_details.id.clone(),
         payload.profile_id
-    );
-    log::info!(
-        "Switching to Modrinth version: Project_ID: {}, Version_ID: {}, Name: {}",
-        new_version_details.project_id,
-        new_version_details.id,
-        new_version_details.name
     );
 
     let state_manager = AppStateManager::get().await?;
 
-    match payload.content_type {
-        // Use payload.content_type here
-        profile_utils::ContentType::Mod => {
-            if let Some(mod_id_str) = current_item.id.clone() {
-                // Managed Modrinth mod entry update by ID
-                let mod_id_to_update = Uuid::parse_str(&mod_id_str).map_err(|_| {
-                    AppError::InvalidInput(format!("Invalid Uuid format for mod id: {}", mod_id_str))
-                })?;
+    // Get platform from unified version
+    let platform = payload.new_version_details.source.clone();
 
-                log::info!(
-                    "Proceeding with version switch for mod ID: {}. New version: {}",
-                    mod_id_to_update,
-                    new_version_details.id
-                );
+    log::info!(
+        "Using platform {:?} for version switch",
+        platform
+    );
+
+    match payload.content_type {
+        profile_utils::ContentType::Mod => {
+            if current_item_details.id.is_some() {
+                // Use the new unified method for managed mods
+                log::info!("Using unified method for managed mod update");
                 state_manager
                     .profile_manager
-                    .update_profile_modrinth_mod_version(
+                    .update_mod_with_switch_content_version_payload(
                         payload.profile_id,
-                        mod_id_to_update,
-                        &new_version_details,
+                        &payload,
                     )
                     .await
                     .map_err(CommandError::from)
             } else {
-                // Local/custom mod file: replace the JAR in-place using the selected Modrinth version
-                use std::path::PathBuf;
-                use tokio::fs;
-
-                let primary_file = new_version_details
-                    .files
-                    .iter()
+                // Local/custom mod file: replace the JAR in-place using the selected version
+                let primary_file = payload.new_version_details.files.iter()
                     .find(|f| f.primary)
-                    .or_else(|| new_version_details.files.first())
-                    .ok_or_else(|| AppError::InvalidInput("Selected version has no files".to_string()))?;
-
-                let current_path = PathBuf::from(&current_item.path_str);
-                let dir = current_path
-                    .parent()
-                    .ok_or_else(|| AppError::InvalidInput("Invalid current item path".to_string()))?;
-
-                let target_path = dir.join(&primary_file.filename);
-
-                // Ensure directory exists
-                fs::create_dir_all(dir).await.map_err(AppError::Io).map_err(CommandError::from)?;
-
-                // Download to a temp path then atomically replace
-                let tmp_path = target_path.with_extension("jar.nrc_tmp");
-                let mut config = crate::utils::download_utils::DownloadConfig::new()
-                    .with_streaming(true);
-                if let Some(sha1) = &primary_file.hashes.sha1 {
-                    config = config.with_sha1(sha1);
-                }
-                crate::utils::download_utils::DownloadUtils::download_file(
-                    &primary_file.url,
-                    &tmp_path,
-                    config,
-                )
-                .await
-                .map_err(CommandError::from)?;
-
-                // Remove old file if it exists (either enabled or disabled variant)
-                if current_path.exists() {
-                    let _ = fs::remove_file(&current_path).await; // ignore errors
-                }
-
-                // Move tmp -> target
-                fs::rename(&tmp_path, &target_path)
-                    .await
-                    .map_err(AppError::Io)
-                    .map_err(CommandError::from)?;
+                    .or_else(|| payload.new_version_details.files.first())
+                    .ok_or_else(|| AppError::InvalidInput("Selected unified version has no files".to_string()))?;
 
                 log::info!(
-                    "Switched local/custom mod '{}' -> '{}'",
-                    current_item.path_str,
-                    target_path.to_string_lossy()
+                    "Switching local mod '{}' to version '{}' ({})",
+                    current_item_details.filename.clone(),
+                    payload.new_version_details.name,
+                    payload.new_version_details.id
                 );
+
+                crate::utils::path_utils::download_and_replace_file(
+                    &current_item_details.path_str,
+                    &primary_file.filename,
+                    &primary_file.url,
+                    primary_file.hashes.get("sha1").map(|x| x.as_str()),
+                ).await?;
 
                 Ok(())
             }
@@ -1176,22 +1190,26 @@ pub async fn switch_content_version(
                 .get_profile(payload.profile_id)
                 .await?;
             let rp_info = ResourcePackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str, // path_str from LocalContentItem
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
-                modrinth_info: None, // The update util focuses on new_version_details
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
+                modrinth_info: None,
             };
 
             log::info!(
                 "Switching ResourcePack version for file: {}",
                 rp_info.filename
             );
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
             resourcepack_utils::update_resourcepack_from_modrinth(
                 &profile,
                 &rp_info,
-                &new_version_details,
+                &modrinth_version,
             )
             .await
             .map_err(CommandError::from)
@@ -1202,11 +1220,11 @@ pub async fn switch_content_version(
                 .get_profile(payload.profile_id)
                 .await?;
             let sp_info = ShaderPackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str,
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
                 modrinth_info: None,
             };
 
@@ -1214,10 +1232,14 @@ pub async fn switch_content_version(
                 "Switching ShaderPack version for file: {}",
                 sp_info.filename
             );
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
             shaderpack_utils::update_shaderpack_from_modrinth(
                 &profile,
                 &sp_info,
-                &new_version_details,
+                &modrinth_version,
             )
             .await
             .map_err(CommandError::from)
@@ -1228,16 +1250,20 @@ pub async fn switch_content_version(
                 .get_profile(payload.profile_id)
                 .await?;
             let dp_info = DataPackInfo {
-                filename: current_item.filename,
-                path: current_item.path_str,
-                sha1_hash: current_item.sha1_hash,
-                file_size: current_item.file_size,
-                is_disabled: current_item.is_disabled,
+                filename: current_item_details.filename.clone(),
+                path: current_item_details.path_str.clone(),
+                sha1_hash: current_item_details.sha1_hash.clone(),
+                file_size: current_item_details.file_size,
+                is_disabled: current_item_details.is_disabled,
                 modrinth_info: None,
             };
 
             log::info!("Switching DataPack version for file: {}", dp_info.filename);
-            datapack_utils::update_datapack_from_modrinth(&profile, &dp_info, &new_version_details)
+
+            // Convert UnifiedVersion to ModrinthVersion using the From trait
+            let modrinth_version: crate::integrations::modrinth::ModrinthVersion = payload.new_version_details.clone().into();
+
+            datapack_utils::update_datapack_from_modrinth(&profile, &dp_info, &modrinth_version)
                 .await
                 .map_err(CommandError::from)
         }
@@ -1249,3 +1275,136 @@ pub async fn switch_content_version(
         }
     }
 }
+
+#[tauri::command]
+pub async fn toggle_mod_updates(
+    payload: ToggleModUpdatesPayload,
+) -> Result<(), CommandError> {
+    // For backwards compatibility, convert single mod request to bulk request
+    let bulk_payload = BulkToggleModUpdatesPayload {
+        profile_id: payload.profile_id,
+        mod_updates: vec![BulkModUpdateEntry {
+            mod_id: payload.mod_id,
+            updates_enabled: payload.updates_enabled,
+        }],
+    };
+
+    bulk_toggle_mod_updates(bulk_payload).await
+}
+
+#[tauri::command]
+pub async fn bulk_toggle_mod_updates(
+    payload: BulkToggleModUpdatesPayload,
+) -> Result<(), CommandError> {
+    log::info!(
+        "Attempting to bulk toggle mod updates: profile_id={}, mod_count={}",
+        payload.profile_id,
+        payload.mod_updates.len()
+    );
+
+    let state_manager = AppStateManager::get().await.map_err(|e| {
+        log::error!("Failed to get AppStateManager: {}", e);
+        CommandError::from(AppError::Other(format!(
+            "Failed to get internal state: {}",
+            e
+        )))
+    })?;
+
+    // Get the profile to validate mods exist
+    let profile = state_manager
+        .profile_manager
+        .get_profile(payload.profile_id)
+        .await
+        .map_err(CommandError::from)?;
+
+    // Validate all mods exist before making any changes
+    let mut not_found_mods = Vec::new();
+    let mut mods_to_update = Vec::new();
+
+    for mod_update in &payload.mod_updates {
+        let mod_entry = profile.mods.iter().find(|m| m.id == mod_update.mod_id);
+        match mod_entry {
+            Some(mod_entry) => {
+                // Only update if the state actually needs to change
+                if mod_entry.updates_enabled != mod_update.updates_enabled {
+                    mods_to_update.push((mod_update.mod_id, mod_update.updates_enabled));
+                } else {
+                    log::info!(
+                        "Mod {} in profile {} already has updates_enabled={}. Skipping.",
+                        mod_entry.id,
+                        payload.profile_id,
+                        mod_update.updates_enabled
+                    );
+                }
+            }
+            None => {
+                not_found_mods.push(mod_update.mod_id);
+            }
+        }
+    }
+
+    // Report any mods that weren't found
+    if !not_found_mods.is_empty() {
+        log::warn!(
+            "The following mods were not found in profile {}: {:?}",
+            payload.profile_id,
+            not_found_mods
+        );
+        return Err(CommandError::from(AppError::NotFound(format!(
+            "Some mods not found in profile: {:?}",
+            not_found_mods
+        ))));
+    }
+
+    // If no mods need updating, we're done
+    if mods_to_update.is_empty() {
+        log::info!("No mods in profile {} need updating.", payload.profile_id);
+        return Ok(());
+    }
+
+    // Update all mods that need updating
+    let mut update_errors = Vec::new();
+
+    for (mod_id, updates_enabled) in mods_to_update {
+        match state_manager
+            .profile_manager
+            .set_mod_updates_enabled(payload.profile_id, mod_id, updates_enabled)
+            .await
+        {
+            Ok(_) => {
+                log::info!(
+                    "Successfully toggled updates for mod {} in profile {} to updates_enabled={}",
+                    mod_id,
+                    payload.profile_id,
+                    updates_enabled
+                );
+            }
+            Err(e) => {
+                log::error!(
+                    "Failed to toggle updates for mod {} in profile {}: {}",
+                    mod_id,
+                    payload.profile_id,
+                    e
+                );
+                update_errors.push((mod_id, e.to_string()));
+            }
+        }
+    }
+
+    // If any updates failed, report the errors
+    if !update_errors.is_empty() {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Some mod updates failed: {:?}",
+            update_errors
+        ))));
+    }
+
+    log::info!(
+        "Successfully completed bulk toggle for {} mods in profile {}",
+        payload.mod_updates.len(),
+        payload.profile_id
+    );
+
+    Ok(())
+}
+

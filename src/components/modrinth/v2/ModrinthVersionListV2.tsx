@@ -7,6 +7,7 @@ import type {
   ModrinthSearchHit,
   ModrinthVersion,
 } from "../../../types/modrinth";
+import type { UnifiedVersion } from "../../../types/unified";
 import type { AccentColor } from "../../../store/useThemeStore";
 import type { ContentInstallStatus } from "../../../types/profile";
 import { Icon } from "@iconify/react";
@@ -22,7 +23,7 @@ import { useThemeStore } from "../../../store/useThemeStore";
 interface ModrinthVersionListV2Props {
   projectId: string;
   project: ModrinthSearchHit;
-  versions: ModrinthVersion[];
+  versions: UnifiedVersion[];
   displayedCount: number;
   filters: {
     gameVersions: string[];
@@ -65,23 +66,23 @@ interface ModrinthVersionListV2Props {
   onLoadMore: (projectId: string) => void;
   onInstallClick: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onInstallModpackVersionAsProfileClick?: (
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onHoverVersion: (id: string | null) => void;
   selectedProfileId?: string | null;
   onDeleteClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
   ) => void;
   onToggleEnableClick?: (
     profileId: string,
     project: ModrinthSearchHit,
-    version: ModrinthVersion,
+    version: UnifiedVersion,
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
@@ -159,15 +160,15 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
 
   // --- Helper function to get filtered versions (moved from parent) ---
   const getFilteredVersions = (
-    allVersions: ModrinthVersion[],
-  ): ModrinthVersion[] => {
+    allVersions: UnifiedVersion[],
+  ): UnifiedVersion[] => {
     if (!filters) return allVersions;
 
     return allVersions.filter((version) => {
       // Filter by version type
       if (
         filters.versionType !== "all" &&
-        version.version_type !== filters.versionType
+        version.release_type !== filters.versionType
       ) {
         return false;
       }
@@ -393,7 +394,9 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 </TagBadge>
 
                 {filters.versionType !== "all" && (
-                  <TagBadge className="inline-flex whitespace-nowrap">
+                  <TagBadge 
+                    variant="filter"
+                    className="inline-flex whitespace-nowrap">
                     Type: {filters.versionType}
                     <button
                       onClick={() =>
@@ -413,6 +416,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 {filters.gameVersions.map((version) => (
                   <TagBadge
                     key={`gv-${version}`}
+                    variant="filter"
                     className="inline-flex whitespace-nowrap"
                   >
                     {version}
@@ -437,6 +441,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 {filters.loaders.map((loader) => (
                   <TagBadge
                     key={`loader-${loader}`}
+                    variant="filter"
                     className="inline-flex whitespace-nowrap"
                   >
                     {loader}

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BlogPost } from '../types/wordPress';
 import type { UpdateInfo } from '../types/updater';
+import type { Profile } from '../types/profile';
 import { useProfileStore } from '../store/profile-store';
 import { getBlockedModsConfig } from './flagsmith-service';
 
@@ -28,10 +29,10 @@ export const refreshNoriskPacks = (): Promise<void> => {
 /**
  * Triggers a refresh of the standard versions configuration from the backend.
  *
- * @returns A promise that resolves when the refresh is complete.
+ * @returns A promise that resolves with the standard profiles.
  * @throws If the backend command fails.
  */
-export const refreshStandardVersions = (): Promise<void> => {
+export const refreshStandardVersions = (): Promise<Profile[]> => {
   return invoke('refresh_standard_versions');
 };
 
@@ -70,8 +71,10 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
     }
 
     try {
-      await refreshStandardVersions();
+      const standardProfiles = await refreshStandardVersions();
       console.log("Standard Versions updated successfully on mount!");
+      // Store the standard profiles in the profile store
+      useProfileStore.setState({ standardProfiles });
       standardVersionsSuccess = true;
     } catch (error) {
       console.error("Failed to refresh Standard Versions on mount:", error);

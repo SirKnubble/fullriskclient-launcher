@@ -258,14 +258,14 @@ impl NoRiskApi {
     /// Secure version of token refresh using server-provided server ID
     /// This prevents the middleman attack by using controlled server IDs
     pub async fn refresh_norisk_token_v3(
-        hwid: &str,
+        system_id: &str,
         username: &str,
         access_token: &str,
         selected_profile: &str,
         force: bool,
         is_experimental: bool,
     ) -> Result<NoRiskToken> {
-        info!("[NoRisk API] Refreshing NoRisk token v3 with HWID: {}", hwid);
+        info!("[NoRisk API] Refreshing NoRisk token v3 with SystemID: {}", system_id);
         debug!("[NoRisk API] Username: {}", username);
         debug!("[NoRisk API] Force refresh: {}", force);
         debug!("[NoRisk API] Experimental mode: {}", is_experimental);
@@ -293,7 +293,7 @@ impl NoRiskApi {
         let force_str = force.to_string();
         let mut query_params = HashMap::new();
         query_params.insert("force", force_str.as_str());
-        query_params.insert("hwid", hwid);
+        query_params.insert("hwid", system_id);
         query_params.insert("username", username);
         query_params.insert("server_id", server_id);
 

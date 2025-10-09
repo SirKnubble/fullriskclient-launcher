@@ -13,6 +13,7 @@ import type {
   BatchContentInstallStatus,
   LoadItemsParams,
   LocalContentItem,
+  MigrationInfo,
   ImageSource,
   UploadProfileIconPayload,
 } from "../types/profile";
@@ -330,6 +331,11 @@ export async function getLocalContent(
   return invoke<LocalContentItem[]>("get_local_content", { params });
 }
 
+/// Checks if a group migration is needed for a profile
+export async function checkForGroupMigration(profileId: string): Promise<MigrationInfo> {
+  return invoke<MigrationInfo>("check_for_group_migration_command", { profileId });
+}
+
 export async function importProfileByPath(filePathStr: string): Promise<string> {
   return invoke<string>("import_profile", { filePathStr });
 }
@@ -345,4 +351,16 @@ export async function uploadProfileImages(
   payload: UploadProfileIconPayload,
 ): Promise<string> {
   return invoke<string>("upload_profile_images", { payload });
+}
+
+export interface ToggleModUpdatesPayload {
+  profile_id: string;
+  mod_id: string;
+  updates_enabled: boolean;
+}
+
+export async function toggleModUpdates(
+  payload: ToggleModUpdatesPayload,
+): Promise<void> {
+  return invoke<void>("toggle_mod_updates", { payload });
 }

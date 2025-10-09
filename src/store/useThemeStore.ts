@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { setProfileGroupingPreference } from "../services/launcher-config-service";
+import { ModPlatform } from "../types/unified";
 
 export type AccentColor = {
   name: string;
@@ -226,6 +227,24 @@ interface ThemeState {
   collapsedProfileGroups: string[];
   setCollapsedProfileGroups: (groups: string[]) => void;
   toggleCollapsedProfileGroup: (groupKey: string) => void;
+  // ProfilesTabV2 persistent filters
+  profilesTabActiveGroup: string;
+  profilesTabSortBy: string;
+  profilesTabVersionFilter: string;
+  profilesTabLayoutMode: "list" | "grid" | "compact";
+  setProfilesTabActiveGroup: (group: string) => void;
+  setProfilesTabSortBy: (sortBy: string) => void;
+  setProfilesTabVersionFilter: (filter: string) => void;
+  setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => void;
+  // Global context menu management
+  openContextMenuId: string | null;
+  setOpenContextMenuId: (id: string | null) => void;
+  // Mod source selection
+  modSource: ModPlatform;
+  setModSource: (source: ModPlatform) => void;
+  // News section width
+  newsSectionWidth: number;
+  setNewsSectionWidth: (width: number) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -240,6 +259,17 @@ export const useThemeStore = create<ThemeState>()(
       customColorHistory: [],
       borderRadius: DEFAULT_BORDER_RADIUS,
       collapsedProfileGroups: [],
+      // ProfilesTabV2 persistent filters - defaults
+      profilesTabActiveGroup: "all",
+      profilesTabSortBy: "last_played",
+      profilesTabVersionFilter: "all",
+      profilesTabLayoutMode: "list",
+      // Global context menu management - defaults
+      openContextMenuId: null,
+      // Mod source selection - defaults
+      modSource: ModPlatform.Modrinth,
+      // News section width - defaults
+      newsSectionWidth: 375,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -373,6 +403,38 @@ export const useThemeStore = create<ThemeState>()(
             : [...state.collapsedProfileGroups, groupKey];
           return { collapsedProfileGroups: next };
         });
+      },
+
+      // ProfilesTabV2 persistent filters setters
+      setProfilesTabActiveGroup: (group: string) => {
+        set({ profilesTabActiveGroup: group });
+      },
+
+      setProfilesTabSortBy: (sortBy: string) => {
+        set({ profilesTabSortBy: sortBy });
+      },
+
+      setProfilesTabVersionFilter: (filter: string) => {
+        set({ profilesTabVersionFilter: filter });
+      },
+
+      setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
+        set({ profilesTabLayoutMode: mode });
+      },
+
+      // Global context menu management
+      setOpenContextMenuId: (id: string | null) => {
+        set({ openContextMenuId: id });
+      },
+
+      // Mod source selection
+      setModSource: (source: ModPlatform) => {
+        set({ modSource: source });
+      },
+
+      // News section width
+      setNewsSectionWidth: (width: number) => {
+        set({ newsSectionWidth: width });
       },
     }),    {
       name: "norisk-theme-storage",

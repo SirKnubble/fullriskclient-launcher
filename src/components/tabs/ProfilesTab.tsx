@@ -10,7 +10,8 @@ import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../store/useThemeStore";
 import { gsap } from "gsap";
 import { ProfileImport } from "../profiles/ProfileImport";
-import { ProfileSettings } from "../profiles/ProfileSettings";
+import { useProfileSettingsStore } from "../../store/profile-settings-store";
+import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
@@ -51,7 +52,7 @@ export function ProfilesTab() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showWizard, setShowWizard] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const { openModal } = useProfileSettingsStore();
   const [showDetailView, setShowDetailView] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -293,9 +294,7 @@ export function ProfilesTab() {
 
   const handleEditProfile = (profile: Profile) => {
     console.log("[ProfilesTab] handleEditProfile called for:", profile);
-    setSelectedProfile(profile);
-    setShowSettings(true);
-
+    openModal(profile);
     console.log("[ProfilesTab] Profile settings modal opened. Underlying view/URL remains unchanged by this action.");
   };
 
@@ -305,7 +304,7 @@ export function ProfilesTab() {
       profile.id,
       profile.name,
     );
-    navigate(`/profiles/${profile.id}`);
+    navigate(`/profilesv2/${profile.id}`);
     console.log(
       "[ProfilesTab] Navigated to /profiles/" +
         profile.id +
@@ -571,23 +570,7 @@ export function ProfilesTab() {
           }}
         />
       )}
-      {showSettings &&
-        selectedProfile && (
-          <ProfileSettings
-            profile={selectedProfile}
-            onClose={() => {
-              console.log(
-                "[ProfilesTab] ProfileSettings onClose called. Current routeProfileId:",
-                params.profileId,
-              );
-              setShowSettings(false);
-              console.log(
-                "[ProfilesTab] ProfileSettings closed. Staying on current view for URL:",
-                location.pathname,
-              );
-            }}
-          />
-        )}
+
       {showImport && (
         <ProfileImport
           onClose={() => {

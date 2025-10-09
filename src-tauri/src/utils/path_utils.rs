@@ -1,6 +1,8 @@
 use crate::config::{ProjectDirsExt, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, Result}; // Dein Result- und Fehlertyp
 use crate::integrations::norisk_packs::{get_norisk_pack_mod_filename, NoriskModEntryDefinition};
+use crate::state::State;
+use crate::utils::download_utils; // Added for DownloadUtils
 use futures::future::try_join_all; // Added for joining futures
 use log::{error, info, warn};
 use std::path::{Path, PathBuf};
@@ -775,6 +777,140 @@ pub async fn copy_dir_recursively(src: &Path, dst: &Path, semaphore: Arc<Semapho
         "Parallel copy from {} to {} completed.",
         src.display(),
         dst.display()
+    );
+
+    Ok(())
+}
+
+/// Counts files recursively in a directory
+pub async fn count_files_recursively(dir_path: &Path) -> Result<usize> {
+    let mut count = 0;
+    let mut dirs_to_check = vec![dir_path.to_path_buf()];
+
+    while let Some(current_dir) = dirs_to_check.pop() {
+        let mut entries = fs::read_dir(&current_dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let file_type = entry.file_type().await?;
+            if file_type.is_file() {
+                count += 1;
+            } else if file_type.is_dir() {
+                dirs_to_check.push(entry.path());
+            }
+        }
+    }
+
+    Ok(count)
+}
+
+/// Copies directory with progress events for each file
+pub async fn copy_dir_with_progress(
+    source: &Path,
+    target: &Path,
+    semaphore: Arc<Semaphore>,
+    progress_counter: Arc<tokio::sync::Mutex<usize>>,
+    state: &State,
+    profile_id: Uuid,
+    total_files: usize,
+) -> Result<()> {
+    use crate::utils::mc_utils::emit_copy_progress;
+
+    async fn copy_recursive(
+        src: &Path,
+        dst: &Path,
+        semaphore: Arc<Semaphore>,
+        progress_counter: Arc<tokio::sync::Mutex<usize>>,
+        state: &State,
+        profile_id: Uuid,
+        total_files: usize,
+    ) -> Result<()> {
+        // Create destination directory
+        fs::create_dir_all(dst).await?;
+
+        let mut entries = fs::read_dir(src).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let entry_path = entry.path();
+            let dest_path = dst.join(entry.file_name());
+
+            if entry.file_type().await?.is_dir() {
+                // Recursively copy directory (boxed to avoid recursion issues)
+                Box::pin(copy_recursive(&entry_path, &dest_path, semaphore.clone(), progress_counter.clone(), state, profile_id, total_files)).await?;
+            } else {
+                // Copy file with progress update
+                let _permit = semaphore.acquire().await?;
+                fs::copy(&entry_path, &dest_path).await?;
+
+                // Update progress
+                let mut counter = progress_counter.lock().await;
+                *counter += 1;
+                let progress = 0.2 + (*counter as f64 / total_files as f64) * 0.8;
+                let message = format!("({}/{}) {}", *counter, total_files, entry.file_name().to_string_lossy());
+
+                // Send progress event for this file
+                emit_copy_progress(state, profile_id, &message, progress, None).await?;
+            }
+        }
+        Ok(())
+    }
+
+    copy_recursive(source, target, semaphore, progress_counter, state, profile_id, total_files).await
+}
+
+/// Downloads and replaces a local mod file atomically.
+/// This function downloads a file from a URL to a temporary location,
+/// then atomically replaces the existing file.
+///
+/// # Arguments
+/// * `current_path_str` - Path to the file that should be replaced
+/// * `new_filename` - Name of the new file to create
+/// * `download_url` - URL to download the file from
+/// * `sha1_hash` - Optional SHA1 hash for verification
+///
+/// # Returns
+/// Result indicating success or failure
+pub async fn download_and_replace_file(
+    current_path_str: &str,
+    new_filename: &str,
+    download_url: &str,
+    sha1_hash: Option<&str>,
+) -> Result<()> {
+    let current_path = PathBuf::from(current_path_str);
+    let dir = current_path
+        .parent()
+        .ok_or_else(|| AppError::InvalidInput("Invalid current item path".to_string()))?;
+
+    let target_path = dir.join(new_filename);
+
+    // Ensure directory exists
+    fs::create_dir_all(dir).await.map_err(AppError::Io)?;
+
+    // Download to a temp path then atomically replace
+    let tmp_path = target_path.with_extension("jar.nrc_tmp");
+    let mut config = download_utils::DownloadConfig::new()
+        .with_streaming(true);
+    if let Some(sha1) = sha1_hash {
+        config = config.with_sha1(sha1);
+    }
+    download_utils::DownloadUtils::download_file(
+        download_url,
+        &tmp_path,
+        config,
+    )
+    .await?;
+
+    // Remove old file if it exists (either enabled or disabled variant)
+    if current_path.exists() {
+        let _ = fs::remove_file(&current_path).await; // ignore errors
+    }
+
+    // Move tmp -> target
+    fs::rename(&tmp_path, &target_path)
+        .await
+        .map_err(AppError::Io)?;
+
+    info!(
+        "Switched local mod '{}' -> '{}'",
+        current_path_str,
+        target_path.to_string_lossy()
     );
 
     Ok(())

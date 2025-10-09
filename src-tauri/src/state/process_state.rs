@@ -1179,6 +1179,7 @@ impl ProcessManager {
         }
     }
 
+
     async fn tail_log_file(
         log_path: &PathBuf,
         process_id: Uuid,
@@ -1247,12 +1248,15 @@ impl ProcessManager {
                         let trimmed_line = line_string.trim_end();
 
                         if !trimmed_line.is_empty() {
-                            log::trace!("Sending line for {}: {}", process_id, trimmed_line);
+                            // Mask sensitive information before sending to UI
+                            let safe_line = crate::utils::security_utils::mask_sensitive_data(trimmed_line);
+
+                            log::trace!("Sending line for {}: {}", process_id, safe_line);
                             let log_event_payload = EventPayload {
                                 event_id: Uuid::new_v4(),
                                 event_type: EventType::MinecraftOutput,
                                 target_id: Some(process_id),
-                                message: trimmed_line.to_string(),
+                                message: safe_line.to_string(),
                                 progress: None,
                                 error: None,
                             };

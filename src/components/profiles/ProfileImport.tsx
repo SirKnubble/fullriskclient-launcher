@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
+
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { StatusMessage } from "../ui/StatusMessage";
 import { useThemeStore } from "../../store/useThemeStore";
-import { Card } from "../ui/Card";
 import { toast } from "react-hot-toast";
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import * as ProfileService from "../../services/profile-service";
@@ -28,6 +28,7 @@ export function ProfileImport({
   const accentColor = useThemeStore((state) => state.accentColor);
   const contentRef = useRef<HTMLDivElement>(null);
   const formatItemsRef = useRef<HTMLUListElement>(null);
+  const navigate = useNavigate();
 
   const handleImport = async () => {
     const operationId = `profile-import-dialog-${Date.now()}`;
@@ -40,7 +41,7 @@ export function ProfileImport({
         filters: [
           {
             name: "Modpack Files",
-            extensions: ["noriskpack", "mrpack"],
+            extensions: ["noriskpack", "mrpack", "zip"],
           },
         ],
         title: "Select Modpack to Import",
@@ -54,14 +55,17 @@ export function ProfileImport({
         const fileName = selectedPath.substring(selectedPath.lastIndexOf('/') + 1).substring(selectedPath.lastIndexOf('\\') + 1);
         toast.loading(`Importing profile from ${fileName}...`, { id: loadingToastId });
 
-        await ProfileService.importProfileByPath(selectedPath);
+        const newProfileId = await ProfileService.importProfileByPath(selectedPath);
 
-        toast.success(`Profile from ${fileName} imported successfully! List will refresh.`, { 
+        toast.success(`Profile from ${fileName} imported successfully! Opening profile...`, {
           id: loadingToastId,
-          duration: 4000, 
+          duration: 3000,
         });
         useProfileStore.getState().fetchProfiles();
         onImportComplete();
+
+        // Navigate to the new profile
+        navigate(`/profilesv2/${newProfileId}`);
 
       } else {
         if (selectedPath === null) {
@@ -122,59 +126,72 @@ export function ProfileImport({
 
         <div className="space-y-6">
           <div>
-            <h3 className="text-3xl font-minecraft text-white mb-5 lowercase select-none">
-              import profile pack
-            </h3>
-            <p className="text-2xl text-white/70 mb-6 font-minecraft tracking-wide select-none">
-              Import a .mrpack or .noriskpack file to create a new profile. This
-              will open a file selection dialog.
+            <p className="text-lg text-white/70 mb-6 font-minecraft-ten tracking-wide select-none">
+              Select a file or drag and drop a .mrpack, .noriskpack, or .zip file into the launcher to import it and create a new profile.
             </p>
-          </div>
 
-          <Card className="p-5">
-            <h3 className="text-2xl text-white font-minecraft mb-4 select-none lowercase">
-              supported formats:
-            </h3>
-            <ul
-              className="text-xl text-white/80 space-y-4 select-none font-minecraft"
-              ref={formatItemsRef}
-            >
-              <li className="flex items-center">
-                <div
-                  className="w-10 h-10 rounded-md flex items-center justify-center mr-4"
-                  style={{
-                    backgroundColor: `${accentColor.value}30`,
-                    borderWidth: "2px",
-                    borderStyle: "solid",
-                    borderColor: `${accentColor.value}60`,
-                  }}
-                >
-                  <Icon
-                    icon="solar:file-bold"
-                    className="w-5 h-5 text-blue-400"
-                  />
-                </div>
-                <span>.mrpack (Modrinth)</span>
-              </li>
-              <li className="flex items-center">
-                <div
-                  className="w-10 h-10 rounded-md flex items-center justify-center mr-4"
-                  style={{
-                    backgroundColor: `${accentColor.value}30`,
-                    borderWidth: "2px",
-                    borderStyle: "solid",
-                    borderColor: `${accentColor.value}60`,
-                  }}
-                >
-                  <Icon
-                    icon="solar:file-bold"
-                    className="w-5 h-5 text-green-400"
-                  />
-                </div>
-                <span>.noriskpack (NoRisk Launcher)</span>
-              </li>
-            </ul>
-          </Card>
+            <div className="mb-6">
+              <h3 className="text-2xl text-white font-minecraft mb-4 select-none lowercase">
+                supported formats:
+              </h3>
+              <ul
+                className="text-2xl text-white/80 space-y-4 select-none lowercase font-minecraft"
+                ref={formatItemsRef}
+              >
+                <li className="flex items-center">
+                  <div
+                    className="w-10 h-10 rounded-md flex items-center justify-center mr-4"
+                    style={{
+                      backgroundColor: `${accentColor.value}30`,
+                      borderWidth: "2px",
+                      borderStyle: "solid",
+                      borderColor: `${accentColor.value}60`,
+                    }}
+                  >
+                    <Icon
+                      icon="solar:file-bold"
+                      className="w-5 h-5 text-blue-400"
+                    />
+                  </div>
+                  <span>.mrpack (Modrinth)</span>
+                </li>
+                <li className="flex items-center">
+                  <div
+                    className="w-10 h-10 rounded-md flex items-center justify-center mr-4"
+                    style={{
+                      backgroundColor: `${accentColor.value}30`,
+                      borderWidth: "2px",
+                      borderStyle: "solid",
+                      borderColor: `${accentColor.value}60`,
+                    }}
+                  >
+                    <Icon
+                      icon="solar:file-bold"
+                      className="w-5 h-5 text-green-400"
+                    />
+                  </div>
+                  <span>.noriskpack (NoRisk Launcher)</span>
+                </li>
+                <li className="flex items-center">
+                  <div
+                    className="w-10 h-10 rounded-md flex items-center justify-center mr-4"
+                    style={{
+                      backgroundColor: `${accentColor.value}30`,
+                      borderWidth: "2px",
+                      borderStyle: "solid",
+                      borderColor: `${accentColor.value}60`,
+                    }}
+                  >
+                    <Icon
+                      icon="solar:file-bold"
+                      className="w-5 h-5 text-orange-400"
+                    />
+                  </div>
+                  <span>.zip (CurseForge)</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </Modal>

@@ -24,6 +24,7 @@ interface CheckboxProps {
   size?: ComponentSize;
   label?: string;
   description?: string;
+  descriptionClassName?: string;
   error?: string;
   state?: StateVariant;
   className?: string;
@@ -35,14 +36,15 @@ interface CheckboxProps {
   title?: string;
 }
 
-export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({ 
-    checked, 
-    onChange, 
-    disabled = false, 
+export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
+    checked,
+    onChange,
+    disabled = false,
     indeterminate = false,
-    size = "md", 
-    label, 
-    description, 
+    size = "md",
+    label,
+    description,
+    descriptionClassName,
     error,
     state,
     className,
@@ -52,7 +54,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
     variant,
     onClick,
     title,
-    ...props 
+    ...props
   }, ref) => {
     const [isFocused, setIsFocused] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
@@ -168,7 +170,8 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(  ({
               )}              {description && (
                 <span className={cn(
                   "text-white text-opacity-70",
-                  getTextSizeClass((effectiveSize === "sm" ? "xs" : "sm") as ComponentSize, "checkbox")
+                  getTextSizeClass((effectiveSize === "sm" ? "xs" : "sm") as ComponentSize, "checkbox"),
+                  descriptionClassName
                 )}>
                   {description}
                 </span>

@@ -788,9 +788,10 @@ export function ResourcePacksTab({
                       path: pack.path,
                       file_size: pack.file_size,
                       modrinth_info: pack.modrinth_info,
+                      curseforge_info: pack.curseforge_info,
                       sha1_hash: pack.sha1_hash || "",
                       is_disabled: pack.is_disabled,
-                      version: pack.modrinth_info?.version_number,
+                      version: pack.modrinth_info?.version_number || pack.curseforge_info?.version_number,
                     }}
                     isSelected={selectedPacks.has(pack.filename)}
                     onSelect={() => handleSelectPack(pack.filename)}

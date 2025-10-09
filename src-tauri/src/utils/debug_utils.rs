@@ -1,3 +1,4 @@
+use crate::integrations::unified_mod::{search_mods_unified, get_mod_versions_unified, ModPlatform, UnifiedProjectType, UnifiedSortType, UnifiedModSearchParams, UnifiedModVersionsParams, UnifiedVersionResponse};
 use crate::state::state_manager::State;
 use crate::utils::mc_utils;
 use log::{error, info};
@@ -211,4 +212,189 @@ pub async fn debug_print_news_and_changelogs() {
             error!("--- [DEBUG] Error fetching news/changelogs: {} ---", e);
         }
     }
+}
+
+/// Debug function to test unified mod search for both Modrinth and CurseForge.
+/// This should only be called temporarily during development.
+pub async fn debug_unified_mod_search() {
+    info!("--- [DEBUG] Starting Unified Mod Search Test ---");
+
+    // Base parameters for testing
+    let base_params = UnifiedModSearchParams {
+        query: "".to_string(),
+        source: ModPlatform::Modrinth, // Default, will be overridden
+        project_type: UnifiedProjectType::Mod,
+        game_version: None,
+        categories: None,
+        mod_loaders: None,
+        limit: Some(5),
+        offset: Some(0),
+        sort: Some(UnifiedSortType::Relevance),
+        client_side_filter: None,
+        server_side_filter: None,
+    };
+
+    // Test Modrinth search
+    info!("--- [DEBUG] Testing Modrinth search ---");
+    let mut modrinth_params = base_params.clone();
+    modrinth_params.source = ModPlatform::Modrinth;
+
+    match search_mods_unified(modrinth_params).await {
+        Ok(response) => {
+            info!("Modrinth search successful: {} results", response.results.len());
+            for result in &response.results {
+                info!("  - {} ({:?}) - {} downloads", result.title, result.source, result.downloads);
+            }
+        }
+        Err(e) => {
+            error!("Modrinth search failed: {}", e);
+        }
+    }
+
+    // Test CurseForge search
+    info!("--- [DEBUG] Testing CurseForge search ---");
+    let mut curseforge_params = base_params.clone();
+    curseforge_params.source = ModPlatform::CurseForge;
+
+    match search_mods_unified(curseforge_params).await {
+        Ok(response) => {
+            info!("CurseForge search successful: {} results", response.results.len());
+            for result in &response.results {
+                info!("  - {} ({:?}) - {} downloads", result.title, result.source, result.downloads);
+            }
+        }
+        Err(e) => {
+            error!("CurseForge search failed: {}", e);
+        }
+    }
+
+    info!("--- [DEBUG] Finished Unified Mod Search Test ---");
+}
+
+/// Debug function to test unified mod versions retrieval.
+/// Fetches the first mod from each platform and prints its available versions.
+/// This should only be called temporarily during development.
+pub async fn debug_unified_mod_versions() {
+    info!("--- [DEBUG] Starting Unified Mod Versions Test ---");
+
+    // Base parameters for testing
+    let base_params = UnifiedModSearchParams {
+        query: "".to_string(),
+        source: ModPlatform::Modrinth, // Default, will be overridden
+        project_type: UnifiedProjectType::Mod,
+        game_version: None,
+        categories: None,
+        mod_loaders: None,
+        limit: Some(1), // Only get the first result
+        offset: Some(0),
+        sort: Some(UnifiedSortType::Relevance),
+        client_side_filter: None,
+        server_side_filter: None,
+    };
+
+    // Test Modrinth versions
+    info!("--- [DEBUG] Testing Modrinth versions ---");
+    let mut modrinth_params = base_params.clone();
+    modrinth_params.source = ModPlatform::Modrinth;
+
+    match search_mods_unified(modrinth_params).await {
+        Ok(search_response) => {
+            if let Some(first_mod) = search_response.results.first() {
+                info!("Found Modrinth mod: {} (ID: {})", first_mod.title, first_mod.project_id);
+
+                let modrinth_version_params = UnifiedModVersionsParams {
+                    source: ModPlatform::Modrinth,
+                    project_id: first_mod.project_id.clone(),
+                    loaders: None,
+                    game_versions: None,
+                    limit: Some(5), // limit to first 5 versions
+                    offset: None,
+                };
+
+                match get_mod_versions_unified(modrinth_version_params).await {
+                    Ok(version_response) => {
+                        info!("Found {} versions for {}", version_response.versions.len(), first_mod.title);
+                        for version in &version_response.versions {
+                            info!("  - Version: {} ({} downloads, {})",
+                                version.version_number,
+                                version.downloads,
+                                version.date_published
+                            );
+                            if let Some(changelog) = &version.changelog {
+                                let preview: String = changelog.chars().take(50).collect();
+                                info!("    Changelog preview: {}...", preview);
+                            }
+                            info!("    Files: {}", version.files.len());
+                            for file in &version.files {
+                                info!("      - {} ({} bytes)", file.filename, file.size);
+                                if !file.hashes.is_empty() {
+                                    info!("        Hashes: {:?}", file.hashes.keys().collect::<Vec<_>>());
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to get versions for Modrinth mod {}: {}", first_mod.project_id, e);
+                    }
+                }
+            } else {
+                info!("No Modrinth mods found");
+            }
+        }
+        Err(e) => {
+            error!("Modrinth search failed: {}", e);
+        }
+    }
+
+    // Test CurseForge versions
+    info!("--- [DEBUG] Testing CurseForge versions ---");
+    let mut curseforge_params = base_params.clone();
+    curseforge_params.source = ModPlatform::CurseForge;
+
+    match search_mods_unified(curseforge_params).await {
+        Ok(search_response) => {
+            if let Some(first_mod) = search_response.results.first() {
+                info!("Found CurseForge mod: {} (ID: {})", first_mod.title, first_mod.project_id);
+
+                let curseforge_version_params = UnifiedModVersionsParams {
+                    source: ModPlatform::CurseForge,
+                    project_id: first_mod.project_id.clone(),
+                    loaders: None,
+                    game_versions: None,
+                    limit: Some(5), // limit to first 5 versions
+                    offset: None,
+                };
+
+                match get_mod_versions_unified(curseforge_version_params).await {
+                    Ok(version_response) => {
+                        info!("Found {} versions for {}", version_response.versions.len(), first_mod.title);
+                        for version in &version_response.versions {
+                            info!("  - Version: {} ({} downloads, {})",
+                                version.version_number,
+                                version.downloads,
+                                version.date_published
+                            );
+                            info!("    Files: {}", version.files.len());
+                            for file in &version.files {
+                                info!("      - {} ({} bytes)", file.filename, file.size);
+                                if !file.hashes.is_empty() {
+                                    info!("        Hashes: {:?}", file.hashes.keys().collect::<Vec<_>>());
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to get versions for CurseForge mod {}: {}", first_mod.project_id, e);
+                    }
+                }
+            } else {
+                info!("No CurseForge mods found");
+            }
+        }
+        Err(e) => {
+            error!("CurseForge search failed: {}", e);
+        }
+    }
+
+    info!("--- [DEBUG] Finished Unified Mod Versions Test ---");
 }

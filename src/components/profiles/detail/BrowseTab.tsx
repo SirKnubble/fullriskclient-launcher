@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import type { Profile } from "../../../types/profile";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { useDisplayContextStore } from "../../../store/useDisplayContextStore";
 import { Icon } from "@iconify/react";
 import { Card } from "../../ui/Card";
 import { ModrinthSearchV2 } from "../../modrinth/v2/ModrinthSearchV2";
+import { ProfileIconV2 } from "../ProfileIconV2";
+import { ActionButtons, type ActionButton } from "../../ui/ActionButtons";
 import * as ProfileService from "../../../services/profile-service";
 import type { ModrinthProjectType } from "../../../types/modrinth";
 
@@ -25,6 +27,7 @@ export function BrowseTab({
   parentTransitionActive,
 }: BrowseTabProps) {
   const { profileId, contentType: contentTypeFromUrl } = useParams<{ profileId: string; contentType: string }>();
+  const navigate = useNavigate();
   const accentColor = useThemeStore((state) => state.accentColor);
   const setDisplayContext = useDisplayContextStore((state) => state.setContext);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,25 +87,44 @@ export function BrowseTab({
     }
   };
 
-  const getContentTypeIcon = () => {
-    switch (activeContentType) {
-      case "mods": case "mod": return "solar:cube-bold";
-      case "resourcepacks": case "resourcepack": return "solar:image-gallery-bold";
-      case "shaderpacks": case "shaderpack": case "shader": return "solar:sun-bold";
-      case "datapacks": case "datapack": return "solar:database-bold";
-      default: return "solar:cube-bold";
+
+
+  // Get mod loader icon
+  const getModLoaderIcon = () => {
+    if (!currentProfile) return "/icons/minecraft.png";
+    switch (currentProfile.loader) {
+      case "fabric":
+        return "/icons/fabric.png";
+      case "forge":
+        return "/icons/forge.png";
+      case "quilt":
+        return "/icons/quilt.png";
+      case "neoforge":
+        return "/icons/neoforge.png";
+      default:
+        return "/icons/minecraft.png";
     }
   };
 
-  const getContentTypeTitle = () => {
-    switch (activeContentType) {
-      case "mods": case "mod": return "Browse Mods";
-      case "resourcepacks": case "resourcepack": return "Browse Resource Packs";
-      case "shaderpacks": case "shaderpack": case "shader": return "Browse Shader Packs";
-      case "datapacks": case "datapack": return "Browse Data Packs";
-      default: return "Browse Content";
+  // Handle back navigation
+  const handleBack = () => {
+    if (profileId) {
+      navigate(`/profilesv2/${profileId}`);
+    } else {
+      navigate("/profiles");
     }
   };
+
+  // Action buttons configuration
+  const actionButtons: ActionButton[] = [
+    {
+      id: "back",
+      label: "BACK",
+      icon: "solar:arrow-left-bold",
+      tooltip: "Back to profile",
+      onClick: handleBack,
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -146,17 +168,100 @@ export function BrowseTab({
   }
 
   return (
-    <div ref={containerRef} className="h-full flex flex-col p-4 gap-4">
-      <div className="flex-1 overflow-hidden">
-        <ModrinthSearchV2
-          profiles={[currentProfile]}
-          selectedProfileId={currentProfile.id}
-          initialProjectType={getProjectType() as ModrinthProjectType}
-          allowedProjectTypes={["mod", "resourcepack", "shader", "datapack"]}
-          className="h-full"
-          initialSidebarVisible={false}
-          overrideDisplayContext="detail"
-        />
+    <div ref={containerRef} className="h-full flex flex-col overflow-hidden p-4 relative">
+      <div className={`flex-1 ${false ? "flex flex-col min-h-0" : "overflow-y-auto no-scrollbar"}`}>
+        {/* Profile Header Section */}
+        <div className="mb-1 flex-shrink-0">
+          <div className="flex items-center gap-4 mb-4">
+            {/* Profile Icon */}
+            <div className="relative">
+              <ProfileIconV2
+                profile={currentProfile}
+                size="lg"
+                className="w-16 h-16"
+              />
+            </div>
+
+            {/* Profile Details */}
+            <div className="flex flex-col gap-2 flex-1">
+              {/* Profile Name */}
+              <h1 className="font-minecraft-ten text-2xl text-white normal-case">
+                {currentProfile.name || currentProfile.id}
+              </h1>
+
+              {/* Game Info */}
+              <div className="flex items-center gap-3 text-sm font-minecraft-ten">
+                {/* Minecraft Version */}
+                <div className="text-white/70 flex items-center gap-2">
+                  <img
+                    src="/icons/minecraft.png"
+                    alt="Minecraft"
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span>{currentProfile.game_version}</span>
+                </div>
+
+                {/* Loader Info (if not vanilla) */}
+                {currentProfile.loader && currentProfile.loader !== "vanilla" && (
+                  <>
+                    <div className="w-px h-4 bg-white/30"></div>
+                    <div className="text-white/60 flex items-center gap-2">
+                      <img
+                        src={getModLoaderIcon()}
+                        alt={currentProfile.loader}
+                        className="w-4 h-4 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = "/icons/minecraft.png";
+                        }}
+                      />
+                      <span className="capitalize">{currentProfile.loader}</span>
+                      {currentProfile.loader_version && (
+                        <span className="text-white/50">
+                          {currentProfile.loader_version}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Profile Group (if exists) */}
+                {currentProfile.group && (
+                  <>
+                    <div className="w-px h-4 bg-white/30"></div>
+                    <div className="text-white/50 flex items-center gap-1">
+                      <Icon icon="solar:folder-bold" className="w-3 h-3" />
+                      <span className="uppercase text-xs tracking-wide">
+                        {currentProfile.group}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons - Right side of the header row */}
+            <div className="flex items-center gap-3">
+              <ActionButtons actions={actionButtons} />
+            </div>
+          </div>
+
+          {/* Divider under profile info */}
+          <div className="h-px w-full bg-white/10 mt-4 mb-4" />
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 min-h-0">
+          <ModrinthSearchV2
+            profiles={[currentProfile]}
+            selectedProfileId={currentProfile.id}
+            initialProjectType={getProjectType() as ModrinthProjectType}
+            allowedProjectTypes={["mod", "resourcepack", "shader", "datapack"]}
+            className="h-full"
+            initialSidebarVisible={false}
+            overrideDisplayContext="detail"
+            disableVirtualization={true}
+          />
+        </div>
       </div>
     </div>
   );

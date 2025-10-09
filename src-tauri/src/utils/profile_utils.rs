@@ -2,9 +2,11 @@ use crate::config::ProjectDirsExt;
 use crate::error::{AppError, Result};
 use crate::integrations::modrinth::{ModrinthProjectType, ModrinthVersion};
 use crate::integrations::norisk_packs;
+use crate::integrations::unified_mod::ModPlatform;
 use crate::state::profile_state::ModSource;
 use crate::state::profile_state::Profile;
 use crate::state::state_manager::State;
+use crate::utils::download_utils::DownloadUtils;
 use crate::utils::file_utils;
 use crate::utils::{datapack_utils, hash_utils, resourcepack_utils, shaderpack_utils};
 use async_zip::tokio::write::ZipFileWriter;
@@ -20,7 +22,7 @@ use tauri::Manager;
 use tauri_plugin_opener::OpenerExt;
 use tempfile;
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncWriteExt as TokioAsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::task::JoinHandle;
 
 use futures_lite::io::AsyncWriteExt;
@@ -54,8 +56,8 @@ impl From<ModrinthProjectType> for ContentType {
     }
 }
 
-/// Adds Modrinth content (resourcepack, shaderpack, datapack) to a profile
-pub async fn add_modrinth_content_to_profile(
+/// Adds content (resourcepack, shaderpack, datapack) from Modrinth or CurseForge to a profile
+pub async fn add_content_to_profile(
     profile_id: Uuid,
     project_id: String,
     version_id: String,
@@ -65,9 +67,16 @@ pub async fn add_modrinth_content_to_profile(
     content_name: Option<String>,
     version_number: Option<String>,
     content_type: ContentType,
+    source: ModPlatform,
 ) -> Result<()> {
+    let platform_name = match source {
+        ModPlatform::Modrinth => "Modrinth",
+        ModPlatform::CurseForge => "CurseForge",
+    };
+
     info!(
-        "Adding Modrinth content to profile {}: {} ({})",
+        "Adding {} content to profile {}: {} ({})",
+        platform_name,
         profile_id,
         content_name.as_deref().unwrap_or(&file_name),
         content_type_to_string(&content_type)
@@ -96,13 +105,41 @@ pub async fn add_modrinth_content_to_profile(
     download_content(&download_url, &file_path, file_hash_sha1).await?;
 
     info!(
-        "Successfully added {} '{}' to profile {}",
+        "Successfully added {} {} '{}' to profile {}",
+        platform_name,
         content_type_to_string(&content_type),
         content_name.as_deref().unwrap_or(&file_name),
         profile_id
     );
 
     Ok(())
+}
+
+/// Adds Modrinth content (resourcepack, shaderpack, datapack) to a profile
+/// Deprecated: Use add_content_to_profile instead
+pub async fn add_modrinth_content_to_profile(
+    profile_id: Uuid,
+    project_id: String,
+    version_id: String,
+    file_name: String,
+    download_url: String,
+    file_hash_sha1: Option<String>,
+    content_name: Option<String>,
+    version_number: Option<String>,
+    content_type: ContentType,
+) -> Result<()> {
+    add_content_to_profile(
+        profile_id,
+        project_id,
+        version_id,
+        file_name,
+        download_url,
+        file_hash_sha1,
+        content_name,
+        version_number,
+        content_type,
+        ModPlatform::Modrinth,
+    ).await
 }
 
 /// Helper function to download content from a URL
@@ -117,70 +154,12 @@ async fn download_content(
         file_path.display()
     );
 
-    // Create a reqwest client
-    let client = reqwest::Client::new();
-
-    // Download the file
-    let response = client
-        .get(url)
-        .header(
-            "User-Agent",
-            format!(
-                "NoRiskClient-Launcher/{} (support@norisk.gg)",
-                env!("CARGO_PKG_VERSION")
-            ),
-        )
-        .send()
-        .await
-        .map_err(|e| AppError::Download(format!("Failed to download content: {}", e)))?;
-
-    if !response.status().is_success() {
-        return Err(AppError::Download(format!(
-            "Failed to download content: HTTP {}",
-            response.status()
-        )));
+    // Use DownloadUtils for robust downloading
+    if let Some(sha1) = expected_sha1 {
+        DownloadUtils::download_with_sha1(url, file_path, &sha1).await
+    } else {
+        DownloadUtils::download_simple(url, file_path).await
     }
-
-    // Get the bytes
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| AppError::Download(format!("Failed to read content bytes: {}", e)))?;
-
-    // Verify SHA1 hash if expected hash was provided
-    if let Some(expected) = expected_sha1 {
-        let hash = hash_utils::calculate_sha1_from_bytes(&bytes);
-
-        if hash != expected {
-            return Err(AppError::Download(format!(
-                "SHA1 hash mismatch. Expected: {}, Got: {}",
-                expected, hash
-            )));
-        }
-        debug!("SHA1 hash verification successful");
-    }
-
-    // Create parent directories if they don't exist
-    if let Some(parent) = file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| AppError::Io(e))?;
-        }
-    }
-
-    // Write the file
-    let mut file = fs::File::create(file_path)
-        .await
-        .map_err(|e| AppError::Io(e))?;
-
-    TokioAsyncWriteExt::write_all(&mut file, &bytes)
-        .await
-        .map_err(|e| AppError::Io(e))?;
-
-    info!("Successfully downloaded content to {}", file_path.display());
-
-    Ok(())
 }
 
 /// Helper function to get the correct directory for a specific content type
@@ -912,6 +891,195 @@ pub async fn list_log_files(profile_id: Uuid) -> Result<Vec<PathBuf>> {
         profile_id
     );
     Ok(log_files)
+}
+
+/// Represents the type of migration needed with paths
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MigrationInfo {
+    pub direction: MigrationDirection,
+    pub source_path: Option<String>,
+    pub target_path: Option<String>,
+}
+
+/// Represents the migration direction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MigrationDirection {
+    None,
+    FromGroupToInstance,
+    FromInstanceToGroup,
+}
+
+/// Checks if a directory is effectively empty, ignoring hidden files (starting with '.')
+/// Returns true if the directory contains no non-hidden files or doesn't exist
+async fn is_directory_effectively_empty(dir_path: &std::path::Path) -> Result<bool> {
+    if !dir_path.exists() {
+        log::debug!("Directory doesn't exist, considering empty: {:?}", dir_path);
+        return Ok(true);
+    }
+
+    match fs::read_dir(dir_path).await {
+        Ok(mut entries) => {
+            let mut found_non_hidden = false;
+            while let Ok(Some(entry)) = entries.next_entry().await {
+                let file_name = entry.file_name();
+                let file_name_str = file_name.to_string_lossy();
+
+                // Ignore hidden files (starting with .) and mods folder
+                if !file_name_str.starts_with('.') && file_name_str != "mods" {
+                    log::debug!("Directory NOT empty - found non-hidden entry: {:?}", entry.path());
+                    found_non_hidden = true;
+                    break;
+                } else {
+                    log::debug!("Ignoring hidden file or mods folder in directory check: {:?}", entry.path());
+                }
+            }
+
+            if found_non_hidden {
+                Ok(false)
+            } else {
+                log::debug!("Directory is effectively empty (only hidden files or no files): {:?}", dir_path);
+                Ok(true)
+            }
+        },
+        Err(e) => {
+            log::debug!("Error reading directory {:?}: {}", dir_path, e);
+            Ok(true) // Consider it empty if we can't read it
+        }
+    }
+}
+
+/// Checks if a group migration is needed and returns detailed migration info
+pub async fn check_for_group_migration(profile_id: Uuid) -> Result<MigrationInfo> {
+    log::debug!("Starting group migration check for profile {}", profile_id);
+
+    let state = State::get().await?;
+    let profile = state.profile_manager.get_profile(profile_id).await?;
+
+    log::debug!("Profile '{}' - Group: {:?}, Version: {}, Path: {}", profile.name, profile.group, profile.game_version, profile.path);
+
+    // If profile has no group, no migration needed
+    if profile.group.is_none() {
+        log::debug!("Profile '{}' has no group, no migration needed", profile.name);
+        return Ok(MigrationInfo {
+            direction: MigrationDirection::None,
+            source_path: None,
+            target_path: None,
+        });
+    }
+
+    // Get single instance directory
+    let single_instance_dir = crate::state::profile_state::ProfileManager::build_path_from_profile_path(&profile);
+    log::debug!("Single instance directory: {:?}", single_instance_dir);
+
+    // Get shared/group directory
+    let group_dir = state
+        .profile_manager
+        .calculate_group_directory(&profile)?;
+    log::debug!("Group directory: {:?}", group_dir);
+
+    // Check if directories are effectively empty (ignoring hidden files)
+    let group_empty = is_directory_effectively_empty(&group_dir).await?;
+    let single_empty = is_directory_effectively_empty(&single_instance_dir).await?;
+
+    // Check if profile should use shared minecraft folder
+    let use_shared = profile.should_use_shared_minecraft_folder();
+    log::debug!("Profile '{}' - Use shared minecraft folder: {}", profile.name, use_shared);
+
+    // Determine migration direction and paths
+    log::debug!("Migration analysis - Group empty: {}, Single empty: {}", group_empty, single_empty);
+
+    let (direction, source_path, target_path) = if group_empty && !single_empty && use_shared {
+        // Only migrate from instance to group if profile uses shared folder
+        log::debug!("Migration needed: FromInstanceToGroup (profile uses shared folder)");
+        (
+            MigrationDirection::FromInstanceToGroup,
+            Some(single_instance_dir.to_string_lossy().to_string()),
+            Some(group_dir.to_string_lossy().to_string()),
+        )
+    } else if !group_empty && single_empty && !use_shared {
+        // Only migrate from group to instance if profile doesn't use shared folder
+        log::debug!("Migration needed: FromGroupToInstance (profile doesn't use shared folder)");
+        (
+            MigrationDirection::FromGroupToInstance,
+            Some(group_dir.to_string_lossy().to_string()),
+            Some(single_instance_dir.to_string_lossy().to_string()),
+        )
+    } else {
+        // No migration needed in all other cases:
+        // - group_empty && !single_empty && !use_shared: Profile doesn't use shared, data already in correct location
+        // - !group_empty && single_empty && use_shared: Profile uses shared, data already in correct location
+        // - group_empty && single_empty: Both directories empty, nothing to migrate
+        // - !group_empty && !single_empty: Both directories have data, likely already in sync
+        log::debug!("No migration needed - profile configuration matches current state");
+        (MigrationDirection::None, None, None)
+    };
+
+    let result = MigrationInfo {
+        direction,
+        source_path,
+        target_path,
+    };
+
+    log::debug!("Final migration result: {:?}", result);
+    Ok(result)
+}
+
+/// Executes a group migration based on migration info
+pub async fn execute_group_migration(migration_info: MigrationInfo, profile_id: Option<Uuid>) -> Result<()> {
+    use crate::utils::mc_utils::emit_copy_progress;
+    use crate::utils::path_utils::{count_files_recursively, copy_dir_with_progress};
+    use std::sync::Arc;
+
+    info!("Executing group migration: {:?}", migration_info);
+
+    match migration_info.direction {
+        MigrationDirection::None => {
+            info!("No migration needed");
+            Ok(())
+        },
+        MigrationDirection::FromInstanceToGroup | MigrationDirection::FromGroupToInstance => {
+            let source_path = migration_info.source_path.ok_or_else(|| AppError::Other("Missing source path".to_string()))?;
+            let target_path = migration_info.target_path.ok_or_else(|| AppError::Other("Missing target path".to_string()))?;
+
+            let source = std::path::Path::new(&source_path);
+            let target = std::path::Path::new(&target_path);
+
+            if !source.exists() {
+                return Err(AppError::Other(format!("Source path does not exist: {}", source_path)));
+            }
+
+            // Get semaphore from global state for parallel copying
+            let state = State::get().await?;
+            let semaphore = state.io_semaphore.clone();
+
+            // Send progress event: Starting migration
+            let effective_profile_id = profile_id.unwrap_or(Uuid::nil());
+            emit_copy_progress(&state, effective_profile_id, "Preparing migration...", 0.1, None).await?;
+
+            // Add 10 second delay to show the toast longer
+            //info!("Waiting 10 seconds before starting migration...");
+            //tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+            // Count total files for progress tracking
+            let total_files = count_files_recursively(source).await?;
+            info!("Migration will copy {} files", total_files);
+
+            emit_copy_progress(&state, effective_profile_id, &format!("Copying {} files...", total_files), 0.2, None).await?;
+
+            // Copy with progress tracking
+            let progress_counter = Arc::new(tokio::sync::Mutex::new(0));
+            copy_dir_with_progress(source, target, semaphore, progress_counter.clone(), &state, effective_profile_id, total_files).await?;
+
+            //tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+            // Send progress event: Migration complete
+            emit_copy_progress(&state, effective_profile_id, "Migration completed!", 1.0, None).await?;
+
+            info!("Successfully migrated from {} to {}", source_path, target_path);
+
+            Ok(())
+        }
+    }
 }
 
 /// Exports a profile to a `.noriskpack` file
@@ -1927,6 +2095,17 @@ pub struct GenericModrinthInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GenericCurseForgeInfo {
+    pub project_id: String,
+    pub file_id: String,
+    pub name: String, // Name des CurseForge-Projekts
+    pub version_number: String,
+    pub download_url: Option<String>,
+    pub icon_url: Option<String>,
+    pub fingerprint: Option<u64>, // CurseForge file fingerprint for update checking
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalContentItem {
     pub filename: String,
     pub path_str: String, // Pfad als String
@@ -1936,11 +2115,17 @@ pub struct LocalContentItem {
     pub is_directory: bool,        // Wichtig für Shader
     pub content_type: ContentType, // Um den Typ mitzuführen
     pub modrinth_info: Option<GenericModrinthInfo>,
+    pub curseforge_info: Option<GenericCurseForgeInfo>,
+    pub platform: Option<crate::integrations::unified_mod::ModPlatform>, // Platform this mod came from
     pub source_type: Option<String>, // Zur Kennzeichnung von Custom Mods
     pub norisk_info: Option<crate::state::profile_state::NoriskModIdentifier>, // Identifier für NoRiskMods
     pub fallback_version: Option<String>, // Fallback Version aus dem compatibility target
     pub id: Option<String>,               // Added optional ID field
     pub associated_loader: Option<crate::state::profile_state::ModLoader>, // Added associated_loader
+
+    // Neue Felder für ModPack-Integration
+    pub modpack_origin: Option<String>, // "modrinth:project_id" oder "curseforge:project_id:file_id"
+    pub updates_enabled: Option<bool>,  // None = Standard (true), Some(true/false) = explizit gesetzt
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)] // Ensure Serialize and Deserialize are here
@@ -2088,11 +2273,15 @@ impl LocalContentLoader {
                                 is_directory: false,
                                 content_type: ContentType::NoRiskMod,
                                 modrinth_info,
+                                curseforge_info: None,
+                                platform: None,
                                 source_type: source_type_str.map(|s| s.to_string()),
                                 norisk_info: Some(norisk_mod_identifier),
                                 fallback_version: fallback_version,
                                 id: None,
                                 associated_loader: None,
+                                modpack_origin: None, // NoRisk mods kommen nicht aus ModPacks
+                                updates_enabled: None, // Default behavior
                             });
                         }
                     }
@@ -2116,6 +2305,9 @@ impl LocalContentLoader {
                         crate::state::profile_state::ModSource::Url { ref file_name, .. } => {
                             filename = file_name.clone()
                         }
+                        crate::state::profile_state::ModSource::CurseForge {
+                            ref file_name, ..
+                        } => filename = Some(file_name.clone()),
                         _ => {
                             warn!("Mod {} has no derivable filename. Skipping.", mod_item.id);
                             continue;
@@ -2134,6 +2326,17 @@ impl LocalContentLoader {
                     }
                 };
 
+                // Determine the platform from mod source
+                let platform = match &mod_item.source {
+                    crate::state::profile_state::ModSource::Modrinth { .. } => {
+                        Some(crate::integrations::unified_mod::ModPlatform::Modrinth)
+                    }
+                    crate::state::profile_state::ModSource::CurseForge { .. } => {
+                        Some(crate::integrations::unified_mod::ModPlatform::CurseForge)
+                    }
+                    _ => None, // Local, URL, Maven don't have a specific platform
+                };
+
                 // Try to find the mod in any of the content directories
                 let mut found_path = None;
                 for dir in &content_dirs {
@@ -2146,11 +2349,12 @@ impl LocalContentLoader {
 
                 // Use the first directory as fallback if file not found
                 let path_buf = if let Some(found) = found_path { found } else {
-                    // Smarter fallback: if this profile mod comes from Modrinth/Url/Maven, point to mod_cache
+                    // Smarter fallback: if this profile mod comes from Modrinth/Url/Maven/CurseForge, point to mod_cache
                     match &mod_item.source {
                         crate::state::profile_state::ModSource::Modrinth { .. }
                         | crate::state::profile_state::ModSource::Url { .. }
-                        | crate::state::profile_state::ModSource::Maven { .. } => {
+                        | crate::state::profile_state::ModSource::Maven { .. }
+                        | crate::state::profile_state::ModSource::CurseForge { .. } => {
                             crate::config::ProjectDirsExt::meta_dir(&*crate::config::LAUNCHER_DIRECTORY)
                                 .join("mod_cache")
                                 .join(&actual_filename)
@@ -2164,6 +2368,9 @@ impl LocalContentLoader {
 
                 let sha1_hash = match mod_item.source {
                     crate::state::profile_state::ModSource::Modrinth {
+                        ref file_hash_sha1, ..
+                    } => file_hash_sha1.clone(),
+                    crate::state::profile_state::ModSource::CurseForge {
                         ref file_hash_sha1, ..
                     } => file_hash_sha1.clone(),
                     _ => None,
@@ -2190,6 +2397,30 @@ impl LocalContentLoader {
                     _ => None,
                 };
 
+                let curseforge_info = match mod_item.source {
+                    crate::state::profile_state::ModSource::CurseForge {
+                        ref project_id,
+                        ref file_id,
+                        ref file_fingerprint,
+                        ..
+                    } => Some(GenericCurseForgeInfo {
+                        project_id: project_id.clone(),
+                        file_id: file_id.clone(),
+                        name: mod_item
+                            .display_name
+                            .clone()
+                            .unwrap_or_else(|| project_id.clone()),
+                        version_number: mod_item
+                            .version
+                            .clone()
+                            .unwrap_or_else(|| file_id.clone()),
+                        download_url: None,
+                        icon_url: None, // Will be populated later by frontend
+                        fingerprint: *file_fingerprint,
+                    }),
+                    _ => None,
+                };
+
                 preliminary_items.push(LocalContentItem {
                     filename: actual_filename,
                     path_str,
@@ -2199,11 +2430,15 @@ impl LocalContentLoader {
                     is_directory: false,
                     content_type: ContentType::Mod,
                     modrinth_info,
+                    curseforge_info,
+                    platform,
                     source_type: None,
                     norisk_info: None,
                     fallback_version: mod_item.version.clone(),
                     id: Some(mod_item.id.to_string()), // Set the ID from ModProfileEntry
                     associated_loader: mod_item.associated_loader.clone(), // Populate associated_loader
+                    modpack_origin: mod_item.modpack_origin.clone(), // Übernimm ModPack-Origin
+                    updates_enabled: Some(mod_item.updates_enabled), // Übernimm Update-Einstellung
                 });
             }
         }
@@ -2317,11 +2552,15 @@ impl LocalContentLoader {
                     is_directory: is_dir_flag,
                     content_type: params.content_type.clone(),
                     modrinth_info: None,
+                    curseforge_info: None,
+                    platform: None,
                     source_type,
                     norisk_info: None,
                     fallback_version: None,
                     id: None,
                     associated_loader: None,
+                    modpack_origin: None, // Lokale Dateien kommen nicht aus ModPacks
+                    updates_enabled: None, // Default behavior für lokale Dateien
                 });
             }
         }

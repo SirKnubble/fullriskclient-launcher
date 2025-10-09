@@ -5,13 +5,13 @@ import { forwardRef, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 import { useThemeStore } from "../../store/useThemeStore";
-import { 
-  getSizeClasses, 
-  getBorderRadiusClass, 
+import {
+  getSizeClasses,
+  getBorderRadiusClass,
   createRadiusStyle,
   getAccessibilityProps,
   type ComponentSize,
-  type ComponentVariant 
+  type ComponentVariant
 } from "./design-system";
 
 export interface InputProps
@@ -25,6 +25,49 @@ export interface InputProps
   label?: string;
   description?: string;
 }
+
+// Neue SearchWithFilters-Style Input Komponente
+export interface SearchStyleInputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> {
+  placeholder?: string;
+  icon?: string;
+  error?: string;
+}
+
+export const SearchStyleInput = forwardRef<HTMLInputElement, SearchStyleInputProps>(
+  ({ className, placeholder = "Enter name for new profile", icon, error, ...props }, ref) => {
+    const accentColor = useThemeStore((state) => state.accentColor);
+
+    return (
+      <div className="w-full">
+        <div className="flex items-center gap-2 bg-black/50 rounded-lg px-4 py-3 border border-white/10 hover:border-white/20 transition-colors">
+          {icon && (
+            <Icon icon={icon} className="w-4 h-4 text-white/50 flex-shrink-0" />
+          )}
+          <input
+            ref={ref}
+            type="text"
+            placeholder={placeholder}
+            className={cn(
+              "bg-transparent text-white placeholder-white/50 font-minecraft-ten text-lg flex-1 outline-none",
+              className
+            )}
+            spellCheck={false}
+            autoComplete="off"
+            {...props}
+          />
+        </div>
+        {error && (
+          <p className="mt-1 text-xl text-red-400 font-minecraft lowercase">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+);
+
+SearchStyleInput.displayName = "SearchStyleInput";
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   (
@@ -148,11 +191,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               <div className="flex items-center justify-center w-10 h-full text-white">
                 {icon}
               </div>
-            )}<input
+            )}            <input
               ref={ref}
               className={cn(
-                "flex-1 h-full bg-transparent border-none outline-none px-3 py-2 text-white font-minecraft placeholder:text-white/50 lowercase",
+                "flex-1 h-full bg-transparent border-none outline-none px-3 text-white font-minecraft placeholder:text-white/50 lowercase",
+                "flex items-center"
               )}
+              style={{
+                lineHeight: "1.1",
+                paddingTop: "0",
+                paddingBottom: "0",
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               spellCheck={false}
