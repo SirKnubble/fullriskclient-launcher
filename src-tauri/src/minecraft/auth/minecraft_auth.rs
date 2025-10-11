@@ -217,8 +217,25 @@ impl MinecraftAuthStore {
             );
 
             info!("[Storage] Deserializing account data");
-            let store: AccountStore = serde_json::from_str(&data)?;
-            info!("[Storage] Successfully deserialized data");
+            let store: AccountStore = match serde_json::from_str(&data) {
+                Ok(store) => {
+                    info!("[Storage] Successfully deserialized data");
+                    store
+                }
+                Err(e) => {
+                    error!(
+                        "[Storage] Failed to deserialize account data: {}. The accounts.json file appears to be corrupted. Resetting to empty state.",
+                        e
+                    );
+
+                    // Create new empty store - no backup needed as corrupted data is useless
+                    info!("[Storage] Creating new empty account store");
+                    AccountStore {
+                        accounts: Vec::new(),
+                        token: None,
+                    }
+                }
+            };
 
             info!("[Storage] Acquiring write lock to update accounts");
             let mut accounts = self.accounts.write().await;
