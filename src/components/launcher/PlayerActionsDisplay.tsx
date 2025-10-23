@@ -14,6 +14,9 @@ import { useProfileStore } from '../../store/profile-store';
 
 const DEFAULT_FALLBACK_SKIN_URL = "/skins/default_steve_full.png"; // Defined constant for fallback URL
 
+// Featured profile ID - can be null or a UUID string
+const FEATURED_PROFILE_ID: string | null = "bc3424a4-eda6-4949-8d3f-f7f2c552730c"; // Set to a valid profile UUID to enable feature toggle, or null to disable
+
 interface PlayerActionsDisplayProps {
   playerName: string | null | undefined;
   launchButtonDefaultVersion: string;
@@ -38,11 +41,22 @@ export function PlayerActionsDisplay({
   displayMode = 'playerName',
 }: PlayerActionsDisplayProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
+  const featureMode = useThemeStore((state) => state.featureMode);
+  const setFeatureMode = useThemeStore((state) => state.setFeatureMode);
   const [resolvedSkinUrl, setResolvedSkinUrl] = useState<string>(DEFAULT_FALLBACK_SKIN_URL);
-  const [debugMode, setDebugMode] = useState(false);
 
   const { profiles } = useProfileStore();
-  const currentProfile = profiles.find(p => p.id === launchButtonDefaultVersion);
+  const featuredProfile = FEATURED_PROFILE_ID ? profiles.find(p => p.id === FEATURED_PROFILE_ID) : null;
+
+  // Determine if we're still loading profiles (no profiles loaded yet)
+  const isLoadingProfiles = profiles.length === 0;
+
+  // Reset featureMode to false if no featured profile is configured
+  React.useEffect(() => {
+    if (!FEATURED_PROFILE_ID && featureMode) {
+      setFeatureMode(false);
+    }
+  }, [FEATURED_PROFILE_ID, featureMode, setFeatureMode]);
 
   useEffect(() => {
     const fetchAndSetSkin = async () => {
@@ -95,14 +109,18 @@ export function PlayerActionsDisplay({
 
   return (
     <div className={cn("flex flex-col items-center", className)}>
-      {/* Debug Button */}
-      <button
-        onClick={() => setDebugMode(!debugMode)}
-        className="absolute top-4 right-4 z-50 w-8 h-8 flex items-center justify-center bg-black/50 hover:bg-black/70 text-white/70 hover:text-white border border-white/20 rounded transition-all duration-200"
-        title={debugMode ? "Switch to MainLaunchButton" : "Switch to ProfileCardV2 style"}
-      >
-        <Icon icon="solar:bug-bold" className="w-4 h-4" />
-      </button>
+      {/* Featured Modpack Toggle - only show if featured profile exists and profiles are loaded */}
+      {!isLoadingProfiles && featuredProfile && (
+        <div className="absolute bottom-32 left-0 right-0 flex justify-center px-4 z-30">
+          <button
+            onClick={() => setFeatureMode(!featureMode)}
+            className="font-minecraft text-2xl lowercase text-white/70 hover:text-white transition-all duration-200 cursor-pointer bg-transparent border-none p-0"
+            title={featureMode ? "Switch to Main Launch" : "Switch to Craft Attack Modpack"}
+          >
+            {featureMode ? "switch to main launch" : "craft attack modpack"}
+          </button>
+        </div>
+      )}
 
       {displayMode === 'logo' ? (
         <img
@@ -133,14 +151,16 @@ export function PlayerActionsDisplay({
           style={skinViewerStyles}
         />
 
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4">
-          <div className={debugMode && currentProfile ? "w-96" : "max-w-xs sm:max-w-sm"}>
-            {debugMode && currentProfile ? (
-              // Use actual ProfileCardV2 component with 3D styling - same height as MainLaunchButton, slightly wider
+        {/* Don't render launch button while profiles are still loading to prevent flicker */}
+        {!isLoadingProfiles && (
+          <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4">
+            <div className={featureMode && featuredProfile ? "w-96" : "max-w-xs sm:max-w-sm"}>
+              {featureMode && featuredProfile ? (
+              // Use actual ProfileCardV2 component with 3D styling for featured profile
               <div className="w-96 h-20 flex items-center justify-center">
                 <div className="w-full h-full">
                   <ProfileCardV2
-                    profile={currentProfile}
+                    profile={featuredProfile}
                     layoutMode="compact"
                     variant="3d"
                   />
@@ -159,6 +179,7 @@ export function PlayerActionsDisplay({
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

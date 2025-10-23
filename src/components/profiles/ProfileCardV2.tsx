@@ -198,6 +198,7 @@ export function ProfileCardV2({
     onLaunchError: (error) => {
       console.error("Profile launch error:", error);
     },
+    skipLastPlayedUpdate: variant === "3d", // Skip for featured profiles in 3D mode
   });
 
 
