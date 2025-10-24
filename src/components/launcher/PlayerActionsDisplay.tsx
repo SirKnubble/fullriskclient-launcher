@@ -114,7 +114,7 @@ export function PlayerActionsDisplay({
         <div className="absolute bottom-32 left-0 right-0 flex justify-center px-4 z-30">
           <button
             onClick={() => setFeatureMode(!featureMode)}
-            className="font-minecraft text-2xl lowercase text-white/70 hover:text-white transition-all duration-200 cursor-pointer bg-transparent border-none p-0"
+            className="font-minecraft text-2xl lowercase text-white/70 hover:text-white transition-all duration-200 cursor-pointer bg-transparent border-none p-0 whitespace-nowrap text-shadow"
             title={featureMode ? "Switch to Main Launch" : "Switch to Craft Attack Modpack"}
           >
             {featureMode ? "switch to main launch" : "craft attack modpack"}
