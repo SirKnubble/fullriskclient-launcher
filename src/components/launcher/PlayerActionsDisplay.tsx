@@ -15,7 +15,7 @@ import { useProfileStore } from '../../store/profile-store';
 const DEFAULT_FALLBACK_SKIN_URL = "/skins/default_steve_full.png"; // Defined constant for fallback URL
 
 // Featured profile ID - can be null or a UUID string
-const FEATURED_PROFILE_ID: string | null = "bc3424a4-eda6-4949-8d3f-f7f2c552730c"; // Set to a valid profile UUID to enable feature toggle, or null to disable
+const FEATURED_PROFILE_ID: string | null = "d2332f66-9117-4cf3-b35b-6bac4262f984"; // Set to a valid profile UUID to enable feature toggle, or null to disable
 
 interface PlayerActionsDisplayProps {
   playerName: string | null | undefined;
