@@ -114,12 +114,6 @@ export const isModBlockedByNoRisk = (
   versionId?: string | null,
 ): boolean => {
   console.log('[isModBlockedByNoRisk] Called with filename:', filename, 'projectId:', modrinthProjectId, 'versionId:', versionId, 'cachedConfig:', cachedBlockedModsConfig);
-  
-  // Hardcoded test for Fabric API (P7dR8mSH) - TODO: Remove after testing
-  if (modrinthProjectId === 'P7dR8mSH') {
-    console.log('[isModBlockedByNoRisk] MATCHED hardcoded test ID P7dR8mSH!');
-    return true;
-  }
 
   if (!cachedBlockedModsConfig) {
     console.log('[isModBlockedByNoRisk] Config not cached, returning false');
