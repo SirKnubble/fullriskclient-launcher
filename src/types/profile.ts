@@ -206,6 +206,7 @@ export interface Profile {
   background: ProfileBanner | null;
   norisk_information: NoriskInformation | null;
   modpack_info?: ModPackInfo | null;
+  preferred_account_id: string | null;
 }
 
 export interface ProfileGroup {
@@ -249,6 +250,8 @@ export interface UpdateProfileParams {
   banner?: ProfileBanner | null;
   background?: ProfileBanner | null;
   norisk_information?: NoriskInformation | null;
+  preferred_account_id?: string | null;
+  clear_preferred_account?: boolean;
 }
 
 export interface CopyProfileParams {
