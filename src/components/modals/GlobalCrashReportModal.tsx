@@ -233,10 +233,26 @@ export function GlobalCrashReportModal() {
           console.error("Failed to copy mclogs URL after report:", copyError);
           toast.success(`Report submitted. Log URL: ${currentMclogsUrl} (Copying failed)`, { id: mainToastId });
         }
+        
+        // Open browser with mclogs URL
+        try {
+          await openExternalUrl(currentMclogsUrl);
+          console.log("Opened mclogs URL in browser:", currentMclogsUrl);
+        } catch (browserError) {
+          console.error("Failed to open mclogs URL in browser:", browserError);
+        }
       } else if (currentMclogsUrl && noriskReportSubmitted) {
         toast.dismiss(mainToastId);
         await writeText(currentMclogsUrl);
         toast.success("mclogs.com URL copied to clipboard!");
+        
+        // Open browser with mclogs URL
+        try {
+          await openExternalUrl(currentMclogsUrl);
+          console.log("Opened mclogs URL in browser:", currentMclogsUrl);
+        } catch (browserError) {
+          console.error("Failed to open mclogs URL in browser:", browserError);
+        }
       } else {
         toast.dismiss(mainToastId);
       }
