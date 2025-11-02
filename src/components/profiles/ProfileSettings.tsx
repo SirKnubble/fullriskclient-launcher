@@ -129,6 +129,8 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         description: editedProfile.description,
         norisk_information: editedProfile.norisk_information,
         use_shared_minecraft_folder: editedProfile.use_shared_minecraft_folder,
+        preferred_account_id: editedProfile.preferred_account_id,
+        clear_preferred_account: !editedProfile.preferred_account_id,
       });
 
       toast.success("Profile saved successfully!");

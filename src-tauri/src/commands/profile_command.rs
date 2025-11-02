@@ -62,6 +62,8 @@ pub struct UpdateProfileParams {
     use_shared_minecraft_folder: Option<bool>,
     clear_selected_norisk_pack: Option<bool>,
     norisk_information: Option<crate::state::profile_state::NoriskInformation>,
+    preferred_account_id: Option<String>,
+    clear_preferred_account: Option<bool>,
 }
 
 // Neue DTO für den copy_profile Command
@@ -151,6 +153,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         is_standard_version: false,
         norisk_information: None,
         modpack_info: None,
+        preferred_account_id: None,
     };
 
     let id = state.profile_manager.create_profile(profile).await?;
@@ -243,19 +246,59 @@ pub async fn launch_profile(
 
     let version = profile.game_version.clone();
     let modloader = profile.loader.clone();
-    let credentials = match state
-        .minecraft_account_manager_v2
-        .get_active_account()
-        .await
-    {
-        Ok(Some(creds)) => Some(creds),
-        Ok(None) => {
-            return Err(CommandError::from(AppError::NoCredentialsError));
+    
+    // Helper function to get active account with proper error handling
+    let get_active_account = || async {
+        match state
+            .minecraft_account_manager_v2
+            .get_active_account()
+            .await
+        {
+            Ok(Some(creds)) => Ok(Some(creds)),
+            Ok(None) => Err(CommandError::from(AppError::NoCredentialsError)),
+            Err(e) => {
+                log::info!("Error getting active account: {}", e);
+                Err(CommandError::from(AppError::NoCredentialsError))
+            }
         }
-        Err(e) => {
-            info!("Error getting active account: {}", e);
-            return Err(CommandError::from(AppError::NoCredentialsError));
+    };
+    
+    // Determine which account to use: preferred account or global active account
+    let credentials = if let Some(preferred_account_id) = profile.preferred_account_id {
+        log::info!(
+            "[Command] Profile has preferred account set: {}. Attempting to use it.",
+            preferred_account_id
+        );
+        match state
+            .minecraft_account_manager_v2
+            .get_account_by_id(preferred_account_id)
+            .await
+        {
+            Ok(Some(creds)) => {
+                log::info!(
+                    "[Command] Successfully retrieved preferred account: {}",
+                    creds.username
+                );
+                Some(creds)
+            }
+            Ok(None) => {
+                log::warn!(
+                    "[Command] Preferred account {} not found. Falling back to global active account.",
+                    preferred_account_id
+                );
+                get_active_account().await?
+            }
+            Err(e) => {
+                log::warn!(
+                    "[Command] Error getting preferred account: {}. Falling back to global active account.",
+                    e
+                );
+                get_active_account().await?
+            }
         }
+    } else {
+        log::info!("[Command] No preferred account set. Using global active account.");
+        get_active_account().await?
     };
 
     let profile_id = profile.id; // Store profile ID for later use
@@ -644,6 +687,33 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
         info!(
             "norisk_information not provided or explicitly null, keeping existing: {:?}",
             profile.norisk_information
+        );
+    }
+
+    // Handle preferred_account_id based on clear_preferred_account and new value
+    if params.clear_preferred_account == Some(true) {
+        info!("Clearing preferred_account_id for profile {}", id);
+        profile.preferred_account_id = None;
+    } else if let Some(account_id_str) = &params.preferred_account_id {
+        match Uuid::parse_str(account_id_str) {
+            Ok(account_uuid) => {
+                info!(
+                    "Updating preferred_account_id to: {} for profile {}",
+                    account_uuid, id
+                );
+                profile.preferred_account_id = Some(account_uuid);
+            }
+            Err(e) => {
+                return Err(CommandError::from(AppError::Other(format!(
+                    "Invalid UUID format for preferred_account_id: {}",
+                    e
+                ))));
+            }
+        }
+    } else {
+        info!(
+            "preferred_account_id not explicitly changed or cleared for profile {}. Current: {:?}",
+            id, profile.preferred_account_id
         );
     }
 
@@ -1504,6 +1574,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         banner: source_profile.banner.clone(),
         background: source_profile.background.clone(),
         modpack_info: source_profile.modpack_info.clone(),
+        preferred_account_id: source_profile.preferred_account_id,
     };
 
     // 6. Erstelle das neue Profilverzeichnis
