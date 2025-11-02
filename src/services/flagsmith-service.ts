@@ -105,36 +105,57 @@ export const getBlockedModsConfig = async (): Promise<BlockedModsConfig> => {
  *
  * @param filename The filename of the mod.
  * @param modrinthProjectId The Modrinth project ID, if available.
+ * @param versionId The version ID (mod_id), if available.
  * @returns `true` if the mod is blocked, otherwise `false`.
  */
 export const isModBlockedByNoRisk = (
   filename: string,
   modrinthProjectId?: string | null,
+  versionId?: string | null,
 ): boolean => {
+  console.log('[isModBlockedByNoRisk] Called with filename:', filename, 'projectId:', modrinthProjectId, 'versionId:', versionId, 'cachedConfig:', cachedBlockedModsConfig);
+  
+  // Hardcoded test for Fabric API (P7dR8mSH) - TODO: Remove after testing
+  if (modrinthProjectId === 'P7dR8mSH') {
+    console.log('[isModBlockedByNoRisk] MATCHED hardcoded test ID P7dR8mSH!');
+    return true;
+  }
+
   if (!cachedBlockedModsConfig) {
+    console.log('[isModBlockedByNoRisk] Config not cached, returning false');
     // Silently return false if config is not loaded. The UI should trigger the load.
     return false;
   }
 
   const config = cachedBlockedModsConfig;
+  console.log('[isModBlockedByNoRisk] Checking against config:', config);
 
   // 1. Check exact filename match
   if (config.exact_filenames?.includes(filename)) {
+    console.log('[isModBlockedByNoRisk] MATCHED exact filename!');
     return true;
   }
 
   // 2. Check Modrinth project ID
   if (modrinthProjectId && config.modrinth_project_ids?.includes(modrinthProjectId)) {
+    console.log('[isModBlockedByNoRisk] MATCHED Modrinth project ID!');
     return true;
   }
 
-  // 3. Check filename patterns (they are full regex)
+  // 3. Check version ID (mod_ids)
+  if (versionId && config.mod_ids?.includes(versionId)) {
+    console.log('[isModBlockedByNoRisk] MATCHED version ID (mod_id)!');
+    return true;
+  }
+
+  // 4. Check filename patterns (they are full regex)
   if (config.filename_patterns) {
     for (const pattern of config.filename_patterns) {
       try {
         // The pattern from Flagsmith is already a complete regex.
         const regex = new RegExp(pattern);
         if (regex.test(filename)) {
+          console.log('[isModBlockedByNoRisk] MATCHED filename pattern:', pattern);
           return true;
         }
       } catch (e) {
@@ -143,5 +164,6 @@ export const isModBlockedByNoRisk = (
     }
   }
 
+  console.log('[isModBlockedByNoRisk] No match found, returning false');
   return false;
 }; 

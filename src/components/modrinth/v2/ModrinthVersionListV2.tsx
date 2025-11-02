@@ -86,6 +86,7 @@ interface ModrinthVersionListV2Props {
     newEnabledState: boolean,
     sha1Hash: string,
   ) => void;
+  isProjectBlocked?: boolean;
 }
 
 // --- Component Implementation ---
@@ -117,6 +118,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
   selectedProfileId,
   onDeleteClick,
   onToggleEnableClick,
+  isProjectBlocked = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -498,6 +500,7 @@ export const ModrinthVersionListV2: React.FC<ModrinthVersionListV2Props> = ({
                 selectedProfileId={selectedProfileId}
                 onDeleteClick={onDeleteClick}
                 onToggleEnableClick={onToggleEnableClick}
+                isBlocked={(version as any).isBlocked || isProjectBlocked}
               />
             );
           })}

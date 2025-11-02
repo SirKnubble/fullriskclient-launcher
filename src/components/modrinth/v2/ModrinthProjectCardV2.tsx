@@ -19,6 +19,7 @@ import { openExternalUrl } from "../../../services/tauri-service";
 import { toast } from "react-hot-toast";
 import { preloadIcons } from "../../../lib/icon-utils";
 import { ThemedSurface } from "../../ui/ThemedSurface";
+import { Tooltip } from "../../ui/Tooltip";
 
 type Profile = any;
 
@@ -100,6 +101,7 @@ export interface ModrinthProjectCardV2Props
   onToggleVersionsClick: (projectId: string) => void;
   isExpanded: boolean;
   isLoadingVersions: boolean;
+  isBlocked?: boolean;
   projectVersions: UnifiedVersion[] | null | "loading";
   displayedCount: number;
   versionDropdownUIState: {
@@ -191,6 +193,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
     onDeleteVersionClick,
     onToggleEnableClick,
     itemIndex,
+    isBlocked = false,
   }) => {
     useEffect(() => {
       preloadIcons([
@@ -217,6 +220,19 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
             "border-l-blue-500",
         )}
       >
+        {/* Blocked Mod Warning Icon - Top Left */}
+        {isBlocked && (
+          <div className="absolute top-2 left-2 z-10 pointer-events-auto">
+            <Tooltip content="This project is known to cause crashes or compatibility issues with NoRisk Client. Installation is possible but not recommended.">
+              <div>
+                <Icon 
+                  icon="solar:danger-triangle-bold" 
+                  className="w-5 h-5 text-red-500"
+                />
+              </div>
+            </Tooltip>
+          </div>
+        )}
 
         {/* Stats - absolute oben rechts */}
         <div className="absolute top-3 right-3 flex items-center space-x-2 text-xs text-gray-400 font-minecraft-ten">
@@ -443,6 +459,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
               onHoverVersion={onHoverVersion}
               onDeleteClick={onDeleteVersionClick}
                 onToggleEnableClick={onToggleEnableClick}
+                isProjectBlocked={isBlocked}
               />
             </div>
           )}
