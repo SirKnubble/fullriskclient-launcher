@@ -703,6 +703,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         FlagsmithService.isModBlockedByNoRisk(
           item.filename,
           item.modrinth_info?.project_id,
+          item.modrinth_info?.version_id,
         );
 
       // Get the appropriate icon using the platform-aware helper function
