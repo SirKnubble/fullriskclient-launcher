@@ -2299,3 +2299,168 @@ pub async fn purge_trash(max_age_seconds: Option<u64>) -> Result<u64, CommandErr
     let removed = crate::utils::trash_utils::purge_expired(secs).await?;
     Ok(removed)
 }
+// === Symlink Commands ===
+
+#[derive(Debug, Deserialize)]
+pub struct AddSymlinkParams {
+    pub profile_id: Uuid,
+    pub relative_path: String,
+    pub external_path: String,
+}
+
+#[tauri::command]
+pub async fn add_profile_symlink(params: AddSymlinkParams) -> Result<(), CommandError> {
+    use crate::utils::symlink_utils;
+    
+    info!("Adding symlink for profile {}: {} -> {}", 
+          params.profile_id, params.relative_path, params.external_path);
+    
+    let state = State::get().await?;
+    
+    // Get the profile instance path
+    let instance_path = state
+        .profile_manager
+        .get_profile_instance_path(params.profile_id)
+        .await?;
+    
+    let link_path = instance_path.join(&params.relative_path);
+    let target_path = PathBuf::from(&params.external_path);
+    
+    // Check if target exists
+    if !target_path.exists() {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Target path does not exist: {}",
+            params.external_path
+        ))));
+    }
+    
+    let is_dir = target_path.is_dir();
+    
+    // Create parent directories if needed
+    if let Some(parent) = link_path.parent() {
+        tokio::fs::create_dir_all(parent).await
+            .map_err(|e| CommandError::from(AppError::Io(e)))?;
+    }
+    
+    // Remove existing link/file if it exists
+    if link_path.exists() {
+        if symlink_utils::is_symlink(&link_path).await? {
+            symlink_utils::remove_symlink(&link_path).await?;
+        } else {
+            // Backup existing content
+            let backup_path = instance_path.join(format!("{}.backup", params.relative_path));
+            tokio::fs::rename(&link_path, &backup_path).await
+                .map_err(|e| CommandError::from(AppError::Io(e)))?;
+            info!("Backed up existing content to {:?}", backup_path);
+        }
+    }
+    
+    // Create the symlink/junction/hardlink
+    symlink_utils::create_symlink(&target_path, &link_path, is_dir).await?;
+    
+    info!("Successfully created symlink at {:?}", link_path);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn remove_profile_symlink(
+    profile_id: Uuid,
+    relative_path: String,
+) -> Result<(), CommandError> {
+    use crate::utils::symlink_utils;
+    
+    info!("Removing symlink for profile {}: {}", profile_id, relative_path);
+    
+    let state = State::get().await?;
+    
+    let instance_path = state
+        .profile_manager
+        .get_profile_instance_path(profile_id)
+        .await?;
+    
+    let link_path = instance_path.join(&relative_path);
+    
+    if !link_path.exists() {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Symlink does not exist: {}",
+            relative_path
+        ))));
+    }
+    
+    if !symlink_utils::is_symlink(&link_path).await? {
+        return Err(CommandError::from(AppError::Other(format!(
+            "Path is not a symlink: {}",
+            relative_path
+        ))));
+    }
+    
+    symlink_utils::remove_symlink(&link_path).await?;
+    
+    info!("Successfully removed symlink at {:?}", link_path);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_profile_symlinks(profile_id: Uuid) -> Result<Vec<crate::utils::symlink_utils::SymlinkInfo>, CommandError> {
+    use crate::utils::symlink_utils;
+    
+    info!("Getting symlinks for profile {}", profile_id);
+    
+    let state = State::get().await?;
+    
+    let instance_path = state
+        .profile_manager
+        .get_profile_instance_path(profile_id)
+        .await?;
+    
+    let links = symlink_utils::find_all_links(&instance_path).await?;
+    
+    info!("Found {} symlinks for profile {}", links.len(), profile_id);
+    Ok(links)
+}
+
+#[tauri::command]
+pub async fn get_profile_instance_path(profile_id: Uuid) -> Result<String, CommandError> {
+    info!(
+        "Executing get_profile_instance_path command for profile {}",
+        profile_id
+    );
+    let state = State::get().await?;
+    let path = state
+        .profile_manager
+        .get_profile_instance_path(profile_id)
+        .await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn get_profile_folders(profile_id: Uuid) -> Result<Vec<String>, CommandError> {
+    let state = State::get().await?;
+
+    let profile = state
+        .profile_manager
+        .get_profile(profile_id)
+        .await?;
+
+    let instance_path = state
+        .profile_manager
+        .calculate_instance_path_for_profile(&profile)?;
+
+    let mut folders = Vec::new();
+    if let Ok(mut entries) = tokio::fs::read_dir(&instance_path).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            if entry
+                .file_type()
+                .await
+                .map(|ft| ft.is_dir())
+                .unwrap_or(false)
+            {
+                if let Some(name) = entry.file_name().to_str() {
+                    folders.push(name.to_string());
+                }
+            }
+        }
+    }
+
+    Ok(folders)
+}
