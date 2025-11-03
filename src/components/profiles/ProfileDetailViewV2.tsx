@@ -165,7 +165,6 @@ export function ProfileDetailViewV2({
       icon: "solar:trash-bin-trash-bold",
       destructive: true,
       separator: true, // Trennstrich vor Delete
-      disabled: currentProfile.is_standard_version,
       onClick: () => handleDeleteProfile(),
     },
   ];
