@@ -527,10 +527,11 @@ async fn main() {
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,
-            commands::profile_command::get_profile_instance_path
+            commands::profile_command::get_profile_instance_path,
+            commands::profile_command::get_default_profile_path
         ])
-        .build(tauri::generate_context!()) 
-        .expect("error while building tauri application") 
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
         .run(
             #[allow(unused_variables)]
             |app_handle, event| {
