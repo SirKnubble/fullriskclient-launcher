@@ -84,6 +84,13 @@ export interface ProfileSettings {
   quick_play_path: string | null;   // Option<String> -> string | null (Quick Play path)
 }
 
+export interface SymlinkInfo {
+  link_path: string; // Relative path within profile
+  target_path: string; // Absolute target path
+  link_type: string; // "junction", "symlink", or "hardlink"
+  is_directory: boolean;
+}
+
 interface ModSourceBase {
   type: "local" | "url" | "maven" | "embedded" | "modrinth" | "curseforge";
 }

@@ -9,6 +9,7 @@ import { InstallationSettingsTab } from "./settings/InstallationSettingsTab";
 import { JavaSettingsTab } from "./settings/JavaSettingsTab";
 import { WindowSettingsTab } from "./settings/WindowSettingsTab";
 import { NRCTab } from "./settings/NRCTab";
+import { SymlinkSettingsTab } from "./settings/SymlinkSettingsTab";
 
 import { useProfileStore } from "../../store/profile-store";
 import * as ProfileService from "../../services/profile-service";
@@ -31,7 +32,8 @@ type SettingsTab =
   | "java"
   | "window"
   | "nrc"
-  | "designer";
+  | "designer"
+  | "symlinks";
 
 const DESIGNER_FEATURE_FLAG_NAME = "show_keep_local_assets";
 
@@ -178,6 +180,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     { id: "java", label: "JAVA & Memory", icon: "solar:code-bold" },
     { id: "window", label: "Window", icon: "solar:widget-bold" },
     { id: "nrc", label: "NRC", icon: "solar:gamepad-bold" },
+    { id: "symlinks", label: "Symlinks", icon: "solar:link-bold" },
   ];
 
   const tabConfig = showDesignerTab
@@ -252,6 +255,14 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
           );
         }
         return null;
+      case "symlinks":
+        return (
+          <SymlinkSettingsTab
+            editedProfile={editedProfile}
+            updateProfile={updateProfileData}
+            allProfiles={useProfileStore.getState().profiles}
+          />
+        );
       default:
         return null;
     }

@@ -523,7 +523,11 @@ async fn main() {
             get_currently_equipped_vanilla_cape,
             equip_vanilla_cape,
             get_vanilla_cape_info,
-            refresh_vanilla_cape_data
+            refresh_vanilla_cape_data,
+            commands::profile_command::add_profile_symlink,
+            commands::profile_command::remove_profile_symlink,
+            commands::profile_command::get_profile_symlinks,
+            commands::profile_command::get_profile_instance_path
         ])
         .build(tauri::generate_context!()) 
         .expect("error while building tauri application") 
