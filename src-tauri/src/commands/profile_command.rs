@@ -1565,7 +1565,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         mods: source_profile.mods.clone(), // Kopiere die Modrinth-Mods aus dem Quellprofil
         selected_norisk_pack_id: source_profile.selected_norisk_pack_id.clone(),
         disabled_norisk_mods_detailed: source_profile.disabled_norisk_mods_detailed.clone(),
-        source_standard_profile_id: source_profile.source_standard_profile_id,
+        source_standard_profile_id: None, // Manual copies are independent and not linked to standard profiles
         group: source_profile.group.clone(),
         use_shared_minecraft_folder: params.use_shared_minecraft_folder.unwrap_or(source_profile.should_use_shared_minecraft_folder()),
         is_standard_version: false,
