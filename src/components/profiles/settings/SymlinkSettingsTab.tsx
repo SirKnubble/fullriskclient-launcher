@@ -16,7 +16,6 @@ import {
   removeProfileSymlink,
   getProfileSymlinks, getDefaultProfilePath
 } from "../../../services/profile-service";
-import {getLauncherDirectory} from "../../../services/tauri-service.ts";
 
 interface SymlinkSettingsTabProps {
   editedProfile: Profile;
