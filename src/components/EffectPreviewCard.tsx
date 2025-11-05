@@ -21,6 +21,7 @@ interface EffectPreviewCardProps {
   icon: string;
   onClick: () => void;
   isActive: boolean;
+  disabled?: boolean;
 }
 
 export default function EffectPreviewCard({
@@ -29,6 +30,7 @@ export default function EffectPreviewCard({
   icon,
   onClick,
   isActive,
+  disabled = false,
 }: EffectPreviewCardProps) {
   const { accentColor } = useThemeStore();
   const [isHovered, setIsHovered] = useState(false);
@@ -109,9 +111,10 @@ export default function EffectPreviewCard({
       ref={cardRef}
       className={cn(
         "relative overflow-hidden transition-all duration-300 p-3 rounded-md h-40",
-        "border border-b-2 cursor-pointer",
+        "border border-b-2",
+        disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
         "bg-black/20 backdrop-blur-md",
-        isActive ? "ring-2 ring-white/30" : "hover:bg-black/40",
+        !disabled && (isActive ? "ring-2 ring-white/30" : "hover:bg-black/40"),
       )}
       style={{
         borderColor: isActive
@@ -123,11 +126,11 @@ export default function EffectPreviewCard({
         backgroundColor: isActive
           ? `${accentColor.value}20`
           : "rgba(0, 0, 0, 0.2)",
-        filter: isHovered ? "brightness(1.1)" : "brightness(1)",
+        filter: !disabled && isHovered ? "brightness(1.1)" : "brightness(1)",
       }}
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => !disabled && onClick()}
+      onMouseEnter={() => !disabled && setIsHovered(true)}
+      onMouseLeave={() => !disabled && setIsHovered(false)}
     >
       <div className="absolute inset-0 overflow-hidden rounded-md">
         {renderEffect()}

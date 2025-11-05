@@ -157,8 +157,15 @@ export function App() {
         'solar:add-circle-bold',
         'solar:user-id-bold',
         'solar:widget-bold',
+        'solar:calendar-bold',
         'solar:emoji-funny-circle-bold',
         'solar:shop-bold',
+        
+        // Advent Calendar Icons
+        'solar:lock-bold',
+        'solar:lock-unlocked-bold',
+        'solar:star-bold',
+        'solar:gift-bold',
         
         // Search & Filters
         'solar:magnifer-bold',

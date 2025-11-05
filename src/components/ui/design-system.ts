@@ -1,7 +1,7 @@
 import type { AccentColor } from "../../store/useThemeStore";
 
 export type ComponentSize = "xs" | "sm" | "md" | "lg" | "xl";
-export type ComponentVariant = "default" | "flat" | "3d" | "elevated" | "secondary" | "flat-secondary" | "ghost" | "warning" | "destructive" | "info" | "success";
+export type ComponentVariant = "default" | "flat" | "flat-no-hover" | "3d" | "elevated" | "secondary" | "flat-secondary" | "ghost" | "warning" | "destructive" | "info" | "success";
 export type StateVariant = "error" | "success" | "warning" | "info";
 
 export interface DesignConfig {

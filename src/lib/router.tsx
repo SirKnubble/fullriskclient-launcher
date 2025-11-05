@@ -10,6 +10,7 @@ import { BrowseTab } from "../components/profiles/detail/BrowseTab";
 import { BrowseTabWrapper } from "../components/profiles/BrowseTabWrapper";
 import { ProfilesTabV2 } from "../components/tabs/ProfilesTabV2";
 import { ProfileDetailViewV2Wrapper } from "../components/profiles/ProfileDetailViewV2Wrapper";
+import { AdventCalendarTab } from "../features/advent-calendar";
 
 export const router = createHashRouter([
   {
@@ -43,6 +44,10 @@ export const router = createHashRouter([
       {
         path: "profiles/:profileId/browse/:contentType",
         element: <BrowseTab />,
+      },
+      {
+        path: "advent",
+        element: <AdventCalendarTab />,
       },
       {
         path: "mods",
