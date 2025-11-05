@@ -24,6 +24,7 @@ import { NebulaLightning } from ".././effects/NebulaLightning";
 import { NebulaLiquidChrome } from ".././effects/NebulaLiquidChrome";
 import { RetroGridEffect } from "../effects/RetroGridEffect";
 import PlainBackground from "../effects/PlainBackground";
+import { ChristmasBackground, useChristmasMode } from "../../features/christmas-mode";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
@@ -37,6 +38,7 @@ import { toast } from 'react-hot-toast';
 
 const navItems = [
   { id: "play", icon: "solar:play-bold", label: "Play" },
+  { id: "advent", icon: "solar:calendar-bold", label: "Advent" },
   { id: "profiles", icon: "solar:user-id-bold", label: "Profiles" },
   { id: "mods", icon: "solar:widget-bold", label: "Mods" },
   { id: "skins", icon: "solar:emoji-funny-circle-bold", label: "Skins" },
@@ -67,6 +69,7 @@ export function AppLayout({
   const { currentEffect } = useBackgroundEffectStore();
   const { qualityLevel } = useQualitySettingsStore();
   const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
+  const { isEnabled: isChristmasModeEnabled } = useChristmasMode();
 
   const getComplementaryBackground = () => {
     const hexToRgb = (hex: string) => {
@@ -170,6 +173,11 @@ export function AppLayout({
   }, []);
 
   const renderBackgroundEffect = () => {
+    // Override with Christmas background if Christmas mode is enabled
+    if (isChristmasModeEnabled) {
+      return <ChristmasBackground />;
+    }
+    
     switch (currentEffect) {
       case BACKGROUND_EFFECTS.MATRIX_RAIN:
         return (
@@ -270,12 +278,14 @@ export function AppLayout({
         backgroundColor: backgroundColor,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundImage: `linear-gradient(to bottom right, ${backgroundColor}, rgba(0,0,0,0.9))`,
+        backgroundImage: isChristmasModeEnabled 
+          ? `linear-gradient(135deg, rgba(196, 30, 58, 0.3) 0%, rgba(0, 0, 0, 0.85) 40%, rgba(15, 81, 50, 0.3) 100%)`
+          : `linear-gradient(to bottom right, ${backgroundColor}, rgba(0,0,0,0.9))`,
         borderColor: `${themeAccentColor.value}30`,
         boxShadow: `0 0 15px ${themeAccentColor.value}30, inset 0 0 10px ${themeAccentColor.value}20`,
       }}
     >
-      <BorderGlowEffects accentColor={themeAccentColor.value} />
+      <BorderGlowEffects accentColor={themeAccentColor.value} isChristmasMode={isChristmasModeEnabled} />
 
       <VerticalNavbar
         items={navItems}
@@ -309,31 +319,34 @@ export function AppLayout({
   );
 }
 
-function BorderGlowEffects({ accentColor }: { accentColor: string }) {
+function BorderGlowEffects({ accentColor, isChristmasMode }: { accentColor: string; isChristmasMode?: boolean }) {
+  const christmasGradientH = `linear-gradient(to right, rgba(196, 30, 58, 0.6), transparent, rgba(15, 81, 50, 0.6))`;
+  const christmasGradientV = `linear-gradient(to bottom, rgba(196, 30, 58, 0.6), transparent, rgba(15, 81, 50, 0.6))`;
+  
   return (
     <>
       <div
         className="absolute top-0 left-0 right-0 h-[2px]"
         style={{
-          background: `linear-gradient(to right, transparent, ${accentColor}70, transparent)`,
+          background: isChristmasMode ? christmasGradientH : `linear-gradient(to right, transparent, ${accentColor}70, transparent)`,
         }}
       ></div>
       <div
         className="absolute bottom-0 left-0 right-0 h-[2px]"
         style={{
-          background: `linear-gradient(to right, transparent, ${accentColor}70, transparent)`,
+          background: isChristmasMode ? christmasGradientH : `linear-gradient(to right, transparent, ${accentColor}70, transparent)`,
         }}
       ></div>
       <div
         className="absolute top-0 bottom-0 left-0 w-[2px]"
         style={{
-          background: `linear-gradient(to bottom, transparent, ${accentColor}70, transparent)`,
+          background: isChristmasMode ? christmasGradientV : `linear-gradient(to bottom, transparent, ${accentColor}70, transparent)`,
         }}
       ></div>
       <div
         className="absolute top-0 bottom-0 right-0 w-[2px]"
         style={{
-          background: `linear-gradient(to bottom, transparent, ${accentColor}70, transparent)`,
+          background: isChristmasMode ? christmasGradientV : `linear-gradient(to bottom, transparent, ${accentColor}70, transparent)`,
         }}
       ></div>
     </>

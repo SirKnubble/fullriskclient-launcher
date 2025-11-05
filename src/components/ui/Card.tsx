@@ -147,7 +147,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
         borderColor: getBorderColor(),
         borderBottomColor: getBorderBottomColor(),
         boxShadow: getBoxShadow(),
-        filter: isHovered ? "brightness(1.1)" : "brightness(1)",
+        filter: (variant === "flat-no-hover") ? "brightness(1)" : (isHovered ? "brightness(1.1)" : "brightness(1)"),
         ...createRadiusStyle(borderRadius, 1.2),
       }}
       onClick={onClick}

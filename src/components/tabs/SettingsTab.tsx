@@ -21,6 +21,7 @@ import {
 } from "../../store/quality-settings-store";
 import { cn } from "../../lib/utils";
 import { toast } from "react-hot-toast";
+import { useChristmasModeStore } from "../../store/christmas-mode-store";
 import { GroupTabs, type GroupTab } from ".././ui/GroupTabs";
 import { ActionButton } from ".././ui/ActionButton";
 import { Tooltip } from ".././ui/Tooltip";
@@ -93,6 +94,8 @@ export function SettingsTab() {
 
   const { confirm, confirmDialog } = useConfirmDialog();
   const { showModal, hideModal } = useGlobalModal();
+  
+  const { isEnabled: isChristmasModeEnabled, toggleChristmasMode } = useChristmasModeStore();
 
   const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
   const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
@@ -290,19 +293,27 @@ export function SettingsTab() {
 
       <div className="mt-6 flex items-center gap-6">
         <div className="flex-1">
-          <ColorPicker shape="square" size="md" showCustomOption={false} />
+          <ColorPicker shape="square" size="md" showCustomOption={false} disabled={isChristmasModeEnabled} />
         </div>
 
         <button
           onClick={() => {
-            showModal('color-picker-modal',
-              <ColorPickerModal
-                onClose={() => hideModal('color-picker-modal')}
-              />
-            );
+            if (!isChristmasModeEnabled) {
+              showModal('color-picker-modal',
+                <ColorPickerModal
+                  onClose={() => hideModal('color-picker-modal')}
+                />
+              );
+            }
           }}
-          className="group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] hover:border-[#ffffff50] transition-all duration-200 cursor-pointer"
-          title="Click to open advanced color picker"
+          className={cn(
+            "group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] transition-all duration-200",
+            isChristmasModeEnabled 
+              ? "opacity-40 cursor-not-allowed" 
+              : "hover:border-[#ffffff50] cursor-pointer"
+          )}
+          title={isChristmasModeEnabled ? "Disabled while Christmas mode is active" : "Click to open advanced color picker"}
+          disabled={isChristmasModeEnabled}
         >
           <div
             className="w-8 h-8 rounded-md border-2 border-white/20 shadow-lg group-hover:scale-105 transition-transform"
@@ -349,6 +360,14 @@ export function SettingsTab() {
                 ...tempConfig,
                 enable_discord_presence: checked,
               }),
+          },
+          {
+            id: "christmas-mode",
+            label: "Christmas Mode",
+            tooltip: "Enable festive Christmas theme with snowflakes. Overrides your current theme and background selections.",
+            type: "toggle",
+            value: isChristmasModeEnabled,
+            onChange: (checked) => toggleChristmasMode(),
           },
           {
             id: "beta-updates",
@@ -468,19 +487,19 @@ export function SettingsTab() {
             </div>
             <div className="flex flex-col items-end gap-2" style={{ transform: 'translateY(16px)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/70 font-minecraft-ten">Animations</span>
+                <span className={cn("text-sm text-white/70 font-minecraft-ten", isChristmasModeEnabled && "opacity-40")}>Animations</span>
                 <ToggleSwitch
                   checked={!staticBackground}
                   onChange={() => {
                     toggleStaticBackground();
                     toggleBackgroundAnimation();
                   }}
-                  disabled={saving}
+                  disabled={saving || isChristmasModeEnabled}
                   size="sm"
                 />
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-white/60 font-minecraft-ten">Quality: Low</span>
+                <span className={cn("text-xs text-white/60 font-minecraft-ten", isChristmasModeEnabled && "opacity-40")}>Quality: Low</span>
                 <input
                   type="range"
                   min="0"
@@ -492,10 +511,13 @@ export function SettingsTab() {
                     const levels = ["low", "medium", "high"] as const;
                     setQualityLevel(levels[value] || "medium");
                   }}
-                  className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider accent-white hover:accent-white/80 transition-colors"
-                  disabled={saving}
+                  className={cn(
+                    "w-16 h-2 bg-white/20 rounded-lg appearance-none slider accent-white hover:accent-white/80 transition-colors",
+                    isChristmasModeEnabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"
+                  )}
+                  disabled={saving || isChristmasModeEnabled}
                 />
-                <span className="text-xs text-white/60 font-minecraft-ten">High</span>
+                <span className={cn("text-xs text-white/60 font-minecraft-ten", isChristmasModeEnabled && "opacity-40")}>High</span>
               </div>
             </div>
           </div>
@@ -513,6 +535,7 @@ export function SettingsTab() {
               icon={option.icon}
               isActive={currentEffect === option.id}
               onClick={() => setCurrentEffect(option.id)}
+              disabled={isChristmasModeEnabled}
             />
           ))}
         </div>

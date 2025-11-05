@@ -1,0 +1,39 @@
+import { AdventCalendarHeader } from "./components/AdventCalendarHeader";
+import { AdventCalendarGrid } from "./components/AdventCalendarGrid";
+import { RedeemModal } from "./components/RedeemModal";
+import { useAdventCalendar } from "./hooks/useAdventCalendar";
+
+export function AdventCalendarTab() {
+  const {
+    doors,
+    currentDay,
+    currentDate,
+    totalDoors,
+    openedCount,
+    feedback,
+    openDoor,
+    dismissFeedback,
+  } = useAdventCalendar();
+
+  const availableDoor = doors.find((door) => door.status === "available");
+
+  return (
+    <div className="h-full w-full overflow-y-auto px-5 pb-12 pt-6 sm:px-8 custom-scrollbar">
+      <div className="mx-auto flex h-full max-w-7xl flex-col gap-8 pb-32">
+        <AdventCalendarHeader
+          currentDay={currentDay}
+          currentDate={currentDate}
+          openedCount={openedCount}
+          totalDoors={totalDoors}
+          availableDoor={availableDoor}
+        />
+
+        <section aria-label="Adventskalender Türchen" className="flex-1">
+          <AdventCalendarGrid doors={doors} onOpenDoor={openDoor} />
+        </section>
+      </div>
+
+      <RedeemModal feedback={feedback} onDismiss={dismissFeedback} />
+    </div>
+  );
+}
