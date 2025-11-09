@@ -42,13 +42,34 @@
   </content_rating>
 
   <releases>
+    <release version="0.6.13~beta.7" date="2025-11-03">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.7</url>
+    </release>
+    <release version="0.6.13~beta.6" date="2025-11-03">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.6</url>
+    </release>
+    <release version="0.6.13~beta.5" date="2025-11-02">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.5</url>
+    </release>
+    <release version="0.6.13~beta.4" date="2025-11-02">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.4</url>
+    </release>
+    <release version="0.6.13~beta.3" date="2025-11-02">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.3</url>
+    </release>
+    <release version="0.6.13~beta.2" date="2025-11-02">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.2</url>
+    </release>
+    <release version="0.6.13~beta.1" date="2025-11-02">
+      <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.13-beta.1</url>
+    </release>
     <release version="0.6.12" date="2025-10-25">
       <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.12</url>
     </release>
-    <release version="0.6.12-beta.2" date="2025-10-25">
+    <release version="0.6.12~beta.2" date="2025-10-25">
       <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.12-beta.2</url>
     </release>
-    <release version="0.6.12-beta.1" date="2025-10-21">
+    <release version="0.6.12~beta.1" date="2025-10-21">
       <url type="details">https://github.com/NoRiskClient/noriskclient-launcher/releases/tag/v0.6.12-beta.1</url>
     </release>
     <release version="0.6.11" date="2025-10-14">
