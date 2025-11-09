@@ -10,11 +10,11 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { SymlinkConfigModal } from "./SymlinkConfigModal";
-import { 
-  getProfileInstancePath, 
-  addProfileSymlink, 
+import {
+  getProfileInstancePath,
+  addProfileSymlink,
   removeProfileSymlink,
-  getProfileSymlinks 
+  getProfileSymlinks, getDefaultProfilePath
 } from "../../../services/profile-service";
 
 interface SymlinkSettingsTabProps {
@@ -59,9 +59,11 @@ export function SymlinkSettingsTab({
   const openFolderPickerAndConfigure = async () => {
     try {
       // Step 1: Open folder picker
+      const profilesPath = await getDefaultProfilePath();
       const selected = await open({
         directory: true,
         multiple: false,
+        defaultPath: profilesPath,
         title: "Select folder to symlink into your profile",
       });
 
@@ -93,9 +95,11 @@ export function SymlinkSettingsTab({
   const openFilePickerAndConfigure = async () => {
     try {
       // Step 1: Open file picker
+      const profilesPath = await getDefaultProfilePath();
       const selected = await open({
         directory: false,
         multiple: false,
+        defaultPath: profilesPath,
         title: "Select file to symlink into your profile",
       });
 
