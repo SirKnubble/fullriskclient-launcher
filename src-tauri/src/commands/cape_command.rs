@@ -2,7 +2,7 @@ use crate::error::{AppError, CommandError};
 use crate::minecraft::api::cape_api::{CapeApi, CapeUploadResponse, CapesBrowseResponse, CosmeticCape};
 use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::state::state_manager::State;
-use log::{debug, error};
+use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
@@ -240,7 +240,7 @@ pub async fn get_player_capes(
         "[CMD get_player_capes] Request UUID for API call: {}",
         uuid_for_request
     );
-    debug!("[CMD get_player_capes] Calling cape_api.get_player_capes with player_uuid: {}, request_uuid: {}, is_experimental: {}", 
+    debug!("[CMD get_player_capes] Calling cape_api.get_player_capes with player_uuid: {}, request_uuid: {}, is_experimental: {}",
         player_uuid_to_use, uuid_for_request, is_experimental);
 
     cape_api
@@ -332,6 +332,13 @@ pub async fn equip_cape(
 
     if result.is_ok() {
         debug!("Command completed: equip_cape");
+
+        // Track cape selected event
+        if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
+            cape_hash,
+        ).await {
+            warn!("Failed to track cape selected event: {}", e);
+        }
     } else {
         debug!("Command failed: equip_cape");
     }

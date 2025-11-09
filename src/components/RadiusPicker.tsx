@@ -2,6 +2,7 @@ import { Icon } from "@iconify/react";
 import { useThemeStore, DEFAULT_BORDER_RADIUS, MIN_BORDER_RADIUS, MAX_BORDER_RADIUS } from "../store/useThemeStore";
 import { RangeSlider } from "./ui/RangeSlider";
 import { cn } from "../lib/utils";
+import { useState, useRef } from "react";
 
 interface RadiusPickerProps {
   className?: string;
@@ -9,9 +10,24 @@ interface RadiusPickerProps {
 
 export const RadiusPicker = ({ className }: RadiusPickerProps) => {
   const { borderRadius, setBorderRadius } = useThemeStore();
+  const [localRadius, setLocalRadius] = useState(borderRadius);
+  const trackingRef = useRef<number | null>(null);
 
   const handleSliderChange = (value: number) => {
+    setLocalRadius(value);
     setBorderRadius(value);
+
+    // Clear any pending tracking
+    if (trackingRef.current) {
+      clearTimeout(trackingRef.current);
+    }
+
+    // Only track after 1 second of no changes (debounce)
+    trackingRef.current = window.setTimeout(() => {
+      const { trackBorderRadiusChanged } = require("../services/analytics-service");
+      trackBorderRadiusChanged(value).catch(console.error);
+      trackingRef.current = null;
+    }, 1000);
   };
 
   const getRadiusLabel = (radius: number): string => {
@@ -25,63 +41,63 @@ export const RadiusPicker = ({ className }: RadiusPickerProps) => {
   };
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon icon="solar:widget-bold" className="w-5 h-5 text-white" />
-          <h3 className="text-lg font-minecraft text-white lowercase">Border Radius</h3>
-        </div>
-        <span className="text-sm text-white/60 font-minecraft-ten">
+      <div className={cn("space-y-4", className)}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon icon="solar:widget-bold" className="w-5 h-5 text-white" />
+            <h3 className="text-lg font-minecraft text-white lowercase">Border Radius</h3>
+          </div>
+          <span className="text-sm text-white/60 font-minecraft-ten">
           {borderRadius}px ({getRadiusLabel(borderRadius)})
         </span>
-      </div>
+        </div>
 
-      <RangeSlider
-        value={borderRadius}
-        onChange={handleSliderChange}
-        min={MIN_BORDER_RADIUS}
-        max={MAX_BORDER_RADIUS}
-        step={1}
-        size="md"
-        variant="flat"
-        icon={<Icon icon="solar:widget-bold" className="w-4 h-4" />}
-        minLabel="Square"
-        maxLabel="Round"
-        showValue={false}
-      />
-      
-      <div className="flex justify-between text-xs text-white/60 font-minecraft-ten">
+        <RangeSlider
+            value={localRadius}
+            onChange={handleSliderChange}
+            min={MIN_BORDER_RADIUS}
+            max={MAX_BORDER_RADIUS}
+            step={1}
+            size="md"
+            variant="flat"
+            icon={<Icon icon="solar:widget-bold" className="w-4 h-4" />}
+            minLabel="Square"
+            maxLabel="Round"
+            showValue={false}
+        />
+
+        <div className="flex justify-between text-xs text-white/60 font-minecraft-ten">
         <span className={cn(
-          "transition-colors duration-200",
-          borderRadius === 0 ? "text-white" : "text-white/40"
+            "transition-colors duration-200",
+            localRadius === 0 ? "text-white" : "text-white/40"
         )}>
           0px
         </span>
-        <span className={cn(
-          "transition-colors duration-200",
-          borderRadius === 8 ? "text-white" : "text-white/40"
-        )}>
+          <span className={cn(
+              "transition-colors duration-200",
+              localRadius === 8 ? "text-white" : "text-white/40"
+          )}>
           8px
         </span>
-        <span className={cn(
-          "transition-colors duration-200",
-          borderRadius === 16 ? "text-white" : "text-white/40"
-        )}>
+          <span className={cn(
+              "transition-colors duration-200",
+              localRadius === 16 ? "text-white" : "text-white/40"
+          )}>
           16px
         </span>
-        <span className={cn(
-          "transition-colors duration-200",
-          borderRadius === 24 ? "text-white" : "text-white/40"
-        )}>
+          <span className={cn(
+              "transition-colors duration-200",
+              localRadius === 24 ? "text-white" : "text-white/40"
+          )}>
           24px
         </span>
-        <span className={cn(
-          "transition-colors duration-200",
-          borderRadius === 32 ? "text-white" : "text-white/40"
-        )}>
+          <span className={cn(
+              "transition-colors duration-200",
+              localRadius === 32 ? "text-white" : "text-white/40"
+          )}>
           32px
         </span>
+        </div>
       </div>
-    </div>
   );
 };

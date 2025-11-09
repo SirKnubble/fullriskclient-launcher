@@ -148,12 +148,12 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
-      ? {
+        ? {
           r: Number.parseInt(result[1], 16),
           g: Number.parseInt(result[2], 16),
           b: Number.parseInt(result[3], 16),
         }
-      : null;
+        : null;
   };
 
   const rgbToHex = (r: number, g: number, b: number) => {
@@ -165,9 +165,9 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
     if (!rgb) return hex;
 
     return rgbToHex(
-      Math.max(0, Math.floor(rgb.r * (1 - amount))),
-      Math.max(0, Math.floor(rgb.g * (1 - amount))),
-      Math.max(0, Math.floor(rgb.b * (1 - amount))),
+        Math.max(0, Math.floor(rgb.r * (1 - amount))),
+        Math.max(0, Math.floor(rgb.g * (1 - amount))),
+        Math.max(0, Math.floor(rgb.b * (1 - amount))),
     );
   };
 
@@ -176,9 +176,9 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
     if (!rgb) return hex;
 
     return rgbToHex(
-      Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * amount)),
-      Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * amount)),
-      Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * amount)),
+        Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * amount)),
+        Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * amount)),
+        Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * amount)),
     );
   };
 
@@ -199,7 +199,7 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
   };
 };
 
-export const DEFAULT_BORDER_RADIUS = 0; 
+export const DEFAULT_BORDER_RADIUS = 0;
 export const MIN_BORDER_RADIUS = 0;
 export const MAX_BORDER_RADIUS = 32;
 
@@ -251,218 +251,224 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set, get) => ({
-      accentColor: ACCENT_COLORS.blue,
-      isBackgroundAnimationEnabled: false,
-      isDetailViewSidebarOnLeft: true,
-      profileGroupingCriterion: "group",
-      staticBackground: true,
-      hasAcceptedTermsOfService: false,
-      customColorHistory: [],
-      borderRadius: DEFAULT_BORDER_RADIUS,
-      collapsedProfileGroups: [],
-      // ProfilesTabV2 persistent filters - defaults
-      profilesTabActiveGroup: "all",
-      profilesTabSortBy: "last_played",
-      profilesTabVersionFilter: "all",
-      profilesTabLayoutMode: "list",
-      // Global context menu management - defaults
-      openContextMenuId: null,
-      // Mod source selection - defaults
-      modSource: ModPlatform.Modrinth,
-      // News section width - defaults
-      newsSectionWidth: 375,
-      // Featured profile mode - defaults
-      featureMode: false,
+    persist(
+        (set, get) => ({
+          accentColor: ACCENT_COLORS.blue,
+          isBackgroundAnimationEnabled: false,
+          isDetailViewSidebarOnLeft: true,
+          profileGroupingCriterion: "group",
+          staticBackground: true,
+          hasAcceptedTermsOfService: false,
+          customColorHistory: [],
+          borderRadius: DEFAULT_BORDER_RADIUS,
+          collapsedProfileGroups: [],
+          // ProfilesTabV2 persistent filters - defaults
+          profilesTabActiveGroup: "all",
+          profilesTabSortBy: "last_played",
+          profilesTabVersionFilter: "all",
+          profilesTabLayoutMode: "list",
+          // Global context menu management - defaults
+          openContextMenuId: null,
+          // Mod source selection - defaults
+          modSource: ModPlatform.Modrinth,
+          // News section width - defaults
+          newsSectionWidth: 375,
+          // Featured profile mode - defaults
+          featureMode: false,
 
-      setAccentColor: (color: AccentColor) => {
-        set({ accentColor: color });
-        get().applyAccentColorToDOM();
-      },
+          setAccentColor: async (color: AccentColor) => {
+            set({ accentColor: color });
+            get().applyAccentColorToDOM();
 
-      setBorderRadius: (radius: number) => {
-        const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
-        set({ borderRadius: clampedRadius });
-        get().applyBorderRadiusToDOM();
-      },
+            // Track color changed
+            const { trackColorChanged } = await import('../services/analytics-service');
+            trackColorChanged(color.name).catch(console.error);
+          },
 
-      setCustomAccentColor: (hexColor: string) => {
-        const colorVariants = calculateColorVariants(hexColor);
-        const customColor: AccentColor = {
-          name: "Custom",
-          ...colorVariants,
-        } as AccentColor;
+          setBorderRadius: (radius: number) => {
+            const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
+            set({ borderRadius: clampedRadius });
+            get().applyBorderRadiusToDOM();
 
-        set({ accentColor: customColor });
-        get().applyAccentColorToDOM();
-        get().addToCustomColorHistory(hexColor);
-      },
+            // Tracking is now handled in RadiusPicker.tsx with debouncing
+          },
 
-      addToCustomColorHistory: (hexColor: string) => {
-        set((state) => {
-          const newHistory = [...state.customColorHistory];
-          
-          const existingIndex = newHistory.indexOf(hexColor);
-          if (existingIndex > -1) {
-            newHistory.splice(existingIndex, 1);
-          }
-          
-          newHistory.unshift(hexColor);
-          
-          if (newHistory.length > 10) {
-            newHistory.pop();
-          }
-          
-          return { customColorHistory: newHistory };
-        });
-      },
+          setCustomAccentColor: (hexColor: string) => {
+            const colorVariants = calculateColorVariants(hexColor);
+            const customColor: AccentColor = {
+              name: "Custom",
+              ...colorVariants,
+            } as AccentColor;
 
-      clearCustomColorHistory: () => {
-        set({ customColorHistory: [] });
-      },
+            set({ accentColor: customColor });
+            get().applyAccentColorToDOM();
+            get().addToCustomColorHistory(hexColor);
+          },
 
-      toggleBackgroundAnimation: () => {
-        set((state) => ({
-          isBackgroundAnimationEnabled: !state.isBackgroundAnimationEnabled,
-        }));
-      },
+          addToCustomColorHistory: (hexColor: string) => {
+            set((state) => {
+              const newHistory = [...state.customColorHistory];
 
-      toggleDetailViewSidebarPosition: () => {
-        set((state) => ({
-          isDetailViewSidebarOnLeft: !state.isDetailViewSidebarOnLeft,
-        }));
-      },
+              const existingIndex = newHistory.indexOf(hexColor);
+              if (existingIndex > -1) {
+                newHistory.splice(existingIndex, 1);
+              }
 
-      setProfileGroupingCriterion: async (criterion: string) => {
-        try {
-          await setProfileGroupingPreference(criterion);
-          set({ profileGroupingCriterion: criterion });
-        } catch (error) {
-          console.error("Failed to save grouping preference:", error);
-          set({ profileGroupingCriterion: criterion });
-          throw error;
-        }
-      },
+              newHistory.unshift(hexColor);
 
-      toggleStaticBackground: () => {
-        set((state) => ({ staticBackground: !state.staticBackground }));
-      },      acceptTermsOfService: () => {
-        set({ hasAcceptedTermsOfService: true });      },      applyAccentColorToDOM: () => {
-        const { accentColor } = get();
+              if (newHistory.length > 10) {
+                newHistory.pop();
+              }
 
-        const hexToRgb = (hex: string) => {
-          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-          return result
-            ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
-            : null;
-        };
+              return { customColorHistory: newHistory };
+            });
+          },
 
-        document.documentElement.style.setProperty(
-          "--accent",
-          accentColor.value,
-        );
-        document.documentElement.style.setProperty(
-          "--accent-hover",
-          accentColor.hoverValue,
-        );
-        document.documentElement.style.setProperty(
-          "--accent-shadow",
-          accentColor.shadowValue,
-        );
-        document.documentElement.style.setProperty(
-          "--accent-light",
-          accentColor.light,
-        );
-        document.documentElement.style.setProperty(
-          "--accent-dark",
-          accentColor.dark,
-        );
+          clearCustomColorHistory: () => {
+            set({ customColorHistory: [] });
+          },
 
-        const rgbValue = hexToRgb(accentColor.value);
-        if (rgbValue) {
-          document.documentElement.style.setProperty("--accent-rgb", rgbValue);
-        }
-      },      applyBorderRadiusToDOM: () => {
-        const { borderRadius } = get();
-        
-        document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
-        
-        document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
-        if (borderRadius === 0) {
-          document.documentElement.classList.add("radius-flat");
-        } else {
-          document.documentElement.classList.remove("radius-flat");
-        }
-      },
+          toggleBackgroundAnimation: () => {
+            set((state) => ({
+              isBackgroundAnimationEnabled: !state.isBackgroundAnimationEnabled,
+            }));
+          },
 
-      setCollapsedProfileGroups: (groups: string[]) => {
-        set({ collapsedProfileGroups: [...groups] });
-      },
+          toggleDetailViewSidebarPosition: () => {
+            set((state) => ({
+              isDetailViewSidebarOnLeft: !state.isDetailViewSidebarOnLeft,
+            }));
+          },
 
-      toggleCollapsedProfileGroup: (groupKey: string) => {
-        set((state) => {
-          const isCollapsed = state.collapsedProfileGroups.includes(groupKey);
-          const next = isCollapsed
-            ? state.collapsedProfileGroups.filter((g) => g !== groupKey)
-            : [...state.collapsedProfileGroups, groupKey];
-          return { collapsedProfileGroups: next };
-        });
-      },
+          setProfileGroupingCriterion: async (criterion: string) => {
+            try {
+              await setProfileGroupingPreference(criterion);
+              set({ profileGroupingCriterion: criterion });
+            } catch (error) {
+              console.error("Failed to save grouping preference:", error);
+              set({ profileGroupingCriterion: criterion });
+              throw error;
+            }
+          },
 
-      // ProfilesTabV2 persistent filters setters
-      setProfilesTabActiveGroup: (group: string) => {
-        set({ profilesTabActiveGroup: group });
-      },
+          toggleStaticBackground: () => {
+            set((state) => ({ staticBackground: !state.staticBackground }));
+          },      acceptTermsOfService: () => {
+            set({ hasAcceptedTermsOfService: true });      },      applyAccentColorToDOM: () => {
+            const { accentColor } = get();
 
-      setProfilesTabSortBy: (sortBy: string) => {
-        set({ profilesTabSortBy: sortBy });
-      },
+            const hexToRgb = (hex: string) => {
+              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+              return result
+                  ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
+                  : null;
+            };
 
-      setProfilesTabVersionFilter: (filter: string) => {
-        set({ profilesTabVersionFilter: filter });
-      },
+            document.documentElement.style.setProperty(
+                "--accent",
+                accentColor.value,
+            );
+            document.documentElement.style.setProperty(
+                "--accent-hover",
+                accentColor.hoverValue,
+            );
+            document.documentElement.style.setProperty(
+                "--accent-shadow",
+                accentColor.shadowValue,
+            );
+            document.documentElement.style.setProperty(
+                "--accent-light",
+                accentColor.light,
+            );
+            document.documentElement.style.setProperty(
+                "--accent-dark",
+                accentColor.dark,
+            );
 
-      setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
-        set({ profilesTabLayoutMode: mode });
-      },
+            const rgbValue = hexToRgb(accentColor.value);
+            if (rgbValue) {
+              document.documentElement.style.setProperty("--accent-rgb", rgbValue);
+            }
+          },      applyBorderRadiusToDOM: () => {
+            const { borderRadius } = get();
 
-      // Global context menu management
-      setOpenContextMenuId: (id: string | null) => {
-        set({ openContextMenuId: id });
-      },
+            document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
 
-      // Mod source selection
-      setModSource: (source: ModPlatform) => {
-        set({ modSource: source });
-      },
+            document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
+            if (borderRadius === 0) {
+              document.documentElement.classList.add("radius-flat");
+            } else {
+              document.documentElement.classList.remove("radius-flat");
+            }
+          },
 
-      // News section width
-      setNewsSectionWidth: (width: number) => {
-        set({ newsSectionWidth: width });
-      },
+          setCollapsedProfileGroups: (groups: string[]) => {
+            set({ collapsedProfileGroups: [...groups] });
+          },
 
-      // Featured profile mode
-      setFeatureMode: (enabled: boolean) => {
-        set({ featureMode: enabled });
-      },
-    }),    {
-      name: "norisk-theme-storage",
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          // Migration: Replace old "none" grouping criterion with "group"
-          if (state.profileGroupingCriterion === "none") {
-            state.profileGroupingCriterion = "group";
-          }
-          
-          state.applyAccentColorToDOM();
-          state.applyBorderRadiusToDOM();
-          // Ensure collapsedProfileGroups exists after rehydrate
-          if (!Array.isArray(state.collapsedProfileGroups)) {
-            state.collapsedProfileGroups = [];
-          }
-        }
-      },
-    },
-  ),
+          toggleCollapsedProfileGroup: (groupKey: string) => {
+            set((state) => {
+              const isCollapsed = state.collapsedProfileGroups.includes(groupKey);
+              const next = isCollapsed
+                  ? state.collapsedProfileGroups.filter((g) => g !== groupKey)
+                  : [...state.collapsedProfileGroups, groupKey];
+              return { collapsedProfileGroups: next };
+            });
+          },
+
+          // ProfilesTabV2 persistent filters setters
+          setProfilesTabActiveGroup: (group: string) => {
+            set({ profilesTabActiveGroup: group });
+          },
+
+          setProfilesTabSortBy: (sortBy: string) => {
+            set({ profilesTabSortBy: sortBy });
+          },
+
+          setProfilesTabVersionFilter: (filter: string) => {
+            set({ profilesTabVersionFilter: filter });
+          },
+
+          setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
+            set({ profilesTabLayoutMode: mode });
+          },
+
+          // Global context menu management
+          setOpenContextMenuId: (id: string | null) => {
+            set({ openContextMenuId: id });
+          },
+
+          // Mod source selection
+          setModSource: (source: ModPlatform) => {
+            set({ modSource: source });
+          },
+
+          // News section width
+          setNewsSectionWidth: (width: number) => {
+            set({ newsSectionWidth: width });
+          },
+
+          // Featured profile mode
+          setFeatureMode: (enabled: boolean) => {
+            set({ featureMode: enabled });
+          },
+        }),    {
+          name: "norisk-theme-storage",
+          onRehydrateStorage: () => (state) => {
+            if (state) {
+              // Migration: Replace old "none" grouping criterion with "group"
+              if (state.profileGroupingCriterion === "none") {
+                state.profileGroupingCriterion = "group";
+              }
+
+              state.applyAccentColorToDOM();
+              state.applyBorderRadiusToDOM();
+              // Ensure collapsedProfileGroups exists after rehydrate
+              if (!Array.isArray(state.collapsedProfileGroups)) {
+                state.collapsedProfileGroups = [];
+              }
+            }
+          },
+        },
+    ),
 );

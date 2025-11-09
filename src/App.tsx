@@ -30,6 +30,7 @@ import {
 } from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
 import { loadIcons } from '@iconify/react';
+import { trackLauncherStart, trackTabClicked } from "./services/analytics-service";
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
@@ -47,8 +48,10 @@ export function App() {
 
   const activeTab = location.pathname.substring(1) || "play";
 
+
+
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
-    useState<string>("none");
+      useState<string>("none");
 
   const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
   useEffect(() => {
@@ -60,17 +63,17 @@ export function App() {
         if (themeData.state?.accentColor?.value) {
           root.style.setProperty("--accent", themeData.state.accentColor.value);
           root.style.setProperty(
-            "--accent-hover",
-            themeData.state.accentColor.hoverValue,
+              "--accent-hover",
+              themeData.state.accentColor.hoverValue,
           );
 
           const hexToRgb = (hex: string) => {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
-              hex,
+                hex,
             );
             return result
-              ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
-              : null;
+                ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
+                : null;
           };
 
           const rgbValue = hexToRgb(themeData.state.accentColor.value);
@@ -78,11 +81,11 @@ export function App() {
             root.style.setProperty("--accent-rgb", rgbValue);
           }
         }
-        
+
         if (themeData.state?.radiusTheme) {
           const radiusTheme = themeData.state.radiusTheme;
           root.setAttribute("data-radius-theme", radiusTheme);
-          
+
           if (radiusTheme === "flat") {
             root.classList.add("radius-flat");
             root.style.setProperty("--radius", "0px");
@@ -106,33 +109,33 @@ export function App() {
 
   useEffect(() => {
     const unlisten = listen<FrontendEventPayload>(
-      "state_event",
-      (event: TauriEvent<FrontendEventPayload>) => {
-        if (
-          event.payload.event_type === FrontendEventType.MinecraftProcessExited
-        ) {
-          try {
-            const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
-              event.payload.message,
-            );
-            console.log(
-              "[App.tsx] Global MinecraftProcessExited event:",
-              exitPayload,
-            );
-            if (!exitPayload.success) {
-              const crashMsg = `Minecraft crashed (Exit Code: ${exitPayload.exit_code ?? "N/A"}). See crash report for details.`;
-              toast.error(crashMsg, { duration: 10000 });
-              openCrashModal(exitPayload);
+        "state_event",
+        (event: TauriEvent<FrontendEventPayload>) => {
+          if (
+              event.payload.event_type === FrontendEventType.MinecraftProcessExited
+          ) {
+            try {
+              const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
+                  event.payload.message,
+              );
+              console.log(
+                  "[App.tsx] Global MinecraftProcessExited event:",
+                  exitPayload,
+              );
+              if (!exitPayload.success) {
+                const crashMsg = `Minecraft crashed (Exit Code: ${exitPayload.exit_code ?? "N/A"}). See crash report for details.`;
+                toast.error(crashMsg, { duration: 10000 });
+                openCrashModal(exitPayload);
+              }
+            } catch (e) {
+              console.error(
+                  "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
+                  e,
+              );
+              toast.error("Could not globally process Minecraft process status.");
             }
-          } catch (e) {
-            console.error(
-              "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
-              e,
-            );
-            toast.error("Could not globally process Minecraft process status.");
           }
-        }
-      },
+        },
     );
 
     return () => {
@@ -144,22 +147,36 @@ export function App() {
     refreshNrcDataOnMount();
   }, []);
 
+  useEffect(() => {
+    const initAnalytics = async () => {
+      console.log('[App] Starting analytics initialization...');
+      try {
+        await trackLauncherStart();
+        console.log('[App] trackLauncherStart completed successfully');
+      } catch (error) {
+        console.error('[App] trackLauncherStart failed:', error);
+      }
+    };
+
+    initAnalytics();
+  }, []);
+
   // Icons beim App-Start vorladen
   useEffect(() => {
     const preloadIcons = async () => {
       await loadIcons([
         // Action Buttons
         'solar:play-bold',
-        'solar:box-bold', 
+        'solar:box-bold',
         'solar:settings-bold',
-        
+
         // Group Tabs & Navigation
         'solar:add-circle-bold',
         'solar:user-id-bold',
         'solar:widget-bold',
         'solar:emoji-funny-circle-bold',
         'solar:shop-bold',
-        
+
         // Search & Filters
         'solar:magnifer-bold',
         'solar:text-bold',
@@ -168,14 +185,14 @@ export function App() {
         'solar:layers-bold',
         'solar:gamepad-bold',
         'solar:lightbulb-bold',
-        
+
         // Status & UI
         'solar:danger-triangle-bold',
         'solar:check-circle-bold',
         'solar:info-circle-bold',
         'solar:danger-circle-bold',
         'solar:close-circle-bold',
-        
+
         // Common UI Elements
         'solar:alt-arrow-down-bold',
         'solar:alt-arrow-up-bold',
@@ -194,20 +211,20 @@ export function App() {
 
   useEffect(() => {
     getLauncherConfig()
-      .then((config) => {
-        if (config && config.profile_grouping_criterion) {
-          setCurrentGroupingCriterion(config.profile_grouping_criterion);
-        } else {
+        .then((config) => {
+          if (config && config.profile_grouping_criterion) {
+            setCurrentGroupingCriterion(config.profile_grouping_criterion);
+          } else {
+            setCurrentGroupingCriterion("none");
+          }
+        })
+        .catch((err) => {
+          console.error(
+              "Failed to get initial profile grouping from config:",
+              err,
+          );
           setCurrentGroupingCriterion("none");
-        }
-      })
-      .catch((err) => {
-        console.error(
-          "Failed to get initial profile grouping from config:",
-          err,
-        );
-        setCurrentGroupingCriterion("none");
-      });
+        });
   }, []);
 
   const handleProfileGroupingChange = async (newCriterion: string) => {
@@ -221,8 +238,11 @@ export function App() {
     }
   };
 
-  const handleNavChange = (tabId: string) => {
+  const handleNavChange = async (tabId: string) => {
     navigate(`/${tabId}`);
+
+    // Track tab clicked
+    trackTabClicked(tabId).catch(console.error);
   };
 
   const profilesTabContext: ProfilesTabContext = {
@@ -233,25 +253,25 @@ export function App() {
   useGlobalDragAndDrop();
 
   return (
-    <FlagsmithProvider
-      options={{
-        environmentID: FLAGSMITH_ENVIRONMENT_ID,
-        api: 'https://flagsmith-staging.norisk.gg/api/v1/',
-      }}
-      flagsmith={flagsmith}
-    >
-      <div className="flex flex-col h-screen w-screen overflow-hidden">
-        <ThemeInitializer />
-        <ScrollbarProvider />
-        <GlobalToaster />
-        <GlobalCrashReportModal />
-        <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
-        <GlobalModalPortal />
-        <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
-          <Outlet context={profilesTabContext} />
-        </AppLayout>
-      </div>
-    </FlagsmithProvider>
+      <FlagsmithProvider
+          options={{
+            environmentID: FLAGSMITH_ENVIRONMENT_ID,
+            api: 'https://flagsmith-staging.norisk.gg/api/v1/',
+          }}
+          flagsmith={flagsmith}
+      >
+        <div className="flex flex-col h-screen w-screen overflow-hidden">
+          <ThemeInitializer />
+          <ScrollbarProvider />
+          <GlobalToaster />
+          <GlobalCrashReportModal />
+          <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
+          <GlobalModalPortal />
+          <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
+            <Outlet context={profilesTabContext} />
+          </AppLayout>
+        </div>
+      </FlagsmithProvider>
   );
 }
 

@@ -13,7 +13,7 @@ use crate::minecraft::dto::VersionManifest;
 use crate::state::skin_state::MinecraftSkin;
 use crate::state::state_manager::State;
 use crate::utils::mc_utils;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri_plugin_dialog::DialogExt;
@@ -197,11 +197,11 @@ pub async fn upload_skin<R: tauri::Runtime>(
             .set_title("Select Minecraft Skin File")
             .blocking_pick_file()
     })
-    .await
-    .map_err(|e| {
-        debug!("Dialog task failed: {}", e);
-        CommandError::from(AppError::Other(format!("Dialog task failed: {}", e)))
-    })?;
+        .await
+        .map_err(|e| {
+            debug!("Dialog task failed: {}", e);
+            CommandError::from(AppError::Other(format!("Dialog task failed: {}", e)))
+        })?;
 
     let skin_path = match dialog_result {
         Some(file_path_obj) => match file_path_obj.into_path() {
@@ -447,6 +447,7 @@ pub async fn add_skin(
 pub async fn remove_skin(id: String) -> Result<bool, CommandError> {
     debug!("Command called: remove_skin with ID: {}", id);
 
+    // Get skin info before deletion for tracking
     let state = match State::get().await {
         Ok(s) => s,
         Err(e) => {
@@ -455,10 +456,21 @@ pub async fn remove_skin(id: String) -> Result<bool, CommandError> {
         }
     };
 
+    let skin_name = state.skin_manager.get_skin_by_id(&id).await
+        .map(|s| s.name)
+        .unwrap_or_else(|| "unknown".to_string());
+
     let removed = match state.skin_manager.remove_skin(&id).await {
         Ok(r) => {
             if r {
                 debug!("Successfully removed skin with ID: {}", id);
+
+                // Track skin deleted event
+                if let Err(e) = crate::commands::analytics_command::track_skin_deleted_event(
+                    skin_name,
+                ).await {
+                    warn!("Failed to track skin deleted event: {}", e);
+                }
             } else {
                 debug!("No skin found with ID: {}", id);
             }
@@ -505,7 +517,16 @@ pub async fn apply_skin_from_base64(
         .change_skin_from_base64(&access_token, &base64_data, &skin_variant)
         .await
     {
-        Ok(_) => debug!("Successfully applied skin from base64 data"),
+        Ok(_) => {
+            debug!("Successfully applied skin from base64 data");
+
+            // Track skin selected/applied event
+            if let Err(e) = crate::commands::analytics_command::track_skin_selected_event(
+                skin_variant.clone(),
+            ).await {
+                warn!("Failed to track skin selected event: {}", e);
+            }
+        }
         Err(e) => {
             debug!("Failed to apply skin from base64 data: {:?}", e);
             return Err(CommandError::from(e));
@@ -542,6 +563,9 @@ pub async fn update_skin_properties(
         }
     };
 
+    // Clone variant for tracking before it gets moved
+    let variant_clone = variant.clone();
+
     let updated_skin = match state
         .skin_manager
         .update_skin_properties(&id, name, variant)
@@ -550,6 +574,14 @@ pub async fn update_skin_properties(
         Ok(skin) => {
             if let Some(s) = &skin {
                 debug!("Successfully updated skin properties for ID: {}", id);
+
+                // Track skin edited event
+                if let Err(e) = crate::commands::analytics_command::track_skin_edited_event(
+                    s.name.clone(),
+                    variant_clone,
+                ).await {
+                    warn!("Failed to track skin edited event: {}", e);
+                }
             } else {
                 debug!("No skin found with ID: {}", id);
             }
@@ -677,6 +709,38 @@ pub async fn add_skin_locally(
         "[CMD] add_skin_locally: Successfully added skin '{}' (ID: {}) to local database.",
         skin_to_add.name, skin_to_add.id
     );
+
+    // Track skin added event
+    let mut source_type = "unknown";
+    let mut source_value = String::new();
+    match &payload.source {
+        SkinSource::Profile(profile_data) => {
+            source_type = "username";
+            source_value = profile_data.query.clone();
+        }
+        SkinSource::Url(url_data) => {
+            source_type = "url";
+            source_value = url_data.url.clone();
+        }
+        SkinSource::FilePath(filepath_data) => {
+            source_type = "file";
+            source_value = filepath_data.path.clone();
+        }
+        SkinSource::Base64(_) => {
+            source_type = "base64";
+            source_value = "base64_content".to_string();
+        }
+    }
+
+    // Track the event (ignore errors)
+    if let Err(e) = crate::commands::analytics_command::track_skin_added_event(
+        skin_to_add.name.clone(),
+        source_type.to_string(),
+        source_value,
+    ).await {
+        warn!("Failed to track skin added event: {}", e);
+    }
+
     Ok(skin_to_add)
 }
 

@@ -23,6 +23,7 @@ use tauri::Manager;
 use utils::debug_utils;
 use utils::updater_utils;
 
+use crate::commands::analytics_command::track_analytics_event;
 use crate::commands::process_command::{
     get_full_log, get_process, get_processes, get_processes_by_profile, open_log_window,
     set_discord_state, stop_process,
@@ -193,7 +194,7 @@ async fn main() {
                         if let Some(window) = app.get_webview_window("main") {
                             let is_visible = window.is_visible().unwrap_or(false);
                             let is_minimized = window.is_minimized().unwrap_or(false);
-                            
+
                             if is_visible && !is_minimized {
                                 // Fenster ist sichtbar und nicht minimiert -> verstecken
                                 let _ = window.hide();
@@ -250,7 +251,7 @@ async fn main() {
                     }
                 };
 
-                // --- State Initialization --- 
+                // --- State Initialization ---
                 info!("Initiating state initialization...");
                 if let Err(e) = state::state_manager::State::init(Arc::new(state_init_app_handle.clone())).await {
                     error!("CRITICAL: Failed to initialize state: {}. Update check and main window might not proceed correctly.", e);
@@ -296,7 +297,7 @@ async fn main() {
                     }
                     Err(e) => {
                         error!("Failed to get global state for update check: {}.", e);
-                        if let Some(win) = updater_window { 
+                        if let Some(win) = updater_window {
                             updater_utils::emit_status(&state_init_app_handle, "close", "Closing due to state fetch error.".to_string(), None);
                             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             if let Err(close_err) = win.close() {
@@ -307,7 +308,7 @@ async fn main() {
                 }
 
                 info!("Updater process finished. Attempting to show main window...");
-                if let Some(main_window) = state_init_app_handle.get_webview_window("main") { 
+                if let Some(main_window) = state_init_app_handle.get_webview_window("main") {
                     if let Err(e) = main_window.show() {
                         error!("Failed to show main window: {}", e);
                     } else {
@@ -327,15 +328,15 @@ async fn main() {
                 //debug_utils::debug_unified_mod_versions().await;
             });
 
-            // --- Register Focus Event Listener for Discord RPC --- 
-            if let Some(main_window) = app.get_webview_window("main") { 
-                let focus_app_handle = app_handle.clone(); 
+            // --- Register Focus Event Listener for Discord RPC ---
+            if let Some(main_window) = app.get_webview_window("main") {
+                let focus_app_handle = app_handle.clone();
                 main_window.listen("tauri://focus", move |_event| {
-                    let listener_app_handle = focus_app_handle.clone(); 
+                    let listener_app_handle = focus_app_handle.clone();
                     tokio::spawn(async move {
                         debug!("Main window focus event received. Triggering DiscordManager handler.");
                         match state::state_manager::State::get().await {
-                            Ok(state_manager_instance) => { 
+                            Ok(state_manager_instance) => {
                                 if let Err(e) = state_manager_instance.discord_manager.handle_focus_event().await {
                                     error!("Error during DiscordManager focus handling: {}", e);
                                 }
@@ -416,7 +417,7 @@ async fn main() {
             delete_custom_mod,
             open_profile_folder,
             import_profile_from_file,
-            import_profile, 
+            import_profile,
             upload_log_to_mclogs_command,
             get_fabric_loader_versions,
             get_forge_versions,
@@ -522,10 +523,11 @@ async fn main() {
             get_currently_equipped_vanilla_cape,
             equip_vanilla_cape,
             get_vanilla_cape_info,
-            refresh_vanilla_cape_data
+            refresh_vanilla_cape_data,
+            track_analytics_event
         ])
-        .build(tauri::generate_context!()) 
-        .expect("error while building tauri application") 
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
         .run(
             #[allow(unused_variables)]
             |app_handle, event| {
