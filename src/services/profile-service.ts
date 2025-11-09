@@ -369,6 +369,9 @@ export async function toggleModUpdates(
 export async function getProfileInstancePath(profileId: string): Promise<string> {
   return invoke<string>("get_profile_instance_path", { profileId });
 }
+export async function getDefaultProfilePath(): Promise<string> {
+  return invoke<string>("get_default_profile_path");
+}
 
 export interface AddSymlinkParams {
   profile_id: string;

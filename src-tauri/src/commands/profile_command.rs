@@ -11,6 +11,7 @@ use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState,
 };
+use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
@@ -2430,6 +2431,12 @@ pub async fn get_profile_instance_path(profile_id: Uuid) -> Result<String, Comma
         .profile_manager
         .get_profile_instance_path(profile_id)
         .await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn get_default_profile_path() -> Result<String, CommandError> {
+    let path = default_profile_path();
     Ok(path.to_string_lossy().to_string())
 }
 
