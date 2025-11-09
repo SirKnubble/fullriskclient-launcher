@@ -1,305 +1,10 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tauri::command;
-use serde_json::Value;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use log::info;
+use std::collections::HashMap;
 use std::error::Error;
-
-pub async fn track_launcher_start_event(
-    launcher_version: String,
-    java_version: String,
-    os: String,
-    os_version: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("launcher_version".to_string(), Value::String(launcher_version));
-    properties.insert("java_version".to_string(), Value::String(java_version));
-    properties.insert("os".to_string(), Value::String(os));
-    properties.insert("os_version".to_string(), Value::String(os_version));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "launcher_started".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_minecraft_started_event(
-    profile_id: String,
-    minecraft_version: String,
-    loader: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("profile_id".to_string(), Value::String(profile_id));
-    properties.insert("minecraft_version".to_string(), Value::String(minecraft_version));
-    properties.insert("loader".to_string(), Value::String(loader));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "minecraft_started".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_skin_added_event(
-    skin_name: String,
-    source_type: String,
-    source_value: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("skin_name".to_string(), Value::String(skin_name));
-    properties.insert("source_type".to_string(), Value::String(source_type));
-    properties.insert("source_value".to_string(), Value::String(source_value));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "skin_added".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_skin_deleted_event(
-    skin_name: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("skin_name".to_string(), Value::String(skin_name));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "skin_deleted".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_skin_selected_event(
-    skin_variant: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("skin_variant".to_string(), Value::String(skin_variant));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "skin_selected".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_skin_edited_event(
-    skin_name: String,
-    skin_variant: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("skin_name".to_string(), Value::String(skin_name));
-    properties.insert("skin_variant".to_string(), Value::String(skin_variant));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "skin_edited".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_cape_selected_event(
-    cape_hash: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("cape_hash".to_string(), Value::String(cape_hash));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "cape_selected".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_profile_created_event(
-    profile_name: String,
-    game_version: String,
-    loader: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("profile_name".to_string(), Value::String(profile_name));
-    properties.insert("game_version".to_string(), Value::String(game_version));
-    properties.insert("loader".to_string(), Value::String(loader));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "profile_created".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_profile_imported_event(
-    profile_name: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("profile_name".to_string(), Value::String(profile_name));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "profile_imported".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_color_changed_event(
-    color: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("color".to_string(), Value::String(color));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "color_changed".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_beta_updates_toggled_event(
-    enabled: bool,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("enabled".to_string(), Value::Bool(enabled));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "beta_updates_toggled".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_border_radius_changed_event(
-    radius: f64,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("radius".to_string(), Value::Number(
-        serde_json::Number::from_f64(radius).unwrap_or_else(|| serde_json::Number::from(0))
-    ));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "border_radius_changed".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
-
-pub async fn track_tab_clicked_event(
-    tab_name: String,
-) -> Result<(), String> {
-    let mut properties = HashMap::new();
-    properties.insert("tab_name".to_string(), Value::String(tab_name));
-    
-    // Generate session_id and user_id (simple implementation)
-    let session_id = format!("session_{}", Utc::now().timestamp());
-    let user_id = format!("user_{}", Utc::now().timestamp());
-    
-    let event = AnalyticsEvent {
-        event_type: "tab_clicked".to_string(),
-        timestamp: Utc::now(),
-        session_id: session_id.clone(),
-        user_id: user_id.clone(),
-        properties: Some(properties),
-    };
-    
-    track_analytics_event(event).await.map(|_| ())
-}
+use tauri::command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsEvent {
@@ -313,6 +18,22 @@ pub struct AnalyticsEvent {
     pub properties: Option<HashMap<String, Value>>,
 }
 
+impl AnalyticsEvent {
+    fn new(event_type: impl Into<String>, properties: Option<HashMap<String, Value>>) -> Self {
+        let now = Utc::now();
+        let session_id = format!("session_{}", now.timestamp());
+        let user_id = format!("user_{}", now.timestamp());
+
+        Self {
+            event_type: event_type.into(),
+            timestamp: now,
+            session_id,
+            user_id,
+            properties,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TrackEventRequest {
     pub events: Vec<AnalyticsEvent>,
@@ -324,6 +45,159 @@ pub struct TrackEventResponse {
     pub message: Option<String>,
 }
 
+fn string_value(value: impl Into<String>) -> Value {
+    Value::String(value.into())
+}
+
+fn number_value(value: f64) -> Value {
+    Value::Number(
+        serde_json::Number::from_f64(value)
+            .unwrap_or_else(|| serde_json::Number::from(0)),
+    )
+}
+
+async fn dispatch_analytics_event(
+    event_type: impl Into<String>,
+    properties: HashMap<String, Value>,
+) -> Result<(), String> {
+    let event = AnalyticsEvent::new(event_type, Some(properties));
+    track_analytics_event(event).await.map(|_| ())
+}
+
+pub async fn track_launcher_start_event(
+    launcher_version: String,
+    java_version: String,
+    os: String,
+    os_version: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([
+        ("launcher_version".to_string(), string_value(launcher_version)),
+        ("java_version".to_string(), string_value(java_version)),
+        ("os".to_string(), string_value(os)),
+        ("os_version".to_string(), string_value(os_version)),
+    ]);
+
+    dispatch_analytics_event("launcher_started", properties).await
+}
+
+pub async fn track_minecraft_started_event(
+    profile_id: String,
+    minecraft_version: String,
+    loader: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([
+        ("profile_id".to_string(), string_value(profile_id)),
+        ("minecraft_version".to_string(), string_value(minecraft_version)),
+        ("loader".to_string(), string_value(loader)),
+    ]);
+
+    dispatch_analytics_event("minecraft_started", properties).await
+}
+
+pub async fn track_skin_added_event(
+    skin_name: String,
+    source_type: String,
+    source_value: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([
+        ("skin_name".to_string(), string_value(skin_name)),
+        ("source_type".to_string(), string_value(source_type)),
+        ("source_value".to_string(), string_value(source_value)),
+    ]);
+
+    dispatch_analytics_event("skin_added", properties).await
+}
+
+pub async fn track_skin_deleted_event(
+    skin_name: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("skin_name".to_string(), string_value(skin_name))]);
+
+    dispatch_analytics_event("skin_deleted", properties).await
+}
+
+pub async fn track_skin_selected_event(
+    skin_variant: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("skin_variant".to_string(), string_value(skin_variant))]);
+
+    dispatch_analytics_event("skin_selected", properties).await
+}
+
+pub async fn track_skin_edited_event(
+    skin_name: String,
+    skin_variant: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([
+        ("skin_name".to_string(), string_value(skin_name)),
+        ("skin_variant".to_string(), string_value(skin_variant)),
+    ]);
+
+    dispatch_analytics_event("skin_edited", properties).await
+}
+
+pub async fn track_cape_selected_event(
+    cape_hash: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("cape_hash".to_string(), string_value(cape_hash))]);
+
+    dispatch_analytics_event("cape_selected", properties).await
+}
+
+pub async fn track_profile_created_event(
+    profile_name: String,
+    game_version: String,
+    loader: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([
+        ("profile_name".to_string(), string_value(profile_name)),
+        ("game_version".to_string(), string_value(game_version)),
+        ("loader".to_string(), string_value(loader)),
+    ]);
+
+    dispatch_analytics_event("profile_created", properties).await
+}
+
+pub async fn track_profile_imported_event(
+    profile_name: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("profile_name".to_string(), string_value(profile_name))]);
+
+    dispatch_analytics_event("profile_imported", properties).await
+}
+
+pub async fn track_color_changed_event(
+    color: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("color".to_string(), string_value(color))]);
+
+    dispatch_analytics_event("color_changed", properties).await
+}
+
+pub async fn track_beta_updates_toggled_event(
+    enabled: bool,
+) -> Result<(), String> {
+    let properties = HashMap::from([("enabled".to_string(), Value::Bool(enabled))]);
+
+    dispatch_analytics_event("beta_updates_toggled", properties).await
+}
+
+pub async fn track_border_radius_changed_event(
+    radius: f64,
+) -> Result<(), String> {
+    let properties = HashMap::from([("radius".to_string(), number_value(radius))]);
+
+    dispatch_analytics_event("border_radius_changed", properties).await
+}
+
+pub async fn track_tab_clicked_event(
+    tab_name: String,
+) -> Result<(), String> {
+    let properties = HashMap::from([("tab_name".to_string(), string_value(tab_name))]);
+
+    dispatch_analytics_event("tab_clicked", properties).await
+}
+
 #[command]
 pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventResponse, String> {
     info!("============== ANALYTICS EVENT RECEIVED ==============");
@@ -332,19 +206,19 @@ pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventRe
     info!("Session ID: {}", event.session_id);
     info!("User ID: {}", event.user_id);
     info!("Properties: {:?}", event.properties);
-    
+
     let mut event_with_timestamp = event.clone();
     event_with_timestamp.timestamp = Utc::now();
-    
+
     let request_body = TrackEventRequest {
         events: vec![event_with_timestamp.clone()],
     };
-    
+
     let url = "https://track.norisk.gg/api/track";
-    
+
     info!("[Analytics] Sending event to backend: {}", url);
     info!("[Analytics] Request body: {:?}", request_body);
-    
+
     info!("[Analytics] Attempting HTTP POST request...");
     info!("[Analytics] Creating reqwest client with 30s timeout...");
     let client = reqwest::Client::builder()
@@ -354,7 +228,7 @@ pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventRe
             info!("[Analytics] Failed to create client: {}", e);
             format!("Failed to create HTTP client: {}", e)
         })?;
-    
+
     info!("[Analytics] Client created successfully!");
     info!("[Analytics] Sending POST request now...");
     let response_result = client
@@ -362,9 +236,9 @@ pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventRe
         .json(&request_body)
         .send()
         .await;
-    
+
     info!("[Analytics] Request completed! Processing result...");
-    
+
     match response_result
     {
         Ok(response) => {
