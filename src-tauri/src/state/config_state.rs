@@ -53,6 +53,8 @@ pub struct LauncherConfig {
     pub global_memory_settings: MemorySettings,
     #[serde(default)]
     pub custom_game_directory: Option<PathBuf>,
+    #[serde(default = "default_enable_analytics")]
+    pub enable_analytics: bool,
 }
 
 fn default_config_version() -> u32 {
@@ -90,6 +92,10 @@ fn default_global_memory_settings() -> MemorySettings {
     }
 }
 
+fn default_enable_analytics() -> bool {
+    false
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -107,6 +113,7 @@ impl Default for LauncherConfig {
             hide_on_process_start: default_hide_on_process_start(),
             global_memory_settings: default_global_memory_settings(),
             custom_game_directory: None,
+            enable_analytics: default_enable_analytics(),
         }
     }
 }
@@ -198,6 +205,9 @@ impl ConfigManager {
                             }
                             if let Some(hide) = obj.get("hide_on_process_start").and_then(|v| v.as_bool()) {
                                 migrated_config.hide_on_process_start = hide;
+                            }
+                            if let Some(analytics) = obj.get("enable_analytics").and_then(|v| v.as_bool()) {
+                                migrated_config.enable_analytics = analytics;
                             }
 
                             // Migrate numeric fields
@@ -328,6 +338,7 @@ impl ConfigManager {
                 && current.global_memory_settings.min == new_config.global_memory_settings.min
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
                 && current.custom_game_directory == new_config.custom_game_directory
+                && current.enable_analytics == new_config.enable_analytics
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -423,6 +434,12 @@ impl ConfigManager {
                         current.custom_game_directory, new_config.custom_game_directory
                     );
                 }
+                if current.enable_analytics != new_config.enable_analytics {
+                    info!(
+                        "Changing analytics: {} -> {}",
+                        current.enable_analytics, new_config.enable_analytics
+                    );
+                }
 
                 // Update config while preserving version
                 *config = LauncherConfig {
@@ -440,6 +457,7 @@ impl ConfigManager {
                     hide_on_process_start: new_config.hide_on_process_start,
                     global_memory_settings: new_config.global_memory_settings,
                     custom_game_directory: new_config.custom_game_directory.clone(),
+                    enable_analytics: new_config.enable_analytics,
                 };
 
                 true

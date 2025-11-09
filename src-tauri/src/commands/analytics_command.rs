@@ -5,6 +5,7 @@ use log::info;
 use std::collections::HashMap;
 use std::error::Error;
 use tauri::command;
+use crate::state::state_manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsEvent {
@@ -206,6 +207,27 @@ pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventRe
     info!("Session ID: {}", event.session_id);
     info!("User ID: {}", event.user_id);
     info!("Properties: {:?}", event.properties);
+
+    // Check if analytics are enabled in config
+    match state_manager::State::get().await {
+        Ok(state) => {
+            let config = state.config_manager.get_config().await;
+            if !config.enable_analytics {
+                info!("[Analytics] Analytics disabled in config - skipping event tracking");
+                return Ok(TrackEventResponse {
+                    success: true,
+                    message: Some("Analytics disabled".to_string()),
+                });
+            }
+        }
+        Err(e) => {
+            info!("[Analytics] Failed to get state for analytics check: {} - skipping event", e);
+            return Ok(TrackEventResponse {
+                success: true,
+                message: Some("State unavailable".to_string()),
+            });
+        }
+    }
 
     let mut event_with_timestamp = event.clone();
     event_with_timestamp.timestamp = Utc::now();
