@@ -248,6 +248,18 @@ interface ThemeState {
   // Featured profile mode
   featureMode: boolean;
   setFeatureMode: (enabled: boolean) => void;
+  // Analytics consent state
+  analyticsConsent: {
+    hasSeenBanner: boolean;
+    hasMadeDecision: boolean;
+    decision: 'accepted' | 'declined' | null;
+    lastShown: string | null;
+    reminderCount: number;
+    launchCount: number;
+  };
+  setAnalyticsConsent: (consent: Partial<ThemeState['analyticsConsent']>) => void;
+  incrementLaunchCount: () => void;
+  shouldShowAnalyticsBanner: () => boolean;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -275,6 +287,15 @@ export const useThemeStore = create<ThemeState>()(
           newsSectionWidth: 375,
           // Featured profile mode - defaults
           featureMode: false,
+          // Analytics consent state - defaults
+          analyticsConsent: {
+            hasSeenBanner: false,
+            hasMadeDecision: false,
+            decision: null,
+            lastShown: null,
+            reminderCount: 0,
+            launchCount: 0,
+          },
 
           setAccentColor: async (color: AccentColor) => {
             set({ accentColor: color });
@@ -452,6 +473,45 @@ export const useThemeStore = create<ThemeState>()(
           setFeatureMode: (enabled: boolean) => {
             set({ featureMode: enabled });
           },
+
+          // Analytics consent functions
+          setAnalyticsConsent: (consentUpdate) => {
+            set((state) => ({
+              analyticsConsent: { ...state.analyticsConsent, ...consentUpdate }
+            }));
+          },
+
+          incrementLaunchCount: () => {
+            set((state) => ({
+              analyticsConsent: {
+                ...state.analyticsConsent,
+                launchCount: state.analyticsConsent.launchCount + 1
+              }
+            }));
+          },
+
+          shouldShowAnalyticsBanner: () => {
+            const state = get();
+            const consent = state.analyticsConsent;
+
+            // Don't show if user already made a decision
+            if (consent.hasMadeDecision) return false;
+
+            // Don't show before 6 launches
+            if (consent.launchCount < 6) return false;
+
+            // Don't show more than 3 times total
+            if (consent.reminderCount >= 3) return false;
+
+            // Don't show if shown within last 30 days
+            if (consent.lastShown) {
+              const lastShown = new Date(consent.lastShown);
+              const daysSinceLastShown = (Date.now() - lastShown.getTime()) / (1000 * 60 * 60 * 24);
+              if (daysSinceLastShown < 30) return false;
+            }
+
+            return true;
+          },
         }),    {
           name: "norisk-theme-storage",
           onRehydrateStorage: () => (state) => {
@@ -466,6 +526,18 @@ export const useThemeStore = create<ThemeState>()(
               // Ensure collapsedProfileGroups exists after rehydrate
               if (!Array.isArray(state.collapsedProfileGroups)) {
                 state.collapsedProfileGroups = [];
+              }
+
+              // Ensure analytics consent state exists for existing users
+              if (!state.analyticsConsent) {
+                state.analyticsConsent = {
+                  hasSeenBanner: false,
+                  hasMadeDecision: false,
+                  decision: null,
+                  lastShown: null,
+                  reminderCount: 0,
+                  launchCount: 0,
+                };
               }
             }
           },

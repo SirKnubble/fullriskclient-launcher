@@ -19,7 +19,7 @@ import {
   type MinecraftProcessExitedPayload,
 } from "./types/events";
 import { GlobalCrashReportModal } from "./components/modals/GlobalCrashReportModal";
-import { TermsOfServiceModal } from "./components/modals/TermsOfServiceModal";
+import { TermsOfServiceModal, AnalyticsConsentBanner } from "./components/modals/TermsOfServiceModal";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
@@ -28,6 +28,7 @@ import {
   getLauncherConfig,
   setProfileGroupingPreference,
 } from "./services/launcher-config-service";
+import * as ConfigService from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
 import { loadIcons } from '@iconify/react';
 import { trackLauncherStart, trackTabClicked } from "./services/analytics-service";
@@ -44,7 +45,13 @@ export function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
-  const { hasAcceptedTermsOfService } = useThemeStore();
+  const {
+    hasAcceptedTermsOfService,
+    analyticsConsent,
+    setAnalyticsConsent,
+    shouldShowAnalyticsBanner,
+    incrementLaunchCount
+  } = useThemeStore();
 
   const activeTab = location.pathname.substring(1) || "play";
 
@@ -149,17 +156,22 @@ export function App() {
 
   useEffect(() => {
     const initAnalytics = async () => {
-      console.log('[App] Starting analytics initialization...');
-      try {
-        await trackLauncherStart();
-        console.log('[App] trackLauncherStart completed successfully');
-      } catch (error) {
-        console.error('[App] trackLauncherStart failed:', error);
+      // Only initialize analytics if user has accepted them
+      if (analyticsConsent.decision === 'accepted') {
+        console.log('[App] Starting analytics initialization...');
+        try {
+          await trackLauncherStart();
+          console.log('[App] trackLauncherStart completed successfully');
+        } catch (error) {
+          console.error('[App] trackLauncherStart failed:', error);
+        }
+      } else {
+        console.log('[App] Analytics disabled, skipping initialization');
       }
     };
 
     initAnalytics();
-  }, []);
+  }, [analyticsConsent.decision]);
 
   // Icons beim App-Start vorladen
   useEffect(() => {
@@ -238,11 +250,110 @@ export function App() {
     }
   };
 
+  // Analytics consent banner handlers
+  const handleAnalyticsAccept = async () => {
+    try {
+      // Update ThemeStore state
+      setAnalyticsConsent({
+        hasMadeDecision: true,
+        decision: 'accepted',
+        hasSeenBanner: true,
+        lastShown: new Date().toISOString(),
+      });
+
+      // Enable analytics in launcher config
+      const currentConfig = await ConfigService.getLauncherConfig();
+      await ConfigService.setLauncherConfig({
+        ...currentConfig,
+        enable_analytics: true,
+      });
+
+      // Invalidate analytics cache to reflect the change immediately
+      const { invalidateAnalyticsCache } = await import('./services/analytics-service');
+      invalidateAnalyticsCache();
+
+      toast.success("Analytics enabled! Thank you for helping improve NoRisk Client.");
+    } catch (error) {
+      console.error("Failed to enable analytics:", error);
+      toast.error("Failed to enable analytics. Please try again.");
+    }
+  };
+
+  const handleAnalyticsDecline = async () => {
+    try {
+      // Update ThemeStore state
+      setAnalyticsConsent({
+        hasMadeDecision: true,
+        decision: 'declined',
+        hasSeenBanner: true,
+        lastShown: new Date().toISOString(),
+      });
+
+      // Disable analytics in launcher config
+      const currentConfig = await ConfigService.getLauncherConfig();
+      await ConfigService.setLauncherConfig({
+        ...currentConfig,
+        enable_analytics: false,
+      });
+
+      // Invalidate analytics cache to reflect the change immediately
+      const { invalidateAnalyticsCache } = await import('./services/analytics-service');
+      invalidateAnalyticsCache();
+
+      toast.success("Analytics disabled. You can change this anytime in Settings.");
+    } catch (error) {
+      console.error("Failed to disable analytics:", error);
+      toast.error("Failed to disable analytics. Please try again.");
+    }
+  };
+
+  const handleAnalyticsDismiss = () => {
+    const newReminderCount = analyticsConsent.reminderCount + 1;
+    setAnalyticsConsent({
+      hasSeenBanner: true,
+      lastShown: new Date().toISOString(),
+      reminderCount: newReminderCount,
+    });
+    toast("We'll ask again later. You can also enable analytics in Settings.");
+  };
+
+  // Sync analytics state with config on app start
+  useEffect(() => {
+    const syncAnalyticsWithConfig = async () => {
+      try {
+        const config = await ConfigService.getLauncherConfig();
+        // Update ThemeStore decision based on config
+        if (config.enable_analytics && analyticsConsent.decision !== 'accepted') {
+          setAnalyticsConsent({
+            hasMadeDecision: true,
+            decision: 'accepted',
+          });
+        } else if (!config.enable_analytics && analyticsConsent.decision === 'accepted') {
+          setAnalyticsConsent({
+            hasMadeDecision: true,
+            decision: 'declined',
+          });
+        }
+      } catch (error) {
+        console.error("Failed to sync analytics with config:", error);
+      }
+    };
+
+    syncAnalyticsWithConfig();
+  }, []); // Only run once on mount
+
+  // Increment launch count on app start
+  useEffect(() => {
+    incrementLaunchCount();
+  }, [incrementLaunchCount]);
+
   const handleNavChange = async (tabId: string) => {
     navigate(`/${tabId}`);
 
-    // Track tab clicked
-    trackTabClicked(tabId).catch(console.error);
+    // Track tab clicked only if analytics are enabled
+    if (analyticsConsent.decision === 'accepted') {
+      trackTabClicked(tabId).catch(console.error);
+    }
   };
 
   const profilesTabContext: ProfilesTabContext = {
@@ -270,6 +381,13 @@ export function App() {
           <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
             <Outlet context={profilesTabContext} />
           </AppLayout>
+          {shouldShowAnalyticsBanner() && (
+            <AnalyticsConsentBanner
+              onAccept={handleAnalyticsAccept}
+              onDecline={handleAnalyticsDecline}
+              onDismiss={handleAnalyticsDismiss}
+            />
+          )}
         </div>
       </FlagsmithProvider>
   );

@@ -11,6 +11,7 @@ import { RadiusPicker } from ".././RadiusPicker";
 import type { LauncherConfig } from "../../types/launcherConfig";
 import * as ConfigService from "../../services/launcher-config-service";
 import { useThemeStore } from "../../store/useThemeStore";
+import { invalidateAnalyticsCache } from "../../services/analytics-service";
 import {
   BACKGROUND_EFFECTS,
   useBackgroundEffectStore,
@@ -89,7 +90,7 @@ export function SettingsTab() {
   } = useThemeStore();
   const { currentEffect, setCurrentEffect } = useBackgroundEffectStore();
   const { qualityLevel, setQualityLevel } = useQualitySettingsStore();
-  const { borderRadius, setBorderRadius } = useThemeStore();
+  const { borderRadius, setBorderRadius, setAnalyticsConsent } = useThemeStore();
 
   const { confirm, confirmDialog } = useConfirmDialog();
   const { showModal, hideModal } = useGlobalModal();
@@ -400,6 +401,28 @@ export function SettingsTab() {
                 ...tempConfig,
                 hide_on_process_start: checked,
               }),
+          },
+          {
+            id: "analytics",
+            label: "Analytics",
+            tooltip: "Help improve the launcher by sending anonymous usage data. Examples: launcher version, game versions like 1.21.10 or 1.8.9, modloader types, UI interactions, and system information. No personal information, usernames, or file paths are collected.",
+            type: "toggle",
+            value: tempConfig?.enable_analytics || false,
+            onChange: (checked) => {
+              if (tempConfig) {
+                setTempConfig({
+                  ...tempConfig,
+                  enable_analytics: checked,
+                });
+                // Update ThemeStore state
+                setAnalyticsConsent({
+                  hasMadeDecision: true,
+                  decision: checked ? 'accepted' : 'declined',
+                });
+                // Invalidate analytics cache when setting changes
+                invalidateAnalyticsCache();
+              }
+            },
           },
         ]}
         disabled={saving}

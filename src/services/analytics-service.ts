@@ -13,10 +13,29 @@ interface AnalyticsEvent {
 let sessionId: string | null = null;
 let userId: string | null = null;
 let launcherStartTracked: boolean = false;
+let analyticsEnabled: boolean | null = null;
 
 export const initializeAnalytics = async (): Promise<void> => {
     sessionId = generateSessionId();
     userId = await getOrCreateUserId();
+};
+
+const checkAnalyticsEnabled = async (): Promise<boolean> => {
+    try {
+        // Cache the analytics enabled state to avoid repeated config calls
+        if (analyticsEnabled === null) {
+            const config: any = await invoke('get_launcher_config');
+            analyticsEnabled = config.enable_analytics || false;
+        }
+        return analyticsEnabled;
+    } catch (error) {
+        console.warn('[Analytics] Failed to check analytics config, defaulting to disabled:', error);
+        return false;
+    }
+};
+
+export const invalidateAnalyticsCache = (): void => {
+    analyticsEnabled = null;
 };
 
 const generateSessionId = (): string => {
@@ -39,6 +58,13 @@ export const trackEvent = async (
     properties?: Record<string, any>
 ): Promise<void> => {
     try {
+        // Check if analytics are enabled first
+        const enabled = await checkAnalyticsEnabled();
+        if (!enabled) {
+            console.log('[Analytics] Analytics disabled, skipping event:', eventType);
+            return;
+        }
+
         if (!sessionId || !userId) {
             await initializeAnalytics();
         }
