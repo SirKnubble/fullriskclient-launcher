@@ -154,19 +154,19 @@ impl ConfigManager {
                 // Update the stored config
                 let mut config = self.config.write().await;
                 *config = loaded_config.clone();
-                
+
                 // Update cache
                 update_custom_game_dir(loaded_config.custom_game_directory);
             }
             Err(e) => {
                 error!("Failed to parse config file: {}", e);
                 warn!("Attempting to migrate or preserve existing settings...");
-                
+
                 // Try to parse as generic JSON first to preserve user settings
                 match serde_json::from_str::<serde_json::Value>(&config_data) {
                     Ok(json_value) => {
                         info!("Config file is valid JSON, attempting migration...");
-                        
+
                         // Create backup of original config
                         let backup_path = self.config_path.with_extension("json.backup");
                         if let Err(backup_err) = fs::copy(&self.config_path, &backup_path).await {
@@ -174,10 +174,10 @@ impl ConfigManager {
                         } else {
                             info!("Created config backup at: {:?}", backup_path);
                         }
-                        
+
                         // Start with default config and try to migrate settings
                         let mut migrated_config = LauncherConfig::default();
-                        
+
                         // Migrate known fields that might exist
                         if let Some(obj) = json_value.as_object() {
                             // Migrate simple boolean fields
@@ -199,7 +199,7 @@ impl ConfigManager {
                             if let Some(hide) = obj.get("hide_on_process_start").and_then(|v| v.as_bool()) {
                                 migrated_config.hide_on_process_start = hide;
                             }
-                            
+
                             // Migrate numeric fields
                             if let Some(downloads) = obj.get("concurrent_downloads").and_then(|v| v.as_u64()) {
                                 if downloads > 0 && downloads <= 20 { // Reasonable bounds
@@ -211,7 +211,7 @@ impl ConfigManager {
                                     migrated_config.concurrent_io_limit = io_limit as usize;
                                 }
                             }
-                            
+
                             // Migrate string fields
                             if let Some(grouping) = obj.get("profile_grouping_criterion").and_then(|v| v.as_str()) {
                                 // Validate known values and migrate "none" to "group"
@@ -228,35 +228,35 @@ impl ConfigManager {
                                     }
                                 }
                             }
-                            
+
                             // Migrate UUID fields (with validation)
                             if let Some(profile_str) = obj.get("last_played_profile").and_then(|v| v.as_str()) {
                                 if let Ok(uuid) = Uuid::parse_str(profile_str) {
                                     migrated_config.last_played_profile = Some(uuid);
                                 }
                             }
-                            
+
                             // Migrate custom game directory
                             if let Some(custom_dir_str) = obj.get("custom_game_directory").and_then(|v| v.as_str()) {
                                 migrated_config.custom_game_directory = Some(PathBuf::from(custom_dir_str));
                             }
                         }
-                        
+
                         info!("Migration completed, saving migrated configuration");
                         let mut config = self.config.write().await;
                         *config = migrated_config.clone();
                         drop(config); // Release lock before save
-                        
+
                         // Save the migrated config
                         self.save_config().await?;
-                        
+
                         // Update cache
                         update_custom_game_dir(migrated_config.custom_game_directory);
                     }
                     Err(json_err) => {
                         error!("Config file is not valid JSON: {}", json_err);
                         warn!("Config file is corrupted, creating backup and using defaults");
-                        
+
                         // Create backup of corrupted file
                         let backup_path = self.config_path.with_extension("json.corrupted");
                         if let Err(backup_err) = fs::copy(&self.config_path, &backup_path).await {
@@ -264,9 +264,9 @@ impl ConfigManager {
                         } else {
                             info!("Backed up corrupted config to: {:?}", backup_path);
                         }
-                        
+
                         // Use default config and save it
-                self.save_config().await?;
+                        self.save_config().await?;
                     }
                 }
             }
@@ -365,6 +365,13 @@ impl ConfigManager {
                         "Changing beta channel check: {} -> {}",
                         current.check_beta_channel, new_config.check_beta_channel
                     );
+
+                    // Track beta updates toggled event
+                    if let Err(e) = crate::commands::analytics_command::track_beta_updates_toggled_event(
+                        new_config.check_beta_channel,
+                    ).await {
+                        warn!("Failed to track beta updates toggled event: {}", e);
+                    }
                 }
                 if current.profile_grouping_criterion != new_config.profile_grouping_criterion {
                     info!(

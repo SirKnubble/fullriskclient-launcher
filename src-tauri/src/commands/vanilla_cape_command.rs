@@ -1,7 +1,7 @@
 use crate::error::{AppError, CommandError};
 use crate::minecraft::api::vanilla_cape_api::{VanillaCape, VanillaCapeApi, VanillaCapeInfo};
 use crate::state::state_manager::State;
-use log::debug;
+use log::{debug, warn};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -14,7 +14,7 @@ pub async fn get_owned_vanilla_capes() -> Result<Vec<VanillaCape>, CommandError>
     debug!("Command called: get_owned_vanilla_capes");
 
     let state = State::get().await?;
-    
+
     let active_account = state
         .minecraft_account_manager_v2
         .get_active_account()
@@ -24,7 +24,7 @@ pub async fn get_owned_vanilla_capes() -> Result<Vec<VanillaCape>, CommandError>
     debug!("Using active account: {} (UUID: {})", active_account.username, active_account.id);
 
     let cape_api = VanillaCapeApi::new();
-    
+
     let result = cape_api
         .get_owned_capes(&active_account.access_token)
         .await
@@ -47,7 +47,7 @@ pub async fn get_currently_equipped_vanilla_cape() -> Result<Option<VanillaCape>
     debug!("Command called: get_currently_equipped_vanilla_cape");
 
     let state = State::get().await?;
-    
+
     let active_account = state
         .minecraft_account_manager_v2
         .get_active_account()
@@ -57,7 +57,7 @@ pub async fn get_currently_equipped_vanilla_cape() -> Result<Option<VanillaCape>
     debug!("Using active account: {} (UUID: {})", active_account.username, active_account.id);
 
     let cape_api = VanillaCapeApi::new();
-    
+
     let result = cape_api
         .get_currently_equipped_cape(&active_account.access_token)
         .await
@@ -80,7 +80,7 @@ pub async fn equip_vanilla_cape(cape_id: Option<String>) -> Result<(), CommandEr
     debug!("Command called: equip_vanilla_cape with cape_id: {:?}", cape_id);
 
     let state = State::get().await?;
-    
+
     let active_account = state
         .minecraft_account_manager_v2
         .get_active_account()
@@ -90,7 +90,7 @@ pub async fn equip_vanilla_cape(cape_id: Option<String>) -> Result<(), CommandEr
     debug!("Using active account: {} (UUID: {})", active_account.username, active_account.id);
 
     let cape_api = VanillaCapeApi::new();
-    
+
     let result = cape_api
         .equip_cape(&active_account.access_token, cape_id.as_deref())
         .await
@@ -101,6 +101,14 @@ pub async fn equip_vanilla_cape(cape_id: Option<String>) -> Result<(), CommandEr
 
     if result.is_ok() {
         debug!("Command completed: equip_vanilla_cape");
+
+        // Track cape selected event
+        let cape_hash = cape_id.unwrap_or_else(|| "unequipped".to_string());
+        if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
+            cape_hash,
+        ).await {
+            warn!("Failed to track cape selected event: {}", e);
+        }
     } else {
         debug!("Command failed: equip_vanilla_cape");
     }
