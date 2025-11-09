@@ -698,11 +698,11 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const isItemOpen = openVersionDropdownId === item.filename;
 
       const isBlockedByNoRisk =
-        !!profile?.selected_norisk_pack_id &&
         isBlockedConfigLoaded &&
         FlagsmithService.isModBlockedByNoRisk(
           item.filename,
-          item.modrinth_info?.project_id,
+          item.modrinth_info?.project_id || item.curseforge_info?.project_id,
+          item.modrinth_info?.version_id || item.curseforge_info?.file_id,
         );
 
       // Get the appropriate icon using the platform-aware helper function
@@ -737,6 +737,18 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const itemIconNode = (
         <div className="absolute inset-0 w-full h-full flex items-center justify-center">
           {iconToShow}
+          {isBlockedByNoRisk && (
+            <div className="absolute top-0.5 left-0.5 z-10 pointer-events-auto">
+              <Tooltip content="This version is known to cause crashes or compatibility issues with NoRisk Client. Installation is possible but not recommended.">
+                <div>
+                  <Icon 
+                    icon="solar:danger-triangle-bold" 
+                    className="w-4 h-4 text-red-500 drop-shadow-lg"
+                  />
+                </div>
+              </Tooltip>
+            </div>
+          )}
         </div>
       );
 

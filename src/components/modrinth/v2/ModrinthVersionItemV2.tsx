@@ -13,6 +13,7 @@ import { ActionButton } from "../../ui/ActionButton";
 import { TagBadge } from "../../ui/TagBadge";
 import { gsap } from "gsap";
 import { useIsFirstRender } from "../../../hooks/useIsFirstRender";
+import { Tooltip } from "../../ui/Tooltip";
 
 interface ModrinthVersionItemV2Props {
   version: UnifiedVersion;
@@ -45,6 +46,7 @@ interface ModrinthVersionItemV2Props {
     version: UnifiedVersion,
   ) => void;
   selectedProfileId?: string | null;
+  isBlocked?: boolean;
 }
 
 export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
@@ -63,6 +65,7 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
     onToggleEnableClick,
     onInstallModpackVersionAsProfileClick,
     selectedProfileId,
+    isBlocked = false,
   }) => {
     const isModpack = project.project_type === "modpack";
     const cardRef = useRef<HTMLDivElement>(null);
@@ -279,13 +282,23 @@ export const ModrinthVersionItemV2 = React.memo<ModrinthVersionItemV2Props>(
         <div className="relative z-10 p-2.5">
           <div className="flex flex-col space-y-2">
             <div className="flex justify-between items-baseline gap-2">
-              <div className="flex-shrink min-w-0">
-                <h5 className="text-gray-100 text-sm font-minecraft-ten normal-case truncate">
-                  {version.name}
-                </h5>
-                <p className="text-gray-400 text-xs font-minecraft-ten normal-case truncate">
-                  {version.version_number}
-                </p>
+              <div className="flex-shrink min-w-0 flex items-center gap-2">
+                {isBlocked && (
+                  <Tooltip content="This version is known to cause crashes or compatibility issues with NoRisk Client. Installation is possible but not recommended.">
+                    <Icon 
+                      icon="solar:danger-triangle-bold" 
+                      className="w-4 h-4 text-red-500 flex-shrink-0"
+                    />
+                  </Tooltip>
+                )}
+                <div className="min-w-0">
+                  <h5 className="text-gray-100 text-sm font-minecraft-ten normal-case truncate">
+                    {version.name}
+                  </h5>
+                  <p className="text-gray-400 text-xs font-minecraft-ten normal-case truncate">
+                    {version.version_number}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center space-x-2 text-[10px] text-gray-400 font-minecraft-ten flex-shrink-0">
                 {" "}

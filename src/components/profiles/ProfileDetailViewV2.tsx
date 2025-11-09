@@ -31,6 +31,8 @@ import { ScreenshotsTab } from "./detail/ScreenshotsTab";
 import { LogsTab } from "./detail/LogsTab";
 import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 import { ModpackDebugInfo } from "../../debug";
+import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
+import { Tooltip } from "../ui/Tooltip";
 
 type MainTabType = "content" | "worlds" | "logs" | "screenshots";
 type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
@@ -79,6 +81,14 @@ export function ProfileDetailViewV2({
 
   // Profile duplicate store
   const { openModal: openDuplicateModal } = useProfileDuplicateStore();
+
+  // Get accounts from Minecraft Auth Store
+  const accounts = useMinecraftAuthStore((state) => state.accounts);
+  
+  // Find preferred account if one is set
+  const preferredAccount = currentProfile.preferred_account_id 
+    ? accounts.find(acc => acc.id === currentProfile.preferred_account_id)
+    : null;
 
   // Profile launch hook
   const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } = useProfileLaunch({
@@ -155,7 +165,6 @@ export function ProfileDetailViewV2({
       icon: "solar:trash-bin-trash-bold",
       destructive: true,
       separator: true, // Trennstrich vor Delete
-      disabled: currentProfile.is_standard_version,
       onClick: () => handleDeleteProfile(),
     },
   ];
@@ -424,10 +433,30 @@ export function ProfileDetailViewV2({
 
             {/* Profile Details */}
             <div className="flex flex-col gap-2 flex-1">
-              {/* Profile Name */}
-              <h1 className="font-minecraft-ten text-2xl text-white normal-case">
-                {profile.name || profile.id}
-              </h1>
+              {/* Profile Name with Account Indicator */}
+              <div className="flex items-center gap-2">
+                <h1 className="font-minecraft-ten text-2xl text-white normal-case">
+                  {profile.name || profile.id}
+                </h1>
+                
+                {/* Preferred Account Indicator next to title */}
+                {preferredAccount && (
+                  <Tooltip content={`Launch with: ${preferredAccount.username}`}>
+                    <div className="flex items-center gap-1 text-white/60">
+                      <img
+                        src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
+                        alt={preferredAccount.username}
+                        className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
+                        style={{ imageRendering: 'pixelated' }}
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                        }}
+                      />
+                      <span className="truncate max-w-[100px] text-base lowercase">{preferredAccount.username}</span>
+                    </div>
+                  </Tooltip>
+                )}
+              </div>
 
 
 

@@ -25,8 +25,8 @@ use utils::updater_utils;
 
 use crate::commands::analytics_command::track_analytics_event;
 use crate::commands::process_command::{
-    get_full_log, get_process, get_processes, get_processes_by_profile, open_log_window,
-    set_discord_state, stop_process,
+    fetch_crash_report, get_full_log, get_process, get_processes, get_processes_by_profile,
+    open_log_window, set_discord_state, stop_process,
 };
 use commands::minecraft_auth_command::{
     begin_login, get_accounts, get_active_account, remove_account, set_active_account,
@@ -407,6 +407,7 @@ async fn main() {
             update_modrinth_mod_version,
             get_all_modrinth_versions_for_contexts,
             get_full_log,
+            fetch_crash_report,
             get_custom_mods,
             get_local_resourcepacks,
             get_local_shaderpacks,
@@ -524,7 +525,11 @@ async fn main() {
             equip_vanilla_cape,
             get_vanilla_cape_info,
             refresh_vanilla_cape_data,
-            track_analytics_event
+            track_analytics_event,
+            commands::profile_command::add_profile_symlink,
+            commands::profile_command::remove_profile_symlink,
+            commands::profile_command::get_profile_symlinks,
+            commands::profile_command::get_profile_instance_path
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

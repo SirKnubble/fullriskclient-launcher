@@ -17,6 +17,7 @@ import { toast } from "react-hot-toast";
 import { cn } from "../../../lib/utils";
 import { getGlobalMemorySettings, setGlobalMemorySettings } from "../../../services/launcher-config-service";
 import type { MemorySettings } from "../../../types/launcherConfig";
+import { useMinecraftAuthStore } from "../../../store/minecraft-auth-store";
 
 interface JavaSettingsTabProps {
   editedProfile: Profile;
@@ -56,6 +57,7 @@ export function JavaSettingsTab({
   const javaInstallRef = useRef<HTMLDivElement>(null);
   const memoryRef = useRef<HTMLDivElement>(null);
   const argsRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   // New state variables for Java detection and validation
   const [detectedJavaInstallations, setDetectedJavaInstallations] = useState<
@@ -80,6 +82,9 @@ export function JavaSettingsTab({
   const [globalMemorySettings, setGlobalMemorySettingsState] = useState<MemorySettings | null>(null);
   const [isLoadingGlobalMemory, setIsLoadingGlobalMemory] = useState(false);
   const [isSystemRamLoaded, setIsSystemRamLoaded] = useState(false);
+  
+  // Account selection
+  const { accounts } = useMinecraftAuthStore();
 
   useEffect(() => {
     if (isBackgroundAnimationEnabled) {
@@ -95,6 +100,7 @@ export function JavaSettingsTab({
         javaInstallRef.current,
         memoryRef.current,
         argsRef.current,
+        accountRef.current,
       ].filter(Boolean);
 
       if (elements.length > 0) {
@@ -357,6 +363,10 @@ export function JavaSettingsTab({
     }
   };
 
+  const handleAccountSelect = (accountId: string | null) => {
+    updateProfile({ preferred_account_id: accountId });
+  };
+
   return (
     <div ref={tabRef} className="space-y-6 select-none">
       <div ref={memoryRef} className="space-y-4">
@@ -570,6 +580,84 @@ export function JavaSettingsTab({
         </div>
       </div>
       )}
+
+      <div ref={accountRef} className="space-y-3">
+        <h3 className="text-3xl font-minecraft text-white lowercase">
+          preferred launch account
+        </h3>
+        
+        {accounts.length > 0 ? (
+          <div className="flex flex-wrap gap-3 p-1">
+            {accounts.map((account) => {
+              const isSelected = editedProfile.preferred_account_id === account.id;
+              const avatarUrl = `https://crafatar.com/avatars/${account.id.replace(/-/g, '')}?overlay=true`;
+              
+              return (
+                <button
+                  key={account.id}
+                  onClick={() => handleAccountSelect(isSelected ? null : account.id)}
+                  className={cn(
+                    "relative group flex flex-col items-center p-3 border-2 transition-all duration-200 rounded-lg hover:scale-105",
+                    isSelected
+                      ? "border-accent shadow-lg"
+                      : "border-white/10 hover:border-white/30",
+                  )}
+                  style={
+                    isSelected
+                      ? {
+                          borderColor: accentColor.value,
+                          backgroundColor: `${accentColor.value}15`,
+                        }
+                      : {}
+                  }
+                  title={`${account.username} (${account.id})`}
+                >
+                  {/* Player Head */}
+                  <div className={cn(
+                    "relative w-16 h-16 rounded-md overflow-hidden border-2 transition-all duration-200",
+                    isSelected ? "border-accent" : "border-white/20"
+                  )}
+                  style={isSelected ? { borderColor: accentColor.value } : {}}>
+                    <img
+                      src={avatarUrl}
+                      alt={account.username}
+                      className="w-full h-full object-cover pixelated"
+                      style={{ imageRendering: 'pixelated' }}
+                      onError={(e) => {
+                        // Fallback to default Steve head
+                        e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                      }}
+                    />
+                    {isSelected && (
+                      <div 
+                        className="absolute inset-0 flex items-center justify-center bg-black/50"
+                      >
+                        <Icon
+                          icon="solar:check-circle-bold"
+                          className="w-8 h-8"
+                          style={{ color: accentColor.value }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Username */}
+                  <div className={cn(
+                    "mt-2 font-minecraft text-xl lowercase text-center max-w-[100px] truncate",
+                    isSelected ? "text-white" : "text-white/70"
+                  )}>
+                    {account.username}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-4 text-white/50 font-minecraft text-lg lowercase">
+            No accounts found
+          </div>
+        )}
+      </div>
     </div>
   );
 }
