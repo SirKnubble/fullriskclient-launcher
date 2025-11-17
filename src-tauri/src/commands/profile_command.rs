@@ -96,6 +96,14 @@ pub struct CopyWorldParams {
     target_world_name: String,
 }
 
+// DTO for importing a world from an external path
+#[derive(Deserialize)]
+pub struct ImportWorldParams {
+    profile_id: Uuid,
+    source_world_path: String,
+    target_world_name: String,
+}
+
 // CRUD Commands
 #[tauri::command]
 pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, CommandError> {
@@ -2045,6 +2053,49 @@ pub async fn copy_world(params: CopyWorldParams) -> Result<String, CommandError>
 
     info!(
         "Successfully executed copy_world command. New folder name: {}",
+        generated_folder_name
+    );
+    Ok(generated_folder_name) // Return the actual folder name created
+}
+
+/// Imports a Minecraft world from an external path into a profile's saves directory.
+#[tauri::command]
+pub async fn import_world(params: ImportWorldParams) -> Result<String, CommandError> {
+    info!(
+        "Executing import_world command: importing world from '{}' to profile {} with name '{}'",
+        params.source_world_path,
+        params.profile_id,
+        params.target_world_name
+    );
+
+    let source_world_path = std::path::PathBuf::from(&params.source_world_path);
+
+    // Call the utility function
+    let generated_folder_name = world_utils::import_world_from_external_path(
+        params.profile_id,
+        source_world_path,
+        &params.target_world_name,
+    )
+    .await?;
+
+    // Trigger UI updates for the profile
+    if let Ok(state) = State::get().await {
+        if let Err(e) = state
+            .event_state
+            .trigger_profile_update(params.profile_id)
+            .await
+        {
+            warn!(
+                "Failed to emit profile update event for profile {}: {}",
+                params.profile_id, e
+            );
+        }
+    } else {
+        warn!("Could not get state to emit profile update event after world import.");
+    }
+
+    info!(
+        "Successfully executed import_world command. New folder name: {}",
         generated_folder_name
     );
     Ok(generated_folder_name) // Return the actual folder name created
