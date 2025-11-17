@@ -607,17 +607,17 @@ export function ProfileCardV2({
               {/* Preferred Account Indicator next to title */}
               {preferredAccount && (
                 <Tooltip content={`Launch with: ${preferredAccount.username}`}>
-                  <div className="flex items-center gap-1 text-white/60">
+                  <div className="flex items-center gap-1.5 text-white/60">
                     <img
                       src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
                       alt={preferredAccount.username}
-                      className={`${isCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} rounded-sm pixelated flex-shrink-0`}
+                      className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} rounded-sm pixelated flex-shrink-0`}
                       style={{ imageRendering: 'pixelated' }}
                       onError={(e) => {
                         e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
                       }}
                     />
-                    <span className={`truncate max-w-[80px] ${isCompact ? 'text-sm' : 'text-base'} lowercase`}>{preferredAccount.username}</span>
+                    <span className={`truncate max-w-[100px] ${isCompact ? 'text-base' : 'text-lg'} lowercase`}>{preferredAccount.username}</span>
                   </div>
                 </Tooltip>
               )}
@@ -782,17 +782,17 @@ export function ProfileCardV2({
           {/* Preferred Account Indicator next to title */}
           {preferredAccount && (
             <Tooltip content={`Launch with: ${preferredAccount.username}`}>
-              <div className="flex items-center gap-1 text-white/60">
+              <div className="flex items-center gap-1.5 text-white/60">
                 <img
                   src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
                   alt={preferredAccount.username}
-                  className="w-3 h-3 rounded-sm pixelated flex-shrink-0"
+                  className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
                   style={{ imageRendering: 'pixelated' }}
                   onError={(e) => {
                     e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
                   }}
                 />
-                <span className="truncate max-w-[80px] text-sm lowercase">{preferredAccount.username}</span>
+                <span className="truncate max-w-[100px] text-lg lowercase">{preferredAccount.username}</span>
               </div>
             </Tooltip>
           )}

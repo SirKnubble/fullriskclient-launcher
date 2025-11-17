@@ -248,6 +248,13 @@ pub async fn launch_profile(
     let version = profile.game_version.clone();
     let modloader = profile.loader.clone();
     
+    // Get experimental_mode from state config (needed for token refresh)
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+    log::info!(
+        "[Command] Global experimental mode is: {}",
+        is_experimental
+    );
+    
     // Helper function to get active account with proper error handling
     let get_active_account = || async {
         match state
@@ -272,12 +279,12 @@ pub async fn launch_profile(
         );
         match state
             .minecraft_account_manager_v2
-            .get_account_by_id(preferred_account_id)
+            .get_account_by_id_with_refresh(preferred_account_id, is_experimental)
             .await
         {
             Ok(Some(creds)) => {
                 log::info!(
-                    "[Command] Successfully retrieved preferred account: {}",
+                    "[Command] Successfully retrieved and refreshed preferred account: {}",
                     creds.username
                 );
                 Some(creds)
@@ -291,7 +298,7 @@ pub async fn launch_profile(
             }
             Err(e) => {
                 log::warn!(
-                    "[Command] Error getting preferred account: {}. Falling back to global active account.",
+                    "[Command] Error getting/refreshing preferred account: {}. Falling back to global active account.",
                     e
                 );
                 get_active_account().await?
