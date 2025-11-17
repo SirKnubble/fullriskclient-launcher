@@ -18,6 +18,8 @@ import { cn } from "../../../lib/utils";
 import { getGlobalMemorySettings, setGlobalMemorySettings } from "../../../services/launcher-config-service";
 import type { MemorySettings } from "../../../types/launcherConfig";
 import { useMinecraftAuthStore } from "../../../store/minecraft-auth-store";
+import { useCrafatarAvatar } from "../../../hooks/useCrafatarAvatar";
+import type { MinecraftAccount } from "../../../types/minecraft";
 
 interface JavaSettingsTabProps {
   editedProfile: Profile;
@@ -34,6 +36,31 @@ interface JavaInstallation {
   vendor: string;
   architecture: string;
   is_default?: boolean; // Optional: if your backend provides this
+}
+
+// Component for account avatar with caching
+function AccountAvatar({ account }: { account: MinecraftAccount }) {
+  const avatarUrl = useCrafatarAvatar({
+    uuid: account.id,
+    overlay: true,
+  });
+
+  if (!avatarUrl) {
+    return null;
+  }
+
+  return (
+    <img
+      src={avatarUrl}
+      alt={account.username}
+      className="w-full h-full object-cover pixelated"
+      style={{ imageRendering: 'pixelated' }}
+      onError={(e) => {
+        // Fallback to default Steve head
+        e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+      }}
+    />
+  );
 }
 
 export function JavaSettingsTab({
@@ -590,7 +617,6 @@ export function JavaSettingsTab({
           <div className="flex flex-wrap gap-3 p-1">
             {accounts.map((account) => {
               const isSelected = editedProfile.preferred_account_id === account.id;
-              const avatarUrl = `https://crafatar.com/avatars/${account.id.replace(/-/g, '')}?overlay=true`;
               
               return (
                 <button
@@ -618,16 +644,7 @@ export function JavaSettingsTab({
                     isSelected ? "border-accent" : "border-white/20"
                   )}
                   style={isSelected ? { borderColor: accentColor.value } : {}}>
-                    <img
-                      src={avatarUrl}
-                      alt={account.username}
-                      className="w-full h-full object-cover pixelated"
-                      style={{ imageRendering: 'pixelated' }}
-                      onError={(e) => {
-                        // Fallback to default Steve head
-                        e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
-                      }}
-                    />
+                    <AccountAvatar account={account} />
                     {isSelected && (
                       <div 
                         className="absolute inset-0 flex items-center justify-center bg-black/50"

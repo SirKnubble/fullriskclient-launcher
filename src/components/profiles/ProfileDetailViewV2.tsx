@@ -33,6 +33,7 @@ import type { LocalContentItem } from "../../hooks/useLocalContentManager";
 import { ModpackDebugInfo } from "../../debug";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { Tooltip } from "../ui/Tooltip";
+import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
 type MainTabType = "content" | "worlds" | "logs" | "screenshots";
 type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
@@ -89,6 +90,12 @@ export function ProfileDetailViewV2({
   const preferredAccount = currentProfile.preferred_account_id 
     ? accounts.find(acc => acc.id === currentProfile.preferred_account_id)
     : null;
+
+  // Load preferred account avatar
+  const preferredAccountAvatarUrl = useCrafatarAvatar({
+    uuid: preferredAccount?.id,
+    overlay: true,
+  });
 
   // Profile launch hook
   const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } = useProfileLaunch({
@@ -443,15 +450,17 @@ export function ProfileDetailViewV2({
                 {preferredAccount && (
                   <Tooltip content={`Launch with: ${preferredAccount.username}`}>
                     <div className="flex items-center gap-1 text-white/60">
-                      <img
-                        src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
-                        alt={preferredAccount.username}
-                        className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
-                        style={{ imageRendering: 'pixelated' }}
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
-                        }}
-                      />
+                      {preferredAccountAvatarUrl && (
+                        <img
+                          src={preferredAccountAvatarUrl}
+                          alt={preferredAccount.username}
+                          className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
+                          style={{ imageRendering: 'pixelated' }}
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                          }}
+                        />
+                      )}
                       <span className="truncate max-w-[100px] text-base lowercase">{preferredAccount.username}</span>
                     </div>
                   </Tooltip>
