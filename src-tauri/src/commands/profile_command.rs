@@ -2324,7 +2324,16 @@ pub async fn add_profile_symlink(params: AddSymlinkParams) -> Result<(), Command
         .get_profile_instance_path(params.profile_id)
         .await?;
     
-    let link_path = instance_path.join(&params.relative_path);
+    // Normalize relative_path by converting to PathBuf (handles forward/backslash normalization)
+    // Split by '/' and push segments individually to ensure platform-appropriate separators
+    let mut normalized_relative = PathBuf::new();
+    for segment in params.relative_path.split('/') {
+        if !segment.is_empty() {
+            normalized_relative.push(segment);
+        }
+    }
+    
+    let link_path = instance_path.join(&normalized_relative);
     let target_path = PathBuf::from(&params.external_path);
     
     // Check if target exists
@@ -2349,7 +2358,7 @@ pub async fn add_profile_symlink(params: AddSymlinkParams) -> Result<(), Command
             symlink_utils::remove_symlink(&link_path).await?;
         } else {
             // Backup existing content
-            let backup_path = instance_path.join(format!("{}.backup", params.relative_path));
+            let backup_path = instance_path.join(&normalized_relative).with_extension("backup");
             tokio::fs::rename(&link_path, &backup_path).await
                 .map_err(|e| CommandError::from(AppError::Io(e)))?;
             info!("Backed up existing content to {:?}", backup_path);
