@@ -25,6 +25,7 @@ import UnifiedService from "../../services/unified-service";
 import type { UnifiedModpackVersionsResponse } from "../../types/unified";
 import { useProfileDuplicateStore } from "../../store/profile-duplicate-store";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch.tsx";
+import { useAppDragDropStore } from "../../store/appStore";
 
 import { WorldsTab } from "./detail/WorldsTab";
 import { ScreenshotsTab } from "./detail/ScreenshotsTab";
@@ -78,7 +79,8 @@ export function ProfileDetailViewV2({
   // Profile store
   const { fetchProfiles } = useProfileStore();
 
-
+  // Drag and drop store
+  const { setActiveMainTab: setDragDropMainTab } = useAppDragDropStore();
 
   // Profile duplicate store
   const { openModal: openDuplicateModal } = useProfileDuplicateStore();
@@ -304,6 +306,15 @@ export function ProfileDetailViewV2({
   useEffect(() => {
     setCurrentProfile(profile);
   }, [profile]);
+
+  // Effect to sync activeMainTab with drag drop store for world import functionality
+  useEffect(() => {
+    setDragDropMainTab(activeMainTab);
+    return () => {
+      // Clear when component unmounts
+      setDragDropMainTab(null);
+    };
+  }, [activeMainTab, setDragDropMainTab]);
 
   // Function to refresh modpack versions
   const refreshModpackVersions = useCallback(async () => {
