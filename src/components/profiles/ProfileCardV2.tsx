@@ -20,6 +20,7 @@ import { Tooltip } from "../ui/Tooltip";
 import UnifiedService from "../../services/unified-service";
 import { useProfileStore } from "../../store/profile-store";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
+import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -99,6 +100,12 @@ export function ProfileCardV2({
   const preferredAccount = profile.preferred_account_id 
     ? accounts.find(acc => acc.id === profile.preferred_account_id)
     : null;
+
+  // Load preferred account avatar
+  const preferredAccountAvatarUrl = useCrafatarAvatar({
+    uuid: preferredAccount?.id,
+    overlay: true,
+  });
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
@@ -608,15 +615,17 @@ export function ProfileCardV2({
               {preferredAccount && (
                 <Tooltip content={`Launch with: ${preferredAccount.username}`}>
                   <div className="flex items-center gap-1.5 text-white/60">
-                    <img
-                      src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
-                      alt={preferredAccount.username}
-                      className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} rounded-sm pixelated flex-shrink-0`}
-                      style={{ imageRendering: 'pixelated' }}
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
-                      }}
-                    />
+                    {preferredAccountAvatarUrl && (
+                      <img
+                        src={preferredAccountAvatarUrl}
+                        alt={preferredAccount.username}
+                        className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} rounded-sm pixelated flex-shrink-0`}
+                        style={{ imageRendering: 'pixelated' }}
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                        }}
+                      />
+                    )}
                     <span className={`truncate max-w-[100px] ${isCompact ? 'text-base' : 'text-lg'} lowercase`}>{preferredAccount.username}</span>
                   </div>
                 </Tooltip>
@@ -783,15 +792,17 @@ export function ProfileCardV2({
           {preferredAccount && (
             <Tooltip content={`Launch with: ${preferredAccount.username}`}>
               <div className="flex items-center gap-1.5 text-white/60">
-                <img
-                  src={`https://crafatar.com/avatars/${preferredAccount.id.replace(/-/g, '')}?overlay=true`}
-                  alt={preferredAccount.username}
-                  className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
-                  style={{ imageRendering: 'pixelated' }}
-                  onError={(e) => {
-                    e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
-                  }}
-                />
+                {preferredAccountAvatarUrl && (
+                  <img
+                    src={preferredAccountAvatarUrl}
+                    alt={preferredAccount.username}
+                    className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
+                    style={{ imageRendering: 'pixelated' }}
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                    }}
+                  />
+                )}
                 <span className="truncate max-w-[100px] text-lg lowercase">{preferredAccount.username}</span>
               </div>
             </Tooltip>

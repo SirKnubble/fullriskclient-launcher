@@ -36,6 +36,7 @@ use commands::minecraft_command::{
     apply_skin_from_base64,
     // Local skin database commands
     get_all_skins,
+    get_crafatar_avatar,
     get_fabric_loader_versions,
     get_forge_versions,
     get_minecraft_versions,
@@ -505,6 +506,7 @@ async fn main() {
             install_local_content_to_profile,
             switch_content_version,
             commands::minecraft_command::get_starlight_skin_render,
+            commands::minecraft_command::get_crafatar_avatar,
             commands::nrc_commands::discord_auth_link,
             commands::nrc_commands::discord_auth_status,
             commands::nrc_commands::discord_auth_unlink,
