@@ -21,6 +21,7 @@ import UnifiedService from "../../services/unified-service";
 import { useProfileStore } from "../../store/profile-store";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
+import { parseMotdToHtml } from "../../utils/motd-utils";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -608,7 +609,7 @@ export function ProfileCardV2({
                 style={{ textShadow: '0 2px 4px rgba(0,0,0,0.7)' }}
                 title={profile.name}
               >
-                {profile.name}
+                <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name) }} />
               </h3>
               
               {/* Preferred Account Indicator next to title */}
@@ -785,7 +786,7 @@ export function ProfileCardV2({
             style={{ textShadow: '0 2px 4px rgba(0,0,0,0.7)' }}
             title={profile.name}
           >
-            {profile.name}
+            <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name) }} />
           </h3>
           
           {/* Preferred Account Indicator next to title */}
