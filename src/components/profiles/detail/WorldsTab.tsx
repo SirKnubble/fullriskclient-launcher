@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
-import motdParser from "@sfirew/minecraft-motd-parser";
+import { parseMotdToHtml } from "../../../utils/motd-utils";
 import { Button } from "../../ui/buttons/Button";
 import { IconButton } from "../../ui/buttons/IconButton";
 import { ActionButton } from "../../ui/ActionButton";
@@ -245,29 +245,6 @@ export function WorldsTab({
     [serverPings],
   );
 
-  const parseMotdToHtml = useCallback((motd: any): string => {
-    if (!motd) return '<span class="text-white/50">No description</span>';
-    try {
-      const html = motdParser.autoToHTML(motd);
-      return html || '<span class="text-white/50">No description</span>';
-    } catch (err) {
-      console.error("Failed to parse MOTD:", err);
-      if (typeof motd === "string") {
-        const cleaned = motdParser.cleanCodes(motd);
-        // Basic HTML escape
-        return cleaned
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-      }
-      try {
-        return JSON.stringify(motd);
-      } catch (e) {}
-      return '<span class="text-red-400">Invalid MOTD format</span>';
-    }
-  }, []);
 
   const updateDisplayItems = useCallback(
     (currentWorlds: WorldInfo[], currentServers: ServerInfo[]) => {
@@ -1016,7 +993,6 @@ export function WorldsTab({
       getServerIconSrc,
       serverPings,
       pingingServers,
-      parseMotdToHtml,
       handleOpenCopyDialog,
       handleOpenWorldFolder,
       handleDeleteRequest,

@@ -35,6 +35,7 @@ import { ModpackDebugInfo } from "../../debug";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { Tooltip } from "../ui/Tooltip";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
+import { parseMotdToHtml } from "../../utils/motd-utils";
 
 type MainTabType = "content" | "worlds" | "logs" | "screenshots";
 type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
@@ -454,7 +455,7 @@ export function ProfileDetailViewV2({
               {/* Profile Name with Account Indicator */}
               <div className="flex items-center gap-2">
                 <h1 className="font-minecraft-ten text-2xl text-white normal-case">
-                  {profile.name || profile.id}
+                  <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name || profile.id) }} />
                 </h1>
                 
                 {/* Preferred Account Indicator next to title */}

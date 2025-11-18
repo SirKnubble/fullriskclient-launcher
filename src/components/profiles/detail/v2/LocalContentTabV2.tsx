@@ -52,6 +52,7 @@ import { Tooltip } from "../../../ui/Tooltip"; // Added for custom tooltips
 import { ActionButton } from "../../../ui/ActionButton"; // Added for custom update button
 import { ModUpdateText, useModUpdateText } from "../../../ui/ModUpdateText"; // Added for formatted update text
 import { getUpdateIdentifier } from "../../../../utils/update-identifier-utils";
+import { parseMotdToHtml } from "../../../../utils/motd-utils";
 
 /**
  * Determines if a given version is the currently installed version for an item
@@ -683,7 +684,10 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
   const renderListItem = useCallback(
     (item: T) => {
-      const itemTitle = getDisplayFileName(item);
+      const itemTitleRaw = getDisplayFileName(item);
+      const itemTitle = (
+        <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(itemTitleRaw) }} />
+      );
       const isToggling = itemBeingToggled === item.filename;
       const isDeleting = itemBeingDeleted === item.filename;
       const isCurrentlyUpdating = itemsBeingUpdated.has(item.filename);
