@@ -1,7 +1,16 @@
+import { useGLTF } from "@react-three/drei";
 import { AdventCalendarHeader } from "./components/AdventCalendarHeader";
 import { AdventCalendarGrid } from "./components/AdventCalendarGrid";
 import { RedeemModal } from "./components/RedeemModal";
 import { useAdventCalendar } from "./hooks/useAdventCalendar";
+import { ADVENT_REWARDS } from "./mockRewards";
+
+// Preload 3D assets for smoother experience
+ADVENT_REWARDS.forEach((reward) => {
+  if ((reward.type === "cosmetic" || reward.type === "emote") && reward.assetId) {
+    useGLTF.preload(`/${reward.assetId}`);
+  }
+});
 
 export function AdventCalendarTab() {
   const {
