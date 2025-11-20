@@ -1,12 +1,28 @@
-export interface AdventReward {
-  day: number;
-  reward: string;
-}
+import { AdventReward } from "./types";
 
-export const ADVENT_REWARDS: AdventReward[] = Array.from({ length: 24 }, (_, index) => {
-  const day = index + 1;
-  return {
-    day,
-    reward: `Belohnung ${day}`,
-  };
-});
+export const ADVENT_REWARDS: AdventReward[] = [
+  { day: 1, type: "coins", value: 20, label: "20 Coins" },
+  { day: 2, type: "discount", value: "10%", label: "10% Rabatt", description: "Auf alles im Shop" },
+  { day: 3, type: "coins", value: 30, label: "30 Coins" },
+  { day: 4, type: "nrc_plus", value: "3d", label: "3 Tage NRC+" },
+  { day: 5, type: "coins", value: 15, label: "15 Coins" },
+  { day: 6, type: "emote", value: "nikolaus", label: "Nikolaus Emote", assetId: "wings1.gltf" },
+  { day: 7, type: "discount", value: "15%", label: "15% Rabatt", description: "Auf alles im Shop" },
+  { day: 8, type: "coins", value: 25, label: "25 Coins" },
+  { day: 9, type: "coins", value: 20, label: "20 Coins" },
+  { day: 10, type: "discount", value: "10%", label: "10% Rabatt", description: "Auf alles im Shop" },
+  { day: 11, type: "nrc_plus", value: "3d", label: "3 Tage NRC+" },
+  { day: 12, type: "coins", value: 30, label: "30 Coins" },
+  { day: 13, type: "discount", value: "20%", label: "20% Rabatt", description: "Auf einen Artikel deiner Wahl" },
+  { day: 14, type: "coins", value: 5, label: "5 Coins" },
+  { day: 15, type: "discount", value: "10%", label: "10% Rabatt", description: "Auf alles im Shop" },
+  { day: 16, type: "coins", value: 20, label: "20 Coins" },
+  { day: 17, type: "discount", value: "25%", label: "25% Rabatt", description: "Auf einen Artikel deiner Wahl" },
+  { day: 18, type: "nrc_plus", value: "3d", label: "3 Tage NRC+" },
+  { day: 19, type: "coins", value: 10, label: "10 Coins" },
+  { day: 20, type: "discount", value: "15%", label: "15% Rabatt", description: "Auf alles im Shop" },
+  { day: 21, type: "coins", value: 25, label: "25 Coins" },
+  { day: 22, type: "discount", value: "free_300", label: "Gratis Cosmetic", description: "Beim Kauf ab 300 Coins" },
+  { day: 23, type: "discount", value: "free_500", label: "Gratis Cosmetic", description: "Beim Kauf ab 500 Coins" },
+  { day: 24, type: "cosmetic", value: "amethyst_halo", label: "Amethyst Halo", assetId: "amethyst_halo.geo.gltf" },
+];

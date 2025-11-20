@@ -5,6 +5,9 @@ import { Button } from "../../../components/ui/buttons/Button";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { createRadiusStyle } from "../../../components/ui/design-system";
 import type { RedeemFeedback } from "../types";
+import { CoinRain } from "./animations/CoinRain";
+import { Confetti } from "./animations/Confetti";
+import { CosmeticPreview } from "./animations/CosmeticPreview";
 
 interface RedeemModalProps {
   feedback: RedeemFeedback | null;
@@ -104,6 +107,37 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const borderRadius = useThemeStore((state) => state.borderRadius);
 
+  const renderFullScreenAnimation = () => {
+    if (!feedback) return null;
+    if (feedback.reward.type === "coins") {
+      return <CoinRain />;
+    }
+    if (["discount", "nrc_plus", "free_300", "free_500"].includes(feedback.reward.type)) {
+      return <Confetti />;
+    }
+    return null;
+  };
+
+  const renderRewardVisual = () => {
+    if (!feedback) return null;
+    
+    if ((feedback.reward.type === "cosmetic" || feedback.reward.type === "emote") && feedback.reward.assetId) {
+      return (
+        <div className="w-full h-64 -my-4">
+          <CosmeticPreview modelPath={`/${feedback.reward.assetId}`} />
+        </div>
+      );
+    }
+
+    return (
+      <Icon
+        icon="solar:gift-bold"
+        className="w-24 h-24 drop-shadow-[0_6px_20px_rgba(0,0,0,0.5)]"
+        style={{ color: accentColor.value }}
+      />
+    );
+  };
+
   return (
     <AnimatePresence mode="wait">
       {feedback && (
@@ -117,8 +151,9 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
             backgroundColor: "rgba(0, 0, 0, 0.75)",
           }}
         >
+          {renderFullScreenAnimation()}
           <motion.div
-            className="relative max-w-md w-full"
+            className="relative max-w-md w-full z-20"
             variants={modalVariants}
             onClick={(e) => e.stopPropagation()}
             style={{ perspective: "1200px" }}
@@ -147,7 +182,7 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
 
               <div className="relative flex flex-col items-center gap-5 z-10">
                 <motion.div
-                  className="relative"
+                  className="relative flex items-center justify-center"
                   variants={iconVariants}
                   initial="hidden"
                   animate="visible"
@@ -178,11 +213,7 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
                     />
                   ))}
                   
-                  <Icon
-                    icon="solar:gift-bold"
-                    className="w-24 h-24 drop-shadow-[0_6px_20px_rgba(0,0,0,0.5)]"
-                    style={{ color: accentColor.value }}
-                  />
+                  {renderRewardVisual()}
                 </motion.div>
 
                 <motion.div 
@@ -216,9 +247,14 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
                   exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.35 } }}
                   transition={{ delay: 0.4, duration: 0.35 }}
                 >
-                  <span className="font-minecraft-ten text-lg text-white normal-case leading-relaxed">
-                    {feedback.reward}
+                  <span className="font-minecraft-ten text-lg text-white normal-case leading-relaxed block">
+                    {feedback.reward.label}
                   </span>
+                  {feedback.reward.description && (
+                    <span className="text-sm text-white/60 block mt-1 font-sans">
+                      {feedback.reward.description}
+                    </span>
+                  )}
                 </motion.div>
               </div>
 

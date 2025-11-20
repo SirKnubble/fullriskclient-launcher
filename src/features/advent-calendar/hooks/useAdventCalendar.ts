@@ -92,17 +92,24 @@ export function useAdventCalendar(): AdventCalendarState {
   }, []); // Empty dependency array so it only shuffles once
 
   const doors = useMemo<AdventDoor[]>(() => {
-    const rewardMap = new Map(ADVENT_REWARDS.map((reward) => [reward.day, reward.reward]));
+    const rewardMap = new Map(ADVENT_REWARDS.map((reward) => [reward.day, reward]));
     const year = currentDate.getFullYear();
 
     return shuffledOrder.map((day) => {
-      const reward = rewardMap.get(day) ?? `Belohnung ${day}`;
+      const reward = rewardMap.get(day);
+      if (!reward) throw new Error(`No reward found for day ${day}`);
+      
       const availableOn = createAvailableDate(year, day);
       const availableOnLabel = formatAvailableDate(availableOn);
 
       let status: AdventDoor["status"];
       if (openedDays.includes(day)) {
         status = "opened";
+      } else {
+        // FOR TESTING: Make all unopened doors available
+        status = "available";
+      }
+      /* Original logic:
       } else if (day === currentDay) {
         status = "available";
       } else if (day < currentDay) {
@@ -110,6 +117,7 @@ export function useAdventCalendar(): AdventCalendarState {
       } else {
         status = "locked";
       }
+      */
 
       return {
         day,
@@ -127,17 +135,19 @@ export function useAdventCalendar(): AdventCalendarState {
 
   const openDoor = useCallback(
     (day: number) => {
+      // FOR TESTING: Allow opening any door
+      /*
       if (day !== currentDay) {
         return;
       }
+      */
 
       if (openedDays.includes(day)) {
         return;
       }
 
-      const reward =
-        ADVENT_REWARDS.find((entry) => entry.day === day)?.reward ??
-        `Belohnung ${day}`;
+      const reward = ADVENT_REWARDS.find((entry) => entry.day === day);
+      if (!reward) return;
 
       setOpenedDays((previous) =>
         Array.from(new Set([...previous, day])).sort((a, b) => a - b),
