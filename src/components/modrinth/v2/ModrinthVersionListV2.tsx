@@ -87,7 +87,6 @@ interface ModrinthVersionListV2Props {
     sha1Hash: string,
   ) => void;
   isProjectBlocked?: boolean; // Deprecated, use projectNoRiskStatus instead
-  projectNoRiskStatus?: 'blocked' | 'warning' | null; // Deprecated, use projectNoRiskStatus instead
   projectNoRiskStatus?: 'blocked' | 'warning' | null;
 }
 
