@@ -194,7 +194,9 @@ export function ColorPickerModal({ onClose, onColorSelected }: ColorPickerModalP
               <div
                 className="absolute inset-0 rounded-lg"
                 style={{
-                  background: 'linear-gradient(to right, white, transparent), linear-gradient(to top, black, transparent)'
+                  background:
+                      "linear-gradient(to top, rgb(0, 0, 0), rgba(0, 0, 0, 0)), " +
+                      "linear-gradient(to right, rgb(255, 255, 255), rgba(255, 255, 255, 0))"
                 }}
               />
               {/* Color indicator */}
