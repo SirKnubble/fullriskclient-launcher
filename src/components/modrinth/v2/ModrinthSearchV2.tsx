@@ -10,7 +10,7 @@ import type {
   UnifiedVersion
 } from '../../../types/unified';
 import { ModPlatform, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
-import { getBlockedModsConfig, isModBlockedByNoRisk, getModNoRiskStatus } from '../../../services/flagsmith-service';
+import { getBlockedModsConfig, getModNoRiskStatus } from '../../../services/flagsmith-service';
 import type {
   ModrinthProjectType,
   ModrinthSearchResponse,
