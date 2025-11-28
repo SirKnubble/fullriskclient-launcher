@@ -73,13 +73,13 @@ function Snowflake({ delay, duration, x, size, opacity, rotation }: SnowflakePro
 
 export function Snowfall() {
   const snowflakes = useMemo(() => {
-    return Array.from({ length: 60 }, (_, i) => ({
+    return Array.from({ length: 120 }, (_, i) => ({
       id: i,
-      delay: Math.random() * 15,
-      duration: Math.random() * 12 + 18,
+      delay: Math.random() * 10,
+      duration: Math.random() * 10 + 14,
       x: Math.random() * 100,
-      size: Math.random() * 25 + 12,
-      opacity: Math.random() * 0.5 + 0.3,
+      size: Math.random() * 22 + 10,
+      opacity: Math.random() * 0.6 + 0.25,
       rotation: Math.random() * 360,
     }));
   }, []);
