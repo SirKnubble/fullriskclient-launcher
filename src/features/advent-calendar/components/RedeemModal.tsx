@@ -112,7 +112,7 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
     if (feedback.reward.type === "coins") {
       return <CoinRain />;
     }
-    if (["discount", "nrc_plus", "free_300", "free_500"].includes(feedback.reward.type)) {
+    if (["discount", "nrc_plus", "free_300", "free_500", "theme"].includes(feedback.reward.type)) {
       return <Confetti />;
     }
     return null;
@@ -120,11 +120,37 @@ export function RedeemModal({ feedback, onDismiss }: RedeemModalProps) {
 
   const renderRewardVisual = () => {
     if (!feedback) return null;
-    
+
     if ((feedback.reward.type === "cosmetic" || feedback.reward.type === "emote") && feedback.reward.assetId) {
       return (
         <div className="w-full h-64 -my-4">
           <CosmeticPreview modelPath={`/${feedback.reward.assetId}`} />
+        </div>
+      );
+    }
+
+    // Theme reward - show preview image
+    if (feedback.reward.type === "theme" && feedback.reward.previewImage) {
+      return (
+        <div className="w-full max-w-sm -my-2">
+          <div
+            className="relative w-full aspect-video rounded-xl overflow-hidden shadow-2xl"
+            style={{
+              boxShadow: `0 8px 32px ${accentColor.value}40, 0 0 0 2px ${accentColor.value}30`,
+            }}
+          >
+            <img
+              src={feedback.reward.previewImage}
+              alt={feedback.reward.label}
+              className="w-full h-full object-cover"
+            />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `linear-gradient(135deg, ${accentColor.value}20 0%, transparent 50%, ${accentColor.value}10 100%)`,
+              }}
+            />
+          </div>
         </div>
       );
     }

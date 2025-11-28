@@ -1,6 +1,6 @@
 export type AdventDoorStatus = "locked" | "available" | "opened";
 
-export type RewardType = "coins" | "cosmetic" | "emote" | "discount" | "nrc_plus" | "icon";
+export type RewardType = "coins" | "cosmetic" | "emote" | "discount" | "nrc_plus" | "icon" | "theme";
 
 export interface AdventReward {
   day: number;
@@ -9,6 +9,8 @@ export interface AdventReward {
   label: string;
   description?: string;
   assetId?: string; // For cosmetics/emotes/icons
+  themeId?: string; // For theme rewards
+  previewImage?: string; // For theme preview image
 }
 
 export interface AdventDoor {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ADVENT_REWARDS } from "../mockRewards";
 import type { AdventDoor, RedeemFeedback } from "../types";
+import { useLauncherThemeStore } from "../../../store/launcher-theme-store";
 
 const TOTAL_DOORS = ADVENT_REWARDS.length;
 
@@ -45,11 +46,12 @@ export interface AdventCalendarState {
 
 export function useAdventCalendar(): AdventCalendarState {
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  
+
   // For development/testing: Use day 1 if not December, otherwise use actual day
   const currentDay = currentDate.getMonth() === 11 ? clampDay(currentDate.getDate()) : 1;
 
-  const [openedDays, setOpenedDays] = useState<number[]>(() => []);
+  const { openedAdventDoors, markAdventDoorOpened } = useLauncherThemeStore();
+  const openedDays = openedAdventDoors;
 
   const [recentlyOpenedDay, setRecentlyOpenedDay] = useState<number | null>(
     null,
@@ -149,13 +151,11 @@ export function useAdventCalendar(): AdventCalendarState {
       const reward = ADVENT_REWARDS.find((entry) => entry.day === day);
       if (!reward) return;
 
-      setOpenedDays((previous) =>
-        Array.from(new Set([...previous, day])).sort((a, b) => a - b),
-      );
+      markAdventDoorOpened(day);
       setRecentlyOpenedDay(day);
       setFeedback({ day, reward });
     },
-    [currentDay, openedDays],
+    [currentDay, openedDays, markAdventDoorOpened],
   );
 
   const dismissFeedback = useCallback(() => {
