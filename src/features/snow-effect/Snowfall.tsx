@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
+import { useSnowEffectStore } from "../../store/snow-effect-store";
 
 interface SnowflakeProps {
   delay: number;
@@ -72,8 +73,12 @@ function Snowflake({ delay, duration, x, size, opacity, rotation }: SnowflakePro
 }
 
 export function Snowfall() {
+  const { snowIntensity } = useSnowEffectStore();
+
+  const snowflakeCount = Math.round(20 + (snowIntensity / 100) * 180);
+
   const snowflakes = useMemo(() => {
-    return Array.from({ length: 120 }, (_, i) => ({
+    return Array.from({ length: snowflakeCount }, (_, i) => ({
       id: i,
       delay: Math.random() * 10,
       duration: Math.random() * 10 + 14,
@@ -82,7 +87,7 @@ export function Snowfall() {
       opacity: Math.random() * 0.6 + 0.25,
       rotation: Math.random() * 360,
     }));
-  }, []);
+  }, [snowflakeCount]);
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-50">
