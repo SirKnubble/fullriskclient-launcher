@@ -97,7 +97,7 @@ export function SettingsTab() {
   const { confirm, confirmDialog } = useConfirmDialog();
   const { showModal, hideModal } = useGlobalModal();
   
-  const { isEnabled: isSnowEnabled, toggleSnowEffect } = useSnowEffectStore();
+  const { isEnabled: isSnowEnabled, toggleSnowEffect, snowIntensity, setSnowIntensity } = useSnowEffectStore();
   const { isThemeActive } = useLauncherTheme();
 
   const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
@@ -395,6 +395,20 @@ export function SettingsTab() {
             value: isSnowEnabled,
             onChange: () => toggleSnowEffect(),
           },
+          ...(isSnowEnabled ? [{
+            id: "snow-intensity",
+            label: "Snow Intensity",
+            tooltip: "Adjust how much snow is falling. Higher values mean more snowflakes.",
+            type: "range" as const,
+            value: snowIntensity,
+            onChange: setSnowIntensity,
+            min: 1,
+            max: 100,
+            step: 1,
+            icon: "solar:snowflake-bold",
+            minLabel: "Light",
+            maxLabel: "Heavy",
+          }] : []),
           {
             id: "beta-updates",
             label: "Beta Updates",
