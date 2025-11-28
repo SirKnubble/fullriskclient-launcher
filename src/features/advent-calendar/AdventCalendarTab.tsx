@@ -27,8 +27,8 @@ export function AdventCalendarTab() {
   const availableDoor = doors.find((door) => door.status === "available");
 
   return (
-    <div className="h-full w-full overflow-y-auto px-5 pb-12 pt-6 sm:px-8 custom-scrollbar">
-      <div className="mx-auto flex h-full max-w-7xl flex-col gap-8 pb-32">
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden px-5 pb-12 pt-6 sm:px-8 custom-scrollbar">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 pb-8">
         <AdventCalendarHeader
           currentDay={currentDay}
           currentDate={currentDate}
@@ -37,7 +37,7 @@ export function AdventCalendarTab() {
           availableDoor={availableDoor}
         />
 
-        <section aria-label="Adventskalender Türchen" className="flex-1">
+        <section aria-label="Adventskalender Türchen">
           <AdventCalendarGrid doors={doors} onOpenDoor={openDoor} />
         </section>
       </div>

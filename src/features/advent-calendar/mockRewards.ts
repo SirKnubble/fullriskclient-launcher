@@ -1,7 +1,7 @@
 import { AdventReward } from "./types";
 
 export const ADVENT_REWARDS: AdventReward[] = [
-  { day: 1, type: "coins", value: 20, label: "20 Coins" },
+  { day: 1, type: "theme", value: "christmas", label: "Christmas Theme", description: "Unlock the festive Christmas launcher theme", themeId: "christmas", previewImage: "/launcher_theme.png" },
   { day: 2, type: "discount", value: "10%", label: "10% Rabatt", description: "Auf alles im Shop" },
   { day: 3, type: "coins", value: 30, label: "30 Coins" },
   { day: 4, type: "nrc_plus", value: "3d", label: "3 Tage NRC+" },
