@@ -9,25 +9,29 @@ import { useThemeStore } from "../../store/useThemeStore";
 import type { Reward } from "../../types/advent";
 import { CosmeticPreview } from "./CosmeticPreview";
 import { getOrDownloadAssetModel } from "../../services/assets-service";
+import { LAUNCHER_THEMES } from "../../store/launcher-theme-store";
 
 interface AdventRewardModalProps {
   isOpen: boolean;
   onClose: () => void;
   day: number;
   reward: Reward | null;
+  shopItemName?: string | null;
+  shopItemModelUrl?: string | null;
   isLoading?: boolean;
 }
 
-function RewardDisplay({ reward }: { reward: Reward }) {
+function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Reward; shopItemName?: string | null; shopItemModelUrl?: string | null }) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const [themeImageError, setThemeImageError] = useState(false);
 
   useEffect(() => {
     if (reward?.type === "ShopItem") {
       setIsLoadingModel(true);
-      // Hardcoded URL for amethyst_halo
-      const cdnUrl = "https://cdn.norisk.gg/misc/fivehead.gltf";
+      // Use shopItemModelUrl if available, otherwise fallback to hardcoded URL
+      const cdnUrl = shopItemModelUrl || "https://cdn.norisk.gg/misc/fivehead.gltf";
       getOrDownloadAssetModel(cdnUrl)
         .then((url) => {
           setModelUrl(url);
@@ -38,7 +42,14 @@ function RewardDisplay({ reward }: { reward: Reward }) {
           setIsLoadingModel(false);
         });
     }
-  }, [reward]);
+  }, [reward, shopItemModelUrl]);
+
+  // Reset theme image error when reward changes
+  useEffect(() => {
+    if (reward?.type === "Theme") {
+      setThemeImageError(false);
+    }
+  }, [reward?.type === "Theme" ? reward.themeId : null]);
 
   const renderReward = () => {
     switch (reward.type) {
@@ -85,7 +96,7 @@ function RewardDisplay({ reward }: { reward: Reward }) {
             </div>
             <div className="text-center">
               <p className="font-minecraft-ten text-xl text-white mb-1">
-                Shop Item
+                {shopItemName || "Shop Item"}
               </p>
               <p className="font-minecraft-ten text-white/60 text-sm">
                 {reward.duration
@@ -148,6 +159,9 @@ function RewardDisplay({ reward }: { reward: Reward }) {
               <p className="font-minecraft-ten text-white/60 text-sm">
                 Valid until {new Date(reward.endTimestamp).toLocaleDateString()}
               </p>
+              <p className="font-minecraft-ten text-white/60 text-sm mt-1">
+                Redeemable once for your next in-game purchase
+              </p>
             </div>
           </div>
         );
@@ -180,26 +194,52 @@ function RewardDisplay({ reward }: { reward: Reward }) {
         );
 
       case "Theme":
+        const theme = LAUNCHER_THEMES[reward.themeId];
+        const themeImage = theme?.backgroundImage;
+        console.log("[AdventRewardModal] Theme reward:", { themeId: reward.themeId, theme, themeImage, themeImageError });
+        
         return (
           <div className="flex flex-col items-center gap-4">
             <div
-              className="w-24 h-24 rounded-lg flex items-center justify-center border-2"
+              className="w-full h-64 rounded-lg flex items-center justify-center border-2 overflow-hidden relative"
               style={{
                 backgroundColor: `${accentColor.value}20`,
                 borderColor: accentColor.value,
+                minHeight: '256px',
               }}
             >
-              <Icon
-                icon="solar:palette-bold"
-                className="w-16 h-16"
-                style={{ color: accentColor.value }}
-              />
+              {themeImage && !themeImageError ? (
+                <img
+                  src={themeImage}
+                  alt={theme?.name || reward.themeId}
+                  className="w-full h-full object-cover"
+                  style={{ display: 'block' }}
+                  onError={(e) => {
+                    console.error("[AdventRewardModal] Failed to load theme image:", themeImage, e);
+                    setThemeImageError(true);
+                  }}
+                  onLoad={() => {
+                    console.log("[AdventRewardModal] Theme image loaded successfully:", themeImage);
+                  }}
+                />
+              ) : (
+                <Icon
+                  icon="solar:palette-bold"
+                  className="w-16 h-16"
+                  style={{ color: accentColor.value }}
+                />
+              )}
             </div>
             <div className="text-center">
               <p className="font-minecraft-ten text-xl text-white mb-1">
-                Theme Unlocked
+                {theme?.name || "Theme Unlocked"}
               </p>
-              <p className="font-minecraft-ten text-white/60 text-sm">Theme ID: {reward.themeId}</p>
+              {!theme && (
+                <p className="font-minecraft-ten text-white/60 text-sm mb-1">Theme ID: {reward.themeId}</p>
+              )}
+              <p className="font-minecraft-ten text-white/60 text-sm">
+                You can apply this theme in Settings/Background
+              </p>
             </div>
           </div>
         );
@@ -342,6 +382,8 @@ export function AdventRewardModal({
   onClose,
   day,
   reward,
+  shopItemName,
+  shopItemModelUrl,
   isLoading = false,
 }: AdventRewardModalProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -404,7 +446,7 @@ export function AdventRewardModal({
             >
               <CoinRain isActive={showCoinRain} />
               {reward ? (
-                <RewardDisplay reward={reward} />
+                <RewardDisplay reward={reward} shopItemName={shopItemName} shopItemModelUrl={shopItemModelUrl} />
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 gap-4">
                   <Icon

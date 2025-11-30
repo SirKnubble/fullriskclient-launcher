@@ -14,9 +14,9 @@ export interface LauncherTheme {
 }
 
 export const LAUNCHER_THEMES: Record<string, LauncherTheme> = {
-  christmas: {
-    id: "christmas",
-    name: "Christmas",
+  christmas_theme: {
+    id: "christmas_theme",
+    name: "Christmas Theme",
     accentColor: {
       name: "Christmas Blue",
       value: "#4A90D9",
@@ -26,7 +26,7 @@ export const LAUNCHER_THEMES: Record<string, LauncherTheme> = {
       shadowValue: "rgba(74, 144, 217, 0.5)",
       isCustom: true,
     },
-    backgroundImage: "/themes/xmas_theme.png",
+    backgroundImage: "/themes/christmas_theme.png",
     unlockRequirement: {
       type: "advent-door",
       day: 1,
