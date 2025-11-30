@@ -109,7 +109,7 @@ use commands::vanilla_cape_command::{
 };
 
 // Import NRC commands
-use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command};
+use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command, get_advent_calendar_command, claim_advent_calendar_day_command};
 
 // Import Content commands
 use commands::content_command::{
@@ -521,6 +521,8 @@ async fn main() {
             commands::flagsmith_commands::refresh_blocked_mods_config,
             commands::nrc_commands::get_mobile_app_token,
             commands::nrc_commands::reset_mobile_app_token,
+            commands::nrc_commands::get_advent_calendar_command,
+            commands::nrc_commands::claim_advent_calendar_day_command,
             get_capes_by_hashes,
             get_owned_vanilla_capes,
             get_currently_equipped_vanilla_cape,
