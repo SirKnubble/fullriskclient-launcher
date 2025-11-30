@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
@@ -200,11 +200,70 @@ function RewardDisplay({ reward }: { reward: Reward }) {
   return <div className="py-6">{renderReward()}</div>;
 }
 
+function DoorAnimation({ 
+  isOpen, 
+  onAnimationComplete 
+}: { 
+  isOpen: boolean; 
+  onAnimationComplete: () => void;
+}) {
+  useEffect(() => {
+    if (isOpen) {
+      // Trigger callback after door animation completes (initial delay + animation duration + buffer)
+      const timer = setTimeout(() => {
+        onAnimationComplete();
+      }, 2000); // 1s initial delay + 0.8s animation + 0.2s buffer
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onAnimationComplete]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center z-20"
+          style={{ 
+            perspective: "1200px",
+            perspectiveOrigin: "center center",
+          }}
+          initial={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.1, delay: 0 }}
+        >
+          <motion.div
+            className="flex items-center justify-center"
+            initial={{ rotateY: 0, scale: 0.4, x: "25%" }}
+            animate={{ rotateY: -90, scale: 0.4, x: "25%" }}
+            transition={{
+              duration: 0.8,
+              delay: 1, // Initial delay before door opens
+              ease: [0.25, 0.46, 0.45, 0.94], // Custom easing for smooth door swing
+            }}
+            style={{
+              transformStyle: "preserve-3d",
+              transformOrigin: "left center",
+            }}
+          >
+            <img
+              src="/mc_door.png"
+              alt="Door"
+              className="max-w-[60%] max-h-[60%] object-contain"
+              style={{
+                imageRendering: "pixelated", // Keep pixel art crisp
+              }}
+            />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function CoinRain({ isActive }: { isActive: boolean }) {
   const coins = useMemo(() => {
     return Array.from({ length: 30 }, (_, i) => ({
       id: i,
-      x: Math.random() * 100,
+      x: Math.random() * 80 + 10, // Keep coins away from edges (10% to 90%)
       delay: Math.random() * 2,
       duration: Math.random() * 2 + 3,
       rotation: Math.random() * 180,
@@ -215,20 +274,20 @@ function CoinRain({ isActive }: { isActive: boolean }) {
   if (!isActive) return null;
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    <div className="absolute inset-0 pointer-events-none z-0" style={{ overflow: "visible" }}>
       {coins.map((coin) => (
         <motion.div
           key={coin.id}
           className="absolute"
           initial={{
-            top: "-10%",
+            top: "-5%",
             left: `${coin.x}%`,
             opacity: 0,
             rotate: coin.rotation,
             scale: 0.5,
           }}
           animate={{
-            top: "110%",
+            top: "105%",
             opacity: [0, 1, 1, 0],
             rotate: coin.rotation + 180,
             scale: [0.5, 1, 1, 0.8],
@@ -243,6 +302,7 @@ function CoinRain({ isActive }: { isActive: boolean }) {
             width: coin.size,
             height: coin.size,
             filter: "drop-shadow(0 0 4px rgba(255, 215, 0, 0.8))",
+            marginLeft: `-${coin.size / 2}px`, // Center coins horizontally
           }}
         >
           <img
@@ -265,6 +325,28 @@ export function AdventRewardModal({
 }: AdventRewardModalProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const showCoinRain = isOpen && reward?.type === "Coins" && !isLoading;
+  const [doorAnimationComplete, setDoorAnimationComplete] = useState(false);
+
+  const handleDoorAnimationComplete = () => {
+    setDoorAnimationComplete(true);
+  };
+
+  // Reset door animation when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDoorAnimationComplete(false);
+    }
+  }, [isOpen]);
+
+  // Reset door animation when loading starts
+  useEffect(() => {
+    if (isLoading) {
+      setDoorAnimationComplete(false);
+    }
+  }, [isLoading]);
+
+  // Show door animation while loading or until door opens
+  const showDoorAnimation = isLoading || (isOpen && !doorAnimationComplete && !!reward);
 
   return (
     <Modal
@@ -278,33 +360,42 @@ export function AdventRewardModal({
       }
       onClose={onClose}
       width="lg"
+      contentClassName="no-scrollbar"
     >
-      <div className="p-6 min-h-[300px] flex flex-col justify-center relative overflow-hidden">
-        <CoinRain isActive={showCoinRain} />
-        <div className="relative z-10">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <div className="animate-spin">
-                <Icon
-                  icon="solar:refresh-bold"
-                  className="w-12 h-12"
-                  style={{ color: accentColor.value }}
-                />
-              </div>
-              <p className="font-minecraft-ten text-white/70">Claiming reward...</p>
-            </div>
-          ) : reward ? (
-            <RewardDisplay reward={reward} />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <Icon
-                icon="solar:info-circle-bold"
-                className="w-12 h-12 text-white/50"
-              />
-              <p className="font-minecraft-ten text-white/70">No reward available</p>
-            </div>
-          )}
+      <div className="p-6 min-h-[300px] flex flex-col justify-center relative no-scrollbar" style={{ overflow: "visible" }}>
+        {/* Door Animation - shows while loading or until door opens */}
+        <div className="absolute inset-0 flex items-center justify-center" style={{ top: 0, bottom: 0 }}>
+          <DoorAnimation 
+            isOpen={showDoorAnimation} 
+            onAnimationComplete={handleDoorAnimationComplete}
+          />
         </div>
+        
+        {/* Content - only show after door animation completes and not loading */}
+        <AnimatePresence>
+          {doorAnimationComplete && !isLoading && (
+            <motion.div
+              className="relative z-10 w-full"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <CoinRain isActive={showCoinRain} />
+              {reward ? (
+                <RewardDisplay reward={reward} />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                  <Icon
+                    icon="solar:info-circle-bold"
+                    className="w-12 h-12 text-white/50"
+                  />
+                  <p className="font-minecraft-ten text-white/70">No reward available</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Modal>
   );
