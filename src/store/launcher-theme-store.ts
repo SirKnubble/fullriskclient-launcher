@@ -29,7 +29,7 @@ export const LAUNCHER_THEMES: Record<string, LauncherTheme> = {
     backgroundImage: "/themes/christmas_theme.png",
     unlockRequirement: {
       type: "advent-door",
-      day: 1,
+      day: 2,
     },
   },
 };

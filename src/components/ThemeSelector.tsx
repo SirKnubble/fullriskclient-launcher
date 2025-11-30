@@ -1,21 +1,37 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "../lib/utils";
 import { useLauncherTheme } from "../hooks/useLauncherTheme";
 import { LAUNCHER_THEMES } from "../store/launcher-theme-store";
 import { SimpleTooltip } from "./ui/Tooltip";
+import { getLauncherConfig } from "../services/launcher-config-service";
 
 interface ThemeSelectorProps {
   disabled?: boolean;
 }
 
 export function ThemeSelector({ disabled }: ThemeSelectorProps) {
-  // Debug flag to allow opening themes without unlock
-  const debugFlag = true;
-  
+  const [debugFlag, setDebugFlag] = useState(false);
   const { selectedThemeId, toggleTheme, isThemeUnlocked } = useLauncherTheme();
   const themes = Object.values(LAUNCHER_THEMES);
+
+  // Load launcher config to check experimental mode
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await getLauncherConfig();
+        setDebugFlag(config.is_experimental);
+      } catch (err) {
+        console.error("Failed to load launcher config:", err);
+        // Default to false if config can't be loaded
+        setDebugFlag(false);
+      }
+    };
+
+    loadConfig();
+  }, []);
 
   return (
     <div className="flex flex-wrap gap-3">
