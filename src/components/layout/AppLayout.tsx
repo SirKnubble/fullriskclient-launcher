@@ -24,6 +24,7 @@ import { NebulaLightning } from ".././effects/NebulaLightning";
 import { NebulaLiquidChrome } from ".././effects/NebulaLiquidChrome";
 import { RetroGridEffect } from "../effects/RetroGridEffect";
 import PlainBackground from "../effects/PlainBackground";
+import { Snowfall } from "../../features/snow-effect/Snowfall";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
@@ -295,6 +296,7 @@ export function AppLayout({
 
         <div className="flex-1 relative overflow-hidden">
           {renderBackgroundEffect()}
+          <Snowfall />
 
           <div className="relative z-10 h-full overflow-hidden custom-scrollbar">
             {children}
