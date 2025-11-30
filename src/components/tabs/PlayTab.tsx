@@ -12,6 +12,7 @@ import {
   BACKGROUND_EFFECTS,
   useBackgroundEffectStore,
 } from "../../store/background-effect-store";
+import { SnowEffectToggle } from "../ui/SnowEffectToggle";
 
 export function PlayTab() {
   const {
@@ -58,6 +59,11 @@ export function PlayTab() {
             customGridLineColor={`${accentColor.value}80`}
           />
         )}
+
+        {/* Snow Effect Toggle - Top Right */}
+        <div className="absolute top-6 right-6 z-20">
+          <SnowEffectToggle variant="compact" size="sm" />
+        </div>
 
         {/* <VersionInfo
           profileId={currentDisplayProfile?.id || ""}
