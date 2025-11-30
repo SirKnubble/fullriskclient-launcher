@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
 import { Icon } from "@iconify/react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
@@ -24,16 +25,16 @@ function RewardDisplay({ reward }: { reward: Reward }) {
         return (
           <div className="flex flex-col items-center gap-4">
             <div
-              className="w-24 h-24 rounded-lg flex items-center justify-center border-2"
+              className="w-24 h-24 rounded-lg flex items-center justify-center border-2 overflow-hidden"
               style={{
                 backgroundColor: `${accentColor.value}20`,
                 borderColor: accentColor.value,
               }}
             >
-              <Icon
-                icon="solar:coins-bold"
-                className="w-16 h-16"
-                style={{ color: accentColor.value }}
+              <img
+                src="/coins.png"
+                alt="Coins"
+                className="w-full h-full object-contain"
               />
             </div>
             <div className="text-center">
@@ -199,6 +200,62 @@ function RewardDisplay({ reward }: { reward: Reward }) {
   return <div className="py-6">{renderReward()}</div>;
 }
 
+function CoinRain({ isActive }: { isActive: boolean }) {
+  const coins = useMemo(() => {
+    return Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 2,
+      duration: Math.random() * 2 + 3,
+      rotation: Math.random() * 180,
+      size: Math.random() * 20 + 16,
+    }));
+  }, []);
+
+  if (!isActive) return null;
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      {coins.map((coin) => (
+        <motion.div
+          key={coin.id}
+          className="absolute"
+          initial={{
+            top: "-10%",
+            left: `${coin.x}%`,
+            opacity: 0,
+            rotate: coin.rotation,
+            scale: 0.5,
+          }}
+          animate={{
+            top: "110%",
+            opacity: [0, 1, 1, 0],
+            rotate: coin.rotation + 180,
+            scale: [0.5, 1, 1, 0.8],
+          }}
+          transition={{
+            duration: coin.duration,
+            delay: coin.delay,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          style={{
+            width: coin.size,
+            height: coin.size,
+            filter: "drop-shadow(0 0 4px rgba(255, 215, 0, 0.8))",
+          }}
+        >
+          <img
+            src="/coin.png"
+            alt="Coin"
+            className="w-full h-full object-contain"
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 export function AdventRewardModal({
   isOpen,
   onClose,
@@ -207,6 +264,7 @@ export function AdventRewardModal({
   isLoading = false,
 }: AdventRewardModalProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
+  const showCoinRain = isOpen && reward?.type === "Coins" && !isLoading;
 
   return (
     <Modal
@@ -221,29 +279,32 @@ export function AdventRewardModal({
       onClose={onClose}
       width="lg"
     >
-      <div className="p-6 min-h-[300px] flex flex-col justify-center">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <div className="animate-spin">
-              <Icon
-                icon="solar:refresh-bold"
-                className="w-12 h-12"
-                style={{ color: accentColor.value }}
-              />
+      <div className="p-6 min-h-[300px] flex flex-col justify-center relative overflow-hidden">
+        <CoinRain isActive={showCoinRain} />
+        <div className="relative z-10">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <div className="animate-spin">
+                <Icon
+                  icon="solar:refresh-bold"
+                  className="w-12 h-12"
+                  style={{ color: accentColor.value }}
+                />
+              </div>
+              <p className="font-minecraft-ten text-white/70">Claiming reward...</p>
             </div>
-            <p className="font-minecraft-ten text-white/70">Claiming reward...</p>
-          </div>
-        ) : reward ? (
-          <RewardDisplay reward={reward} />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <Icon
-              icon="solar:info-circle-bold"
-              className="w-12 h-12 text-white/50"
-            />
-            <p className="font-minecraft-ten text-white/70">No reward available</p>
-          </div>
-        )}
+          ) : reward ? (
+            <RewardDisplay reward={reward} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Icon
+                icon="solar:info-circle-bold"
+                className="w-12 h-12 text-white/50"
+              />
+              <p className="font-minecraft-ten text-white/70">No reward available</p>
+            </div>
+          )}
+        </div>
       </div>
     </Modal>
   );
