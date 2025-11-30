@@ -14,17 +14,18 @@ interface AdventDoorProps {
   day: number;
   status: AdventCalendarDayStatus;
   reward: Reward | null;
+  shopItemName?: string | null;
   onOpen: (day: number) => void;
 }
 
-function getRewardShortLabel(reward: Reward | null): string {
+function getRewardShortLabel(reward: Reward | null, shopItemName?: string | null): string {
   if (!reward) return "Opened";
   
   switch (reward.type) {
     case "Coins":
       return `${reward.amount} Coins`;
     case "ShopItem":
-      return "Shop Item";
+      return shopItemName || "Shop Item";
     case "RandomShopItem":
       return `Random ${reward.itemType}`;
     case "Discount":
@@ -38,7 +39,7 @@ function getRewardShortLabel(reward: Reward | null): string {
   }
 }
 
-function AdventDoor({ day, status, reward, onOpen }: AdventDoorProps) {
+function AdventDoor({ day, status, reward, shopItemName, onOpen }: AdventDoorProps) {
   const [isHovered, setIsHovered] = useState(false);
   const accentColor = useThemeStore((state) => state.accentColor);
   
@@ -53,7 +54,7 @@ function AdventDoor({ day, status, reward, onOpen }: AdventDoorProps) {
 
   const isLocked = debugFlag ? false : status === "LOCKED";
   const isOpen = status === "CLAIMED";
-  const rewardLabel = getRewardShortLabel(reward);
+  const rewardLabel = getRewardShortLabel(reward, shopItemName);
 
   return (
     <div
@@ -201,6 +202,8 @@ export function AdventCalendarTab() {
           }}
           day={day}
           reward={dayData.reward}
+          shopItemName={dayData.shopItemName}
+          shopItemModelUrl={dayData.shopItemModelUrl}
           isLoading={false}
         />,
       );
@@ -251,6 +254,8 @@ export function AdventCalendarTab() {
           }}
           day={day}
           reward={claimedDay.reward}
+          shopItemName={claimedDay.shopItemName}
+          shopItemModelUrl={claimedDay.shopItemModelUrl}
           isLoading={false}
         />,
       );
@@ -357,6 +362,7 @@ export function AdventCalendarTab() {
               const dayData = getDayData(day);
               const status = dayData?.status || "LOCKED";
               const reward = dayData?.reward || null;
+              const shopItemName = dayData?.shopItemName || null;
               
               return (
                 <AdventDoor
@@ -364,6 +370,7 @@ export function AdventCalendarTab() {
                   day={day}
                   status={status}
                   reward={reward}
+                  shopItemName={shopItemName}
                   onOpen={() => handleDoorOpen(day)}
                 />
               );
