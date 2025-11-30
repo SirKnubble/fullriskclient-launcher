@@ -160,6 +160,7 @@ export function AdventCalendarTab() {
         setLoading(true);
         setError(null);
         const data = await getAdventCalendar();
+        console.log("Advent calendar data:", data);
         setCalendarData(data);
       } catch (err) {
         console.error("Failed to load advent calendar:", err);
