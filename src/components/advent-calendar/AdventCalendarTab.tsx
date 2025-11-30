@@ -9,6 +9,7 @@ import { AdventRewardModal } from "./AdventRewardModal";
 import { getAdventCalendar, claimAdventCalendarDay } from "../../services/nrc-service";
 import type { Reward, AdventCalendarDay, AdventCalendarDayStatus } from "../../types/advent";
 import { toast } from "react-hot-toast";
+import { getLauncherConfig } from "../../services/launcher-config-service";
 
 interface AdventDoorProps {
   day: number;
@@ -39,20 +40,22 @@ function getRewardShortLabel(reward: Reward | null, shopItemName?: string | null
   }
 }
 
-function AdventDoor({ day, status, reward, shopItemName, onOpen }: AdventDoorProps) {
+interface AdventDoorWithProps extends AdventDoorProps {
+  debugFlag: boolean;
+  canOpenDay: (day: number) => boolean;
+}
+
+function AdventDoor({ day, status, reward, shopItemName, onOpen, debugFlag, canOpenDay }: AdventDoorWithProps) {
   const [isHovered, setIsHovered] = useState(false);
   const accentColor = useThemeStore((state) => state.accentColor);
-  
-  // Debug flag to allow opening all doors
-  const debugFlag = true;
 
   const handleClick = () => {
-    if (debugFlag || status === "AVAILABLE" || status === "CLAIMED") {
+    if (debugFlag || canOpenDay(day) || status === "AVAILABLE" || status === "CLAIMED") {
       onOpen(day);
     }
   };
 
-  const isLocked = debugFlag ? false : status === "LOCKED";
+  const isLocked = debugFlag ? false : (!canOpenDay(day) && status === "LOCKED");
   const isOpen = status === "CLAIMED";
   const rewardLabel = getRewardShortLabel(reward, shopItemName);
 
@@ -146,15 +149,44 @@ function AdventDoor({ day, status, reward, shopItemName, onOpen }: AdventDoorPro
 }
 
 export function AdventCalendarTab() {
-  // Debug flag to allow opening all doors
-  const debugFlag = true;
-  
   const [calendarData, setCalendarData] = useState<AdventCalendarDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [claimingDay, setClaimingDay] = useState<number | null>(null);
+  const [debugFlag, setDebugFlag] = useState(false);
   const { showModal, hideModal } = useGlobalModal();
   const { markAdventDoorOpened } = useLauncherTheme();
+
+  // Get current day in December (1-24)
+  const getCurrentAdventDay = (): number => {
+    const today = new Date();
+    const day = today.getDate();
+    // Clamp to 1-24 for advent calendar
+    return Math.max(1, Math.min(24, day));
+  };
+
+  // Check if a day can be opened (today and last 2 days)
+  const canOpenDay = (day: number): boolean => {
+    const currentDay = getCurrentAdventDay();
+    // Can open: today, yesterday (currentDay - 1), and day before yesterday (currentDay - 2)
+    return day <= currentDay && day >= Math.max(1, currentDay - 2);
+  };
+
+  // Load launcher config to check experimental mode
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await getLauncherConfig();
+        setDebugFlag(config.is_experimental);
+      } catch (err) {
+        console.error("Failed to load launcher config:", err);
+        // Default to false if config can't be loaded
+        setDebugFlag(false);
+      }
+    };
+
+    loadConfig();
+  }, []);
 
   // Load advent calendar data on mount
   useEffect(() => {
@@ -210,8 +242,8 @@ export function AdventCalendarTab() {
       return;
     }
 
-    // If not available and debug flag is off, don't allow opening
-    if (!debugFlag && (!dayData || dayData.status !== "AVAILABLE")) {
+    // If not available and debug flag is off, check if day can be opened (today and last 2 days)
+    if (!debugFlag && (!dayData || dayData.status !== "AVAILABLE") && !canOpenDay(day)) {
       return;
     }
 
@@ -372,6 +404,8 @@ export function AdventCalendarTab() {
                   reward={reward}
                   shopItemName={shopItemName}
                   onOpen={() => handleDoorOpen(day)}
+                  debugFlag={debugFlag}
+                  canOpenDay={canOpenDay}
                 />
               );
             })}
