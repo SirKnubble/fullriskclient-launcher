@@ -195,10 +195,10 @@ export const getAdventCalendar = (): Promise<AdventCalendarDay[]> => {
  * Claims a reward for a specific day in the advent calendar.
  *
  * @param tag The day number (1-24) to claim.
- * @returns A promise that resolves to the claimed Reward.
+ * @returns A promise that resolves to the claimed AdventCalendarDay.
  * @throws If the backend command fails.
  */
-export const claimAdventCalendarDay = (tag: number): Promise<Reward> => {
+export const claimAdventCalendarDay = (tag: number): Promise<AdventCalendarDay> => {
   return invoke('claim_advent_calendar_day_command', { tag });
 };
 

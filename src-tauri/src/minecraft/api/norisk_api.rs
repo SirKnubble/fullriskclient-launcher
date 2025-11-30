@@ -86,6 +86,10 @@ pub struct AdventCalendarDay {
     pub day: i32,
     pub status: AdventCalendarDayStatus,
     pub reward: Option<Reward>,
+    #[serde(rename = "shopItemName")]
+    pub shop_item_name: Option<String>,
+    #[serde(rename = "shopItemModelUrl")]
+    pub shop_item_model_url: Option<String>,
 }
 
 pub struct NoRiskApi;
@@ -760,7 +764,7 @@ impl NoRiskApi {
         tag: u32,
         request_uuid: &str,
         is_experimental: bool,
-    ) -> Result<Reward> {
+    ) -> Result<AdventCalendarDay> {
         let base_url = Self::get_api_base(is_experimental);
         let endpoint = format!("core/advent/claim/{}", tag);
         let url = format!("{}/{}", base_url, endpoint);
@@ -819,7 +823,7 @@ impl NoRiskApi {
         );
 
         debug!("[NoRisk API] Parsing advent calendar claim response body as JSON");
-        serde_json::from_str::<Reward>(&response_text).map_err(|e| {
+        serde_json::from_str::<AdventCalendarDay>(&response_text).map_err(|e| {
             error!("[NoRisk API] Failed to parse advent calendar claim response: {}", e);
             error!("[NoRisk API] Full response body: {}", response_text);
             AppError::ParseError(format!("Failed to parse NoRisk API advent calendar claim response: {}. Response body: {}", e, response_text))
