@@ -231,7 +231,7 @@ export function AdventCalendarTab() {
     );
 
     try {
-      const reward = await claimAdventCalendarDay(day);
+      const claimedDay = await claimAdventCalendarDay(day);
       
       // Mark door as opened in launcher theme store
       markAdventDoorOpened(day);
@@ -240,7 +240,7 @@ export function AdventCalendarTab() {
       const updatedData = await getAdventCalendar();
       setCalendarData(updatedData);
 
-      // Update modal with reward
+      // Update modal with reward (extract reward from AdventCalendarDay)
       showModal(
         modalId,
         <AdventRewardModal
@@ -250,7 +250,7 @@ export function AdventCalendarTab() {
             setClaimingDay(null);
           }}
           day={day}
-          reward={reward}
+          reward={claimedDay.reward}
           isLoading={false}
         />,
       );

@@ -84,5 +84,7 @@ export interface AdventCalendarDay {
   day: number;
   status: AdventCalendarDayStatus;
   reward: Reward | null;
+  shopItemName: string | null;
+  shopItemModelUrl: string | null;
 }
 

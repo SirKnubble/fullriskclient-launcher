@@ -341,7 +341,7 @@ pub async fn get_advent_calendar_command() -> Result<Vec<AdventCalendarDay>, Com
 }
 
 #[tauri::command]
-pub async fn claim_advent_calendar_day_command(tag: u32) -> Result<Reward, CommandError> {
+pub async fn claim_advent_calendar_day_command(tag: u32) -> Result<AdventCalendarDay, CommandError> {
     debug!("Executing claim_advent_calendar_day_command with tag: {}", tag);
     let state = State::get().await?;
     let is_experimental = state.config_manager.is_experimental_mode().await;
