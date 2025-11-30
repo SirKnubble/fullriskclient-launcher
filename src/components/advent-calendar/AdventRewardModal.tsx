@@ -7,6 +7,8 @@ import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Reward } from "../../types/advent";
+import { CosmeticPreview } from "./CosmeticPreview";
+import { getOrDownloadAssetModel } from "../../services/assets-service";
 
 interface AdventRewardModalProps {
   isOpen: boolean;
@@ -18,6 +20,25 @@ interface AdventRewardModalProps {
 
 function RewardDisplay({ reward }: { reward: Reward }) {
   const accentColor = useThemeStore((state) => state.accentColor);
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
+
+  useEffect(() => {
+    if (reward?.type === "ShopItem") {
+      setIsLoadingModel(true);
+      // Hardcoded URL for amethyst_halo
+      const cdnUrl = "https://cdn.norisk.gg/misc/fivehead.gltf";
+      getOrDownloadAssetModel(cdnUrl)
+        .then((url) => {
+          setModelUrl(url);
+          setIsLoadingModel(false);
+        })
+        .catch((error) => {
+          console.error("Failed to load asset model:", error);
+          setIsLoadingModel(false);
+        });
+    }
+  }, [reward]);
 
   const renderReward = () => {
     switch (reward.type) {
@@ -48,19 +69,19 @@ function RewardDisplay({ reward }: { reward: Reward }) {
 
       case "ShopItem":
         return (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 w-full">
             <div
-              className="w-24 h-24 rounded-lg flex items-center justify-center border-2"
-              style={{
-                backgroundColor: `${accentColor.value}20`,
-                borderColor: accentColor.value,
-              }}
+              className="w-full h-96 overflow-hidden"
             >
-              <Icon
-                icon="solar:shop-bold"
-                className="w-16 h-16"
-                style={{ color: accentColor.value }}
-              />
+              {modelUrl && !isLoadingModel ? (
+                <CosmeticPreview modelPath={modelUrl} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-white/50 text-sm font-minecraft-ten">
+                    {isLoadingModel ? "Loading model..." : "Preparing model..."}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="text-center">
               <p className="font-minecraft-ten text-xl text-white mb-1">

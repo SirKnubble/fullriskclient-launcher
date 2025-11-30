@@ -108,6 +108,9 @@ use commands::vanilla_cape_command::{
     get_vanilla_cape_info, refresh_vanilla_cape_data,
 };
 
+// Import Assets commands
+use commands::assets_command::get_or_download_asset_model;
+
 // Import NRC commands
 use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command, get_advent_calendar_command, claim_advent_calendar_day_command};
 
@@ -533,7 +536,8 @@ async fn main() {
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,
             commands::profile_command::get_profile_instance_path,
-            commands::profile_command::get_default_profile_path
+            commands::profile_command::get_default_profile_path,
+            get_or_download_asset_model
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
