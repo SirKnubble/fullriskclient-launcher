@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import { AdventRewardModal } from "./AdventRewardModal";
 import { getAdventCalendar, claimAdventCalendarDay } from "../../services/nrc-service";
 import type { Reward, AdventCalendarDay, AdventCalendarDayStatus } from "../../types/advent";
@@ -152,6 +153,7 @@ export function AdventCalendarTab() {
   const [error, setError] = useState<string | null>(null);
   const [claimingDay, setClaimingDay] = useState<number | null>(null);
   const { showModal, hideModal } = useGlobalModal();
+  const { markAdventDoorOpened } = useLauncherTheme();
 
   // Load advent calendar data on mount
   useEffect(() => {
@@ -230,6 +232,9 @@ export function AdventCalendarTab() {
 
     try {
       const reward = await claimAdventCalendarDay(day);
+      
+      // Mark door as opened in launcher theme store
+      markAdventDoorOpened(day);
       
       // Refresh calendar data after claiming
       const updatedData = await getAdventCalendar();

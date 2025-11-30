@@ -25,6 +25,8 @@ import { NebulaLiquidChrome } from ".././effects/NebulaLiquidChrome";
 import { RetroGridEffect } from "../effects/RetroGridEffect";
 import PlainBackground from "../effects/PlainBackground";
 import { Snowfall } from "../../features/snow-effect/Snowfall";
+import { useSnowEffectStore } from "../../store/snow-effect-store";
+import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
@@ -69,6 +71,8 @@ export function AppLayout({
   const { currentEffect } = useBackgroundEffectStore();
   const { qualityLevel } = useQualitySettingsStore();
   const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
+  const { isEnabled: isSnowEnabled } = useSnowEffectStore();
+  const { selectedTheme, isThemeActive } = useLauncherTheme();
 
   const getComplementaryBackground = () => {
     const hexToRgb = (hex: string) => {
@@ -172,6 +176,19 @@ export function AppLayout({
   }, []);
 
   const renderBackgroundEffect = () => {
+    // Show theme background image only on play screen - override all other effects
+    if (isThemeActive && selectedTheme?.backgroundImage && activeTab === "play") {
+      return (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${selectedTheme.backgroundImage})`,
+          }}
+        />
+      );
+    }
+
+    // Regular background effects for other tabs or when no theme background
     switch (currentEffect) {
       case BACKGROUND_EFFECTS.MATRIX_RAIN:
         return (
@@ -296,7 +313,8 @@ export function AppLayout({
 
         <div className="flex-1 relative overflow-hidden">
           {renderBackgroundEffect()}
-          <Snowfall />
+          {/* Snow overlay - independent of theme/background */}
+          {isSnowEnabled && <Snowfall />}
 
           <div className="relative z-10 h-full overflow-hidden custom-scrollbar">
             {children}
