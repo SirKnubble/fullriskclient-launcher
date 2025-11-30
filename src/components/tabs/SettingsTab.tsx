@@ -35,6 +35,8 @@ import { useFlags } from "flagsmith/react";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ColorPickerModal } from "../modals/ColorPickerModal";
+import { ThemeSelector } from "../ThemeSelector";
+import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
@@ -94,6 +96,7 @@ export function SettingsTab() {
 
   const { confirm, confirmDialog } = useConfirmDialog();
   const { showModal, hideModal } = useGlobalModal();
+  const { isThemeActive } = useLauncherTheme();
 
   const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
   const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
@@ -275,9 +278,12 @@ export function SettingsTab() {
     tempConfig &&
     JSON.stringify(config) !== JSON.stringify(tempConfig);
 
+  const isAccentColorDisabled = isThemeActive;
+
   const renderGeneralTab = () => (
     <div className="space-y-6">
       <div>
+      {/* Accent Color Section */}
         <div className="flex items-center gap-2 mb-2">
           <Icon icon="solar:palette-bold" className="w-6 h-6 text-white" />
           <h3 className="text-3xl font-minecraft text-white">
@@ -286,24 +292,35 @@ export function SettingsTab() {
         </div>
         <p className="text-base text-white/70 font-minecraft-ten mt-2">
           Choose your preferred accent color for the launcher
+          {isThemeActive && (
+            <span className="text-white/50 ml-2">(Disabled while a theme is active)</span>
+          )}
         </p>
       </div>
 
       <div className="mt-6 flex items-center gap-6">
         <div className="flex-1">
-          <ColorPicker shape="square" size="md" showCustomOption={false} />
+          <ColorPicker shape="square" size="md" showCustomOption={false} disabled={isAccentColorDisabled} />
         </div>
 
         <button
           onClick={() => {
-            showModal('color-picker-modal',
-              <ColorPickerModal
-                onClose={() => hideModal('color-picker-modal')}
-              />
-            );
+            if (!isAccentColorDisabled) {
+              showModal('color-picker-modal',
+                <ColorPickerModal
+                  onClose={() => hideModal('color-picker-modal')}
+                />
+              );
+            }
           }}
-          className="group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] hover:border-[#ffffff50] transition-all duration-200 cursor-pointer"
-          title="Click to open advanced color picker"
+          className={cn(
+            "group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] transition-all duration-200",
+            isAccentColorDisabled
+              ? "opacity-40 cursor-not-allowed"
+              : "hover:border-[#ffffff50] cursor-pointer"
+          )}
+          title={isAccentColorDisabled ? "Disabled while a theme is active" : "Click to open advanced color picker"}
+          disabled={isAccentColorDisabled}
         >
           <div
             className="w-8 h-8 rounded-md border-2 border-white/20 shadow-lg group-hover:scale-105 transition-transform"
@@ -458,7 +475,24 @@ export function SettingsTab() {
 
   const renderAppearanceTab = () => (
     <div className="space-y-6">
+      {/* Theme Section */}
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Icon icon="solar:star-bold" className="w-6 h-6 text-white" />
+          <h3 className="text-3xl font-minecraft text-white">
+            Theme
+          </h3>
+        </div>
+        <p className="text-base text-white/70 font-minecraft-ten mt-2">
+          Select a theme to customize your launcher's appearance
+        </p>
+      </div>
+      <div className="mt-4">
+        <ThemeSelector />
+      </div>
+
+      {/* Background Effect Section */}
+      <div className="mt-8">
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
