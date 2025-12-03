@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, Suspense, Component, ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, OrbitControls, Center, Resize, Html, Environment, ContactShadows } from "@react-three/drei";
+import { useGLTF, OrbitControls, Center, Resize, Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 
 interface CosmeticPreviewProps {
@@ -82,12 +82,13 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
         <Canvas 
           shadows 
           dpr={[1, 2]} 
-          camera={{ position: [0, 0, 4], fov: 50 }} 
+          camera={{ position: [0, 0, 6], fov: 50 }} 
           gl={{ alpha: true, preserveDrawingBuffer: true }}
         >
-          <ambientLight intensity={0.5} />
-          <Environment preset="city" />
+          <ambientLight intensity={0.6} />
+          <hemisphereLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
+          <directionalLight position={[-10, 5, -5]} intensity={0.5} />
           
           <ErrorBoundary fallback={ErrorFallback}>
             <Suspense fallback={
@@ -106,7 +107,15 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
             </Suspense>
           </ErrorBoundary>
           
-          <OrbitControls autoRotate autoRotateSpeed={4} makeDefault enableZoom={false} />
+          <OrbitControls 
+            autoRotate 
+            autoRotateSpeed={4} 
+            makeDefault 
+            enableZoom={true}
+            minDistance={2}
+            maxDistance={12}
+            zoomSpeed={0.8}
+          />
         </Canvas>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
