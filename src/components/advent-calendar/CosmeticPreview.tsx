@@ -4,13 +4,21 @@ import { useRef, useEffect, useState, Suspense, Component, ReactNode } from "rea
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Center, Resize, Html, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
+import { extendGLTFLoaderForTauri } from "../../utils/tauri-gltf-loader";
+import { logInfo, logError } from "../../utils/logging-utils";
 
 interface CosmeticPreviewProps {
   modelPath: string;
 }
 
 function Model({ modelPath }: { modelPath: string }) {
-  const { scene, animations } = useGLTF(modelPath); 
+  // Extend the loader to handle Tauri asset URLs and relative paths
+  const extendLoader = (loader: any) => {
+    logInfo(`[CosmeticPreview] Extending GLTF loader for model: ${modelPath}`);
+    extendGLTFLoaderForTauri(loader, modelPath);
+  };
+
+  const { scene, animations } = useGLTF(modelPath, false, false, extendLoader); 
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 
   useFrame((state, delta) => {
