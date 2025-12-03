@@ -18,7 +18,8 @@ export function extendGLTFLoaderForTauri(loader: GLTFLoader, baseAssetUrl: strin
   
   try {
     // Try to extract the actual file path from the asset URL
-    const match = baseAssetUrl.match(/asset:\/\/(.+)/) || baseAssetUrl.match(/http:\/\/asset\.localhost\/(.+)/);
+    // Skip the hostname (localhost) part to get just the file path
+    const match = baseAssetUrl.match(/asset:\/\/localhost\/(.+)/) || baseAssetUrl.match(/http:\/\/asset\.localhost\/(.+)/);
     if (match) {
       const encodedPath = match[1];
       baseDirPath = decodeURIComponent(encodedPath);
@@ -66,9 +67,9 @@ export function extendGLTFLoaderForTauri(loader: GLTFLoader, baseAssetUrl: strin
         logDebug(`[TauriGLTFLoader] Resolving relative path: ${url} (base: ${baseDirPath})`);
         
         // Construct the full path
-        // Normalize path separators - use backslash for Windows paths
-        const normalizedBase = baseDirPath.replace(/\//g, '\\');
-        const normalizedUrl = url.replace(/\//g, '\\');
+        // Normalize path separators - use forward slash for consistency (works on all platforms)
+        const normalizedBase = baseDirPath.replace(/\\/g, '/');
+        const normalizedUrl = url.replace(/\\/g, '/');
         const fullPath = normalizedBase + normalizedUrl;
         
         logDebug(`[TauriGLTFLoader] Full path constructed: ${fullPath}`);
