@@ -8,7 +8,7 @@ import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Reward } from "../../types/advent";
 import { CosmeticPreview } from "./CosmeticPreview";
-import { getOrDownloadAssetModel } from "../../services/assets-service";
+import { getOrDownloadAssetModelAsBlob } from "../../services/assets-service";
 import { LAUNCHER_THEMES } from "../../store/launcher-theme-store";
 
 interface AdventRewardModalProps {
@@ -32,7 +32,16 @@ function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Rew
       setIsLoadingModel(true);
       // Use shopItemModelUrl if available, otherwise fallback to hardcoded URL
       const cdnUrl = shopItemModelUrl || "https://cdn.norisk.gg/misc/fivehead.gltf";
-      getOrDownloadAssetModel(cdnUrl)
+      
+      // Cleanup previous blob URL before loading new one
+      setModelUrl((prevUrl) => {
+        if (prevUrl && prevUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return null;
+      });
+
+      getOrDownloadAssetModelAsBlob(cdnUrl)
         .then((url) => {
           setModelUrl(url);
           setIsLoadingModel(false);
@@ -41,8 +50,26 @@ function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Rew
           console.error("Failed to load asset model:", error);
           setIsLoadingModel(false);
         });
+    } else {
+      // Cleanup blob URL when reward is not ShopItem
+      setModelUrl((prevUrl) => {
+        if (prevUrl && prevUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return null;
+      });
+      setIsLoadingModel(false);
     }
   }, [reward, shopItemModelUrl]);
+
+  // Cleanup blob URLs when component unmounts or modelUrl changes
+  useEffect(() => {
+    return () => {
+      if (modelUrl && modelUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(modelUrl);
+      }
+    };
+  }, [modelUrl]);
 
   // Reset theme image error when reward changes
   useEffect(() => {
