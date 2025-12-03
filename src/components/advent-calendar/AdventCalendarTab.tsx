@@ -224,6 +224,9 @@ export function AdventCalendarTab() {
 
     // If already claimed, just show the reward
     if (dayData && dayData.status === "CLAIMED" && dayData.reward) {
+      // Mark door as opened in launcher theme store (hardcoded - always mark when clicked)
+      markAdventDoorOpened(day);
+      
       const modalId = `advent-reward-${day}`;
       showModal(
         modalId,
