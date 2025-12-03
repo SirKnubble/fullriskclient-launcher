@@ -40,9 +40,16 @@
     ],
     "security": {
       "csp": {
-        "default-src": ["'self'", "ipc:", "http://ipc.localhost"],
+        "default-src": [
+          "'self'",
+          "ipc:",
+          "http://ipc.localhost"
+        ],
         "connect-src": [
           "'self'",
+          "asset:",
+          "http://asset.localhost",
+          "data:",
           "https://api.iconify.design",
           "https://*.modrinth.com",
           "https://sessionserver.mojang.com",
@@ -67,7 +74,9 @@
         "enable": true,
         "scope": {
           "requireLiteralLeadingDot": false,
-          "allow": ["**/*"]
+          "allow": [
+            "**/*"
+          ]
         }
       }
     }
@@ -101,7 +110,13 @@
       }
     },
     "active": true,
-    "targets": ["app", "dmg", "deb", "appimage", "nsis"],
+    "targets": [
+      "app",
+      "dmg",
+      "deb",
+      "appimage",
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -112,7 +127,9 @@
     "createUpdaterArtifacts": true,
     "fileAssociations": [
       {
-        "ext": ["noriskpack"],
+        "ext": [
+          "noriskpack"
+        ],
         "name": "NoriskPack File",
         "description": "NoRiskClient Modpack File"
       }
