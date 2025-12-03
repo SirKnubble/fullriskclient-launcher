@@ -8,8 +8,9 @@ import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Reward } from "../../types/advent";
 import { CosmeticPreview } from "./CosmeticPreview";
-import { getOrDownloadAssetModelAsBlob } from "../../services/assets-service";
+import { getOrDownloadAssetModel } from "../../services/assets-service";
 import { LAUNCHER_THEMES } from "../../store/launcher-theme-store";
+import { logInfo, logError } from "../../utils/logging-utils";
 
 interface AdventRewardModalProps {
   isOpen: boolean;
@@ -32,44 +33,23 @@ function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Rew
       setIsLoadingModel(true);
       // Use shopItemModelUrl if available, otherwise fallback to hardcoded URL
       const cdnUrl = shopItemModelUrl || "https://cdn.norisk.gg/misc/fivehead.gltf";
+      logInfo(`[AdventRewardModal] Loading asset model from CDN: ${cdnUrl}`);
       
-      // Cleanup previous blob URL before loading new one
-      setModelUrl((prevUrl) => {
-        if (prevUrl && prevUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(prevUrl);
-        }
-        return null;
-      });
-
-      getOrDownloadAssetModelAsBlob(cdnUrl)
+      getOrDownloadAssetModel(cdnUrl)
         .then((url) => {
+          logInfo(`[AdventRewardModal] Asset model loaded successfully: ${url}`);
           setModelUrl(url);
           setIsLoadingModel(false);
         })
         .catch((error) => {
-          console.error("Failed to load asset model:", error);
+          logError(`[AdventRewardModal] Failed to load asset model from ${cdnUrl}: ${error}`);
           setIsLoadingModel(false);
         });
     } else {
-      // Cleanup blob URL when reward is not ShopItem
-      setModelUrl((prevUrl) => {
-        if (prevUrl && prevUrl.startsWith('blob:')) {
-          URL.revokeObjectURL(prevUrl);
-        }
-        return null;
-      });
+      setModelUrl(null);
       setIsLoadingModel(false);
     }
   }, [reward, shopItemModelUrl]);
-
-  // Cleanup blob URLs when component unmounts or modelUrl changes
-  useEffect(() => {
-    return () => {
-      if (modelUrl && modelUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(modelUrl);
-      }
-    };
-  }, [modelUrl]);
 
   // Reset theme image error when reward changes
   useEffect(() => {
