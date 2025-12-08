@@ -1,10 +1,14 @@
 use crate::error::{AppError, CommandError};
-use crate::minecraft::minecraft_auth::Credentials;
+use crate::minecraft::minecraft_auth::{Credentials, DirectOAuthFlow};
 use crate::state::state_manager::State;
+use crate::utils::updater_utils;
 use chrono::{Duration, Utc};
+use log::{error, info};
 use tauri::plugin::TauriPlugin;
 use tauri::Manager;
 use tauri::{Runtime, UserAttentionType};
+use tauri::path::BaseDirectory;
+use tauri_plugin_opener::OpenerExt;
 use uuid::Uuid;
 
 //TODO das wäre geiler aber habs noch nicht hinbekommen
@@ -27,74 +31,191 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 pub async fn begin_login<R: Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Option<Credentials>, CommandError> {
-    let flow = State::get()
-        .await?
-        .minecraft_account_manager_v2
-        .login_begin()
-        .await?;
+    let state = State::get().await?;
+    let config = state.config_manager.get_config().await;
+    let use_browser_based_login = updater_utils::is_flatpak() || config.use_browser_based_login;
 
-    // Close any existing sign-in window
-    if let Some(window) = app.get_webview_window("signin") {
-        window.close().map_err(|e| AppError::Other(e.to_string()))?;
-    }
+    if use_browser_based_login {
+        // Flatpak: Use external browser with local HTTP server
+        info!("[Login] Using external browser flow (Flatpak detected)");
 
-    // Create a new window for the sign-in process
-    let window =
-        tauri::WebviewWindowBuilder::new(
-            &app,
-            "signin",
-            tauri::WebviewUrl::External(flow.redirect_uri.parse().map_err(|_| {
-                AppError::AccountError("Error parsing auth redirect URL".to_string())
-            })?),
+        // Find an available port (try 25585 first, then random)
+        let port = find_available_port(25585).await.unwrap_or_else(|| {
+            // Fallback to random port if 25585 is not available
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            rng.gen_range(25565..=25600)
+        });
+
+        let redirect_uri = format!("http://localhost:{}/callback", port);
+        info!("[Login] Using redirect URI: {}", redirect_uri);
+
+        // Load HTML templates from resources
+        // The path must match the structure defined in tauri.conf.json > bundle > resources
+        // "resources/oauth/*" maps to $RESOURCE/resources/oauth/*
+        let success_html_path = app.path()
+            .resolve("resources/oauth/success.html", BaseDirectory::Resource)
+            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to resolve success.html path: {}", e))))?;
+        
+        let error_html_path = app.path()
+            .resolve("resources/oauth/error.html", BaseDirectory::Resource)
+            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to resolve error.html path: {}", e))))?;
+
+        let success_html = tokio::fs::read_to_string(&success_html_path)
+            .await
+            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to read success.html: {}", e))))?;
+
+        let error_html = tokio::fs::read_to_string(&error_html_path)
+            .await
+            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to read error.html: {}", e))))?;
+
+        // Start the OAuth callback server
+        let (server_handle, mut code_rx) = crate::minecraft::auth::minecraft_auth::start_oauth_callback_server(
+            port,
+            success_html,
+            error_html,
         )
-        .title("Sign into Minecraft")
-        .always_on_top(true)
-        .center()
-        .build()
-        .map_err(|e| AppError::Other(e.to_string()))?;
+        .await
+        .map_err(|e| CommandError::from(AppError::Other(format!("Failed to start OAuth server: {}", e))))?;
 
-    window
-        .request_user_attention(Some(UserAttentionType::Critical))
-        .map_err(|e| AppError::Other(e.to_string()))?;
+        // Start the direct OAuth2 flow (for localhost redirect)
+        let flow = State::get()
+            .await?
+            .minecraft_account_manager_v2
+            .login_begin_direct_oauth(&redirect_uri)
+            .await?;
 
-    let start = Utc::now();
+        // Open the browser with the authorization URL
+        info!("[Login] Opening browser with URL: {}", flow.authorize_url);
+        app.opener()
+            .open_url(&flow.authorize_url, None::<&str>)
+            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to open browser: {}", e))))?;
 
-    // Wait for the user to complete the login (10 minutes = 600 seconds)
-    while (Utc::now() - start) < Duration::seconds(600) {
-        if window.title().is_err() {
-            // User closed the window, cancelling flow
-            window.close().map_err(|e| AppError::Other(e.to_string()))?;
-            return Ok(None);
-        }
+        // Wait for the callback (with timeout)
+        let start = Utc::now();
+        let timeout = Duration::seconds(600); // 10 minutes
 
-        if let Ok(url) = window.url() {
-            if url
-                .as_str()
-                .starts_with("https://login.live.com/oauth20_desktop.srf")
-            {
-                if let Some((_, code)) = url.query_pairs().find(|x| x.0 == "code") {
-                    window.close().map_err(|e| AppError::Other(e.to_string()))?;
+        loop {
+            if (Utc::now() - start) >= timeout {
+                info!("[Login] Timeout waiting for OAuth callback");
+                server_handle.abort();
+                return Ok(None);
+            }
 
-                    // Complete the login flow with the code
+            // Check if we received the code
+            match code_rx.try_recv() {
+                Ok(Ok(code)) => {
+                    info!("[Login] Received authorization code");
+                    server_handle.abort();
+                    
+                    // Complete the direct OAuth2 login flow with the code
                     let account = State::get()
                         .await?
                         .minecraft_account_manager_v2
-                        .login_finish(&code, flow)
+                        .login_finish_direct_oauth(&code, flow)
                         .await?;
-
-                    // Add the account to the manager
-                    //state.minecraft_account_manager.add_account(account.clone()).await?;
 
                     return Ok(Some(account));
                 }
+                Ok(Err(e)) => {
+                    error!("[Login] OAuth callback error: {:?}", e);
+                    server_handle.abort();
+                    return Err(CommandError::from(e));
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+                    // Still waiting, continue
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+                    error!("[Login] OAuth callback channel closed unexpectedly");
+                    return Ok(None);
+                }
             }
+
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    } else {
+        // Non-Flatpak: Use Tauri webview window (existing behavior)
+        info!("[Login] Using Tauri webview flow (non-Flatpak)");
+
+        let flow = State::get()
+            .await?
+            .minecraft_account_manager_v2
+            .login_begin(None)
+            .await?;
+
+        // Close any existing sign-in window
+        if let Some(window) = app.get_webview_window("signin") {
+            window.close().map_err(|e| AppError::Other(e.to_string()))?;
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
+        // Create a new window for the sign-in process
+        let window =
+            tauri::WebviewWindowBuilder::new(
+                &app,
+                "signin",
+                tauri::WebviewUrl::External(flow.redirect_uri.parse().map_err(|_| {
+                    AppError::AccountError("Error parsing auth redirect URL".to_string())
+                })?),
+            )
+            .title("Sign into Minecraft")
+            .always_on_top(true)
+            .center()
+            .build()
+            .map_err(|e| AppError::Other(e.to_string()))?;
 
-    window.close().map_err(|e| AppError::Other(e.to_string()))?;
-    Ok(None)
+        window
+            .request_user_attention(Some(UserAttentionType::Critical))
+            .map_err(|e| AppError::Other(e.to_string()))?;
+
+        let start = Utc::now();
+
+        // Wait for the user to complete the login (10 minutes = 600 seconds)
+        while (Utc::now() - start) < Duration::seconds(600) {
+            if window.title().is_err() {
+                // User closed the window, cancelling flow
+                window.close().map_err(|e| AppError::Other(e.to_string()))?;
+                return Ok(None);
+            }
+
+            if let Ok(url) = window.url() {
+                if url
+                    .as_str()
+                    .starts_with("https://login.live.com/oauth20_desktop.srf")
+                {
+                    if let Some((_, code)) = url.query_pairs().find(|x| x.0 == "code") {
+                        window.close().map_err(|e| AppError::Other(e.to_string()))?;
+
+                        // Complete the login flow with the code
+                        let account = State::get()
+                            .await?
+                            .minecraft_account_manager_v2
+                            .login_finish(&code, flow)
+                            .await?;
+
+                        return Ok(Some(account));
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+
+        window.close().map_err(|e| AppError::Other(e.to_string()))?;
+        Ok(None)
+    }
+}
+
+/// Finds an available port starting from the given port number
+async fn find_available_port(start_port: u16) -> Option<u16> {
+    for port in start_port..=start_port + 100 {
+        if tokio::net::TcpListener::bind(format!("127.0.0.1:{}", port))
+            .await
+            .is_ok()
+        {
+            return Some(port);
+        }
+    }
+    None
 }
 
 /// Remove a Minecraft account
