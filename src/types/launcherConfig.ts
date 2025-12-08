@@ -26,4 +26,5 @@ export interface LauncherConfig {
   hide_on_process_start: boolean;
   global_memory_settings: MemorySettings;
   custom_game_directory: string | null; // Option<PathBuf>
+  use_browser_based_login: boolean;
 } 

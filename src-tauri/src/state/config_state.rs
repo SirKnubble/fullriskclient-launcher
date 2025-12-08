@@ -53,6 +53,8 @@ pub struct LauncherConfig {
     pub global_memory_settings: MemorySettings,
     #[serde(default)]
     pub custom_game_directory: Option<PathBuf>,
+    #[serde(default = "default_use_browser_based_login")]
+    pub use_browser_based_login: bool,
 }
 
 fn default_config_version() -> u32 {
@@ -90,6 +92,10 @@ fn default_global_memory_settings() -> MemorySettings {
     }
 }
 
+fn default_use_browser_based_login() -> bool {
+    false
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -107,6 +113,7 @@ impl Default for LauncherConfig {
             hide_on_process_start: default_hide_on_process_start(),
             global_memory_settings: default_global_memory_settings(),
             custom_game_directory: None,
+            use_browser_based_login: default_use_browser_based_login(),
         }
     }
 }
@@ -198,6 +205,9 @@ impl ConfigManager {
                             }
                             if let Some(hide) = obj.get("hide_on_process_start").and_then(|v| v.as_bool()) {
                                 migrated_config.hide_on_process_start = hide;
+                            }
+                            if let Some(browser_login) = obj.get("use_browser_based_login").and_then(|v| v.as_bool()) {
+                                migrated_config.use_browser_based_login = browser_login;
                             }
                             
                             // Migrate numeric fields
@@ -328,6 +338,7 @@ impl ConfigManager {
                 && current.global_memory_settings.min == new_config.global_memory_settings.min
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
                 && current.custom_game_directory == new_config.custom_game_directory
+                && current.use_browser_based_login == new_config.use_browser_based_login
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -416,6 +427,12 @@ impl ConfigManager {
                         current.custom_game_directory, new_config.custom_game_directory
                     );
                 }
+                if current.use_browser_based_login != new_config.use_browser_based_login {
+                    info!(
+                        "Changing use browser based login: {} -> {}",
+                        current.use_browser_based_login, new_config.use_browser_based_login
+                    );
+                }
 
                 // Update config while preserving version
                 *config = LauncherConfig {
@@ -433,6 +450,7 @@ impl ConfigManager {
                     hide_on_process_start: new_config.hide_on_process_start,
                     global_memory_settings: new_config.global_memory_settings,
                     custom_game_directory: new_config.custom_game_directory.clone(),
+                    use_browser_based_login: new_config.use_browser_based_login,
                 };
 
                 true
