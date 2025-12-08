@@ -488,33 +488,135 @@ impl MinecraftAuthStore {
         }
     }
 
+    /// Helper method to emit login progress events
+    async fn emit_login_progress_event(
+        state: &Arc<crate::state::State>,
+        event_id: Uuid,
+        event_type: crate::state::event_state::EventType,
+        message: &str,
+        progress: Option<f64>,
+    ) -> Result<()> {
+        state.emit_event(crate::state::event_state::EventPayload {
+            event_id,
+            event_type,
+            target_id: None,
+            message: message.to_string(),
+            progress,
+            error: None,
+        }).await
+    }
+
+    /// Helper method to emit login error events
+    fn emit_login_error_event(
+        state: &Arc<crate::state::State>,
+        event_id: Uuid,
+        error_message: String,
+    ) {
+        let state_clone = Arc::clone(state);
+        tokio::spawn(async move {
+            let _ = state_clone.emit_event(crate::state::event_state::EventPayload {
+                event_id,
+                event_type: crate::state::event_state::EventType::Error,
+                target_id: None,
+                message: error_message.clone(),
+                progress: None,
+                error: Some(error_message),
+            }).await;
+        });
+    }
+
     /// Completes the direct OAuth2 flow (for Flatpak/localhost redirect)
     pub async fn login_finish_direct_oauth(&self, code: &str, flow: DirectOAuthFlow) -> Result<Credentials> {
+        self.login_finish_direct_oauth_with_events(code, flow, Uuid::new_v4()).await
+    }
+
+    /// Completes the direct OAuth2 flow with event emission (for Flatpak/localhost redirect)
+    pub async fn login_finish_direct_oauth_with_events(&self, code: &str, flow: DirectOAuthFlow, event_id: Uuid) -> Result<Credentials> {
         info!("[Direct OAuth Flow] Starting login_finish_direct_oauth");
+        let state = crate::state::State::get().await?;
         
         // Exchange code for access token
         info!("[Direct OAuth Flow] Exchanging code for access token");
-        let oauth_token = direct_oauth_token(code, &flow.verifier, &flow.redirect_uri).await?;
+        let oauth_token = direct_oauth_token(code, &flow.verifier, &flow.redirect_uri).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to exchange authorization code: {}", e));
+                e
+            })?;
         
         // Exchange Microsoft access token for Xbox token (RPS method, no SISU)
         info!("[Direct OAuth Flow] Exchanging Microsoft token for Xbox token");
-        let xbox_token = xbox_authenticate_rps(&oauth_token.value.access_token).await?;
+        Self::emit_login_progress_event(
+            &state,
+            event_id,
+            crate::state::event_state::EventType::AccountLoginExchangingXboxToken,
+            "Exchanging Microsoft token for Xbox token",
+            Some(50.0),
+        ).await?;
+        let xbox_token = xbox_authenticate_rps(&oauth_token.value.access_token).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to authenticate with Xbox: {}", e));
+                e
+            })?;
         
         // Exchange Xbox token for XSTS token
         info!("[Direct OAuth Flow] Exchanging Xbox token for XSTS token");
-        let xsts_token = xsts_authorize_direct(xbox_token).await?;
+        Self::emit_login_progress_event(
+            &state,
+            event_id,
+            crate::state::event_state::EventType::AccountLoginExchangingXstsToken,
+            "Exchanging Xbox token for XSTS token",
+            Some(60.0),
+        ).await?;
+        let xsts_token = xsts_authorize_direct(xbox_token).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to authorize XSTS token: {}", e));
+                e
+            })?;
         
         // Get Minecraft token
         info!("[Direct OAuth Flow] Getting Minecraft token");
-        let minecraft_token = minecraft_token(xsts_token).await?;
+        Self::emit_login_progress_event(
+            &state,
+            event_id,
+            crate::state::event_state::EventType::AccountLoginGettingMinecraftToken,
+            "Getting Minecraft access token",
+            Some(70.0),
+        ).await?;
+        let minecraft_token = minecraft_token(xsts_token).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to get Minecraft token: {}", e));
+                e
+            })?;
         
         // Check entitlements
         info!("[Direct OAuth Flow] Checking Minecraft entitlements");
-        minecraft_entitlements(&minecraft_token.access_token).await?;
+        Self::emit_login_progress_event(
+            &state,
+            event_id,
+            crate::state::event_state::EventType::AccountLoginCheckingEntitlements,
+            "Checking Minecraft entitlements",
+            Some(80.0),
+        ).await?;
+        minecraft_entitlements(&minecraft_token.access_token).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to check Minecraft entitlements: {}", e));
+                e
+            })?;
         
         // Get profile
         info!("[Direct OAuth Flow] Fetching Minecraft profile");
-        let profile = minecraft_profile(&minecraft_token.access_token).await?;
+        Self::emit_login_progress_event(
+            &state,
+            event_id,
+            crate::state::event_state::EventType::AccountLoginFetchingProfile,
+            "Fetching Minecraft profile",
+            Some(90.0),
+        ).await?;
+        let profile = minecraft_profile(&minecraft_token.access_token).await
+            .map_err(|e| {
+                Self::emit_login_error_event(&state, event_id, format!("Failed to fetch Minecraft profile: {}", e));
+                e
+            })?;
         info!(
             "[Direct OAuth Flow] Profile retrieved - ID: {:?}, Name: {}",
             profile.id, profile.name
