@@ -11,7 +11,8 @@ use crate::state::process_state::{default_processes_path, ProcessManager};
 use crate::state::profile_state::ProfileManager;
 use crate::state::skin_state::{default_skins_path, SkinManager};
 use std::sync::Arc;
-use tokio::sync::{OnceCell, Semaphore};
+use tokio::sync::{OnceCell, Mutex, Semaphore};
+use tokio::task::JoinHandle;
 
 // Global state that will be initialized once
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
@@ -29,6 +30,7 @@ pub struct State {
     pub skin_manager: SkinManager,
     pub discord_manager: DiscordManager,
     pub io_semaphore: Arc<Semaphore>,
+    pub login_server_handle: Arc<Mutex<Option<JoinHandle<Result<()>>>>>,
 }
 
 impl State {
@@ -61,6 +63,7 @@ impl State {
                     skin_manager,
                     discord_manager,
                     io_semaphore,
+                    login_server_handle: Arc::new(Mutex::new(None)),
                 }))
             })
             .await?;
