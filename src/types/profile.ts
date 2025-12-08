@@ -266,6 +266,7 @@ export interface CopyProfileParams {
   new_profile_name: string;
   use_shared_minecraft_folder?: boolean;
   include_files?: string[];
+  copy_all_files?: boolean;
 }
 
 export interface ExportProfileParams {
