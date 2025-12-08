@@ -437,7 +437,7 @@ export function ProfileDetailViewV2({
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
-      <div className={`flex-1 ${activeMainTab === "logs" ? "flex flex-col min-h-0" : "overflow-y-auto no-scrollbar"}`}>
+      <div className={`flex-1 flex flex-col min-h-0 ${activeMainTab === "logs" ? "" : "overflow-hidden"}`}>
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">
           <div className="flex items-center gap-4 mb-4">
@@ -602,11 +602,11 @@ export function ProfileDetailViewV2({
 
 
         {/* Content Area */}
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col">
           {activeMainTab === "content" && (
-            <div className="flex h-full">
+            <div className="flex flex-1 min-h-0">
               {/* Content Display Area */}
-              <div className="flex-1 min-w-0 mr-6">
+              <div className="flex-1 min-w-0 mr-6 flex flex-col min-h-0">
                 {activeContentTab === "mods" && (
                   <LocalContentTabV2<LocalContentItem>
                     profile={currentProfile}
