@@ -68,6 +68,10 @@
           "https://media.forgecdn.net",
           "data:",
           "https://qr-generator-putuwaw.vercel.app"
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'"
         ]
       },
       "assetProtocol": {
