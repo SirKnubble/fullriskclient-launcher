@@ -214,9 +214,12 @@ export function AdventCalendarTab() {
     return calendarData.find((d) => d.day === day);
   };
 
+  // TODO: REMOVE THIS - Test override for day 10 to test villager emote with player model
+  const TEST_DAY_10_MODEL_URL = "https://cdn.norisk.gg/asset-models/emotes/villager/villager.gltf";
+
   const handleDoorOpen = async (day: number) => {
     const dayData = getDayData(day);
-    
+
     // Don't allow opening if currently claiming
     if (claimingDay !== null) {
       return;
@@ -226,7 +229,10 @@ export function AdventCalendarTab() {
     if (dayData && dayData.status === "CLAIMED" && dayData.reward) {
       // Mark door as opened in launcher theme store (hardcoded - always mark when clicked)
       markAdventDoorOpened(day);
-      
+
+      // TODO: REMOVE THIS - Override for day 10 testing
+      const testModelUrl = day === 10 ? TEST_DAY_10_MODEL_URL : dayData.shopItemModelUrl;
+
       const modalId = `advent-reward-${day}`;
       showModal(
         modalId,
@@ -238,7 +244,7 @@ export function AdventCalendarTab() {
           day={day}
           reward={dayData.reward}
           shopItemName={dayData.shopItemName}
-          shopItemModelUrl={dayData.shopItemModelUrl}
+          shopItemModelUrl={testModelUrl}
           isLoading={false}
         />,
       );
@@ -278,6 +284,9 @@ export function AdventCalendarTab() {
       const updatedData = await getAdventCalendar();
       setCalendarData(updatedData);
 
+      // TODO: REMOVE THIS - Override for day 10 testing
+      const claimTestModelUrl = day === 10 ? TEST_DAY_10_MODEL_URL : claimedDay.shopItemModelUrl;
+
       // Update modal with reward (extract reward from AdventCalendarDay)
       showModal(
         modalId,
@@ -290,7 +299,7 @@ export function AdventCalendarTab() {
           day={day}
           reward={claimedDay.reward}
           shopItemName={claimedDay.shopItemName}
-          shopItemModelUrl={claimedDay.shopItemModelUrl}
+          shopItemModelUrl={claimTestModelUrl}
           isLoading={false}
         />,
       );

@@ -25,28 +25,46 @@ interface AdventRewardModalProps {
 function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Reward; shopItemName?: string | null; shopItemModelUrl?: string | null }) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [playerModelUrl, setPlayerModelUrl] = useState<string | null>(null);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [themeImageError, setThemeImageError] = useState(false);
 
   useEffect(() => {
     if (reward?.type === "ShopItem") {
       setIsLoadingModel(true);
+      setPlayerModelUrl(null);
       // Use shopItemModelUrl if available, otherwise fallback to hardcoded URL
       const cdnUrl = shopItemModelUrl || "https://cdn.norisk.gg/misc/fivehead.gltf";
       logInfo(`[AdventRewardModal] Loading asset model from CDN: ${cdnUrl}`);
-      
-      getOrDownloadAssetModel(cdnUrl)
+
+      const playerCdnUrl = cdnUrl.replace(/\.gltf$/i, "_player.gltf");
+      logInfo(`[AdventRewardModal] Checking for player model at: ${playerCdnUrl}`);
+
+      const mainModelPromise = getOrDownloadAssetModel(cdnUrl)
         .then((url) => {
           logInfo(`[AdventRewardModal] Asset model loaded successfully: ${url}`);
           setModelUrl(url);
-          setIsLoadingModel(false);
         })
         .catch((error) => {
           logError(`[AdventRewardModal] Failed to load asset model from ${cdnUrl}: ${error}`);
+        });
+
+      const playerModelPromise = getOrDownloadAssetModel(playerCdnUrl)
+        .then((url) => {
+          logInfo(`[AdventRewardModal] Player model loaded successfully: ${url}`);
+          setPlayerModelUrl(url);
+        })
+        .catch((error) => {
+          logInfo(`[AdventRewardModal] No player model found at ${playerCdnUrl} (this is normal for cosmetics without separate player model)`);
+        });
+
+      Promise.allSettled([mainModelPromise, playerModelPromise])
+        .then(() => {
           setIsLoadingModel(false);
         });
     } else {
       setModelUrl(null);
+      setPlayerModelUrl(null);
       setIsLoadingModel(false);
     }
   }, [reward, shopItemModelUrl]);
@@ -92,7 +110,7 @@ function RewardDisplay({ reward, shopItemName, shopItemModelUrl }: { reward: Rew
               className="w-full h-96 overflow-hidden"
             >
               {modelUrl && !isLoadingModel ? (
-                <CosmeticPreview modelPath={modelUrl} />
+                <CosmeticPreview modelPath={modelUrl} playerModelPath={playerModelUrl ?? undefined} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-white/50 text-sm font-minecraft-ten">

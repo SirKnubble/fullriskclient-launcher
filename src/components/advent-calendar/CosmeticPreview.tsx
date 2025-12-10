@@ -9,6 +9,7 @@ import { logInfo, logError } from "../../utils/logging-utils";
 
 interface CosmeticPreviewProps {
   modelPath: string;
+  playerModelPath?: string;
 }
 
 function Model({ modelPath }: { modelPath: string }) {
@@ -74,7 +75,7 @@ class ErrorBoundary extends Component<{ children: ReactNode, fallback: (props: {
   }
 }
 
-export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
+export function CosmeticPreview({ modelPath, playerModelPath }: CosmeticPreviewProps) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -87,17 +88,17 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
   return (
     <div className="w-full h-full relative min-h-[250px]">
       {ready ? (
-        <Canvas 
-          shadows 
-          dpr={[1, 2]} 
-          camera={{ position: [0, 0, 6], fov: 50 }} 
+        <Canvas
+          shadows
+          dpr={[1, 2]}
+          camera={{ position: [0, 0, 6], fov: 50 }}
           gl={{ alpha: true, preserveDrawingBuffer: true }}
         >
           <ambientLight intensity={0.6} />
           <hemisphereLight intensity={0.4} />
           <directionalLight position={[10, 10, 5]} intensity={1} />
           <directionalLight position={[-10, 5, -5]} intensity={0.5} />
-          
+
           <ErrorBoundary fallback={ErrorFallback}>
             <Suspense fallback={
               <Html center>
@@ -107,6 +108,7 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
               <group position={[0, -0.5, 0]}>
                 <Center>
                   <Resize scale={2.8}>
+                    {playerModelPath && <Model modelPath={playerModelPath} />}
                     <Model modelPath={modelPath} />
                   </Resize>
                 </Center>
@@ -114,11 +116,11 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
               </group>
             </Suspense>
           </ErrorBoundary>
-          
-          <OrbitControls 
-            autoRotate 
-            autoRotateSpeed={4} 
-            makeDefault 
+
+          <OrbitControls
+            autoRotate
+            autoRotateSpeed={4}
+            makeDefault
             enableZoom={true}
             minDistance={2}
             maxDistance={12}
