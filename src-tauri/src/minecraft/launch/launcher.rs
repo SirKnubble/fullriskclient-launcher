@@ -281,14 +281,31 @@ impl MinecraftLauncher {
         info!("Adding RAM JVM argument: -Xmx{}M", params.memory_max_mb);
         command.arg(format!("-Xmx{}M", params.memory_max_mb));
 
-        // Add recommended GC flags
-        command.arg("-XX:+UnlockExperimentalVMOptions");
-        command.arg("-XX:+UseG1GC");
-        // Add additional G1GC optimization flags like vanilla launcher
-        command.arg("-XX:G1NewSizePercent=20");
-        command.arg("-XX:G1ReservePercent=20");
-        command.arg("-XX:MaxGCPauseMillis=50");
-        command.arg("-XX:G1HeapRegionSize=32M");
+        // Check if custom JVM args contain a custom GC setting
+        //fix for https://github.com/NoRiskClient/issues/issues/2357
+        let custom_gc_patterns = [
+            "-XX:+UseZGC",
+            "-XX:+UseG1GC",
+            "-XX:+UseShenandoahGC",
+            "-XX:+UseParallelGC",
+            "-XX:+UseSerialGC",
+        ];
+        let has_custom_gc = params.additional_jvm_args.iter().any(|arg| {
+            custom_gc_patterns.iter().any(|pattern| arg.contains(pattern))
+        });
+
+        // Add recommended GC flags only if no custom GC is specified
+        if has_custom_gc {
+            info!("Custom GC detected in JVM arguments, skipping default G1GC flags");
+        } else {
+            command.arg("-XX:+UnlockExperimentalVMOptions");
+            command.arg("-XX:+UseG1GC");
+            // Add additional G1GC optimization flags like vanilla launcher
+            command.arg("-XX:G1NewSizePercent=20");
+            command.arg("-XX:G1ReservePercent=20");
+            command.arg("-XX:MaxGCPauseMillis=50");
+            command.arg("-XX:G1HeapRegionSize=32M");
+        }
 
         // Add NoRisk client specific parameters
         // Only add token if we have credentials AND a NoRisk pack is selected in the profile
