@@ -6,8 +6,7 @@ import type { Profile } from "../../../types/profile";
 import { Button } from "../../ui/buttons/Button";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { RangeSlider } from "../../ui/RangeSlider";
-import { Input } from "../../ui/Input";
-import { TextArea } from "../../ui/TextArea";
+import { Input, SearchStyleTextArea } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
 import { Card } from "../../ui/Card";
 import { gsap } from "gsap";
@@ -556,12 +555,11 @@ export function JavaSettingsTab({
 
           {useCustomArgs && (
             <div className="custom-args-textarea">
-              <TextArea
+              <SearchStyleTextArea
                 value={editedProfile.settings?.custom_jvm_args || ""}
                 onChange={(e) => handleJavaArgsChange(e.target.value)}
                 placeholder="enter java arguments..."
-                className="w-full min-h-[100px] text-2xl"
-                variant="flat"
+                minHeight="100px"
               />
               <p className="mt-2 text-xs text-white/50 font-minecraft-ten tracking-wide">
                 Arguments should be separated by spaces. Example: -Xmx4G
