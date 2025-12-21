@@ -43,6 +43,16 @@ pub struct NoRiskTokenClaims {
     username: String,
 }
 
+/// Represents the authentication flow used to create an account
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+pub enum AuthFlow {
+    /// SISU/Device flow (Xbox app style authentication)
+    #[default]
+    Sisu,
+    /// Direct OAuth flow (browser-based login, AuthMe style)
+    Direct,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Credentials {
     pub id: Uuid,
@@ -52,6 +62,9 @@ pub struct Credentials {
     pub expires: DateTime<Utc>,
     pub norisk_credentials: NoRiskCredentials,
     pub active: bool,
+    /// The authentication flow used to create this account (optional for backwards compatibility)
+    #[serde(default)]
+    pub auth_flow: Option<AuthFlow>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -637,16 +650,17 @@ impl MinecraftAuthStore {
             refresh_token: oauth_token.value.refresh_token,
             expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
             norisk_credentials: match existing_account {
-                Some(account) => account.norisk_credentials.clone(),
+                Some(ref account) => account.norisk_credentials.clone(),
                 None => NoRiskCredentials {
                     production: None,
                     experimental: None,
                 },
             },
+            auth_flow: Some(AuthFlow::Direct),
         };
-        
+
         self.update_or_insert(credentials.clone()).await?;
-        info!("[Direct OAuth Flow] Login process completed successfully");
+        info!("[Direct OAuth Flow] Login process completed successfully (auth_flow: Direct)");
         
         Ok(credentials)
     }
@@ -708,12 +722,13 @@ impl MinecraftAuthStore {
             refresh_token: oauth_token.value.refresh_token,
             expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
             norisk_credentials: match existing_account {
-                Some(account) => account.norisk_credentials.clone(),
+                Some(ref account) => account.norisk_credentials.clone(),
                 None => NoRiskCredentials {
                     production: None,
                     experimental: None,
                 },
             },
+            auth_flow: Some(AuthFlow::Sisu),
         };
 
         info!(
@@ -721,7 +736,7 @@ impl MinecraftAuthStore {
             credentials.username
         );
         self.update_or_insert(credentials.clone()).await?;
-        info!("[Auth Flow] Login process completed successfully");
+        info!("[Auth Flow] Login process completed successfully (auth_flow: Sisu)");
 
         Ok(credentials)
     }
@@ -852,13 +867,73 @@ impl MinecraftAuthStore {
 
     async fn refresh_token(&self, creds: &Credentials) -> Result<Option<Credentials>> {
         info!(
-            "[Token Refresh] Starting token refresh for account: {}",
-            creds.username
+            "[Token Refresh] Starting token refresh for account: {} (auth_flow: {:?})",
+            creds.username, creds.auth_flow
         );
         let cred_id = creds.id;
         let profile_name = creds.username.clone();
 
-        info!("[Token Refresh] Getting OAuth refresh token");
+        // Use the stored auth_flow to determine which refresh method to use
+        // For backwards compatibility, None defaults to trying Direct first, then SISU
+        match creds.auth_flow {
+            Some(AuthFlow::Direct) => {
+                info!("[Token Refresh] Using Direct OAuth flow");
+                self.refresh_token_direct(creds, cred_id, profile_name).await
+            }
+            Some(AuthFlow::Sisu) => {
+                info!("[Token Refresh] Using SISU flow");
+                self.refresh_token_sisu(creds, cred_id, profile_name).await
+            }
+            None => {
+                // Backwards compatibility: try SISU first (default), then Direct
+                info!("[Token Refresh] No auth_flow stored, trying SISU first (default)...");
+                match self.refresh_token_sisu(creds, cred_id, profile_name.clone()).await {
+                    Ok(result) => Ok(result),
+                    Err(sisu_err) => {
+                        info!("[Token Refresh] SISU flow failed: {:?}, trying Direct...", sisu_err);
+                        self.refresh_token_direct(creds, cred_id, profile_name).await
+                    }
+                }
+            }
+        }
+    }
+
+    /// Refresh token using Direct OAuth flow (browser-based login)
+    async fn refresh_token_direct(&self, creds: &Credentials, cred_id: Uuid, profile_name: String) -> Result<Option<Credentials>> {
+        info!("[Token Refresh] Getting OAuth refresh token (Direct flow)");
+        let oauth_token = oauth_refresh_direct(&creds.refresh_token).await?;
+
+        info!("[Token Refresh] Getting Xbox token (direct via RPS)");
+        let xbox_token = xbox_authenticate_rps(&oauth_token.value.access_token).await?;
+
+        info!("[Token Refresh] Authorizing with XSTS (direct)");
+        let xsts_token = xsts_authorize_direct(xbox_token).await?;
+
+        info!("[Token Refresh] Getting Minecraft token");
+        let minecraft_token = minecraft_token(xsts_token).await?;
+
+        info!("[Token Refresh] Creating new credentials");
+        let val = Credentials {
+            id: cred_id,
+            username: profile_name,
+            access_token: minecraft_token.access_token,
+            refresh_token: oauth_token.value.refresh_token,
+            expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
+            norisk_credentials: creds.norisk_credentials.clone(),
+            active: creds.active,
+            auth_flow: Some(AuthFlow::Direct),
+        };
+
+        info!("[Token Refresh] Updating account in storage");
+        self.update_or_insert(val.clone()).await?;
+        info!("[Token Refresh] Token refresh completed successfully (Direct flow)");
+
+        Ok(Some(val))
+    }
+
+    /// Refresh token using SISU flow (device flow)
+    async fn refresh_token_sisu(&self, creds: &Credentials, cred_id: Uuid, profile_name: String) -> Result<Option<Credentials>> {
+        info!("[Token Refresh] Getting OAuth refresh token (SISU flow)");
         let oauth_token = oauth_refresh(&creds.refresh_token).await?;
 
         info!("[Token Refresh] Refreshing device token");
@@ -895,13 +970,14 @@ impl MinecraftAuthStore {
             access_token: minecraft_token.access_token,
             refresh_token: oauth_token.value.refresh_token,
             expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
-            norisk_credentials: creds.clone().norisk_credentials,
-            active: creds.clone().active,
+            norisk_credentials: creds.norisk_credentials.clone(),
+            active: creds.active,
+            auth_flow: Some(AuthFlow::Sisu),
         };
 
         info!("[Token Refresh] Updating account in storage");
         self.update_or_insert(val.clone()).await?;
-        info!("[Token Refresh] Token refresh completed successfully");
+        info!("[Token Refresh] Token refresh completed successfully (SISU flow)");
 
         Ok(Some(val))
     }
@@ -1609,6 +1685,53 @@ async fn oauth_refresh(refresh_token: &str) -> Result<RequestWithDate<OAuthToken
     let res = auth_retry(|| {
         HTTP_CLIENT
             .post("https://login.live.com/oauth20_token.srf")
+            .header("Accept", "application/json")
+            .form(&query)
+            .send()
+    })
+    .await
+    .map_err(|source| MinecraftAuthenticationError::Request {
+        source,
+        step: MinecraftAuthStep::RefreshOAuthToken,
+    })?;
+
+    let status = res.status();
+    let current_date = get_date_header(res.headers());
+    let text = res
+        .text()
+        .await
+        .map_err(|source| MinecraftAuthenticationError::Request {
+            source,
+            step: MinecraftAuthStep::RefreshOAuthToken,
+        })?;
+
+    let body = serde_json::from_str(&text).map_err(|source| {
+        MinecraftAuthenticationError::DeserializeResponse {
+            source,
+            raw: text,
+            step: MinecraftAuthStep::RefreshOAuthToken,
+            status_code: status,
+        }
+    })?;
+
+    Ok(RequestWithDate {
+        date: current_date,
+        value: body,
+    })
+}
+
+/// Refresh OAuth token for accounts created with browser-based login (Direct OAuth flow)
+/// Uses the same client_id and token URL as the browser login
+async fn oauth_refresh_direct(refresh_token: &str) -> Result<RequestWithDate<OAuthToken>> {
+    let mut query = HashMap::new();
+    query.insert("client_id", DIRECT_OAUTH_CLIENT_ID);
+    query.insert("refresh_token", refresh_token);
+    query.insert("grant_type", "refresh_token");
+    query.insert("scope", "XboxLive.signin offline_access");
+
+    let res = auth_retry(|| {
+        HTTP_CLIENT
+            .post(DIRECT_OAUTH_TOKEN_URL)
             .header("Accept", "application/json")
             .form(&query)
             .send()
