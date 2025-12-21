@@ -1,3 +1,5 @@
+use crate::commands::oauth_error_html::ERROR_HTML;
+use crate::commands::oauth_success_html::SUCCESS_HTML;
 use crate::error::{AppError, CommandError};
 use crate::minecraft::minecraft_auth::Credentials;
 use crate::state::event_state::{EventPayload, EventType};
@@ -8,7 +10,6 @@ use log::{error, info};
 use tauri::plugin::TauriPlugin;
 use tauri::Manager;
 use tauri::{Runtime, UserAttentionType};
-use tauri::path::BaseDirectory;
 use tauri_plugin_opener::OpenerExt;
 use uuid::Uuid;
 
@@ -52,24 +53,9 @@ pub async fn begin_login<R: Runtime>(
         let redirect_uri = format!("http://localhost:{}/callback", port);
         info!("[Login] Using redirect URI: {}", redirect_uri);
 
-        // Load HTML templates from resources
-        // The path must match the structure defined in tauri.conf.json > bundle > resources
-        // "resources/oauth/*" maps to $RESOURCE/resources/oauth/*
-        let success_html_path = app.path()
-            .resolve("resources/oauth/success.html", BaseDirectory::Resource)
-            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to resolve success.html path: {}", e))))?;
-        
-        let error_html_path = app.path()
-            .resolve("resources/oauth/error.html", BaseDirectory::Resource)
-            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to resolve error.html path: {}", e))))?;
-
-        let success_html = tokio::fs::read_to_string(&success_html_path)
-            .await
-            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to read success.html: {}", e))))?;
-
-        let error_html = tokio::fs::read_to_string(&error_html_path)
-            .await
-            .map_err(|e| CommandError::from(AppError::Other(format!("Failed to read error.html: {}", e))))?;
+        // Use embedded HTML templates (works on all platforms including Flatpak)
+        let success_html = SUCCESS_HTML.to_string();
+        let error_html = ERROR_HTML.to_string();
 
         // Start the OAuth callback server
         let (server_handle, mut code_rx) = crate::minecraft::auth::minecraft_auth::start_oauth_callback_server(

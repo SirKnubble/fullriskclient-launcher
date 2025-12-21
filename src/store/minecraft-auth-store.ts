@@ -66,7 +66,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
     } catch (error) {
       console.error("Failed to initialize accounts:", error);
       set({
-        error: `Failed to load accounts: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Failed to load accounts: ${error instanceof Error ? error.message : String(error.message)}`,
         isLoading: false,
       });
       identifyWithFlagsmith(null);
@@ -150,7 +150,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
       });
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : String(error);
+        error instanceof Error ? error.message : String(error.message);
       
       // Only show error toast if using browser login (toast.promise already handles it)
       if (useBrowserLogin && !errorMessage.includes("cancelled by user")) {
@@ -197,7 +197,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
     } catch (error) {
       console.error("Failed to remove account:", error);
       set({
-        error: `Failed to remove account: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Failed to remove account: ${error instanceof Error ? error.message : String(error.message)}`,
         isLoading: false,
       });
     }
@@ -225,7 +225,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
     } catch (error) {
       console.error("Failed to set active account:", error);
       set({
-        error: `Failed to set active account: ${error instanceof Error ? error.message : String(error)}`,
+        error: `Failed to set active account: ${error instanceof Error ? error.message : String(error.message)}`,
         isLoading: false,
       });
     }

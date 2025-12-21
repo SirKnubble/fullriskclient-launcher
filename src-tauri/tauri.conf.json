@@ -137,9 +137,6 @@
         "name": "NoriskPack File",
         "description": "NoRiskClient Modpack File"
       }
-    ],
-    "resources": [
-      "resources/oauth/*"
     ]
   }
 }
