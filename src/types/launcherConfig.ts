@@ -45,19 +45,19 @@ export interface LauncherConfig {
 
 export interface ReferralInfo {
   /** Display name of the referrer (username, creator name, etc.) */
-  referrer_name: string;
+  referrerName: string;
   /** Optional avatar/profile picture URL */
-  referrer_avatar: string | null;
+  referrerAvatar: string | null;
   /** Whether the referral code is still valid */
   valid: boolean;
   /** Type of referral: "friend", "affiliate", "creator", "partner", etc. */
-  referral_type: string | null;
+  referralType: string | null;
   /** Translation key for the banner message (e.g., "referral.invited_by_friend") */
-  translation_key: string | null;
+  translationKey: string | null;
   /** Fallback message if translation not found */
-  fallback_message: string | null;
+  fallbackMessage: string | null;
   /** Optional custom message from the referrer/backend */
-  custom_message: string | null;
+  customMessage: string | null;
   /** Optional reward description (e.g., "Du erhältst 100 Coins!") */
-  reward_text: string | null;
+  rewardText: string | null;
 } 
