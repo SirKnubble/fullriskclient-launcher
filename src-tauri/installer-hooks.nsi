@@ -28,7 +28,8 @@
   StrCpy $2 ""
 
   ; Use WordFind to get everything after "-setup-"
-  ${WordFind} $0 "-setup-" "+1" $1
+  ; +2 = second word (after the delimiter), +1 would be first word (before delimiter)
+  ${WordFind} $0 "-setup-" "+2" $1
 
   ; Check if we found something (if $1 equals $0, nothing was found)
   StrCmp $1 $0 no_referral_code
