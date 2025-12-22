@@ -4,7 +4,7 @@ import { getReferralInfo } from "../services/referral-service";
 
 const DISMISSED_KEY = "referral_banner_dismissed_code";
 
-interface ReferralState {
+interface ReferralStoreState {
   pendingCode: string | null;
   referrerInfo: ReferralInfo | null;
   isLoading: boolean;
@@ -18,7 +18,7 @@ interface ReferralState {
   checkIfDismissed: (code: string) => boolean;
 }
 
-export const useReferralStore = create<ReferralState>((set, get) => ({
+export const useReferralStore = create<ReferralStoreState>((set, get) => ({
   pendingCode: null,
   referrerInfo: null,
   isLoading: false,

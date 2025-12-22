@@ -15,13 +15,16 @@ export function ReferralBanner() {
 
   const accentColor = useThemeStore((state) => state.accentColor);
 
-  // Check for pending referral code on mount
+  // Check for referral state on mount
+  // Show banner if code exists and not dismissed (regardless of redeemed status)
   useEffect(() => {
     const checkReferralCode = async () => {
       try {
         const config = await getLauncherConfig();
-        if (config.pending_referral_code) {
-          setPendingCode(config.pending_referral_code);
+        // Use referral_state instead of pending_referral_code
+        if (config.referral_state?.code) {
+          console.log("[ReferralBanner] Found referral code:", config.referral_state.code);
+          setPendingCode(config.referral_state.code);
         }
       } catch (error) {
         console.error("[ReferralBanner] Failed to check referral code:", error);
@@ -32,16 +35,16 @@ export function ReferralBanner() {
   }, [setPendingCode]);
 
   // DEBUG: Always show banner for testing
-  const DEBUG_MODE = true;
+  const DEBUG_MODE = false;
   const debugReferrerInfo = {
     referrer_name: "nqrman",
     referrer_avatar: null,
     valid: true,
-    referral_type: "friend", // "friend", "affiliate", "creator", "partner"
+    referral_type: "friend",
     translation_key: "referral.invited_by_friend",
     fallback_message: "You were invited by",
     custom_message: null,
-    reward_text: null, // e.g., "Du erhältst 100 Coins!"
+    reward_text: null,
   };
 
   // Don't render if not visible or loading (bypassed in debug mode)

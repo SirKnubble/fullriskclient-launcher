@@ -22,6 +22,22 @@ pub struct Hooks {
     pub post_exit: Option<String>,
 }
 
+/// Referral tracking state - keeps code even after redemption for tracing
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ReferralState {
+    /// The download UUID from the installer filename
+    pub code: String,
+    /// Whether the code has been successfully reported to backend
+    #[serde(default)]
+    pub redeemed: bool,
+    /// Timestamp when the code was redeemed
+    #[serde(default)]
+    pub redeemed_at: Option<i64>,
+    /// Account UUID that redeemed the code
+    #[serde(default)]
+    pub redeemed_by_account: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherConfig {
     #[serde(default = "default_config_version")]
@@ -55,9 +71,9 @@ pub struct LauncherConfig {
     pub custom_game_directory: Option<PathBuf>,
     #[serde(default = "default_use_browser_based_login")]
     pub use_browser_based_login: bool,
-    /// Pending referral code waiting to be reported (cleared after successful report)
+    /// Referral tracking state - code stays even after redemption
     #[serde(default)]
-    pub pending_referral_code: Option<String>,
+    pub referral_state: Option<ReferralState>,
 }
 
 fn default_config_version() -> u32 {
@@ -117,7 +133,7 @@ impl Default for LauncherConfig {
             global_memory_settings: default_global_memory_settings(),
             custom_game_directory: None,
             use_browser_based_login: default_use_browser_based_login(),
-            pending_referral_code: None,
+            referral_state: None,
         }
     }
 }
@@ -343,7 +359,7 @@ impl ConfigManager {
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
                 && current.custom_game_directory == new_config.custom_game_directory
                 && current.use_browser_based_login == new_config.use_browser_based_login
-                && current.pending_referral_code == new_config.pending_referral_code
+                && current.referral_state == new_config.referral_state
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -456,7 +472,7 @@ impl ConfigManager {
                     global_memory_settings: new_config.global_memory_settings,
                     custom_game_directory: new_config.custom_game_directory.clone(),
                     use_browser_based_login: new_config.use_browser_based_login,
-                    pending_referral_code: new_config.pending_referral_code.clone(),
+                    referral_state: new_config.referral_state.clone(),
                 };
 
                 true
