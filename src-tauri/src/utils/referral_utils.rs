@@ -2,16 +2,18 @@
 //!
 //! Flow:
 //! 1. NSIS installer writes referral code to referral_code.txt in install dir
-//! 2. On startup, we read the code and save it to config.pending_referral_code
+//! 2. On startup, we read the code and save it to config.referral_state
 //! 3. After login (when we have a NoRisk token), we report the code
-//! 4. On successful report, we clear pending_referral_code
+//! 4. On successful report, we set redeemed=true (code stays for tracing!)
 
 use log::{debug, error, info, warn};
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 use crate::error::Result;
 use crate::minecraft::api::norisk_api::NoRiskApi;
+use crate::state::config_state::ReferralState;
 use crate::state::State;
 
 /// Filename for the referral code written by the installer
@@ -61,10 +63,15 @@ pub async fn check_and_process_referral_code() -> Result<()> {
     let state = State::get().await?;
     let mut config = state.config_manager.get_config().await;
 
-    // Save referral code to config (overwrite any existing pending code)
-    config.pending_referral_code = Some(referral_code.clone());
+    // Save referral code to config as ReferralState (redeemed = false)
+    config.referral_state = Some(ReferralState {
+        code: referral_code.clone(),
+        redeemed: false,
+        redeemed_at: None,
+        redeemed_by_account: None,
+    });
     state.config_manager.set_config(config).await?;
-    info!("[Referral] Saved referral code to config as pending");
+    info!("[Referral] Saved referral code to config as ReferralState (redeemed=false)");
 
     // Delete the referral code file (we've saved it to config)
     if let Err(e) = tokio::fs::remove_file(&referral_file_path).await {
@@ -86,13 +93,23 @@ pub async fn report_referral_after_login(account_id: Uuid) -> Result<()> {
     let state = State::get().await?;
     let config = state.config_manager.get_config().await;
 
-    // Check if we have a pending referral code first (quick check before token refresh)
-    if config.pending_referral_code.is_none() {
-        debug!("[Referral] No pending referral code to report");
-        return Ok(());
+    // Check if we have a referral state that hasn't been redeemed yet
+    match &config.referral_state {
+        Some(state) if !state.redeemed => {
+            debug!("[Referral] Found unredeemed referral code: {}", state.code);
+        }
+        Some(state) => {
+            debug!("[Referral] Referral code already redeemed: {}", state.code);
+            return Ok(());
+        }
+        None => {
+            debug!("[Referral] No referral state to report");
+            return Ok(());
+        }
     }
 
-    let is_experimental = config.is_experimental;
+    // TODO: Remove this after testing - force experimental for referral testing
+    let is_experimental = true; // config.is_experimental;
 
     // Get account with refreshed tokens
     info!("[Referral] Getting account with refreshed tokens for referral report...");
@@ -142,29 +159,45 @@ async fn report_referral_with_token(
     let state = State::get().await?;
     let config = state.config_manager.get_config().await;
 
-    // Check if we have a pending referral code
-    let referral_code = match &config.pending_referral_code {
-        Some(code) => code.clone(),
+    // Check if we have a referral state that hasn't been redeemed
+    let referral_state = match &config.referral_state {
+        Some(s) if !s.redeemed => s.clone(),
+        Some(s) => {
+            debug!("[Referral] Referral code already redeemed: {}", s.code);
+            return Ok(());
+        }
         None => {
-            debug!("[Referral] No pending referral code to report");
+            debug!("[Referral] No referral state to report");
             return Ok(());
         }
     };
 
-    info!("[Referral] Reporting referral code: {} for account: {}", referral_code, account_id);
+    info!("[Referral] Reporting referral code: {} for account: {}", referral_state.code, account_id);
 
-    match NoRiskApi::report_referral_code(norisk_token, &referral_code, account_id, is_experimental).await {
+    match NoRiskApi::report_referral_code(norisk_token, &referral_state.code, account_id, is_experimental).await {
         Ok(_) => {
             info!("[Referral] Successfully reported referral code");
-            // Clear the pending code
+
+            // Get current timestamp
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+
+            // Update state with redeemed info (code stays!)
             let mut updated_config = state.config_manager.get_config().await;
-            updated_config.pending_referral_code = None;
+            updated_config.referral_state = Some(ReferralState {
+                code: referral_state.code.clone(),
+                redeemed: true,
+                redeemed_at: Some(timestamp),
+                redeemed_by_account: Some(account_id.to_string()),
+            });
             state.config_manager.set_config(updated_config).await?;
-            info!("[Referral] Cleared pending referral code from config");
+            info!("[Referral] Marked referral code as redeemed (code preserved for tracing)");
         }
         Err(e) => {
             warn!("[Referral] Failed to report referral code: {}", e);
-            // Keep the code in config, will try again next login
+            // Keep the state as is, will try again next login
         }
     }
 

@@ -12,6 +12,18 @@ export interface MemorySettings {
   max: number; // u32
 }
 
+/** Referral tracking state - keeps code even after redemption for tracing */
+export interface ReferralState {
+  /** The download UUID from the installer filename */
+  code: string;
+  /** Whether the code has been successfully reported to backend */
+  redeemed: boolean;
+  /** Timestamp when the code was redeemed (seconds since epoch) */
+  redeemed_at: number | null;
+  /** Account UUID that redeemed the code */
+  redeemed_by_account: string | null;
+}
+
 export interface LauncherConfig {
   version: number; // u32
   is_experimental: boolean;
@@ -27,7 +39,7 @@ export interface LauncherConfig {
   global_memory_settings: MemorySettings;
   custom_game_directory: string | null; // Option<PathBuf>
   use_browser_based_login: boolean;
-  pending_referral_code: string | null; // Option<String> - Referral code waiting to be reported
+  referral_state: ReferralState | null; // Referral tracking state
   last_played_profile: string | null; // Option<Uuid>
 }
 

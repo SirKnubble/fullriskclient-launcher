@@ -373,8 +373,10 @@ pub async fn claim_advent_calendar_day_command(tag: u32) -> Result<AdventCalenda
 pub async fn get_referral_info(code: String) -> Result<ReferralInfo, CommandError> {
     debug!("Executing get_referral_info command for code: {}", code);
 
-    let state = State::get().await?;
-    let is_experimental = state.config_manager.is_experimental_mode().await;
+    // TODO: Remove this after testing - force experimental for referral testing
+    let is_experimental = true;
+    // let state = State::get().await?;
+    // let is_experimental = state.config_manager.is_experimental_mode().await;
 
     Ok(NoRiskApi::get_referral_info(&code, is_experimental).await?)
 }
