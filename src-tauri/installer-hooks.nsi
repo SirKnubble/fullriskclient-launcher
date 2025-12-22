@@ -13,7 +13,6 @@
   ; $EXEPATH contains the full path, we need just the filename
   Push $0
   Push $1
-  Push $2
   Push $R0
 
   ; Get filename from path
@@ -22,35 +21,19 @@
   ; Debug: Log the filename (visible in installer log)
   DetailPrint "Installer filename: $0"
 
-  ; Find the last occurrence of "-setup-" to extract referral code
-  ; Format: ...-setup-REFERRALCODE.exe
-  StrCpy $1 ""
-  StrCpy $2 ""
-
-  ; Use WordFind to get everything after "-setup-"
-  ; +2 = second word (after the delimiter), +1 would be first word (before delimiter)
-  ${WordFind} $0 "-setup-" "+2" $1
+  ; Use WordFind2X to extract text BETWEEN "-setup-" and ".exe"
+  ; This reliably extracts the UUID from: NoRiskClient-Windows-setup-UUID.exe
+  ; +1 = first occurrence
+  ${WordFind2X} $0 "-setup-" ".exe" "+1" $1
 
   ; Check if we found something (if $1 equals $0, nothing was found)
   StrCmp $1 $0 no_referral_code
   StrCmp $1 "" no_referral_code
 
-  ; Remove .exe extension
-  ${WordFind} $1 ".exe" "+1" $2
-
-  ; If $2 equals $1, the .exe wasn't found - use $1 as is but trim .exe manually
-  StrCmp $2 $1 0 +3
-    StrLen $R0 $1
-    IntOp $R0 $R0 - 4
-    StrCpy $2 $1 $R0
-
-  ; Skip if empty or if it's just whitespace
-  StrCmp $2 "" no_referral_code
-
   ; Write referral code to file in install directory
-  DetailPrint "Referral code found: $2"
+  DetailPrint "Referral code found: $1"
   FileOpen $R0 "$INSTDIR\referral_code.txt" w
-  FileWrite $R0 $2
+  FileWrite $R0 $1
   FileClose $R0
   DetailPrint "Referral code saved to: $INSTDIR\referral_code.txt"
   Goto done_referral
@@ -60,7 +43,6 @@
 
   done_referral:
   Pop $R0
-  Pop $2
   Pop $1
   Pop $0
 !macroend
