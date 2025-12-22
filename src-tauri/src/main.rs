@@ -528,6 +528,7 @@ async fn main() {
             commands::nrc_commands::reset_mobile_app_token,
             commands::nrc_commands::get_advent_calendar_command,
             commands::nrc_commands::claim_advent_calendar_day_command,
+            commands::nrc_commands::get_referral_info,
             get_capes_by_hashes,
             get_owned_vanilla_capes,
             get_currently_equipped_vanilla_cape,

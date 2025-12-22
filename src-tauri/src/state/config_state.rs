@@ -55,6 +55,9 @@ pub struct LauncherConfig {
     pub custom_game_directory: Option<PathBuf>,
     #[serde(default = "default_use_browser_based_login")]
     pub use_browser_based_login: bool,
+    /// Pending referral code waiting to be reported (cleared after successful report)
+    #[serde(default)]
+    pub pending_referral_code: Option<String>,
 }
 
 fn default_config_version() -> u32 {
@@ -114,6 +117,7 @@ impl Default for LauncherConfig {
             global_memory_settings: default_global_memory_settings(),
             custom_game_directory: None,
             use_browser_based_login: default_use_browser_based_login(),
+            pending_referral_code: None,
         }
     }
 }
@@ -339,6 +343,7 @@ impl ConfigManager {
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
                 && current.custom_game_directory == new_config.custom_game_directory
                 && current.use_browser_based_login == new_config.use_browser_based_login
+                && current.pending_referral_code == new_config.pending_referral_code
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -451,6 +456,7 @@ impl ConfigManager {
                     global_memory_settings: new_config.global_memory_settings,
                     custom_game_directory: new_config.custom_game_directory.clone(),
                     use_browser_based_login: new_config.use_browser_based_login,
+                    pending_referral_code: new_config.pending_referral_code.clone(),
                 };
 
                 true

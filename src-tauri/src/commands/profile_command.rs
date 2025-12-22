@@ -25,7 +25,8 @@ use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
 use crate::utils::world_utils;
 use crate::utils::{
-    datapack_utils, path_utils, profile_utils, repair_utils, resourcepack_utils, shaderpack_utils,
+    datapack_utils, path_utils, profile_utils, referral_utils, repair_utils, resourcepack_utils,
+    shaderpack_utils,
 };
 use chrono::Utc;
 use log::{error, info, trace, warn};
@@ -318,6 +319,13 @@ pub async fn launch_profile(
         log::info!("[Command] No preferred account set. Using global active account.");
         get_active_account().await?
     };
+
+    // Fallback: Try to report pending referral code before launch (in case login report failed)
+    if let Some(ref creds) = credentials {
+        if let Err(e) = referral_utils::report_referral_after_login(creds.id).await {
+            log::debug!("[Command] Referral report before launch failed (may already be reported): {}", e);
+        }
+    }
 
     let profile_id = profile.id; // Store profile ID for later use
     let profile_clone = profile.clone();

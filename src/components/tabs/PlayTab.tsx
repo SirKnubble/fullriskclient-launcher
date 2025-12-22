@@ -13,6 +13,7 @@ import {
   useBackgroundEffectStore,
 } from "../../store/background-effect-store";
 import { SnowEffectToggle } from "../ui/SnowEffectToggle";
+import { ReferralBanner } from "../ui/ReferralBanner";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 
 export function PlayTab() {
@@ -62,6 +63,11 @@ export function PlayTab() {
             customGridLineColor={`${accentColor.value}80`}
           />
         )}
+
+        {/* Referral Banner - Top Left */}
+        <div className="absolute top-3 left-3 z-20">
+          <ReferralBanner />
+        </div>
 
         {/* Snow Effect Toggle - Top Right */}
         <div className="absolute top-6 right-6 z-20">
