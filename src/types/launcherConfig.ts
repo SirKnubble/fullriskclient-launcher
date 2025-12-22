@@ -27,4 +27,25 @@ export interface LauncherConfig {
   global_memory_settings: MemorySettings;
   custom_game_directory: string | null; // Option<PathBuf>
   use_browser_based_login: boolean;
+  pending_referral_code: string | null; // Option<String> - Referral code waiting to be reported
+  last_played_profile: string | null; // Option<Uuid>
+}
+
+export interface ReferralInfo {
+  /** Display name of the referrer (username, creator name, etc.) */
+  referrer_name: string;
+  /** Optional avatar/profile picture URL */
+  referrer_avatar: string | null;
+  /** Whether the referral code is still valid */
+  valid: boolean;
+  /** Type of referral: "friend", "affiliate", "creator", "partner", etc. */
+  referral_type: string | null;
+  /** Translation key for the banner message (e.g., "referral.invited_by_friend") */
+  translation_key: string | null;
+  /** Fallback message if translation not found */
+  fallback_message: string | null;
+  /** Optional custom message from the referrer/backend */
+  custom_message: string | null;
+  /** Optional reward description (e.g., "Du erhältst 100 Coins!") */
+  reward_text: string | null;
 } 

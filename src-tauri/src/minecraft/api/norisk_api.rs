@@ -7,6 +7,7 @@ use crate::{
     config::HTTP_CLIENT,
     error::{AppError, Result},
 };
+use chrono::Utc;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json;
@@ -26,6 +27,34 @@ pub struct CrashlogDto {
 pub struct ServerIdResponse {
     pub server_id: String,
     pub expires_in: i32,
+}
+
+/// Information about a referral code and its referrer
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferralInfo {
+    /// Display name of the referrer (username, creator name, etc.)
+    pub referrer_name: String,
+    /// Optional avatar/profile picture URL
+    #[serde(default)]
+    pub referrer_avatar: Option<String>,
+    /// Whether the referral code is still valid
+    pub valid: bool,
+    /// Type of referral: "friend", "affiliate", "creator", "partner", etc.
+    #[serde(default)]
+    pub referral_type: Option<String>,
+    /// Translation key for the banner message (e.g., "referral.invited_by_friend")
+    #[serde(default)]
+    pub translation_key: Option<String>,
+    /// Fallback message if translation not found
+    #[serde(default)]
+    pub fallback_message: Option<String>,
+    /// Optional custom message from the referrer/backend
+    #[serde(default)]
+    pub custom_message: Option<String>,
+    /// Optional reward description (e.g., "Du erhältst 100 Coins!")
+    #[serde(default)]
+    pub reward_text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -830,5 +859,107 @@ impl NoRiskApi {
         })
     }
 
-    // Add more NoRisk API methods as needed
+    /// Report a referral code to the backend for tracking.
+    /// Used for affiliate links, friend referrals, etc.
+    ///
+    /// SECURITY: Uses Bearer token authentication to ensure the request is legitimate.
+    /// The account UUID is sent as a query parameter.
+    pub async fn report_referral_code(
+        norisk_token: &str,
+        code: &str,
+        account_id: Uuid,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/launcher/referral/report", base_url);
+
+        info!("[NoRisk API] Reporting referral code: {} for account: {}", code, account_id);
+        debug!("[NoRisk API] Full URL: {}", url);
+
+        #[derive(Serialize)]
+        struct ReferralReportRequest<'a> {
+            code: &'a str,
+        }
+
+        let request_body = ReferralReportRequest { code };
+
+        let response = HTTP_CLIENT
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", account_id.to_string())])
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Referral report request failed: {}", e);
+                AppError::RequestError(format!("Failed to report referral code: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[NoRisk API] Referral report response status: {}", status);
+
+        if !status.is_success() {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            error!(
+                "[NoRisk API] Referral report error response: Status {}, Body: {}",
+                status, error_body
+            );
+            return Err(AppError::RequestError(format!(
+                "NoRisk API returned error status for referral report: {}, Body: {}",
+                status, error_body
+            )));
+        }
+
+        info!("[NoRisk API] Successfully reported referral code");
+        Ok(())
+    }
+
+    /// Get information about a referral code (public endpoint, no auth required).
+    /// Used to display referrer info in the UI before login.
+    pub async fn get_referral_info(code: &str, is_experimental: bool) -> Result<ReferralInfo> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/launcher/referral/info", base_url);
+
+        info!("[NoRisk API] Fetching referral info for code: {}", code);
+        debug!("[NoRisk API] Full URL: {}", url);
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .query(&[("code", code)])
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Referral info request failed: {}", e);
+                AppError::RequestError(format!("Failed to fetch referral info: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[NoRisk API] Referral info response status: {}", status);
+
+        if !status.is_success() {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            error!(
+                "[NoRisk API] Referral info error response: Status {}, Body: {}",
+                status, error_body
+            );
+            return Err(AppError::RequestError(format!(
+                "NoRisk API returned error status for referral info: {}, Body: {}",
+                status, error_body
+            )));
+        }
+
+        let info = response.json::<ReferralInfo>().await.map_err(|e| {
+            error!("[NoRisk API] Failed to parse referral info response: {}", e);
+            AppError::ParseError(format!("Failed to parse referral info: {}", e))
+        })?;
+
+        info!("[NoRisk API] Successfully fetched referral info for: {}", info.referrer_name);
+        Ok(info)
+    }
 }

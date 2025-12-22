@@ -10,6 +10,7 @@ use crate::state::post_init::PostInitializationHandler;
 use crate::state::process_state::{default_processes_path, ProcessManager};
 use crate::state::profile_state::ProfileManager;
 use crate::state::skin_state::{default_skins_path, SkinManager};
+use crate::utils::referral_utils;
 use std::sync::Arc;
 use tokio::sync::{OnceCell, Mutex, Semaphore};
 use tokio::task::JoinHandle;
@@ -143,6 +144,12 @@ impl State {
             "Launcher Config - Discord Rich Presence: {}",
             final_config.enable_discord_presence
         );
+
+        // Check for referral code from installer (affiliate/friend links)
+        if let Err(e) = referral_utils::check_and_process_referral_code().await {
+            log::warn!("State::init - Failed to process referral code: {}", e);
+            // Don't fail initialization, just log the error
+        }
 
         log::info!(
             "State::init - Full initialization, including all post-init handlers, complete."

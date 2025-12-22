@@ -1,5 +1,5 @@
 use crate::error::{AppError, CommandError};
-use crate::minecraft::api::norisk_api::{AdventCalendarDay, CrashlogDto, NoRiskApi, Reward};
+use crate::minecraft::api::norisk_api::{AdventCalendarDay, CrashlogDto, NoRiskApi, ReferralInfo, Reward};
 use crate::minecraft::api::wordpress_api::{BlogPost, WordPressApi};
 use crate::minecraft::auth::minecraft_auth::Credentials;
 use crate::state::state_manager::State;
@@ -364,4 +364,17 @@ pub async fn claim_advent_calendar_day_command(tag: u32) -> Result<AdventCalenda
     );
 
     Ok(NoRiskApi::claim_advent_calendar_day(&token, tag, &account_id_str, is_experimental).await?)
+}
+
+/// Get information about a referral code.
+/// This is a public endpoint that doesn't require authentication.
+/// Used to display referrer info in the UI before login.
+#[tauri::command]
+pub async fn get_referral_info(code: String) -> Result<ReferralInfo, CommandError> {
+    debug!("Executing get_referral_info command for code: {}", code);
+
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    Ok(NoRiskApi::get_referral_info(&code, is_experimental).await?)
 }

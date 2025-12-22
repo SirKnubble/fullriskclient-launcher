@@ -4,9 +4,10 @@ use crate::error::{AppError, CommandError};
 use crate::minecraft::minecraft_auth::Credentials;
 use crate::state::event_state::{EventPayload, EventType};
 use crate::state::state_manager::State;
+use crate::utils::referral_utils;
 use crate::utils::updater_utils;
 use chrono::{Duration, Utc};
-use log::{error, info};
+use log::{error, info, warn};
 use tauri::plugin::TauriPlugin;
 use tauri::Manager;
 use tauri::{Runtime, UserAttentionType};
@@ -166,6 +167,11 @@ pub async fn begin_login<R: Runtime>(
                                 error: None,
                             }).await?;
 
+                            // Report referral code with account if available
+                            if let Err(e) = referral_utils::report_referral_after_login(account.id).await {
+                                warn!("[Login] Failed to report referral: {}", e);
+                            }
+
                             return Ok(Some(account));
                         }
                         Err(e) => {
@@ -283,6 +289,11 @@ pub async fn begin_login<R: Runtime>(
                             .minecraft_account_manager_v2
                             .login_finish(&code, flow)
                             .await?;
+
+                        // Report referral code with account if available
+                        if let Err(e) = referral_utils::report_referral_after_login(account.id).await {
+                            warn!("[Login] Failed to report referral: {}", e);
+                        }
 
                         return Ok(Some(account));
                     }

@@ -109,6 +109,7 @@ export function PlayerActionsDisplay({
 
   return (
     <div className={cn("flex flex-col items-center", className)}>
+
       {/* Featured Modpack Toggle - only show if featured profile exists and profiles are loaded */}
       {!isLoadingProfiles && featuredProfile && (
         <div className="absolute bottom-32 left-0 right-0 flex justify-center px-4 z-30">
