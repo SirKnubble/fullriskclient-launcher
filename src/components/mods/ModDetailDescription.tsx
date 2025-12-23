@@ -64,7 +64,7 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
               [&_pre]:bg-black/30 [&_pre]:p-3 [&_pre]:rounded [&_pre]:text-xs [&_pre]:font-mono [&_pre]:text-white/90 [&_pre]:overflow-x-auto [&_pre]:mb-3
               [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-white/70 [&_blockquote]:my-3
               [&_a]:text-accent [&_a]:hover:text-accent/80 [&_a]:underline
-              [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-3
+              [&_img]:inline [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-1
               [&_hr]:border-white/20 [&_hr]:my-6
               [&_table]:w-full [&_table]:border-collapse [&_table]:mb-3
               [&_th]:bg-black/30 [&_th]:p-2 [&_th]:border [&_th]:border-white/20 [&_th]:text-left
@@ -171,7 +171,7 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
                   <img
                     src={src}
                     alt={alt}
-                    className="max-w-full h-auto rounded-lg my-3"
+                    className="inline max-w-full h-auto rounded-lg my-1"
                     loading="lazy"
                   />
                 ),
