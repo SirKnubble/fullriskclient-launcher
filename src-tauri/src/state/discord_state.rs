@@ -19,6 +19,7 @@ pub enum DiscordState {
     // TODO: Add other states like InGame(profile_name), Editing(profile_name) etc.
 }
 
+#[derive(Clone)]
 pub struct DiscordManager {
     client: Arc<Mutex<Option<DiscordIpcClient>>>,
     current_state: Arc<RwLock<DiscordState>>,
@@ -278,23 +279,29 @@ impl DiscordManager {
         *enabled_lock = enabled;
 
         if !was_enabled && enabled {
-            // Was disabled, now enabled - connect
-            debug!("Discord was disabled, now enabled - connecting...");
+            // Was disabled, now enabled - connect in background to not block app startup
+            debug!("Discord was disabled, now enabled - spawning background connection...");
             drop(enabled_lock);
 
-            // Catch errors to prevent application crashes
-            if let Err(e) = self.connect().await {
-                error!("Failed to connect to Discord when enabling: {}", e);
-                // Continue without error return
-                return Ok(());
-            }
+            // Clone self to move into spawned task
+            let manager_clone = self.clone();
+            tokio::spawn(async move {
+                info!("Discord: Starting background connection...");
 
-            // Set initial state and catch errors
-            if let Err(e) = self.set_state_internal(DiscordState::Idle, true).await {
-                error!("Failed to set initial Discord state: {}", e);
-                // Continue without error return
-                return Ok(());
-            }
+                // Catch errors to prevent application crashes
+                if let Err(e) = manager_clone.connect().await {
+                    error!("Failed to connect to Discord when enabling: {}", e);
+                    return;
+                }
+
+                // Set initial state and catch errors
+                if let Err(e) = manager_clone.set_state_internal(DiscordState::Idle, true).await {
+                    error!("Failed to set initial Discord state: {}", e);
+                    return;
+                }
+
+                info!("Discord: Background connection completed successfully.");
+            });
         } else if was_enabled && !enabled {
             // Was enabled, now disabled - disconnect
             debug!("Discord was enabled, now disabled - disconnecting...");
