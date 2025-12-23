@@ -83,8 +83,9 @@ use commands::modrinth_commands::{
 };
 
 use commands::file_command::{
-    delete_file, get_icons_for_archives, get_icons_for_norisk_mods, open_file, open_file_directory,
-    read_file_bytes, set_file_enabled,
+    delete_file, get_icons_for_archives, get_icons_for_norisk_mods, list_all_mc_logs,
+    list_crash_reports, list_launcher_logs, open_file, open_file_directory, read_file_bytes,
+    set_file_enabled,
 };
 
 // Import config commands
@@ -573,6 +574,9 @@ async fn main() {
             get_profile_log_files,
             get_log_file_content,
             list_profile_screenshots,
+            list_launcher_logs,
+            list_crash_reports,
+            list_all_mc_logs,
             open_file,
             read_file_bytes,
             get_app_version,
