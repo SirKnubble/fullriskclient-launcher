@@ -57,4 +57,15 @@ export class CurseForgeService {
       iconUrl,
     });
   }
+
+  /**
+   * Get the full HTML description for a CurseForge mod
+   * @param modId CurseForge mod ID
+   * @returns Promise with the HTML description string
+   */
+  static async getModDescription(modId: number): Promise<string> {
+    return invoke<string>("get_curseforge_mod_description_command", {
+      modId,
+    });
+  }
 }

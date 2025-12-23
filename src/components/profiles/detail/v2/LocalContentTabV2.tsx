@@ -1157,6 +1157,16 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         </div>
       );
 
+      // Determine if we can navigate to mod detail page
+      const canNavigateToDetail = item.modrinth_info?.project_id || item.curseforge_info?.project_id;
+      const handleTitleClick = canNavigateToDetail ? () => {
+        if (item.modrinth_info?.project_id) {
+          navigate(`/mods/modrinth/${item.modrinth_info.project_id}`);
+        } else if (item.curseforge_info?.project_id) {
+          navigate(`/mods/curseforge/${item.curseforge_info.project_id}`);
+        }
+      } : undefined;
+
       return (
         <GenericDetailListItem
           key={item.filename}
@@ -1167,6 +1177,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           }
           iconNode={itemIconNode}
           title={itemTitle}
+          onTitleClick={handleTitleClick}
           descriptionNode={itemDescriptionNode}
           infoItems={itemBadgesNode}
           isDisabled={item.is_disabled}
@@ -1216,6 +1227,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       versionsError,
       handleSwitchContentVersion,
       isBlockedConfigLoaded,
+      navigate,
     ],
   );
 

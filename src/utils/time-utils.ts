@@ -21,16 +21,23 @@ export function timeAgo(timestamp: number | null): string {
   if (secondsPast <= 86400) {
     return `${Math.round(secondsPast / 3600)}h ago`;
   }
-  
-  // For older dates, just show the date
-  const date = new Date(timestamp);
-  const day = date.getDate();
-  const month = date.toLocaleString('default', { month: 'short' });
-  const year = date.getFullYear();
-  
-  if (secondsPast <= 86400 * 30) { // Roughly within a month
-     return `${day} ${month} ago`;
+
+  const daysPast = Math.round(secondsPast / 86400);
+
+  if (daysPast < 7) {
+    return `${daysPast}d ago`;
   }
- 
-  return `${day} ${month} ${year}`;
+
+  if (daysPast < 30) {
+    const weeks = Math.round(daysPast / 7);
+    return `${weeks}w ago`;
+  }
+
+  if (daysPast < 365) {
+    const months = Math.round(daysPast / 30);
+    return `${months}mo ago`;
+  }
+
+  const years = Math.round(daysPast / 365);
+  return `${years}y ago`;
 } 
