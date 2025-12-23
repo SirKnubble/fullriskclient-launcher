@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
@@ -9,6 +9,20 @@ import type {
 import { cn } from "../../lib/utils";
 import * as ProfileService from "../../services/profile-service";
 import { toast } from "react-hot-toast";
+
+// Global cache for resolved image URLs to prevent flickering on tab switches
+const imageUrlCache = new Map<string, { url: string; timestamp: number }>();
+
+function getCacheKey(profileId: string, banner: ProfileBanner | null | undefined): string {
+  if (!banner?.source) return `${profileId}:null`;
+  const source = banner.source;
+  if (source.type === "absolutePath") return `${profileId}:abs:${source.path}`;
+  if (source.type === "relativePath") return `${profileId}:rel:${source.path}`;
+  if (source.type === "relativeProfile") return `${profileId}:prof:${source.path}`;
+  if (source.type === "url") return `${profileId}:url:${source.url}`;
+  if (source.type === "base64") return `${profileId}:b64:${source.data.substring(0, 50)}`;
+  return `${profileId}:unknown`;
+}
 
 interface ProfileIconProps {
   profileId: string;
@@ -49,17 +63,31 @@ export function ProfileIcon({
   const [showLoading, setShowLoading] = useState(false);
   const [hasLoadedImage, setHasLoadedImage] = useState(false);
   const [imageOpacity, setImageOpacity] = useState(0);
+  const cacheVersion = useRef(0);
 
   useEffect(() => {
+    const cacheKey = getCacheKey(profileId, banner);
+
     const resolveImageUrlWithService = async () => {
       if (banner?.source) {
+        // Check cache first
+        const cached = imageUrlCache.get(cacheKey);
+        if (cached) {
+          setImageUrl(cached.url);
+          setHasLoadedImage(true);
+          setImageOpacity(1);
+          setIsLoading(false);
+          setShowLoading(false);
+          return;
+        }
+
         setIsLoading(true);
-        
+
         // Verzögerte Anzeige der Loading-Animation um Flackern zu vermeiden
         const loadingTimeout = setTimeout(() => {
           setShowLoading(true);
         }, 100); // 100ms Verzögerung
-        
+
         try {
           const resolvedPathOrUrl = await ProfileService.resolveImagePath(
             banner.source,
@@ -71,10 +99,14 @@ export function ProfileIcon({
             banner.source.type === "relativePath" ||
             banner.source.type === "relativeProfile"
           ) {
-            if (resolvedPathOrUrl) { 
+            if (resolvedPathOrUrl) {
               const assetUrl = await convertFileSrc(resolvedPathOrUrl);
-              setImageUrl(assetUrl + '?v=' + Date.now()); // Cache busting
+              // Use cache version for cache busting only when image actually changes
+              const finalUrl = assetUrl + '?v=' + cacheVersion.current;
+              setImageUrl(finalUrl);
               setHasLoadedImage(true);
+              // Cache the resolved URL
+              imageUrlCache.set(cacheKey, { url: finalUrl, timestamp: Date.now() });
               // Fade-in mit kleiner Verzögerung für smooth transition
               setTimeout(() => setImageOpacity(1), 50);
             } else {
@@ -84,10 +116,11 @@ export function ProfileIcon({
             }
           } else {
             // For URL or Base64, the resolvedPathOrUrl is already the final URL
-            // No cache buster needed here as these are not typical file path caching scenarios
             setImageUrl(resolvedPathOrUrl);
             setHasLoadedImage(!!resolvedPathOrUrl);
             if (resolvedPathOrUrl) {
+              // Cache the resolved URL
+              imageUrlCache.set(cacheKey, { url: resolvedPathOrUrl, timestamp: Date.now() });
               setTimeout(() => setImageOpacity(1), 50);
             } else {
               setImageOpacity(0);
@@ -145,6 +178,10 @@ export function ProfileIcon({
             path: selectedPath,
             imageType: "icon",
           });
+          // Invalidate cache for this profile so the new image gets loaded
+          const cacheKey = getCacheKey(profileId, banner);
+          imageUrlCache.delete(cacheKey);
+          cacheVersion.current++;
           toast.success("Profile icon updated!");
           onSuccessfulUpdate();
         } catch (error) {
@@ -163,7 +200,7 @@ export function ProfileIcon({
         toast.error("Failed to open image dialog.");
       }
     }
-  }, [isEditable, isLoading, isUpdating, profileId, onSuccessfulUpdate]);
+  }, [isEditable, isLoading, isUpdating, profileId, banner, onSuccessfulUpdate]);
 
   const canBeClicked = isEditable && !isLoading && !isUpdating;
   const displaySpinner = showLoading || isUpdating;
