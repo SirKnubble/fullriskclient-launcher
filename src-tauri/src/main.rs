@@ -70,13 +70,14 @@ use commands::profile_command::{
 };
 
 // Use statements for registered commands only
-use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command};
+use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command, get_curseforge_mod_description_command};
 
 use commands::modrinth_commands::{
     check_modrinth_updates, check_mod_updates_unified_command, download_and_install_modrinth_modpack,
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
-    get_modpack_versions_unified_command, get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
+    get_modpack_versions_unified_command, get_modrinth_project_details, get_modrinth_project_members,
+    get_modrinth_versions_by_hashes, search_modrinth_mods,
     search_modrinth_projects, search_mods_unified_command, get_mod_versions_unified_command,
     switch_modpack_version_command
 };
@@ -397,10 +398,12 @@ async fn main() {
             import_curseforge_pack,
             download_and_install_curseforge_modpack_command,
             get_curseforge_file_changelog_command,
+            get_curseforge_mod_description_command,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             add_modrinth_content_to_profile,
             get_modrinth_project_details,
+            get_modrinth_project_members,
             check_modrinth_updates,
             check_mod_updates_unified_command,
             get_icons_for_archives,

@@ -11,6 +11,7 @@ import { BrowseTabWrapper } from "../components/profiles/BrowseTabWrapper";
 import { ProfilesTabV2 } from "../components/tabs/ProfilesTabV2";
 import { ProfileDetailViewV2Wrapper } from "../components/profiles/ProfileDetailViewV2Wrapper";
 import { AdventCalendarTab } from "../components/advent-calendar/AdventCalendarTab";
+import { ModDetailPage } from "../components/mods/ModDetailPage";
 
 export const router = createHashRouter([
   {
@@ -48,6 +49,10 @@ export const router = createHashRouter([
       {
         path: "mods",
         element: <ModrinthTabV2 />,
+      },
+      {
+        path: "mods/:source/:projectId",
+        element: <ModDetailPage />,
       },
       {
         path: "skins",

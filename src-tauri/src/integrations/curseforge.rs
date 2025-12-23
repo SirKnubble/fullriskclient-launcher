@@ -818,6 +818,61 @@ pub async fn get_file_changelog(mod_id: u32, file_id: u32) -> Result<String> {
     Ok(changelog_response.data)
 }
 
+/// Response structure for CurseForge description API
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CurseForgeDescriptionResponse {
+    pub data: String,
+}
+
+/// Get the full description for a CurseForge mod
+/// Returns HTML formatted description
+pub async fn get_mod_description(mod_id: u32) -> Result<String> {
+    let url = format!("{}/mods/{}/description", CURSEFORGE_API_BASE_URL, mod_id);
+
+    log::info!("Getting CurseForge mod description: mod_id={}", mod_id);
+
+    let response = HTTP_CLIENT
+        .get(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge mod description: {}", e)))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        log::warn!("CurseForge mod description API returned {}: {}", status, error_text);
+        return Ok(String::new());
+    }
+
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge description response: {}", e)))?;
+
+    // Parse the JSON response
+    let description_response: CurseForgeDescriptionResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "Failed to parse CurseForge description JSON response: {}. Response: {}",
+                parse_err,
+                &response_text[..response_text.len().min(200)]
+            );
+            if response_text.trim().is_empty() {
+                return Ok(String::new());
+            } else {
+                return Ok(response_text);
+            }
+        }
+    };
+
+    log::debug!("Successfully retrieved description for mod ID {} (HTML length: {} chars)", mod_id, description_response.data.len());
+
+    Ok(description_response.data)
+}
+
 /// Get multiple mods by their IDs
 pub async fn get_mods_by_ids(
     mod_ids: Vec<u32>,

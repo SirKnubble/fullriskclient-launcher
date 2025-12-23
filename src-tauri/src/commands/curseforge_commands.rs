@@ -1,7 +1,8 @@
 use crate::error::{AppError, CommandError};
 use crate::integrations::curseforge::{
     get_mods_by_ids, GetModsByIdsRequestBody, CurseForgeModsResponse, CurseForgeMod,
-    import_curseforge_pack_as_profile, download_and_install_curseforge_modpack, get_file_changelog
+    import_curseforge_pack_as_profile, download_and_install_curseforge_modpack, get_file_changelog,
+    get_mod_description
 };
 use serde::Serialize;
 use std::path::PathBuf;
@@ -113,4 +114,27 @@ pub async fn get_curseforge_file_changelog_command(
     );
 
     Ok(changelog)
+}
+
+/// Get full description for a CurseForge mod
+/// Returns HTML formatted description
+#[tauri::command]
+pub async fn get_curseforge_mod_description_command(
+    mod_id: u32,
+) -> Result<String, CommandError> {
+    log::debug!(
+        "Received get_curseforge_mod_description command: mod_id={}",
+        mod_id
+    );
+
+    let description = get_mod_description(mod_id)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!(
+        "Successfully retrieved CurseForge description for mod {} (length: {} chars)",
+        mod_id, description.len()
+    );
+
+    Ok(description)
 }
