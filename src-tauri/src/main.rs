@@ -142,21 +142,41 @@ async fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             info!("SingleInstance plugin: Second instance triggered with args: {:?}", argv);
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
+
+            match app.get_webview_window("main") {
+                Some(window) => {
+                    if let Err(e) = window.show() {
+                        error!("SingleInstance: Failed to show main window: {}", e);
+                    }
+                    if let Err(e) = window.unminimize() {
+                        error!("SingleInstance: Failed to unminimize main window: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        error!("SingleInstance: Failed to focus main window: {}", e);
+                    }
+                    info!("SingleInstance: Brought existing window to front.");
+                }
+                None => {
+                    // Main window doesn't exist - first instance is a zombie
+                    error!("SingleInstance: CRITICAL - Main window does not exist!");
+                    error!("SingleInstance: First instance is a zombie. Exiting to release lock.");
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                        let _ = app
+                            .dialog()
+                            .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                Please join our Discord for support:\n\
+                                https://discord.gg/norisk")
+                            .kind(MessageDialogKind::Error)
+                            .title("NoRisk Launcher - Critical Error")
+                            .blocking_show();
+                    }
+
+                    std::process::exit(1);
+                }
             }
-            // Focus the main window on second instance
-            /*if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize(); // Ensure it's not minimized
-                let _ = window.set_focus();   // Bring to front and focus
-            }
-            // Call the handler for .noriskpack files
-            let app_handle_clone = app.clone();
-            tauri::async_runtime::spawn(async move {
-                norisk_packs::handle_noriskpack_file_paths(&app_handle_clone, argv).await;
-            });*/
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -176,10 +196,21 @@ async fn main() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                if let Err(e) = window.show() {
+                                    error!("Tray menu: Failed to show window: {}", e);
+                                }
+                                if let Err(e) = window.unminimize() {
+                                    error!("Tray menu: Failed to unminimize window: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    error!("Tray menu: Failed to focus window: {}", e);
+                                }
+                            }
+                            None => {
+                                error!("Tray menu: Main window not found - application in inconsistent state");
+                            }
                         }
                     }
                     "quit" => {
@@ -193,20 +224,30 @@ async fn main() {
                         button_state: MouseButtonState::Up,
                         ..
                     } => {
-                        // Beim Klick auf das Tray-Icon das Fenster anzeigen/verstecken
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let is_visible = window.is_visible().unwrap_or(false);
-                            let is_minimized = window.is_minimized().unwrap_or(false);
-                            
-                            if is_visible && !is_minimized {
-                                // Fenster ist sichtbar und nicht minimiert -> verstecken
-                                let _ = window.hide();
-                            } else {
-                                // Fenster ist versteckt oder minimiert -> anzeigen
-                                let _ = window.show();
-                                let _ = window.unminimize();
-                                let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                let is_visible = window.is_visible().unwrap_or(false);
+                                let is_minimized = window.is_minimized().unwrap_or(false);
+
+                                if is_visible && !is_minimized {
+                                    if let Err(e) = window.hide() {
+                                        error!("Tray click: Failed to hide window: {}", e);
+                                    }
+                                } else {
+                                    if let Err(e) = window.show() {
+                                        error!("Tray click: Failed to show window: {}", e);
+                                    }
+                                    if let Err(e) = window.unminimize() {
+                                        error!("Tray click: Failed to unminimize window: {}", e);
+                                    }
+                                    if let Err(e) = window.set_focus() {
+                                        error!("Tray click: Failed to focus window: {}", e);
+                                    }
+                                }
+                            }
+                            None => {
+                                error!("Tray click: Main window not found - application in inconsistent state");
                             }
                         }
                     }
@@ -214,12 +255,22 @@ async fn main() {
                         button: MouseButton::Left,
                         ..
                     } => {
-                        // Doppelklick zeigt immer das Fenster
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                if let Err(e) = window.show() {
+                                    error!("Tray double-click: Failed to show window: {}", e);
+                                }
+                                if let Err(e) = window.unminimize() {
+                                    error!("Tray double-click: Failed to unminimize window: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    error!("Tray double-click: Failed to focus window: {}", e);
+                                }
+                            }
+                            None => {
+                                error!("Tray double-click: Main window not found - application in inconsistent state");
+                            }
                         }
                     }
                     _ => {}
@@ -312,17 +363,50 @@ async fn main() {
                 }
 
                 info!("Updater process finished. Attempting to show main window...");
-                if let Some(main_window) = state_init_app_handle.get_webview_window("main") { 
-                    if let Err(e) = main_window.show() {
-                        error!("Failed to show main window: {}", e);
-                    } else {
-                        info!("Main window shown successfully.");
-                        if let Err(e) = main_window.set_focus() {
-                            error!("Failed to focus main window: {}", e);
+                if let Some(main_window) = state_init_app_handle.get_webview_window("main") {
+                    match main_window.show() {
+                        Ok(_) => {
+                            info!("Main window shown successfully.");
+                            if let Err(e) = main_window.set_focus() {
+                                error!("Failed to focus main window (non-critical): {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            error!("CRITICAL: Failed to show main window: {}", e);
+
+                            #[cfg(target_os = "windows")]
+                            {
+                                use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                                let _ = state_init_app_handle
+                                    .dialog()
+                                    .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                        Please join our Discord for support:\n\
+                                        https://discord.gg/norisk")
+                                    .kind(MessageDialogKind::Error)
+                                    .title("NoRisk Launcher - Critical Error")
+                                    .blocking_show();
+                            }
+
+                            std::process::exit(1);
                         }
                     }
                 } else {
-                    error!("Could not get main window handle to show it after update check!");
+                    error!("CRITICAL: Could not get main window handle!");
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                        let _ = state_init_app_handle
+                            .dialog()
+                            .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                Please join our Discord for support:\n\
+                                https://discord.gg/norisk")
+                            .kind(MessageDialogKind::Error)
+                            .title("NoRisk Launcher - Critical Error")
+                            .blocking_show();
+                    }
+
+                    std::process::exit(1);
                 }
 
                 // --- Test Unified Mod Search ---
