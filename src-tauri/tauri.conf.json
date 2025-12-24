@@ -74,11 +74,18 @@
           "https://raw.githubusercontent.com",
           "https://i.imgur.com",
           "https://*.imgur.com",
+          "https://discordapp.com",
           "https://cdn.discordapp.com",
           "https://*.gitlab.io",
           "https://gitlab.com",
           "https://mc-heads.net",
-          "https://*.mc-heads.net"
+          "https://*.mc-heads.net",
+          "https://wsrv.nl",
+          "https://i.ibb.co",
+          "https://media.githubusercontent.com",
+          "https://avatars.githubusercontent.com",
+          "https://pixelmonmod.com",
+          "https://avatars.cloudhaven.gg"
         ],
         "style-src": [
           "'self'",
