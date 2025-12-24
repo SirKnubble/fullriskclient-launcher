@@ -81,11 +81,11 @@ export function FriendsSidebar() {
       >
         <div
           className={cn(
-            "h-full flex flex-col transition-all duration-300 ease-out overflow-hidden",
+            "h-full flex flex-col transition-all duration-300 ease-out overflow-hidden backdrop-blur-xl",
             (activeChatFriend || isSettingsOpen) ? "w-[380px] opacity-100" : "w-0 opacity-0"
           )}
           style={{
-            background: `linear-gradient(135deg, ${accentColor.value}30 0%, ${accentColor.value}20 50%, ${accentColor.value}25 100%)`,
+            background: `linear-gradient(135deg, ${accentColor.value}40 0%, ${accentColor.value}30 50%, ${accentColor.value}35 100%)`,
             borderLeft: (activeChatFriend || isSettingsOpen) ? `2px solid ${accentColor.value}50` : "none",
             boxShadow: (activeChatFriend || isSettingsOpen) ? `inset 0 0 100px ${accentColor.value}25` : "none",
           }}
@@ -95,9 +95,9 @@ export function FriendsSidebar() {
         </div>
 
         <div
-          className="w-96 h-full flex flex-col"
+          className="w-96 h-full flex flex-col backdrop-blur-xl"
           style={{
-            background: `linear-gradient(180deg, ${accentColor.value}35 0%, ${accentColor.value}25 30%, ${accentColor.value}30 100%)`,
+            background: `linear-gradient(180deg, ${accentColor.value}45 0%, ${accentColor.value}35 30%, ${accentColor.value}40 100%)`,
             borderLeft: `2px solid ${accentColor.value}60`,
             boxShadow: `inset 0 0 120px ${accentColor.value}30, -5px 0 20px rgba(0, 0, 0, 0.5)`,
           }}
