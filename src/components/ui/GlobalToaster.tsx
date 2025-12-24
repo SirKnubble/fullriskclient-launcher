@@ -6,6 +6,27 @@ import { toast as hotToast, Toaster as HotToaster } from "react-hot-toast";
 import { gsap } from "gsap";
 import { useThemeStore } from "../../store/useThemeStore";
 import { getBorderRadiusClass, createRadiusStyle } from "./design-system";
+import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
+
+function PlayerToastContent({ message, uuid }: { message: string; uuid: string }) {
+  const avatarUrl = useCrafatarAvatar({ uuid, size: 32 });
+
+  return (
+    <div className="flex items-center gap-3">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className="w-8 h-8 rounded flex-shrink-0"
+          style={{ imageRendering: "pixelated" }}
+        />
+      ) : (
+        <div className="w-8 h-8 rounded flex-shrink-0 bg-white/20 animate-pulse" />
+      )}
+      <span>{message}</span>
+    </div>
+  );
+}
 
 export const toast = {
   success: (message: string) => {
@@ -20,6 +41,19 @@ export const toast = {
   },
   loading: (message: string) => {
     const id = hotToast.loading(message);
+    animateToast(id);
+    return id;
+  },
+  info: (message: string) => {
+    const id = hotToast(message);
+    animateToast(id);
+    return id;
+  },
+  player: (message: string, uuid: string) => {
+    const id = hotToast(
+      (t) => <PlayerToastContent message={message} uuid={uuid} />,
+      { duration: 3000 }
+    );
     animateToast(id);
     return id;
   },

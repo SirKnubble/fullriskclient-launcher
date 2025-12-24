@@ -7,6 +7,7 @@
 mod commands;
 mod config;
 mod error;
+mod friends;
 pub mod integrations;
 mod logging;
 mod minecraft;
@@ -125,6 +126,16 @@ use commands::content_command::{
 use commands::java_command::{
     detect_java_installations_command, find_best_java_for_minecraft_command, get_java_info_command,
     invalidate_java_cache_command, validate_java_path_command,
+};
+
+use commands::friends_command::{
+    get_friends, get_pending_requests, get_friends_user, send_friend_request,
+    accept_friend_request, deny_friend_request, remove_friend, set_online_status,
+    toggle_friend_ping, update_privacy_setting, connect_friends_websocket,
+    disconnect_friends_websocket, is_friends_websocket_connected, get_or_create_chat,
+    get_private_chats, get_chat_messages, send_chat_message, edit_chat_message,
+    delete_chat_message, send_typing_indicator, add_message_reaction,
+    remove_message_reaction,
 };
 
 #[tokio::main]
@@ -537,7 +548,29 @@ async fn main() {
             commands::profile_command::get_profile_symlinks,
             commands::profile_command::get_profile_instance_path,
             commands::profile_command::get_default_profile_path,
-            get_or_download_asset_model
+            get_or_download_asset_model,
+            get_friends,
+            get_pending_requests,
+            get_friends_user,
+            send_friend_request,
+            accept_friend_request,
+            deny_friend_request,
+            remove_friend,
+            set_online_status,
+            toggle_friend_ping,
+            update_privacy_setting,
+            connect_friends_websocket,
+            disconnect_friends_websocket,
+            is_friends_websocket_connected,
+            get_or_create_chat,
+            get_private_chats,
+            get_chat_messages,
+            send_chat_message,
+            edit_chat_message,
+            delete_chat_message,
+            send_typing_indicator,
+            add_message_reaction,
+            remove_message_reaction
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
