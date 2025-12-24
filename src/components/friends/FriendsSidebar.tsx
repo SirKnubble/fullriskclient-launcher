@@ -1,0 +1,385 @@
+import { useEffect, useState } from "react";
+import { Icon } from "@iconify/react";
+import { useFriendsStore } from "../../store/friends-store";
+import { useThemeStore } from "../../store/useThemeStore";
+import { FriendListItem } from "./FriendListItem";
+import { FriendRequestItem } from "./FriendRequestItem";
+import { FriendSkeleton } from "./FriendSkeleton";
+import { AddFriendInput } from "./AddFriendInput";
+import { ChatPanel } from "../chat/ChatPanel";
+import { SettingsPanel } from "./SettingsPanel";
+import { toast } from "../ui/GlobalToaster";
+import { cn } from "../../lib/utils";
+
+type TabType = "friends" | "requests";
+
+export function FriendsSidebar() {
+  const {
+    friends,
+    pendingRequests,
+    currentUser,
+    isLoading,
+    isSidebarOpen,
+    isSettingsOpen,
+    activeChatFriend,
+    notificationsEnabled,
+    closeSidebar,
+    closeChat,
+    closeSettings,
+    loadFriends,
+    loadPendingRequests,
+    toggleNotifications,
+    openSettings,
+  } = useFriendsStore();
+
+  const { accentColor } = useThemeStore();
+  const [activeTab, setActiveTab] = useState<TabType>("friends");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (isSidebarOpen) {
+      loadFriends();
+      loadPendingRequests();
+    }
+  }, [isSidebarOpen]);
+
+  const handleClose = () => {
+    closeChat();
+    closeSettings();
+    closeSidebar();
+  };
+
+  const onlineFriends = friends.filter((f) =>
+    f && ["ONLINE", "AFK", "BUSY"].includes(f.state)
+  );
+  const offlineFriends = friends.filter((f) =>
+    f && ["OFFLINE", "INVISIBLE"].includes(f.state)
+  );
+
+  const incomingRequests = pendingRequests.filter(
+    (r) => r.receiver?.toLowerCase() === currentUser?.uuid?.toLowerCase()
+  );
+  const outgoingRequests = pendingRequests.filter(
+    (r) => r.sender?.toLowerCase() === currentUser?.uuid?.toLowerCase()
+  );
+
+  return (
+    <>
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300",
+          isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={handleClose}
+      />
+
+      <div
+        className={cn(
+          "fixed top-0 right-0 h-full z-50 flex transition-transform duration-300 ease-out",
+          isSidebarOpen ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        <div
+          className={cn(
+            "h-full flex flex-col transition-all duration-300 ease-out overflow-hidden",
+            (activeChatFriend || isSettingsOpen) ? "w-[380px] opacity-100" : "w-0 opacity-0"
+          )}
+          style={{
+            background: `linear-gradient(135deg, ${accentColor.value}30 0%, ${accentColor.value}20 50%, ${accentColor.value}25 100%)`,
+            borderLeft: (activeChatFriend || isSettingsOpen) ? `2px solid ${accentColor.value}50` : "none",
+            boxShadow: (activeChatFriend || isSettingsOpen) ? `inset 0 0 100px ${accentColor.value}25` : "none",
+          }}
+        >
+          {activeChatFriend && <ChatPanel friend={activeChatFriend} />}
+          {isSettingsOpen && !activeChatFriend && <SettingsPanel />}
+        </div>
+
+        <div
+          className="w-96 h-full flex flex-col"
+          style={{
+            background: `linear-gradient(180deg, ${accentColor.value}35 0%, ${accentColor.value}25 30%, ${accentColor.value}30 100%)`,
+            borderLeft: `2px solid ${accentColor.value}60`,
+            boxShadow: `inset 0 0 120px ${accentColor.value}30, -5px 0 20px rgba(0, 0, 0, 0.5)`,
+          }}
+        >
+          <div className="p-4" style={{ borderBottom: `1px solid ${accentColor.value}30` }}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={openSettings}
+                  className="p-2 rounded-full transition-all duration-200 hover:scale-105"
+                  style={{
+                    backgroundColor: isSettingsOpen ? `${accentColor.value}40` : `${accentColor.value}20`,
+                    border: `1px solid ${isSettingsOpen ? `${accentColor.value}70` : `${accentColor.value}50`}`,
+                  }}
+                  title="Settings"
+                >
+                  <Icon icon="solar:settings-bold" className="w-5 h-5" style={{ color: accentColor.value }} />
+                </button>
+                <h2 className="text-lg font-bold text-white font-minecraft-ten uppercase tracking-wide">
+                  Friends
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { loadFriends(); loadPendingRequests(); }}
+                  className="p-2 rounded-full transition-all duration-200 hover:scale-105"
+                  style={{ backgroundColor: `${accentColor.value}20`, border: `1px solid ${accentColor.value}50`, color: accentColor.value }}
+                  title="Refresh"
+                >
+                  <Icon icon="solar:refresh-bold" className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => {
+                    toggleNotifications();
+                    toast.info(notificationsEnabled ? "Notifications disabled" : "Notifications enabled");
+                  }}
+                  className="p-2 rounded-full transition-all duration-200 hover:scale-105"
+                  style={{
+                    backgroundColor: notificationsEnabled ? `${accentColor.value}20` : "rgba(239, 68, 68, 0.2)",
+                    border: `1px solid ${notificationsEnabled ? `${accentColor.value}50` : "rgba(239, 68, 68, 0.5)"}`,
+                    color: notificationsEnabled ? accentColor.value : "#ef4444",
+                  }}
+                  title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+                >
+                  <Icon icon={notificationsEnabled ? "solar:bell-bold" : "solar:bell-off-bold"} className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="p-2 rounded-full transition-all duration-200 hover:scale-105"
+                  style={{ backgroundColor: `${accentColor.value}20`, border: `1px solid ${accentColor.value}50`, color: accentColor.value }}
+                  title="Close"
+                >
+                  <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="flex items-center gap-3 px-4 py-3 rounded-xl"
+              style={{
+                backgroundColor: `${accentColor.value}15`,
+                border: `1px solid ${accentColor.value}40`,
+              }}
+            >
+              <Icon icon="solar:magnifer-bold" className="w-5 h-5" style={{ color: `${accentColor.value}80` }} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search friends..."
+                className="flex-1 bg-transparent text-white text-sm font-minecraft-ten placeholder:text-white/30 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="p-3" style={{ borderBottom: `1px solid ${accentColor.value}30` }}>
+            <div
+              className="flex rounded-xl p-1"
+              style={{ backgroundColor: `${accentColor.value}15`, border: `1px solid ${accentColor.value}40` }}
+            >
+              <button
+                onClick={() => setActiveTab("friends")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-minecraft-ten transition-all duration-200"
+                )}
+                style={{
+                  backgroundColor: activeTab === "friends" ? `${accentColor.value}40` : "transparent",
+                  color: activeTab === "friends" ? "white" : "rgba(255,255,255,0.5)",
+                  border: activeTab === "friends" ? `1px solid ${accentColor.value}60` : "1px solid transparent",
+                }}
+              >
+                <Icon icon="solar:users-group-rounded-bold" className="w-4 h-4" />
+                Friends
+              </button>
+              <button
+                onClick={() => setActiveTab("requests")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-minecraft-ten transition-all duration-200"
+                )}
+                style={{
+                  backgroundColor: activeTab === "requests" ? `${accentColor.value}40` : "transparent",
+                  color: activeTab === "requests" ? "white" : "rgba(255,255,255,0.5)",
+                  border: activeTab === "requests" ? `1px solid ${accentColor.value}60` : "1px solid transparent",
+                }}
+              >
+                <Icon icon="solar:letter-bold" className="w-4 h-4" />
+                Requests
+                {incomingRequests.length > 0 && (
+                  <span
+                    className="text-xs font-minecraft-ten"
+                    style={{ color: accentColor.value }}
+                  >
+                    {incomingRequests.length > 99 ? "99+" : incomingRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {activeTab === "friends" ? (
+              <FriendsTab
+                currentUser={currentUser}
+                onlineFriends={onlineFriends.filter(f => f.username.toLowerCase().includes(searchQuery.toLowerCase()))}
+                offlineFriends={offlineFriends.filter(f => f.username.toLowerCase().includes(searchQuery.toLowerCase()))}
+                isLoading={isLoading}
+                accentColor={accentColor.value}
+              />
+            ) : (
+              <RequestsTab
+                incomingRequests={incomingRequests}
+                outgoingRequests={outgoingRequests}
+                accentColor={accentColor.value}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function FriendsTab({
+  currentUser,
+  onlineFriends,
+  offlineFriends,
+  isLoading,
+  accentColor,
+}: {
+  currentUser: ReturnType<typeof useFriendsStore.getState>["currentUser"];
+  onlineFriends: ReturnType<typeof useFriendsStore.getState>["friends"];
+  offlineFriends: ReturnType<typeof useFriendsStore.getState>["friends"];
+  isLoading: boolean;
+  accentColor: string;
+}) {
+  return (
+    <>
+      {isLoading ? (
+        <div className="p-3 space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <FriendSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="p-3 space-y-4">
+          {onlineFriends.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 px-1 mb-3">
+                <div
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: "#22c55e", boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" }}
+                />
+                <span className="text-xs font-bold uppercase tracking-wider font-minecraft-ten text-white/70">
+                  Online — {onlineFriends.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {onlineFriends.map((friend) => (
+                  <FriendListItem key={friend.uuid} friend={friend} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {offlineFriends.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 px-1 mb-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-500" />
+                <span className="text-xs font-bold uppercase tracking-wider font-minecraft-ten text-white/40">
+                  Offline — {offlineFriends.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {offlineFriends.map((friend) => (
+                  <FriendListItem key={friend.uuid} friend={friend} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {onlineFriends.length === 0 && offlineFriends.length === 0 && (
+            <div className="py-12 text-center">
+              <div
+                className="w-16 h-16 mx-auto mb-4 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: `${accentColor}15`, border: `1px solid ${accentColor}40` }}
+              >
+                <Icon icon="solar:users-group-rounded-bold" className="w-8 h-8" style={{ color: accentColor }} />
+              </div>
+              <p className="text-white/50 text-xs font-minecraft-ten">No Friends Yet</p>
+              <p className="text-white/30 text-xl mt-1 font-minecraft">add some!</p>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function RequestsTab({
+  incomingRequests,
+  outgoingRequests,
+  accentColor,
+}: {
+  incomingRequests: ReturnType<typeof useFriendsStore.getState>["pendingRequests"];
+  outgoingRequests: ReturnType<typeof useFriendsStore.getState>["pendingRequests"];
+  accentColor: string;
+}) {
+  return (
+    <>
+      <div className="p-4 border-b border-white/10">
+        <div className="text-xs font-medium text-white/40 mb-3 font-minecraft-ten uppercase tracking-wider">
+          Add Friend
+        </div>
+        <AddFriendInput />
+      </div>
+
+      {incomingRequests.length > 0 && (
+        <div className="mt-2">
+          <div
+            className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider font-minecraft-ten flex items-center gap-2"
+            style={{ color: "#22c55e" }}
+          >
+            <Icon icon="solar:inbox-in-bold" className="w-4 h-4" />
+            Incoming — {incomingRequests.length}
+          </div>
+          <div className="px-3 space-y-2 pb-4">
+            {incomingRequests.map((r) => (
+              <FriendRequestItem key={r.id} request={r} type="incoming" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {outgoingRequests.length > 0 && (
+        <div className="mt-3">
+          <div
+            className="px-4 py-2.5 text-xs font-medium uppercase tracking-wider font-minecraft-ten flex items-center gap-2"
+            style={{ color: "rgba(255, 255, 255, 0.5)" }}
+          >
+            <Icon icon="solar:inbox-out-bold" className="w-4 h-4" />
+            Pending — {outgoingRequests.length}
+          </div>
+          <div className="px-3 space-y-2 pb-4">
+            {outgoingRequests.map((r) => (
+              <FriendRequestItem key={r.id} request={r} type="outgoing" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {incomingRequests.length === 0 && outgoingRequests.length === 0 && (
+        <div className="p-8 text-center">
+          <div
+            className="w-14 h-14 mx-auto mb-4 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `${accentColor}15`, border: `1px solid ${accentColor}40` }}
+          >
+            <Icon icon="solar:letter-linear" className="w-7 h-7" style={{ color: accentColor }} />
+          </div>
+          <p className="text-white/50 text-xs font-minecraft-ten">No Pending Requests</p>
+          <p className="text-white/30 text-xl mt-1 font-minecraft">add friends above!</p>
+        </div>
+      )}
+    </>
+  );
+}

@@ -35,7 +35,7 @@ export default defineConfig(async () => ({
       input: {
         main: resolve(__dirname, 'index.html'),
         updater: resolve(__dirname, 'updater.html'),
-        logWindow: resolve(__dirname, 'log-window.html')
+        logWindow: resolve(__dirname, 'log-window.html'),
       }
     }
   }

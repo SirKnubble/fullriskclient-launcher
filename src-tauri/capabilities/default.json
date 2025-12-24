@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "log_window_*",
-    "updater"
+    "updater",
+    "chat_*"
   ],
   "permissions": [
     "core:default",

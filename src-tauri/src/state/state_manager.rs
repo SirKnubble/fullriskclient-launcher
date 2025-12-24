@@ -4,6 +4,7 @@ use crate::minecraft::minecraft_auth::MinecraftAuthStore;
 use crate::state::config_state::ConfigManager;
 use crate::state::discord_state::DiscordManager;
 use crate::state::event_state::{EventPayload, EventState};
+use crate::state::friends_state::FriendsState;
 use crate::state::norisk_packs_state::{default_norisk_packs_path, NoriskPackManager};
 use crate::state::norisk_versions_state::{default_norisk_versions_path, NoriskVersionManager};
 use crate::state::post_init::PostInitializationHandler;
@@ -17,8 +18,7 @@ use tokio::sync::{OnceCell, Semaphore};
 static LAUNCHER_STATE: OnceCell<Arc<State>> = OnceCell::const_new();
 
 pub struct State {
-    // Basic state properties will be added here
-    pub initialized: bool, // This flag now signifies full post-init completion
+    pub initialized: bool,
     pub profile_manager: ProfileManager,
     pub event_state: EventState,
     pub process_manager: ProcessManager,
@@ -28,6 +28,7 @@ pub struct State {
     pub config_manager: ConfigManager,
     pub skin_manager: SkinManager,
     pub discord_manager: DiscordManager,
+    pub friends_state: FriendsState,
     pub io_semaphore: Arc<Semaphore>,
 }
 
@@ -49,6 +50,7 @@ impl State {
                 let process_manager = ProcessManager::new(default_processes_path(), app.clone()).await?;
 
                 log::info!("State::init - Primary initialization of managers complete (Phase 1). Constructing State struct with initialized: false.");
+                let friends_state = FriendsState::new();
                 Ok::<Arc<State>, AppError>(Arc::new(Self {
                     initialized: true,
                     profile_manager,
@@ -60,6 +62,7 @@ impl State {
                     config_manager,
                     skin_manager,
                     discord_manager,
+                    friends_state,
                     io_semaphore,
                 }))
             })

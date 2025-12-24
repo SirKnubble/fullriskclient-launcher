@@ -29,6 +29,9 @@ import { useSnowEffectStore } from "../../store/snow-effect-store";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
+import { FriendsSidebar } from "../friends/FriendsSidebar";
+import { useFriendsWebSocket } from "../../hooks/useFriendsWebSocket";
+import { useFriendsStore } from "../../store/friends-store";
 import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
 import type { UpdateInfo } from "../../types/updater";
 import { ProfileWizardV2Modal } from "../modals/ProfileWizardV2Modal";
@@ -73,6 +76,23 @@ export function AppLayout({
   const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
   const { isEnabled: isSnowEnabled } = useSnowEffectStore();
   const { selectedTheme, isThemeActive } = useLauncherTheme();
+  const { connectWebSocket, loadCurrentUser, loadFriends } = useFriendsStore();
+
+  // Connect WebSocket on app start
+  useFriendsWebSocket();
+
+  useEffect(() => {
+    const initFriends = async () => {
+      try {
+        await loadCurrentUser();
+        await loadFriends();
+        await connectWebSocket();
+      } catch (e) {
+        // Silently fail - user might not be logged in yet
+      }
+    };
+    initFriends();
+  }, []);
 
   const getComplementaryBackground = () => {
     const hexToRgb = (hex: string) => {
@@ -326,6 +346,7 @@ export function AppLayout({
       <ProfileWizardV2Modal />
       <ProfileSettingsModal />
       <ProfileDuplicateModal />
+      <FriendsSidebar />
     </div>
   );
 }
