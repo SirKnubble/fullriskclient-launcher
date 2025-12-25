@@ -1779,6 +1779,7 @@ impl ProcessManager {
                         // Open the new minecraft log window
                         match crate::commands::process_command::open_minecraft_log_window(
                             (*app_handle_clone).clone(),
+                            None, // No crashed process - this is auto-open on launch
                         )
                         .await
                         {

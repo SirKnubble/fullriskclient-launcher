@@ -198,7 +198,14 @@ export function LogViewerCore({
     setIsUploading(true);
     try {
       const logText = filteredLogs
-        .map((log) => `[${log.timestamp || ""}] [${log.thread || "main"}/${log.level}] ${log.message}`)
+        .map((log) => {
+          // For lines with timestamp, use full format
+          if (log.timestamp) {
+            return `[${log.timestamp}] [${log.thread || "main"}/${log.level}] ${log.message}`;
+          }
+          // For continuation lines (no timestamp), just use the message with indentation
+          return `    ${log.message}`;
+        })
         .join("\n");
 
       const response = await fetch("https://api.mclo.gs/1/log", {

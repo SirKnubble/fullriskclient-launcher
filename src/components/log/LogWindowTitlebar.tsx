@@ -31,7 +31,7 @@ export function LogWindowTitlebar({ title = "Minecraft Logs" }: LogWindowTitleba
       {/* Left: Title */}
       <div className="flex items-center gap-2 flex-1 h-full pointer-events-none">
         <Icon
-          icon="mdi:console"
+          icon="solar:monitor-bold"
           className="w-5 h-5"
           style={{ color: accentColor.value }}
         />
