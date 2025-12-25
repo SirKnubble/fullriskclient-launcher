@@ -106,3 +106,74 @@ pub async fn set_discord_state(
     //TODO
     Ok(())
 }
+
+#[tauri::command]
+pub async fn open_minecraft_log_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), CommandError> {
+    let window_label = "minecraft_log_window";
+
+    if let Some(window) = app.get_webview_window(window_label) {
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus minecraft log window: {}",
+                e
+            )))
+        })?;
+        return Ok(());
+    }
+
+    let _window = tauri::WebviewWindowBuilder::new(
+        &app,
+        window_label,
+        tauri::WebviewUrl::App("minecraft-log-window.html".into()),
+    )
+    .title("Minecraft Logs")
+    .inner_size(1200.0, 800.0)
+    .decorations(false)
+    .center()
+    .build()
+    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_single_log_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    instance_id: String,
+    instance_name: String,
+) -> Result<(), CommandError> {
+    let window_label = format!("single_log_window_{}", instance_id);
+
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus single log window: {}",
+                e
+            )))
+        })?;
+        return Ok(());
+    }
+
+    let _window = tauri::WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        tauri::WebviewUrl::App(
+            format!(
+                "single-log-window.html?instanceId={}&instanceName={}",
+                instance_id,
+                urlencoding::encode(&instance_name)
+            )
+            .into(),
+        ),
+    )
+    .title(format!("Logs - {}", instance_name))
+    .inner_size(900.0, 600.0)
+    .decorations(false)
+    .center()
+    .build()
+    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
+
+    Ok(())
+}

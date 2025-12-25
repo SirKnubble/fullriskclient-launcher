@@ -840,15 +840,16 @@ impl ProcessManager {
                 }
             }
 
+            // Remove process from map
             log::info!(
-                "Removing process entry {} from manager post-exit.",
+                "Removing process entry {} from processes map post-exit.",
                 process_id
             );
             let mut processes_map_writer_monitor = processes_arc_clone.write().await;
-            let removed_process_metadata = processes_map_writer_monitor.remove(&process_id);
+            let removed_process = processes_map_writer_monitor.remove(&process_id);
             drop(processes_map_writer_monitor);
 
-            if removed_process_metadata.is_none() {
+            if removed_process.is_none() {
                 log::warn!(
                     "Process entry {} was already removed before final monitor task cleanup.",
                     process_id
@@ -876,7 +877,7 @@ impl ProcessManager {
                     success,
                     &state,
                     process_id,
-                    &removed_process_metadata,
+                    &removed_process,
                 )
                 .await;
             } else {
@@ -1344,6 +1345,123 @@ impl ProcessManager {
         Ok(())
     }
 
+    /// Periodically collects CPU and memory metrics for running processes.
+    /// Emits ProcessMetricsUpdate events to the frontend.
+    async fn periodic_metrics_collector(processes_arc: Arc<RwLock<HashMap<Uuid, Process>>>) {
+        let mut interval = interval(Duration::from_secs(2)); // Collect metrics every 2 seconds
+        log::info!("Starting periodic metrics collector task.");
+
+        let mut sys = System::new_all();
+
+        // Get number of CPU cores for normalizing CPU usage (sysinfo reports per-core %)
+        let num_cpus = sys.cpus().len().max(1) as f32;
+        log::info!("Metrics collector: Detected {} CPU cores for normalization", num_cpus);
+
+        loop {
+            interval.tick().await;
+            log::trace!("Running periodic metrics collection...");
+
+            let app_state_res = state::State::get().await;
+            let app_state = match app_state_res {
+                Ok(state) => state,
+                Err(e) => {
+                    log::error!(
+                        "Metrics collector failed to get global state: {}. Skipping cycle.",
+                        e
+                    );
+                    continue;
+                }
+            };
+
+            let processes_map_reader = processes_arc.read().await;
+            if processes_map_reader.is_empty() {
+                log::trace!("No processes to collect metrics for.");
+                drop(processes_map_reader);
+                continue;
+            }
+
+            // Collect PIDs of running processes
+            let running_processes: Vec<(Uuid, u32)> = processes_map_reader
+                .iter()
+                .filter(|(_, process_entry)| {
+                    process_entry.metadata.state == ProcessState::Running
+                })
+                .map(|(id, process_entry)| (*id, process_entry.metadata.pid))
+                .collect();
+
+            drop(processes_map_reader);
+
+            if running_processes.is_empty() {
+                log::trace!("No running processes to collect metrics for.");
+                continue;
+            }
+
+            // Refresh process information for the PIDs we're interested in
+            let pids_to_refresh: Vec<Pid> = running_processes
+                .iter()
+                .map(|(_, pid)| Pid::from(*pid as usize))
+                .collect();
+
+            sys.refresh_processes(ProcessesToUpdate::Some(&pids_to_refresh), true);
+
+            // Collect and emit metrics for each process
+            for (process_id, pid) in running_processes {
+                let sysinfo_pid = Pid::from(pid as usize);
+                if let Some(process_info) = sys.process(sysinfo_pid) {
+                    let memory_bytes = process_info.memory();
+                    // Normalize CPU usage: sysinfo reports per-core %, so divide by num cores
+                    // e.g., 400% on 4 cores = 100% normalized
+                    let raw_cpu = process_info.cpu_usage();
+                    let cpu_percent = (raw_cpu / num_cpus).min(100.0);
+
+                    let metrics_payload = crate::state::event_state::ProcessMetricsPayload {
+                        process_id,
+                        memory_bytes,
+                        cpu_percent,
+                        timestamp: Utc::now(),
+                    };
+
+                    let event_payload = EventPayload {
+                        event_id: Uuid::new_v4(),
+                        event_type: EventType::ProcessMetricsUpdate,
+                        target_id: Some(process_id),
+                        message: serde_json::to_string(&metrics_payload).unwrap_or_else(|e| {
+                            log::error!(
+                                "Failed to serialize ProcessMetricsPayload for {}: {}",
+                                process_id,
+                                e
+                            );
+                            String::from("{ \"error\": \"serialization failed\" }")
+                        }),
+                        progress: None,
+                        error: None,
+                    };
+
+                    if let Err(e) = app_state.event_state.emit(event_payload).await {
+                        log::error!(
+                            "Failed to emit ProcessMetricsUpdate for process {}: {}",
+                            process_id,
+                            e
+                        );
+                    } else {
+                        log::trace!(
+                            "Emitted metrics for process {}: memory={}MB, cpu={:.1}%",
+                            process_id,
+                            memory_bytes / (1024 * 1024),
+                            cpu_percent
+                        );
+                    }
+                } else {
+                    log::warn!(
+                        "Process {} (PID {}) not found in system for metrics collection",
+                        process_id,
+                        pid
+                    );
+                }
+            }
+        }
+    }
+
     /// Retrieves the full content of the latest.log file for a given process.
     /// Internally accesses the global state to get the ProfileManager.
     pub async fn get_full_log_content(&self, process_id: Uuid) -> Result<String> {
@@ -1546,7 +1664,7 @@ impl ProcessManager {
         success: bool,
         state: &State,
         process_id: Uuid,
-        removed_process_metadata: &Option<Process>,
+        removed_process: &Option<Process>,
     ) {
         // Early return if process was not successful
         if !success {
@@ -1554,7 +1672,7 @@ impl ProcessManager {
         }
 
         // Get hook from process metadata (captured at start time) instead of current config
-        let hook = match removed_process_metadata {
+        let hook = match removed_process {
             Some(process) => match &process.metadata.post_exit_hook {
                 Some(h) => h,
                 None => return, // No hook was configured when process started
@@ -1568,7 +1686,7 @@ impl ProcessManager {
             hook
         );
 
-        let removed_process = match removed_process_metadata {
+        let removed_process_inner = match removed_process {
             Some(p) => p,
             None => {
                 log::warn!(
@@ -1581,7 +1699,7 @@ impl ProcessManager {
 
         let profile = match state
             .profile_manager
-            .get_profile(removed_process.metadata.profile_id)
+            .get_profile(removed_process_inner.metadata.profile_id)
             .await
         {
             Ok(p) => p,
@@ -1651,9 +1769,28 @@ impl ProcessManager {
                     let launcher_config = global_state.config_manager.get_config().await;
                     if launcher_config.open_logs_after_starting {
                         log::info!(
-                            "Config: Attempting to auto-open log window for process {}",
+                            "Config: Attempting to auto-open log windows for process {}",
                             process_id
                         );
+
+                        // Open the new minecraft log window
+                        match crate::commands::process_command::open_minecraft_log_window(
+                            (*app_handle_clone).clone(),
+                        )
+                        .await
+                        {
+                            Ok(()) => log::info!(
+                                "Minecraft log window successfully auto-opened for process {}.",
+                                process_id
+                            ),
+                            Err(e) => log::error!(
+                                "Error auto-opening minecraft log window for process {}: {:?}",
+                                process_id,
+                                e
+                            ),
+                        }
+
+                        // Also open the old log window for comparison (temporary)
                         match crate::commands::process_command::open_log_window(
                             (*app_handle_clone).clone(),
                             process_id,
@@ -1662,11 +1799,11 @@ impl ProcessManager {
                         .await
                         {
                             Ok(()) => log::info!(
-                                "Log window for process {} successfully auto-opened.",
+                                "Old log window for process {} successfully auto-opened.",
                                 process_id
                             ),
                             Err(e) => log::error!(
-                                "Error auto-opening log window for process {}: {:?}",
+                                "Error auto-opening old log window for process {}: {:?}",
                                 process_id,
                                 e
                             ),
@@ -1717,6 +1854,10 @@ impl PostInitializationHandler for ProcessManager {
         let tailer_processes_arc = Arc::clone(&self.processes);
         tokio::spawn(Self::periodic_log_tailer(tailer_processes_arc));
         log::info!("ProcessManager: Spawned periodic_log_tailer task.");
+
+        let metrics_processes_arc = Arc::clone(&self.processes);
+        tokio::spawn(Self::periodic_metrics_collector(metrics_processes_arc));
+        log::info!("ProcessManager: Spawned periodic_metrics_collector task.");
 
         log::info!("ProcessManager: Successfully completed on_state_ready.");
         Ok(())

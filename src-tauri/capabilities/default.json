@@ -5,6 +5,8 @@
   "windows": [
     "main",
     "log_window_*",
+    "minecraft_log_window",
+    "single_log_window_*",
     "updater"
   ],
   "permissions": [
