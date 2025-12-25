@@ -579,10 +579,13 @@ export function InstanceSidebar({
 
             {/* Popout Log Window Button */}
             <button
-              onClick={() => {
-                invoke("open_single_log_window", {
+              onClick={async () => {
+                await invoke("open_single_log_window", {
                   instanceId: selectedInstance.id,
-                  instanceName: selectedInstance.name
+                  instanceName: selectedInstance.name,
+                  profileId: selectedInstance.profileId,
+                  accountName: selectedInstance.accountName,
+                  startTime: selectedInstance.startTime
                 });
               }}
               className="px-2 py-1.5 rounded text-xs font-minecraft-ten bg-white/10 hover:bg-white/20 transition-colors"
