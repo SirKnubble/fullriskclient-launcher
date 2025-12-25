@@ -5,7 +5,7 @@ use crate::minecraft::minecraft_auth::Credentials;
 use crate::minecraft::ClasspathBuilder;
 use crate::minecraft::GameArguments;
 use crate::minecraft::JvmArguments;
-use crate::state::profile_state::{Profile, WindowSize};
+use crate::state::profile_state::{ImageSource, Profile, ProfileBanner, WindowSize};
 use crate::state::state_manager::State;
 use log::{debug, error, info, warn};
 use serde_json::Value;
@@ -109,6 +109,53 @@ impl MinecraftLaunchParameters {
     pub fn with_quick_play_multiplayer(mut self, server_address: String) -> Self {
         self.quick_play_multiplayer = Some(server_address);
         self
+    }
+}
+
+/// Resolves a profile banner to an absolute file path or URL string.
+/// Returns None if the banner is None or cannot be resolved.
+fn resolve_profile_banner_path(
+    banner: &Option<ProfileBanner>,
+    profile_id: Uuid,
+    profile_path: &Path,
+) -> Option<String> {
+    let banner = banner.as_ref()?;
+
+    match &banner.source {
+        ImageSource::Url { url } => Some(url.clone()),
+        ImageSource::Base64 { data, mime_type } => {
+            let mime = mime_type.clone().unwrap_or_else(|| "image/png".to_string());
+            let clean_data = data.replace("\n", "").replace("\r", "").replace(" ", "");
+            Some(format!("data:{};base64,{}", mime, clean_data))
+        }
+        ImageSource::AbsolutePath { path } => {
+            let path_buf = PathBuf::from(path);
+            if path_buf.exists() {
+                Some(path_buf.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner absolute path does not exist: {:?}", path_buf);
+                None
+            }
+        }
+        ImageSource::RelativePath { path } => {
+            let launcher_dir = LAUNCHER_DIRECTORY.root_dir();
+            let full_path = launcher_dir.join(path);
+            if full_path.exists() {
+                Some(full_path.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner relative path does not exist: {:?}", full_path);
+                None
+            }
+        }
+        ImageSource::RelativeProfile { path } => {
+            let full_path = profile_path.join(path);
+            if full_path.exists() {
+                Some(full_path.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner profile-relative path does not exist: {:?}", full_path);
+                None
+            }
+        }
     }
 }
 
@@ -470,15 +517,24 @@ impl MinecraftLauncher {
         };
 
         // Extract optional profile information for process metadata
-        let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name) =
+        let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name, profile_image_url) =
             match profile {
-                Some(p) => (
-                    Some(p.loader.as_str().to_string()),
-                    p.loader_version,
-                    p.selected_norisk_pack_id,
-                    Some(p.name),
-                ),
-                None => (None, None, None, None),
+                Some(p) => {
+                    // Resolve profile banner image path
+                    let image_url = resolve_profile_banner_path(
+                        &p.banner,
+                        params.profile_id,
+                        &self.game_directory,
+                    );
+                    (
+                        Some(p.loader.as_str().to_string()),
+                        p.loader_version,
+                        p.selected_norisk_pack_id,
+                        Some(p.name),
+                        image_url,
+                    )
+                }
+                None => (None, None, None, None, None),
             };
 
         // Get post-exit hook from config at launch time (not at exit time)
@@ -497,6 +553,7 @@ impl MinecraftLauncher {
                 profile_loader_version,
                 profile_norisk_pack,
                 profile_name,
+                profile_image_url,
                 post_exit_hook,
             )
             .await?;

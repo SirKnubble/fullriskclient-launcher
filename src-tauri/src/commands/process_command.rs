@@ -48,46 +48,6 @@ pub async fn get_full_log(process_id: Uuid) -> Result<String, CommandError> {
 }
 
 #[tauri::command]
-pub async fn open_log_window<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    process_id: Uuid,
-    is_live_logs: Option<bool>,
-) -> Result<(), CommandError> {
-    let window_label = format!("log_window_{}", process_id);
-
-    if let Some(window) = app.get_webview_window(&window_label) {
-        window.set_focus().map_err(|e| {
-            CommandError::from(crate::error::AppError::Other(format!(
-                "Failed to focus existing log window {}: {}",
-                window_label, e
-            )))
-        })?;
-        return Ok(());
-    }
-
-    let is_live = is_live_logs.unwrap_or(false);
-
-    let window = tauri::WebviewWindowBuilder::new(
-        &app,
-        &window_label,
-        tauri::WebviewUrl::App(
-            format!(
-                "log-window.html?processId={}&isLiveLogs={}",
-                process_id, is_live
-            )
-            .into(),
-        ),
-    )
-    .title(format!("Minecraft Logs ({})", process_id))
-    .inner_size(1200.0, 800.0)
-    .center()
-    .build()
-    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
-
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn fetch_crash_report(profile_id: Uuid, process_id: Option<Uuid>) -> Result<Option<String>, CommandError> {
     let state = State::get().await?;
     let crash_content = state
@@ -175,5 +135,35 @@ pub async fn open_single_log_window<R: tauri::Runtime>(
     .build()
     .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn focus_main_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), CommandError> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.show().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to show main window: {}",
+                e
+            )))
+        })?;
+        window.unminimize().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to unminimize main window: {}",
+                e
+            )))
+        })?;
+        // Trick to bring window to front on Windows: temporarily set always on top
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_always_on_top(false);
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus main window: {}",
+                e
+            )))
+        })?;
+    }
     Ok(())
 }

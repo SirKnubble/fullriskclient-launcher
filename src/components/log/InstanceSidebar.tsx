@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { listen, emitTo, type UnlistenFn } from "@tauri-apps/api/event";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useProcessStore, getProcessStatus, ProcessMetrics } from "../../store/useProcessStore";
 import { useLaunchStateStore, LaunchState } from "../../store/launch-state-store";
 import { ProcessMetadata, ProcessState } from "../../types/processState";
 import { EventType } from "../../types/events";
 import * as ProcessService from "../../services/process-service";
+import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
 type InstanceStatus = "running" | "idle" | "crashed" | "starting" | "stopping";
 
@@ -17,6 +18,7 @@ interface InstanceData {
   name: string;
   version: string;
   loader: string;
+  loaderVersion?: string;
   status: InstanceStatus;
   modCount: number;
   startTime: number;
@@ -25,6 +27,8 @@ interface InstanceData {
   memoryMax: number;
   cpuUsage: number;
   profileImageUrl?: string;
+  accountUuid?: string;
+  accountName?: string;
 }
 
 // Format memory
@@ -34,6 +38,18 @@ const formatMemory = (bytes: number): string => {
     return `${(mb / 1024).toFixed(1)}GB`;
   }
   return `${Math.round(mb)}MB`;
+};
+
+// Convert file path to asset URL if needed
+const toAssetUrl = (pathOrUrl: string | undefined): string | undefined => {
+  if (!pathOrUrl) return undefined;
+  // URLs and data URIs don't need conversion
+  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://") ||
+      pathOrUrl.startsWith("data:") || pathOrUrl.startsWith("asset://")) {
+    return pathOrUrl;
+  }
+  // File paths need to be converted
+  return convertFileSrc(pathOrUrl);
 };
 
 // Format elapsed time
@@ -61,6 +77,7 @@ function processToInstance(process: ProcessMetadata, metrics?: ProcessMetrics, e
     name: process.profile_name || "Unknown Profile",
     version: process.minecraft_version || "Unknown",
     loader: process.modloader?.toLowerCase() || "vanilla",
+    loaderVersion: process.modloader_version || undefined,
     status: getProcessStatus(process.state),
     modCount: 0, // Will be fetched from profile if needed
     startTime: startTimeMs,
@@ -69,7 +86,166 @@ function processToInstance(process: ProcessMetadata, metrics?: ProcessMetrics, e
     memoryMax: 4096 * 1024 * 1024, // Default 4GB, will be updated from metrics
     cpuUsage: metrics?.cpuPercent || 0,
     profileImageUrl: process.profile_image_url || undefined,
+    accountUuid: process.account_uuid || undefined,
+    accountName: process.account_name || undefined,
   };
+}
+
+// Get loader icon path
+const getLoaderIcon = (loader: string): string => {
+  const loaderLower = loader.toLowerCase();
+  if (loaderLower === "fabric") return "/icons/fabric.png";
+  if (loaderLower === "forge") return "/icons/forge.png";
+  if (loaderLower === "neoforge") return "/icons/neoforge.png";
+  if (loaderLower === "quilt") return "/icons/quilt.png";
+  return "/icons/minecraft.png";
+};
+
+// Get status color
+const getStatusColor = (status: InstanceStatus): string => {
+  switch (status) {
+    case "running": return "#22c55e";
+    case "starting": return "#eab308";
+    case "stopping": return "#f97316";
+    case "crashed": return "#ef4444";
+    case "idle": return "#6b7280";
+    default: return "#6b7280";
+  }
+};
+
+// Instance Item Component - allows using hooks for each instance
+interface InstanceItemProps {
+  instance: InstanceData;
+  isSelected: boolean;
+  isHovered: boolean;
+  currentTime: number;
+  accentColor: { value: string };
+  onSelect: () => void;
+  onHover: (hovered: boolean) => void;
+  onOpenProfile: () => void;
+}
+
+function InstanceItem({
+  instance,
+  isSelected,
+  isHovered,
+  currentTime,
+  accentColor,
+  onSelect,
+  onHover,
+  onOpenProfile,
+}: InstanceItemProps) {
+  const statusColor = getStatusColor(instance.status);
+
+  // Get avatar for the account
+  const avatarUrl = useCrafatarAvatar({
+    uuid: instance.accountUuid,
+    size: 16,
+    overlay: true,
+  });
+
+  return (
+    <div
+      className="relative p-3 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 cursor-pointer transition-all duration-200"
+      style={{
+        borderColor: isSelected ? `${accentColor.value}60` : undefined,
+        backgroundColor: isSelected ? `${accentColor.value}10` : undefined,
+      }}
+      onClick={onSelect}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
+    >
+      {/* Settings Icon - top right */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenProfile();
+        }}
+        className="absolute top-2 right-2 p-1 rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
+        title="Open Profile"
+      >
+        <Icon icon="solar:settings-bold" className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="flex items-start gap-3">
+        {/* Profile Icon */}
+        <div
+          className="relative w-11 h-11 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border-2 transition-all duration-200"
+          style={{
+            backgroundColor: isHovered || isSelected ? `${accentColor.value}20` : "transparent",
+            borderColor: isHovered || isSelected ? `${accentColor.value}60` : "transparent",
+          }}
+        >
+          {instance.profileImageUrl ? (
+            <img
+              src={toAssetUrl(instance.profileImageUrl)}
+              alt={instance.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Icon
+              icon="mdi:minecraft"
+              className="w-6 h-6"
+              style={{ color: accentColor.value }}
+            />
+          )}
+        </div>
+
+        {/* Instance Info */}
+        <div className="flex-1 min-w-0">
+          {/* Row 1: Name */}
+          <span
+            className="block font-minecraft-ten text-white text-sm whitespace-nowrap overflow-hidden text-ellipsis mb-1"
+            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.7)" }}
+            title={instance.name}
+          >
+            {instance.name}
+          </span>
+
+          {/* Row 2: Account + Time */}
+          <div className="flex items-center gap-2 text-[11px] font-minecraft-ten">
+            {instance.accountName && (
+              <div className="flex items-center gap-1.5 text-white/60">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={instance.accountName}
+                    className="w-3.5 h-3.5 rounded-sm"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+                ) : (
+                  <Icon icon="solar:user-bold" className="w-3 h-3" />
+                )}
+                <span>{instance.accountName}</span>
+              </div>
+            )}
+            {instance.accountName && <span className="text-white/30">•</span>}
+            <div
+              className="flex items-center gap-1"
+              style={{ color: statusColor }}
+            >
+              {instance.status === "running" && (
+                <div
+                  className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ backgroundColor: statusColor }}
+                />
+              )}
+              {instance.status === "starting" && (
+                <Icon icon="svg-spinners:pulse-3" className="w-3 h-3" />
+              )}
+              {instance.status === "crashed" && (
+                <Icon icon="solar:danger-triangle-bold" className="w-3 h-3" />
+              )}
+              {instance.status === "idle" && (
+                <Icon icon="solar:stop-circle-bold" className="w-3 h-3" />
+              )}
+              <span>{formatElapsedTime(instance.startTime, instance.endTime || currentTime)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface InstanceSidebarProps {
@@ -169,7 +345,10 @@ export function InstanceSidebar({
       .filter((p) => !processes.find((running) => running.id === p.id)) // Don't duplicate
       .map((p) => processToInstance(p, undefined, processEndTimes.get(p.id)));
 
-    return [...runningInstances, ...stoppedInstances];
+    // Merge and sort by profileId to keep stable position
+    return [...runningInstances, ...stoppedInstances].sort((a, b) =>
+      a.profileId.localeCompare(b.profileId)
+    );
   }, [processes, stoppedProcesses, processEndTimes, metrics]);
 
   // Auto-select first instance if none selected
@@ -181,37 +360,6 @@ export function InstanceSidebar({
 
   // Get selected instance
   const selectedInstance = instances.find((i) => i.id === selectedInstanceId);
-
-  const getStatusColor = (status: InstanceStatus) => {
-    switch (status) {
-      case "running":
-        return "#22c55e";
-      case "starting":
-        return "#eab308";
-      case "crashed":
-        return "#ef4444";
-      case "stopping":
-        return "#f97316";
-      case "idle":
-      default:
-        return "#6b7280";
-    }
-  };
-
-  const getLoaderIcon = (loader: string) => {
-    switch (loader) {
-      case "fabric":
-        return "/icons/fabric.png";
-      case "forge":
-        return "/icons/forge.png";
-      case "quilt":
-        return "/icons/quilt.png";
-      case "neoforge":
-        return "/icons/neoforge.png";
-      default:
-        return "/icons/minecraft.png";
-    }
-  };
 
   const handleStopProcess = async (processId: string) => {
     try {
@@ -236,12 +384,8 @@ export function InstanceSidebar({
       return;
     }
 
-    // Check if profile already has a running process
-    const existingProcess = processes.find(p => p.profile_id === profileId);
-    if (existingProcess) {
-      console.warn("Profile already has a running process:", existingProcess.id);
-      return;
-    }
+    // Note: We allow multiple instances of the same profile to run simultaneously
+    // Each will have its own process ID and can be stopped independently
 
     // Clear old logs before starting new launch
     clearLauncherLogs(profileId);
@@ -269,13 +413,13 @@ export function InstanceSidebar({
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3">
-        <h2
+        <span
           className="font-minecraft-ten text-sm tracking-wider flex items-center gap-2"
           style={{ color: accentColor.value }}
         >
           <Icon icon="solar:monitor-bold" className="w-4 h-4" />
           Instances
-        </h2>
+        </span>
       </div>
 
       {/* Instance List */}
@@ -291,132 +435,28 @@ export function InstanceSidebar({
             No active instances
           </div>
         ) : (
-          instances.map((instance) => {
-            const isSelected = selectedInstanceId === instance.id;
-            const isHovered = hoveredId === instance.id;
-            const statusColor = getStatusColor(instance.status);
-
-            return (
-              <div
-                key={instance.id}
-                className="relative flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 bg-black/20 border border-white/10 hover:border-white/20"
-                style={{
-                  borderColor: isSelected ? `${accentColor.value}60` : undefined,
-                  backgroundColor: isSelected ? `${accentColor.value}10` : undefined,
-                }}
-                onClick={() => onSelectInstance?.(instance.id)}
-                onMouseEnter={() => setHoveredId(instance.id)}
-                onMouseLeave={() => setHoveredId(null)}
-              >
-                {/* Settings Icon - top right */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    console.log("Open profile:", instance.profileId);
-                  }}
-                  className="absolute top-2 right-2 p-1 rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
-                  title="Open Profile"
-                >
-                  <Icon icon="solar:settings-bold" className="w-3.5 h-3.5" />
-                </button>
-
-                {/* Profile Icon */}
-                <div
-                  className="relative w-12 h-12 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border-2 transition-all duration-200"
-                  style={{
-                    backgroundColor: isHovered || isSelected ? `${accentColor.value}20` : "transparent",
-                    borderColor: isHovered || isSelected ? `${accentColor.value}60` : "transparent",
-                  }}
-                >
-                  {instance.profileImageUrl ? (
-                    <img
-                      src={instance.profileImageUrl}
-                      alt={instance.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Icon
-                      icon="mdi:minecraft"
-                      className="w-7 h-7"
-                      style={{ color: accentColor.value }}
-                    />
-                  )}
-                </div>
-
-                {/* Instance Info */}
-                <div className="flex-1 min-w-0">
-                  {/* Name + Status inline */}
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h3
-                      className="font-minecraft-ten text-white text-sm whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ textShadow: "0 2px 4px rgba(0,0,0,0.7)" }}
-                      title={instance.name}
-                    >
-                      {instance.name}
-                    </h3>
-
-                    {/* Timer */}
-                    <div
-                      className="flex items-center gap-1 text-xs font-minecraft-ten px-1.5 py-0.5 rounded"
-                      style={{
-                        backgroundColor: `${statusColor}20`,
-                        color: statusColor,
-                      }}
-                    >
-                      {instance.status === "running" && (
-                        <div
-                          className="w-1.5 h-1.5 rounded-full animate-pulse"
-                          style={{ backgroundColor: statusColor }}
-                        />
-                      )}
-                      {instance.status === "starting" && (
-                        <Icon icon="svg-spinners:pulse-3" className="w-3 h-3" />
-                      )}
-                      {instance.status === "crashed" && (
-                        <Icon icon="solar:danger-triangle-bold" className="w-3 h-3" />
-                      )}
-                      <Icon icon="solar:clock-circle-bold" className="w-3 h-3" />
-                      {formatElapsedTime(instance.startTime, instance.endTime || currentTime)}
-                    </div>
-                  </div>
-
-                  {/* Metadata Row */}
-                  <div
-                    className="flex items-center gap-2 text-xs font-minecraft-ten"
-                    style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
-                  >
-                    {/* MC Version */}
-                    <div className="text-white/70 flex items-center gap-0.5">
-                      <img
-                        src="/icons/minecraft.png"
-                        alt="MC"
-                        className="w-2.5 h-2.5 object-contain"
-                      />
-                      <span>{instance.version}</span>
-                    </div>
-
-                    {/* Loader */}
-                    <div className="text-white/60 flex items-center gap-0.5">
-                      <img
-                        src={getLoaderIcon(instance.loader)}
-                        alt={instance.loader}
-                        className="w-2.5 h-2.5 object-contain"
-                      />
-                      <span className="capitalize">{instance.loader}</span>
-                    </div>
-
-                    {/* Mod Count */}
-                    {instance.modCount > 0 && (
-                      <div className="text-white/50">
-                        {instance.modCount} mods
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-            );
-          })
+          instances.map((instance) => (
+            <InstanceItem
+              key={instance.id}
+              instance={instance}
+              isSelected={selectedInstanceId === instance.id}
+              isHovered={hoveredId === instance.id}
+              currentTime={currentTime}
+              accentColor={accentColor}
+              onSelect={() => onSelectInstance?.(instance.id)}
+              onHover={(hovered) => setHoveredId(hovered ? instance.id : null)}
+              onOpenProfile={async () => {
+                try {
+                  // Emit event to main window for navigation
+                  await emitTo("main", "navigate-to-profile", { profileId: instance.profileId });
+                  // Focus the main window
+                  await invoke("focus_main_window");
+                } catch (error) {
+                  console.error("Failed to open profile in main window:", error);
+                }
+              }}
+            />
+          ))
         )}
       </div>
 
