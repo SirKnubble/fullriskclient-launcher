@@ -103,6 +103,9 @@ pub async fn open_single_log_window<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     instance_id: String,
     instance_name: String,
+    profile_id: String,
+    account_name: Option<String>,
+    start_time: Option<i64>,
 ) -> Result<(), CommandError> {
     let window_label = format!("single_log_window_{}", instance_id);
 
@@ -116,19 +119,36 @@ pub async fn open_single_log_window<R: tauri::Runtime>(
         return Ok(());
     }
 
+    let account_param = account_name
+        .as_ref()
+        .map(|n| format!("&accountName={}", urlencoding::encode(n)))
+        .unwrap_or_default();
+
+    let start_time_param = start_time
+        .map(|t| format!("&startTime={}", t))
+        .unwrap_or_default();
+
+    let window_title = match &account_name {
+        Some(name) => format!("Logs - {} - {}", instance_name, name),
+        None => format!("Logs - {}", instance_name),
+    };
+
     let _window = tauri::WebviewWindowBuilder::new(
         &app,
         &window_label,
         tauri::WebviewUrl::App(
             format!(
-                "single-log-window.html?instanceId={}&instanceName={}",
+                "single-log-window.html?instanceId={}&instanceName={}&profileId={}{}{}",
                 instance_id,
-                urlencoding::encode(&instance_name)
+                urlencoding::encode(&instance_name),
+                profile_id,
+                account_param,
+                start_time_param
             )
             .into(),
         ),
     )
-    .title(format!("Logs - {}", instance_name))
+    .title(window_title)
     .inner_size(900.0, 600.0)
     .decorations(false)
     .center()
