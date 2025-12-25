@@ -9,6 +9,8 @@ import { InstanceSidebar } from "./InstanceSidebar";
 import { useProcessEvents, useProcessLogs } from "../../hooks/useProcessEvents";
 import { LogEntry, LogLevel, useProcessStore } from "../../store/useProcessStore";
 import { openExternalUrl } from "../../services/tauri-service";
+import { getLogContentForProcess } from "../../services/process-service";
+import { getProfileLatestLogContent } from "../../services/profile-service";
 
 interface DisplayLogLine {
   id: string;
@@ -94,7 +96,7 @@ export function MinecraftLogWindow() {
   const { logs: rawLogs } = useProcessLogs(selectedInstanceId);
 
   // Get stopped processes, launcher logs, and selectedProcessId from store for sync
-  const { stoppedProcesses, launcherLogs: launcherLogsMap, selectedProcessId, selectProcess, clearLogs, clearLauncherLogs } = useProcessStore();
+  const { stoppedProcesses, launcherLogs: launcherLogsMap, selectedProcessId, selectProcess, clearLogs, clearLauncherLogs, loadLogsFromContent, hasLogsForProcess } = useProcessStore();
 
   // State for delayed "NO LOGS YET" display
   const [showNoLogs, setShowNoLogs] = useState(false);
@@ -145,6 +147,45 @@ export function MinecraftLogWindow() {
       }
     }
   }, [processes, selectedInstanceId]);
+
+  // Track if we're currently fetching logs to avoid duplicate requests
+  const isFetchingLogsRef = useRef<string | null>(null);
+
+  // Fetch logs from backend if store is empty (e.g., after page reload)
+  useEffect(() => {
+    if (!selectedInstanceId || !selectedProfileId) return;
+
+    // Skip if we already have logs for this instance
+    if (hasLogsForProcess(selectedInstanceId)) return;
+
+    // Skip if we're already fetching for this instance
+    if (isFetchingLogsRef.current === selectedInstanceId) return;
+
+    const fetchLogs = async () => {
+      isFetchingLogsRef.current = selectedInstanceId;
+
+      try {
+        // First try to get logs from the running process
+        let logContent = await getLogContentForProcess(selectedInstanceId);
+
+        // If no logs from process, try the profile's latest.log file
+        if (!logContent || logContent.trim() === "") {
+          logContent = await getProfileLatestLogContent(selectedProfileId);
+        }
+
+        if (logContent && logContent.trim() !== "") {
+          loadLogsFromContent(selectedInstanceId, logContent);
+          console.log(`[MinecraftLogWindow] Loaded ${logContent.split('\n').length} log lines from backend`);
+        }
+      } catch (error) {
+        console.error("[MinecraftLogWindow] Failed to fetch logs:", error);
+      } finally {
+        isFetchingLogsRef.current = null;
+      }
+    };
+
+    fetchLogs();
+  }, [selectedInstanceId, selectedProfileId, hasLogsForProcess, loadLogsFromContent]);
 
   // Convert log entries to display format - show launcher logs if no MC logs yet
   const displayLogs = useMemo(() => {
@@ -346,12 +387,12 @@ export function MinecraftLogWindow() {
                 placeholder="Search logs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-transparent text-sm font-minecraft-ten text-white/90 placeholder:text-white/40 outline-none flex-1"
+                className="bg-transparent text-sm font-minecraft-ten text-white/90 placeholder:text-white/40 outline-none flex-1 min-w-0"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="text-white/40 hover:text-white/70"
+                  className="text-white/40 hover:text-white/70 flex-shrink-0"
                 >
                   <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
                 </button>

@@ -98,7 +98,7 @@ export function useProcessEvents(options: {
                 clearLauncherLogs(process.profile_id);
               }
 
-              // addLogEntry now handles parsing with stateful continuation line detection
+              // addLogEntry handles parsing with stateful continuation line detection
               addLogEntry(payload.target_id, payload.message);
             }
 

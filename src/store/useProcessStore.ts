@@ -51,8 +51,11 @@ interface ProcessStore {
 
   // Log actions
   addLogEntry: (processId: string, rawMessage: string) => void;
+  addLogEntriesBatch: (entries: Array<{ processId: string; rawMessage: string }>) => void;
+  loadLogsFromContent: (processId: string, content: string) => void;
   clearLogs: (processId: string) => void;
   getLogsForProcess: (processId: string) => LogEntry[];
+  hasLogsForProcess: (processId: string) => boolean;
 
   // Launcher log actions (for launch status messages)
   addLauncherLog: (profileId: string, message: string) => void;
@@ -334,6 +337,144 @@ export const useProcessStore = create<ProcessStore>((set, get) => ({
     });
   },
 
+  // Batch add multiple log entries at once (reduces re-renders)
+  addLogEntriesBatch: (entries) => {
+    if (entries.length === 0) return;
+
+    set((state) => {
+      const newLogs = new Map(state.logs);
+      const newParserStates = new Map(state.parserStates);
+
+      // Group entries by processId for efficient processing
+      const entriesByProcess = new Map<string, string[]>();
+      for (const { processId, rawMessage } of entries) {
+        const existing = entriesByProcess.get(processId) || [];
+        existing.push(rawMessage);
+        entriesByProcess.set(processId, existing);
+      }
+
+      // Process each group
+      for (const [processId, messages] of entriesByProcess) {
+        const processLogs = newLogs.get(processId) || [];
+        let parserState = newParserStates.get(processId) || {
+          lastLevel: "INFO" as LogLevel,
+          lastThread: null,
+          nextId: 0,
+        };
+
+        const newEntries: LogEntry[] = [];
+
+        for (const rawMessage of messages) {
+          const parsed = parseLogLine(rawMessage);
+
+          let level: LogLevel;
+          let thread: string | null;
+
+          if (parsed.timestamp !== null) {
+            level = parsed.level || "UNKNOWN";
+            thread = parsed.thread;
+            parserState = {
+              ...parserState,
+              lastLevel: level,
+              lastThread: thread,
+              nextId: parserState.nextId + 1,
+            };
+          } else {
+            level = parserState.lastLevel;
+            thread = parserState.lastThread;
+            parserState = {
+              ...parserState,
+              nextId: parserState.nextId + 1,
+            };
+          }
+
+          newEntries.push({
+            id: `${processId}-${parserState.nextId}`,
+            processId,
+            timestamp: parsed.timestamp ? timestampToDate(parsed.timestamp) : null,
+            level,
+            thread,
+            message: parsed.text,
+            raw: rawMessage,
+          });
+        }
+
+        newParserStates.set(processId, parserState);
+        const updatedLogs = [...processLogs, ...newEntries].slice(-10000);
+        newLogs.set(processId, updatedLogs);
+      }
+
+      return { logs: newLogs, parserStates: newParserStates };
+    });
+  },
+
+  // Load logs from raw content (e.g., from latest.log file)
+  loadLogsFromContent: (processId, content) => {
+    set((state) => {
+      const newLogs = new Map(state.logs);
+      const newParserStates = new Map(state.parserStates);
+
+      // Split content into lines (handle both Windows \r\n and Unix \n)
+      const lines = content.split(/\r?\n/);
+      const entries: LogEntry[] = [];
+
+      let parserState: ParserState = {
+        lastLevel: "INFO" as LogLevel,
+        lastThread: null,
+        nextId: 0,
+      };
+
+      for (let line of lines) {
+        // Skip empty lines
+        if (!line.trim()) continue;
+
+        // Remove any trailing carriage return (Windows line endings)
+        line = line.replace(/\r$/, '');
+
+        const parsed = parseLogLine(line);
+
+        let level: LogLevel;
+        let thread: string | null;
+
+        if (parsed.timestamp !== null) {
+          // Structured line - update parser state
+          level = parsed.level || "UNKNOWN";
+          thread = parsed.thread;
+          parserState = {
+            ...parserState,
+            lastLevel: level,
+            lastThread: thread,
+            nextId: parserState.nextId + 1,
+          };
+        } else {
+          // Continuation line - inherit from last known state
+          level = parserState.lastLevel;
+          thread = parserState.lastThread;
+          parserState = {
+            ...parserState,
+            nextId: parserState.nextId + 1,
+          };
+        }
+
+        entries.push({
+          id: `${processId}-${parserState.nextId}`,
+          processId,
+          timestamp: parsed.timestamp ? timestampToDate(parsed.timestamp) : null,
+          level,
+          thread,
+          message: parsed.text,
+          raw: line,
+        });
+      }
+
+      // Limit to last 10000 entries to prevent memory issues
+      newLogs.set(processId, entries.slice(-10000));
+      newParserStates.set(processId, parserState);
+
+      return { logs: newLogs, parserStates: newParserStates };
+    });
+  },
+
   clearLogs: (processId) => {
     set((state) => {
       const newLogs = new Map(state.logs);
@@ -346,6 +487,11 @@ export const useProcessStore = create<ProcessStore>((set, get) => ({
 
   getLogsForProcess: (processId) => {
     return get().logs.get(processId) || [];
+  },
+
+  hasLogsForProcess: (processId) => {
+    const logs = get().logs.get(processId);
+    return logs !== undefined && logs.length > 0;
   },
 
   // Launcher log actions (for launch status messages by profileId)

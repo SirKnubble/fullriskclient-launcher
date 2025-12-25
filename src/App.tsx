@@ -140,6 +140,22 @@ export function App() {
     };
   }, [openCrashModal]);
 
+  // Listen for navigation events from other windows (e.g., log window)
+  useEffect(() => {
+    const unlisten = listen<{ profileId: string }>(
+      "navigate-to-profile",
+      (event) => {
+        const { profileId } = event.payload;
+        console.log("[App.tsx] Navigate to profile:", profileId);
+        navigate(`/profilesv2/${profileId}`);
+      },
+    );
+
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [navigate]);
+
   useEffect(() => {
     refreshNrcDataOnMount();
   }, []);

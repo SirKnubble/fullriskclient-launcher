@@ -60,6 +60,7 @@ pub struct ProcessMetadata {
     pub modloader_version: Option<String>,
     pub norisk_pack: Option<String>,
     pub profile_name: Option<String>,
+    pub profile_image_url: Option<String>,
     pub post_exit_hook: Option<String>,
 }
 
@@ -520,6 +521,7 @@ impl ProcessManager {
         modloader_version: Option<String>,
         norisk_pack: Option<String>,
         profile_name: Option<String>,
+        profile_image_url: Option<String>,
         post_exit_hook: Option<String>,
     ) -> Result<Uuid> {
         log::info!("Attempting to start process for profile {}", profile_id);
@@ -570,6 +572,7 @@ impl ProcessManager {
             modloader_version,
             norisk_pack,
             profile_name: profile_name.clone(),
+            profile_image_url,
             post_exit_hook,
         };
 
@@ -1790,24 +1793,6 @@ impl ProcessManager {
                             ),
                         }
 
-                        // Also open the old log window for comparison (temporary)
-                        match crate::commands::process_command::open_log_window(
-                            (*app_handle_clone).clone(),
-                            process_id,
-                            Some(true),
-                        )
-                        .await
-                        {
-                            Ok(()) => log::info!(
-                                "Old log window for process {} successfully auto-opened.",
-                                process_id
-                            ),
-                            Err(e) => log::error!(
-                                "Error auto-opening old log window for process {}: {:?}",
-                                process_id,
-                                e
-                            ),
-                        }
                     } else {
                         log::debug!(
                             "Config: Auto-open log window is disabled for process {}",
