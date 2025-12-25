@@ -51,6 +51,7 @@ pub enum EventType {
     MigrationCompleted,
     MigrationFailed,
     ExportingProfile,
+    ProcessMetricsUpdate,
 }
 
 #[derive(Serialize, Clone)]
@@ -77,6 +78,14 @@ pub struct MinecraftProcessExitedPayload {
 pub struct CrashReportContentAvailablePayload {
     pub process_id: Uuid,
     pub content: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ProcessMetricsPayload {
+    pub process_id: Uuid,
+    pub memory_bytes: u64,
+    pub cpu_percent: f32,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Clone)]

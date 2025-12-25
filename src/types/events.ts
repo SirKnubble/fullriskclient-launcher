@@ -41,6 +41,7 @@ export enum EventType {
   MigrationCompleted = "migration_completed",
   MigrationFailed = "migration_failed",
   ExportingProfile = "exporting_profile",
+  ProcessMetricsUpdate = "process_metrics_update",
 }
 
 export interface EventPayload {
@@ -64,4 +65,11 @@ export interface MinecraftProcessExitedPayload {
 export interface CrashReportContentAvailablePayload {
   process_id: string;
   content: string;
+}
+
+export interface ProcessMetricsPayload {
+  process_id: string;
+  memory_bytes: number;
+  cpu_percent: number;
+  timestamp: string;
 }

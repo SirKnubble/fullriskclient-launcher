@@ -25,7 +25,7 @@ use utils::updater_utils;
 
 use crate::commands::process_command::{
     fetch_crash_report, get_full_log, get_process, get_processes, get_processes_by_profile,
-    open_log_window, set_discord_state, stop_process,
+    open_log_window, open_minecraft_log_window, open_single_log_window, set_discord_state, stop_process,
 };
 use commands::minecraft_auth_command::{
     begin_login, cancel_login, get_accounts, get_active_account, is_flatpak, remove_account, set_active_account,
@@ -467,6 +467,8 @@ async fn main() {
             get_processes_by_profile,
             stop_process,
             open_log_window,
+            open_minecraft_log_window,
+            open_single_log_window,
             begin_login,
             cancel_login,
             is_flatpak,
