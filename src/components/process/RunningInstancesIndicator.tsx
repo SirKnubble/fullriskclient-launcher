@@ -127,7 +127,7 @@ export function RunningInstancesIndicator({
 
   const handleOpenLogWindow = async () => {
     try {
-      await invoke("open_minecraft_log_window");
+      await invoke("open_minecraft_log_window", { crashedProcess: null });
     } catch (err) {
       console.error("Failed to open log window:", err);
     }
@@ -143,7 +143,7 @@ export function RunningInstancesIndicator({
           variant={hasInstances ? "success" : "flat"}
           size="sm"
           onClick={handleOpenLogWindow}
-          icon={<Icon icon="mdi:console" className="w-4 h-4" />}
+          icon={<Icon icon="solar:monitor-bold" className="w-4 h-4" />}
           className="h-10"
         >
           {isLoading && instanceCount === 0
@@ -361,7 +361,7 @@ export function RunningInstancesIndicator({
                 size="xs"
                 onClick={handleOpenLogWindow}
                 icon={
-                  <Icon icon="mdi:console" className="w-4 h-4" />
+                  <Icon icon="solar:monitor-bold" className="w-4 h-4" />
                 }
               >
                 logs

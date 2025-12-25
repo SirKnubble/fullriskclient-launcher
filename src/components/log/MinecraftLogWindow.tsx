@@ -8,8 +8,13 @@ import { useProcessEvents, useProcessLogs } from "../../hooks/useProcessEvents";
 import { useProcessStore } from "../../store/useProcessStore";
 import { getLogContentForProcess } from "../../services/process-service";
 import { getProfileLatestLogContent } from "../../services/profile-service";
+import type { ProcessMetadata } from "../../types/processState";
 
-export function MinecraftLogWindow() {
+interface MinecraftLogWindowProps {
+  crashedProcess?: ProcessMetadata;
+}
+
+export function MinecraftLogWindow({ crashedProcess }: MinecraftLogWindowProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
@@ -28,8 +33,20 @@ export function MinecraftLogWindow() {
     clearLogs,
     clearLauncherLogs,
     loadLogsFromContent,
-    hasLogsForProcess
+    hasLogsForProcess,
+    markProcessStopped
   } = useProcessStore();
+
+  // Handle crashed process passed via URL - add to store and select it
+  const crashedProcessHandledRef = useRef(false);
+  useEffect(() => {
+    if (crashedProcess && !crashedProcessHandledRef.current) {
+      crashedProcessHandledRef.current = true;
+      console.log("[MinecraftLogWindow] Adding crashed process to store:", crashedProcess.id);
+      markProcessStopped(crashedProcess.id, crashedProcess);
+      setSelectedInstanceId(crashedProcess.id);
+    }
+  }, [crashedProcess, markProcessStopped]);
 
   // Apply theme on mount
   useEffect(() => {

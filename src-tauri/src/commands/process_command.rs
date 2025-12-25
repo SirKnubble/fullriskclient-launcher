@@ -70,6 +70,7 @@ pub async fn set_discord_state(
 #[tauri::command]
 pub async fn open_minecraft_log_window<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
+    crashed_process: Option<String>, // JSON-encoded ProcessMetadata for crashed process
 ) -> Result<(), CommandError> {
     let window_label = "minecraft_log_window";
 
@@ -83,10 +84,18 @@ pub async fn open_minecraft_log_window<R: tauri::Runtime>(
         return Ok(());
     }
 
+    let url = match &crashed_process {
+        Some(json) => format!(
+            "minecraft-log-window.html?crashedProcess={}",
+            urlencoding::encode(json)
+        ),
+        None => "minecraft-log-window.html".to_string(),
+    };
+
     let _window = tauri::WebviewWindowBuilder::new(
         &app,
         window_label,
-        tauri::WebviewUrl::App("minecraft-log-window.html".into()),
+        tauri::WebviewUrl::App(url.into()),
     )
     .title("Minecraft Logs")
     .inner_size(1200.0, 800.0)
