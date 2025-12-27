@@ -35,6 +35,7 @@ import { deleteCape } from "../../services/cape-service";
 import { toast } from "react-hot-toast";
 import { UploadCapeModal } from "./UploadCapeModal";
 import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
+import { translateCapeError, isCapeInReview } from "../../utils/cape-error-translations";
 
 
 
@@ -177,18 +178,14 @@ export function CapeBrowser(): JSX.Element {
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
 
-  // Helper function to format error messages
+  // Helper function to format and translate error messages
   const formatErrorMessage = (error: string): string => {
-    const detailsIndex = error.indexOf("Details:");
-    if (detailsIndex !== -1) {
-      return error.substring(detailsIndex + 8).trim(); // +8 to skip "Details:"
-    }
-    return error; // Fallback to original error if "Details:" not found
+    return translateCapeError(error);
   };
 
-  // Helper function to determine if error is a warning (contains "In Review")
+  // Helper function to determine if error is a warning (cape in review)
   const isWarningMessage = (error: string): boolean => {
-    return error.toLowerCase().includes("in review");
+    return isCapeInReview(error);
   };
 
 
