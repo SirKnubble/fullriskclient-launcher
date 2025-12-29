@@ -260,6 +260,8 @@ export function InstanceSidebar({
   const accentColor = useThemeStore((state) => state.accentColor);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  // Track processes user has requested to stop - show START immediately
+  const [stoppingProcessIds, setStoppingProcessIds] = useState<Set<string>>(new Set());
 
   // Get processes from store
   const { processes, stoppedProcesses, processEndTimes, metrics, fetchProcesses, stopProcess, isLoading } = useProcessStore();
@@ -351,6 +353,19 @@ export function InstanceSidebar({
     );
   }, [processes, stoppedProcesses, processEndTimes, metrics]);
 
+  // Clean up stoppingProcessIds when process is no longer running
+  useEffect(() => {
+    if (stoppingProcessIds.size > 0) {
+      const runningIds = new Set(processes.map(p => p.id));
+      const stillStopping = new Set(
+        [...stoppingProcessIds].filter(id => runningIds.has(id))
+      );
+      if (stillStopping.size !== stoppingProcessIds.size) {
+        setStoppingProcessIds(stillStopping);
+      }
+    }
+  }, [processes, stoppingProcessIds]);
+
   // Auto-select first instance if none selected
   useEffect(() => {
     if (!selectedInstanceId && instances.length > 0) {
@@ -361,12 +376,14 @@ export function InstanceSidebar({
   // Get selected instance
   const selectedInstance = instances.find((i) => i.id === selectedInstanceId);
 
-  const handleStopProcess = async (processId: string) => {
-    try {
-      await stopProcess(processId);
-    } catch (error) {
+  const handleStopProcess = (processId: string) => {
+    // Mark as stopping immediately - UI will show START button right away
+    setStoppingProcessIds(prev => new Set(prev).add(processId));
+
+    // Fire and forget - don't wait for process to stop
+    stopProcess(processId).catch((error) => {
       console.error("Failed to stop process:", error);
-    }
+    });
   };
 
   const handleOpenFolder = async (profileId: string) => {
@@ -526,7 +543,8 @@ export function InstanceSidebar({
 
           <div className="flex items-center gap-1.5">
             {/* Stop/Restart Toggle */}
-            {selectedInstance.status === "running" || selectedInstance.status === "starting" ? (
+            {(selectedInstance.status === "running" || selectedInstance.status === "starting") &&
+             !stoppingProcessIds.has(selectedInstance.id) ? (
               <button
                 onClick={() => handleStopProcess(selectedInstance.id)}
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-xs font-minecraft-ten bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
@@ -534,7 +552,7 @@ export function InstanceSidebar({
                 <Icon icon="solar:stop-bold" className="w-3.5 h-3.5" />
                 STOP
               </button>
-            ) : (selectedInstance.status === "crashed" || selectedInstance.status === "idle") && (() => {
+            ) : (selectedInstance.status === "crashed" || selectedInstance.status === "idle" || stoppingProcessIds.has(selectedInstance.id)) && (() => {
               const launchState = getProfileState(selectedInstance.profileId);
               const isLaunching = launchState.isButtonLaunching;
 
