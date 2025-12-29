@@ -20,6 +20,7 @@ use sysinfo::System;
 
 // Import for profile image upload functionality
 use crate::commands::path_commands::UploadProfileImagesPayload;
+use crate::utils::serde_utils::deserialize_optional_u64_from_string;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
@@ -1075,8 +1076,8 @@ pub struct CurseForgeMinecraft {
     pub version: String,
     #[serde(rename = "modLoaders")]
     pub mod_loaders: Vec<CurseForgeModLoader>,
-    #[serde(rename = "recommendedRam")]
-    pub recommended_ram: Option<u64>, // Optional field for recommended RAM
+    #[serde(rename = "recommendedRam", default, deserialize_with = "deserialize_optional_u64_from_string")]
+    pub recommended_ram: Option<u64>, // Optional field for recommended RAM (can be string or number)
 }
 
 /// Represents a mod loader entry in CurseForge manifest
