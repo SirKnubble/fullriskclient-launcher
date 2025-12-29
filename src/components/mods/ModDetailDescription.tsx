@@ -55,6 +55,7 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
               [&_h5]:text-sm [&_h5]:font-bold [&_h5]:mb-2 [&_h5]:mt-3 [&_h5]:normal-case [&_h5]:tracking-normal
               [&_h6]:text-sm [&_h6]:font-bold [&_h6]:mb-2 [&_h6]:mt-3 [&_h6]:normal-case [&_h6]:tracking-normal
               [&_p]:text-sm [&_p]:text-white/90 [&_p]:mb-3 [&_p]:leading-relaxed
+              [&_summary]:cursor-pointer
               [&_ul]:list-disc [&_ul]:list-inside [&_ul]:text-sm [&_ul]:text-white/90 [&_ul]:mb-3 [&_ul]:space-y-1 [&_ul]:ml-4
               [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:text-sm [&_ol]:text-white/90 [&_ol]:mb-3 [&_ol]:space-y-1 [&_ol]:ml-4
               [&_li]:leading-relaxed
@@ -111,6 +112,11 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
                   <p className="text-sm text-white/90 mb-3 leading-relaxed font-sans">
                     {children}
                   </p>
+                ),
+               summary: ({ children }) => (
+                  <summary className="cursor-pointer" style={{width:'fit-content'}}>
+                    {children}
+                  </summary>
                 ),
                 ul: ({ children }) => (
                   <ul className="list-disc list-inside text-sm text-white/90 mb-3 space-y-1 ml-4 font-sans">
