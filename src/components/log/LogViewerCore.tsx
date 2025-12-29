@@ -6,6 +6,8 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { useLogSettingsStore } from "../../store/useLogSettingsStore";
 import { LogEntry, LogLevel } from "../../store/useProcessStore";
 import { openExternalUrl } from "../../services/tauri-service";
+import { uploadLogToMclogs } from "../../services/log-service";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 // Hex colors for filter buttons
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -208,26 +210,19 @@ export function LogViewerCore({
         })
         .join("\n");
 
-      const response = await fetch("https://api.mclo.gs/1/log", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: `content=${encodeURIComponent(logText)}`,
-      });
+      // Use Tauri backend command instead of direct fetch (CSP blocked in production)
+      const url = await uploadLogToMclogs(logText);
 
-      const data = await response.json();
-
-      if (data.success) {
-        await navigator.clipboard.writeText(data.url);
-        toast.success("Uploaded! URL copied to clipboard");
-        await openExternalUrl(data.url);
-      } else {
-        toast.error(data.error || "Upload failed");
-      }
+      await writeText(url);
+      toast.success("Uploaded! URL copied to clipboard");
+      await openExternalUrl(url);
     } catch (error) {
       console.error("Failed to upload logs:", error);
-      toast.error("Failed to upload logs");
+      // Extract error message properly from Tauri CommandError
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : String(error);
+      toast.error(errorMessage || "Failed to upload logs");
     } finally {
       setIsUploading(false);
     }

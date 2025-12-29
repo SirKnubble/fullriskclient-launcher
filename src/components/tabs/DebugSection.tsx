@@ -45,6 +45,14 @@ export function DebugSection() {
     setLoading(false);
   }
 
+  // Helper to extract error message from Tauri CommandError or any error
+  function getErrorMessage(e: unknown): string {
+    if (e && typeof e === 'object' && 'message' in e) {
+      return (e as { message: string }).message;
+    }
+    return String(e);
+  }
+
   async function handleUpload(file: FileInfo) {
     setUploadingFile(file.path);
     try {
@@ -54,7 +62,7 @@ export function DebugSection() {
       toast.success("Uploaded & copied to clipboard!");
     } catch (e) {
       console.error("Failed to upload:", e);
-      toast.error("Failed to upload: " + e);
+      toast.error("Failed to upload: " + getErrorMessage(e));
     }
     setUploadingFile(null);
   }
@@ -66,7 +74,7 @@ export function DebugSection() {
       toast.success("Copied to clipboard!");
     } catch (e) {
       console.error("Failed to copy:", e);
-      toast.error("Failed to copy: " + e);
+      toast.error("Failed to copy: " + getErrorMessage(e));
     }
   }
 

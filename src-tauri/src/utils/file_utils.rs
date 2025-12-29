@@ -277,9 +277,9 @@ pub async fn read_log_file_content(log_path: &Path) -> Result<String> {
                 Err(AppError::Io(e))
             }
         }
-    } else if filename.ends_with(".log") {
-        // Handle plain text file using existing function, then mask sensitive data
-        log::debug!("Reading plain text log file: {}", log_path.display());
+    } else if filename.ends_with(".log") || filename.ends_with(".txt") {
+        // Handle plain text file (.log or .txt for crash reports) using existing function, then mask sensitive data
+        log::debug!("Reading plain text log/crash file: {}", log_path.display());
         match read_file_content_lossy(log_path).await {
             Ok(raw_content) => {
                 // Mask sensitive information before returning
