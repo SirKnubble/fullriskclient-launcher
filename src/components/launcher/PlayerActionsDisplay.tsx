@@ -9,13 +9,23 @@ import { MinecraftSkinService } from '../../services/minecraft-skin-service';
 import type { GetStarlightSkinRenderPayload } from '../../types/localSkin';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { Icon } from '@iconify/react';
-import { ProfileCardV2 } from '../profiles/ProfileCardV2';
+// DISABLED: ProfileCardV2 was used for featured profile mode
+// import { ProfileCardV2 } from '../profiles/ProfileCardV2';
+import { ServerLaunchCard } from './ServerLaunchCard';
 import { useProfileStore } from '../../store/profile-store';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const DEFAULT_FALLBACK_SKIN_URL = "/skins/default_steve_full.png"; // Defined constant for fallback URL
 
-// Featured profile ID - can be null or a UUID string
-const FEATURED_PROFILE_ID: string | null = "d2332f66-9117-4cf3-b35b-6bac4262f984"; // Set to a valid profile UUID to enable feature toggle, or null to disable
+// Featured server configuration
+// Option A: profileId = null → uses currently selected profile from MainLaunchButton
+// Option B: profileId = "uuid" → uses dedicated profile for this server
+const FEATURED_SERVER = {
+  address: "hugosmp.net",
+  name: "HUGOSMP.net",
+  profileId: null as string | null, // TODO: Set dedicated profile ID for Option B
+};
 
 interface PlayerActionsDisplayProps {
   playerName: string | null | undefined;
@@ -44,19 +54,39 @@ export function PlayerActionsDisplay({
   const featureMode = useThemeStore((state) => state.featureMode);
   const setFeatureMode = useThemeStore((state) => state.setFeatureMode);
   const [resolvedSkinUrl, setResolvedSkinUrl] = useState<string>(DEFAULT_FALLBACK_SKIN_URL);
+  const navigate = useNavigate();
 
   const { profiles } = useProfileStore();
-  const featuredProfile = FEATURED_PROFILE_ID ? profiles.find(p => p.id === FEATURED_PROFILE_ID) : null;
 
   // Determine if we're still loading profiles (no profiles loaded yet)
   const isLoadingProfiles = profiles.length === 0;
 
-  // Reset featureMode to false if no featured profile is configured
-  React.useEffect(() => {
-    if (!FEATURED_PROFILE_ID && featureMode) {
-      setFeatureMode(false);
+  // Get the profile ID to use for featured server launch
+  // Option A: Use currently selected profile from MainLaunchButton
+  // Option B: Use dedicated profile ID if configured
+  const getFeaturedServerProfileId = (): string | null => {
+    // Option B: If dedicated profile ID is set, use it
+    if (FEATURED_SERVER.profileId) {
+      return FEATURED_SERVER.profileId;
     }
-  }, [FEATURED_PROFILE_ID, featureMode, setFeatureMode]);
+
+    // Option A: Use currently selected profile from MainLaunchButton
+    const selectedVersion = launchButtonVersions.find(v => v.id === launchButtonDefaultVersion);
+    return selectedVersion?.profileId || null;
+  };
+
+  const featuredServerProfileId = getFeaturedServerProfileId();
+
+  // Handle mods button for featured server
+  const handleFeaturedServerMods = () => {
+    if (!featuredServerProfileId) {
+      toast.error("No profile selected. Please select a profile first.");
+      return;
+    }
+
+    // Navigate to profile detail view (which has mods tab)
+    navigate(`/profilesv2/${featuredServerProfileId}`);
+  };
 
   useEffect(() => {
     const fetchAndSetSkin = async () => {
@@ -110,19 +140,6 @@ export function PlayerActionsDisplay({
   return (
     <div className={cn("flex flex-col items-center", className)}>
 
-      {/* Featured Modpack Toggle - only show if featured profile exists and profiles are loaded */}
-      {!isLoadingProfiles && featuredProfile && (
-        <div className="absolute bottom-32 left-0 right-0 flex justify-center px-4 z-30">
-          <button
-            onClick={() => setFeatureMode(!featureMode)}
-            className="font-minecraft text-2xl lowercase text-white/70 hover:text-white transition-all duration-200 cursor-pointer bg-transparent border-none p-0 whitespace-nowrap text-shadow"
-            title={featureMode ? "Switch to Main Launch" : "Switch to Craft Attack Modpack"}
-          >
-            {featureMode ? "switch to main launch" : "craft attack modpack"}
-          </button>
-        </div>
-      )}
-
       {displayMode === 'logo' ? (
         <img
           src="norisk_logo_color.png"
@@ -154,32 +171,43 @@ export function PlayerActionsDisplay({
 
         {/* Don't render launch button while profiles are still loading to prevent flicker */}
         {!isLoadingProfiles && (
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4">
-            <div className={featureMode && featuredProfile ? "w-96" : "max-w-xs sm:max-w-sm"}>
-              {featureMode && featuredProfile ? (
-              // Use actual ProfileCardV2 component with 3D styling for featured profile
-              <div className="w-96 h-20 flex items-center justify-center">
-                <div className="w-full h-full">
-                  <ProfileCardV2
-                    profile={featuredProfile}
-                    layoutMode="compact"
-                    variant="3d"
+          <>
+            {/* Featured Server Toggle - above the launch button */}
+            <div
+              className={`absolute left-0 right-0 flex justify-center px-4 z-30 transition-all duration-300 ${featureMode ? 'bottom-40' : 'bottom-32'}`}
+            >
+              <button
+                onClick={() => setFeatureMode(!featureMode)}
+                className="font-minecraft text-2xl lowercase text-white/70 hover:text-white transition-all duration-200 cursor-pointer bg-transparent border-none p-0 whitespace-nowrap text-shadow"
+                title={featureMode ? "Switch to Main Launch" : `Switch to ${FEATURED_SERVER.name}`}
+              >
+                {featureMode ? "switch to main launch" : FEATURED_SERVER.name.toLowerCase()}
+              </button>
+            </div>
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center px-4">
+              {featureMode ? (
+                // Show featured server card with MOTD
+                <ServerLaunchCard
+                  serverAddress={FEATURED_SERVER.address}
+                  serverName={FEATURED_SERVER.name}
+                  profileId={featuredServerProfileId}
+                  onMods={handleFeaturedServerMods}
+                />
+              ) : (
+                <div className="max-w-xs sm:max-w-sm">
+                  <MainLaunchButton
+                    defaultVersion={launchButtonDefaultVersion}
+                    onVersionChange={onLaunchVersionChange}
+                    versions={launchButtonVersions}
+                    selectedVersionLabel={selectedVersionLabel}
+                    mainButtonWidth="w-80"
+                    maxWidth="400px"
+                    mainButtonHeight="h-20"
                   />
                 </div>
-              </div>
-            ) : (
-              <MainLaunchButton
-                defaultVersion={launchButtonDefaultVersion}
-                onVersionChange={onLaunchVersionChange}
-                versions={launchButtonVersions}
-                selectedVersionLabel={selectedVersionLabel}
-                mainButtonWidth="w-80"
-                maxWidth="400px"
-                mainButtonHeight="h-20"
-              />
-            )}
-          </div>
-        </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
