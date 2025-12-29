@@ -21,6 +21,7 @@ pub mod trash_utils; // <-- New trash module
 pub mod backup_utils; // <-- New backup module for critical files
 pub mod symlink_utils; // <-- Symlink utilities for profile folder sharing
 pub mod referral_utils; // Referral tracking for affiliate/friend links
+pub mod serde_utils; // Serde helpers for flexible deserialization
 
 // Füge hier ggf. andere Util-Module hinzu
 // pub mod network_utils;
