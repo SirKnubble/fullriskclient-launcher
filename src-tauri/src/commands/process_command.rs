@@ -98,7 +98,7 @@ pub async fn open_minecraft_log_window<R: tauri::Runtime>(
         tauri::WebviewUrl::App(url.into()),
     )
     .title("Minecraft Logs")
-    .inner_size(1200.0, 800.0)
+    .inner_size(1080.0, 720.0)
     .decorations(false)
     .center()
     .build()
