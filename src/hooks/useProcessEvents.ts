@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useProcessStore, ProcessMetrics } from "../store/useProcessStore";
 import { EventType, ProcessMetricsPayload, MinecraftProcessExitedPayload } from "../types/events";
 import { ProcessState } from "../types/processState";
+import { useLogThrottle } from "./useLogThrottle";
 
 // Launch status events that should be logged
 const LAUNCH_STATUS_EVENTS = new Set([
@@ -50,6 +51,7 @@ export function useProcessEvents(options: {
   const {
     fetchProcesses,
     addLogEntry,
+    addLogEntriesBatch,
     updateMetrics,
     markProcessStopped,
     addLauncherLog,
@@ -58,6 +60,9 @@ export function useProcessEvents(options: {
     processes,
     stoppedProcesses,
   } = useProcessStore();
+
+  // Use throttled log entry to prevent UI lag during heavy log output
+  const { throttledAddLog } = useLogThrottle(addLogEntry, addLogEntriesBatch);
 
   const stateEventListenerRef = useRef<UnlistenFn | null>(null);
   // Track which profiles have received their first MC log (to clear launcher logs)
@@ -98,8 +103,8 @@ export function useProcessEvents(options: {
                 clearLauncherLogs(process.profile_id);
               }
 
-              // addLogEntry handles parsing with stateful continuation line detection
-              addLogEntry(payload.target_id, payload.message);
+              // Use throttled version to prevent UI lag during heavy log output
+              throttledAddLog(payload.target_id, payload.message);
             }
 
             // Handle process state updates
@@ -205,7 +210,7 @@ export function useProcessEvents(options: {
 
       console.log("[useProcessEvents] Cleaned up event listeners");
     };
-  }, [autoFetch, processFilter, fetchProcesses, addLogEntry, updateMetrics, markProcessStopped, addLauncherLog, clearLauncherLogs, clearLogs]);
+  }, [autoFetch, processFilter, fetchProcesses, throttledAddLog, updateMetrics, markProcessStopped, addLauncherLog, clearLauncherLogs, clearLogs]);
 
   // Return store state and actions for convenience
   return useProcessStore();

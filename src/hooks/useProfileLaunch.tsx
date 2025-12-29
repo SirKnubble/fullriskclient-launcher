@@ -185,7 +185,9 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
     if (currentProfile.isButtonLaunching) {
       try {
-        setButtonStatusMessage(profileId, "Attempting to stop...");
+        setButtonStatusMessage(profileId, "Stopping...");
+        // Yield to allow React to render the status update before blocking on abort
+        await new Promise(resolve => setTimeout(resolve, 0));
         await ProcessService.abort(profileId);
         toast.success("Launch process stopped.");
         finalizeButtonLaunch(profileId);
@@ -242,7 +244,9 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
       if (currentProfile.isButtonLaunching) {
         try {
-          setButtonStatusMessage(profileId, "Attempting to stop...");
+          setButtonStatusMessage(profileId, "Stopping...");
+          // Yield to allow React to render the status update before blocking on abort
+          await new Promise(resolve => setTimeout(resolve, 0));
           await ProcessService.abort(profileId);
           toast.success("Launch process stopped.");
           finalizeButtonLaunch(profileId);
