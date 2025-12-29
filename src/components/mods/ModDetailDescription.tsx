@@ -3,6 +3,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import remarkGfm from "remark-gfm";
 import { Icon } from "@iconify/react";
 import { ModPlatform } from "../../types/unified";
 
@@ -76,6 +77,7 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
           // Render Markdown for Modrinth (with HTML support via rehype-raw)
           <div className="prose prose-invert prose-sm max-w-none font-sans">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
               components={{
                 h1: ({ children }) => (
@@ -183,17 +185,28 @@ export function ModDetailDescription({ body, source }: ModDetailDescriptionProps
                 ),
                 hr: () => <hr className="border-white/20 my-6" />,
                 table: ({ children }) => (
-                  <table className="w-full border-collapse mb-3 font-sans">
+                  <div className="overflow-x-auto mb-3">
+                    <table className="w-full border-collapse font-sans text-sm">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-black/30">{children}</thead>
+                ),
+                tbody: ({ children }) => <tbody>{children}</tbody>,
+                tr: ({ children }) => (
+                  <tr className="border-b border-white/10 hover:bg-white/5">
                     {children}
-                  </table>
+                  </tr>
                 ),
                 th: ({ children }) => (
-                  <th className="bg-black/30 p-2 border border-white/20 text-left text-sm font-sans">
+                  <th className="p-2 border border-white/20 text-left font-semibold text-white/90">
                     {children}
                   </th>
                 ),
                 td: ({ children }) => (
-                  <td className="p-2 border border-white/20 text-sm font-sans">
+                  <td className="p-2 border border-white/20 text-white/80">
                     {children}
                   </td>
                 ),
