@@ -72,6 +72,8 @@ pub async fn discord_auth_link(app: AppHandle) -> Result<(), CommandError> {
             .title("Discord X NoRiskClient")
             .always_on_top(true)
             .center()
+            .inner_size(500.0, 700.0)
+            .min_inner_size(400.0, 500.0)
             .max_inner_size(1250.0, 1000.0)
             .build()
             .map_err(|e| {
