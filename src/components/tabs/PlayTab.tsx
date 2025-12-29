@@ -12,7 +12,8 @@ import {
   BACKGROUND_EFFECTS,
   useBackgroundEffectStore,
 } from "../../store/background-effect-store";
-import { SnowEffectToggle } from "../ui/SnowEffectToggle";
+// DISABLED: Snow effect (seasonal feature)
+// import { SnowEffectToggle } from "../ui/SnowEffectToggle";
 import { ReferralBanner } from "../ui/ReferralBanner";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 
@@ -69,10 +70,11 @@ export function PlayTab() {
           <ReferralBanner />
         </div>
 
-        {/* Snow Effect Toggle - Top Right */}
+        {/* DISABLED: Snow Effect Toggle - Top Right (seasonal feature)
         <div className="absolute top-6 right-6 z-20">
           <SnowEffectToggle variant="compact" size="sm" />
         </div>
+        */}
 
         {/* <VersionInfo
           profileId={currentDisplayProfile?.id || ""}
