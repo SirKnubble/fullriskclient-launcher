@@ -564,6 +564,47 @@ impl NoRiskApi {
         .await
     }
 
+    /// Request GitHub link status
+    pub async fn github_link_status(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<bool> {
+        debug!(
+            "[NoRisk API] Requesting GitHub link status with UUID: {}",
+            request_uuid
+        );
+        Self::get_from_norisk_endpoint(
+            "core/oauth/github/check",
+            norisk_token,
+            Some(request_uuid),
+            is_experimental,
+        )
+        .await
+    }
+
+    /// Request to unlink GitHub account
+    pub async fn unlink_github(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<String> {
+        debug!(
+            "[NoRisk API] Requesting GitHub unlink with UUID: {}",
+            request_uuid
+        );
+        let mut extra_params = HashMap::new();
+        extra_params.insert("uuid", request_uuid);
+
+        Self::delete_from_norisk_endpoint_text_with_parameters(
+            "core/oauth/github/unlink",
+            norisk_token,
+            Some(extra_params),
+            is_experimental,
+        )
+        .await
+    }
+
     /// Submits a crash log to the NoRisk API.
     pub async fn submit_crash_log(
         norisk_token: &str,
