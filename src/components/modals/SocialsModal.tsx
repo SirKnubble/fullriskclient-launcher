@@ -9,6 +9,9 @@ import {
   discordAuthLink,
   discordAuthStatus,
   discordAuthUnlink,
+  githubAuthLink,
+  githubAuthStatus,
+  githubAuthUnlink,
   getMobileAppToken,
   resetMobileAppToken,
 } from "../../services/nrc-service";
@@ -42,10 +45,16 @@ export function SocialsModal() {
   const { accentColor } = useThemeStore();
   const { confirm, confirmDialog } = useConfirmDialog();
 
-  // States for Discord (can be generalized later if needed)
+  // States for Discord
   const [isLoadingDiscordStatus, setIsLoadingDiscordStatus] = useState(true);
   const [isDiscordLinked, setIsDiscordLinked] = useState(false);
   const [isProcessingDiscordAction, setIsProcessingDiscordAction] =
+    useState(false);
+
+  // States for GitHub
+  const [isLoadingGithubStatus, setIsLoadingGithubStatus] = useState(true);
+  const [isGithubLinked, setIsGithubLinked] = useState(false);
+  const [isProcessingGithubAction, setIsProcessingGithubAction] =
     useState(false);
 
   const [isLoadingMobileAppToken, setIsLoadingMobileAppToken] = useState(true);
@@ -68,6 +77,22 @@ export function SocialsModal() {
       return false;
     } finally {
       setIsLoadingDiscordStatus(false);
+    }
+  }, []);
+
+  const fetchGithubStatus = useCallback(async (): Promise<boolean> => {
+    setIsLoadingGithubStatus(true);
+    try {
+      const status = await githubAuthStatus();
+      setIsGithubLinked(status);
+      return status;
+    } catch (error) {
+      console.error("Failed to fetch GitHub auth status:", error);
+      toast.error("Could not fetch GitHub status. See console.");
+      setIsGithubLinked(false);
+      return false;
+    } finally {
+      setIsLoadingGithubStatus(false);
     }
   }, []);
 
@@ -98,14 +123,14 @@ export function SocialsModal() {
   useEffect(() => {
     if (isModalOpen) {
       fetchDiscordStatus();
+      fetchGithubStatus();
       fetchMobileAppToken();
       fetchConfig();
-      // Future: fetch statuses for other implemented platforms
     } else {
       setShowQrCode(false);
       setMobileAppToken(null);
     }
-  }, [isModalOpen, fetchDiscordStatus, fetchMobileAppToken, fetchConfig]);
+  }, [isModalOpen, fetchDiscordStatus, fetchGithubStatus, fetchMobileAppToken, fetchConfig]);
 
   const handleDiscordLink = async () => {
     setIsProcessingDiscordAction(true);
@@ -142,6 +167,42 @@ export function SocialsModal() {
       toast.error("Could not unlink Discord. See console.");
     } finally {
       setIsProcessingDiscordAction(false);
+    }
+  };
+
+  const handleGithubLink = async () => {
+    setIsProcessingGithubAction(true);
+    try {
+      await githubAuthLink();
+
+      const successfullyLinked = await fetchGithubStatus();
+
+      if (successfullyLinked) {
+        toast.success("GitHub account successfully linked!");
+      } else {
+        toast(
+          "GitHub linking process finished. Please check your link status or try again if needed."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initiate GitHub linking process:", error);
+      toast.error("Could not start GitHub linking. See console for details.");
+    } finally {
+      setIsProcessingGithubAction(false);
+    }
+  };
+
+  const handleGithubUnlink = async () => {
+    setIsProcessingGithubAction(true);
+    try {
+      await githubAuthUnlink();
+      toast.success("GitHub account unlinked successfully.");
+      setIsGithubLinked(false);
+    } catch (error) {
+      console.error("Failed to unlink GitHub account:", error);
+      toast.error("Could not unlink GitHub. See console.");
+    } finally {
+      setIsProcessingGithubAction(false);
     }
   };
 
@@ -214,6 +275,16 @@ export function SocialsModal() {
       handleUnlink: handleDiscordUnlink,
     },
     {
+      key: "github",
+      name: "GitHub",
+      icon: "mdi:github",
+      visitUrl: "https://github.com/NoRiskClient",
+      isImplemented: true,
+      fetchStatus: fetchGithubStatus,
+      handleLink: handleGithubLink,
+      handleUnlink: handleGithubUnlink,
+    },
+    {
       key: "youtube",
       name: "YouTube",
       icon: "mdi:youtube",
@@ -251,16 +322,25 @@ export function SocialsModal() {
     const isLoadingStatus =
       platform.key === "discord"
         ? isLoadingDiscordStatus
-        : platform.key === "mobile"
-          ? isLoadingMobileAppToken
+        : platform.key === "github"
+          ? isLoadingGithubStatus
+          : platform.key === "mobile"
+            ? isLoadingMobileAppToken
+            : false;
+    const isLinked =
+      platform.key === "discord"
+        ? isDiscordLinked
+        : platform.key === "github"
+          ? isGithubLinked
           : false;
-    const isLinked = platform.key === "discord" ? isDiscordLinked : false;
     const isProcessingAction =
       platform.key === "discord"
         ? isProcessingDiscordAction
-        : platform.key === "mobile"
-          ? isProcessingMobileAppAction
-          : false;
+        : platform.key === "github"
+          ? isProcessingGithubAction
+          : platform.key === "mobile"
+            ? isProcessingMobileAppAction
+            : false;
 
     if (platform.showMobileApp) {
       return (
@@ -408,15 +488,16 @@ export function SocialsModal() {
         width="md"
       >
         <div className="p-4 space-y-2 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
-          {(isLoadingDiscordStatus || isLoadingMobileAppToken) &&
+          {(isLoadingDiscordStatus || isLoadingGithubStatus || isLoadingMobileAppToken) &&
           (socialPlatforms.find((p) => p.key === "discord")?.isImplemented ||
+            socialPlatforms.find((p) => p.key === "github")?.isImplemented ||
             socialPlatforms.find((p) => p.key === "mobile")?.isImplemented) ? (
             <div className="space-y-2">
               {socialPlatforms
                 .filter(
                   (p) =>
                     p.isImplemented &&
-                    (p.key === "discord" || p.key === "mobile")
+                    (p.key === "discord" || p.key === "github" || p.key === "mobile")
                 )
                 .map((platform, i) => (
                   <div
@@ -444,7 +525,7 @@ export function SocialsModal() {
                 .filter(
                   (p) =>
                     !p.isImplemented ||
-                    (p.key !== "discord" && p.key !== "mobile")
+                    (p.key !== "discord" && p.key !== "github" && p.key !== "mobile")
                 )
                 .map((platform) => (
                   <div

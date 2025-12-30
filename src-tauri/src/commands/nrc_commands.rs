@@ -193,6 +193,177 @@ pub async fn discord_auth_unlink() -> Result<(), CommandError> {
 }
 
 #[tauri::command]
+pub async fn github_auth_link(app: AppHandle) -> Result<(), CommandError> {
+    debug!("Executing github_auth_link command");
+    let state = State::get().await?;
+
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let selected_account_arc = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or(AppError::AccountError(
+            "No active account found for GitHub link.".to_string(),
+        ))?;
+
+    let norisk_creds = &selected_account_arc.norisk_credentials;
+    let token = norisk_creds.get_token_for_mode(is_experimental)?;
+
+    let url_string = format!(
+        "https://api{}.norisk.gg/api/v1/core/oauth/github?token={}",
+        if is_experimental { "-staging" } else { "" },
+        token
+    );
+    debug!("Generated GitHub auth URL string: {}", url_string);
+
+    let external_url = Url::parse(&url_string).map_err(|e| {
+        CommandError::from(AppError::Other(format!(
+            "Invalid URL format for GitHub auth: {}",
+            e
+        )))
+    })?;
+
+    if let Some(window) = app.get_webview_window("github-signin") {
+        debug!("Closing existing github-signin window.");
+        if let Err(e) = window.close().map_err(|e_close| {
+            CommandError::from(AppError::Other(format!(
+                "Failed to close existing GitHub window: {}",
+                e_close
+            )))
+        }) {
+            debug!("Error closing existing github-signin window: {:?}", e);
+        }
+    }
+
+    let start_time = Utc::now();
+
+    let window =
+        WebviewWindowBuilder::new(&app, "github-signin", WebviewUrl::External(external_url))
+            .title("GitHub X NoRiskClient")
+            .always_on_top(true)
+            .center()
+            .inner_size(500.0, 700.0)
+            .min_inner_size(400.0, 500.0)
+            .max_inner_size(1250.0, 1000.0)
+            .build()
+            .map_err(|e| {
+                CommandError::from(AppError::Other(format!(
+                    "Failed to build GitHub window: {}",
+                    e
+                )))
+            })?;
+
+    window
+        .request_user_attention(Some(UserAttentionType::Critical))
+        .map_err(|e| {
+            CommandError::from(AppError::Other(format!(
+                "Failed to request user attention for GitHub window: {}",
+                e
+            )))
+        })?;
+    debug!("GitHub sign-in window opened.");
+
+    while (Utc::now() - start_time) < ChronoDuration::minutes(10) {
+        match window.url().map_err(|e| {
+            CommandError::from(AppError::Other(format!(
+                "Failed to get GitHub window URL: {}",
+                e
+            )))
+        }) {
+            Ok(current_url) => {
+                let current_url_str = current_url.as_str();
+                if current_url_str
+                    .starts_with("https://api.norisk.gg/api/v1/core/oauth/github/complete")
+                    || current_url_str.starts_with(
+                        "https://api-staging.norisk.gg/api/v1/core/oauth/github/complete",
+                    )
+                {
+                    debug!("GitHub authentication successful, closing window.");
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                    window.close().map_err(|e_close| {
+                        CommandError::from(AppError::Other(format!(
+                            "Failed to close GitHub window after auth: {}",
+                            e_close
+                        )))
+                    })?;
+                    return Ok(());
+                }
+            }
+            Err(e) => {
+                debug!(
+                    "Error getting window URL (assuming closed by user): {:?}",
+                    e
+                );
+                return Ok(());
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    debug!("GitHub auth timed out after 10 minutes.");
+    window.close().map_err(|e_close| {
+        CommandError::from(AppError::Other(format!(
+            "Failed to close GitHub window after timeout: {}",
+            e_close
+        )))
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_auth_status() -> Result<bool, CommandError> {
+    debug!("Executing github_auth_status command");
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let selected_account_arc = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or(AppError::AccountError(
+            "No active account found for GitHub status check.".to_string(),
+        ))?;
+
+    let account_id_str = selected_account_arc.id.to_string();
+    let norisk_creds = &selected_account_arc.norisk_credentials;
+    let token = norisk_creds.get_token_for_mode(is_experimental)?;
+
+    debug!(
+        "Checking GitHub link status for account {} (experimental: {})",
+        account_id_str, is_experimental
+    );
+
+    Ok(NoRiskApi::github_link_status(&token, &account_id_str, is_experimental).await?)
+}
+
+#[tauri::command]
+pub async fn github_auth_unlink() -> Result<(), CommandError> {
+    debug!("Executing github_auth_unlink command");
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let selected_account_arc = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or(AppError::AccountError(
+            "No active account found for GitHub unlink.".to_string(),
+        ))?;
+
+    let account_id_str = selected_account_arc.id.to_string();
+    let norisk_creds = &selected_account_arc.norisk_credentials;
+    let token = norisk_creds.get_token_for_mode(is_experimental)?;
+
+    debug!(
+        "Unlinking GitHub for account {} (experimental: {})",
+        account_id_str, is_experimental
+    );
+
+    NoRiskApi::unlink_github(&token, &account_id_str, is_experimental).await?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn submit_crash_log_command(payload: CrashlogDto) -> Result<(), CommandError> {
     debug!(
         "Executing submit_crash_log_command with payload: {:?}",
