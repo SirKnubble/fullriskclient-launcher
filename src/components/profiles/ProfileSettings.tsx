@@ -119,10 +119,14 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
         loader_version: editedProfile.loader_version || null || undefined,
         settings: {
           ...editedProfile.settings,
-          memory: {
-            ...editedProfile.settings?.memory,
-            max: tempRamMb,
-          },
+          // Only save memory settings for custom profiles
+          // Standard profiles save memory to global settings directly via JavaSettingsTab
+          ...(profile.is_standard_version ? {} : {
+            memory: {
+              ...editedProfile.settings?.memory,
+              max: tempRamMb,
+            },
+          }),
         },
         selected_norisk_pack_id: editedProfile.selected_norisk_pack_id,
         clear_selected_norisk_pack: !editedProfile.selected_norisk_pack_id,
