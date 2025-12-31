@@ -168,6 +168,8 @@ export function JavaSettingsTab({
       getGlobalMemorySettings()
         .then((settings) => {
           setGlobalMemorySettingsState(settings);
+          // Synchronize tempRamMb with global settings for standard profiles
+          setTempRamMb(settings.max);
         })
         .catch((error) => {
           console.error("Failed to load global memory settings:", error);
@@ -180,7 +182,7 @@ export function JavaSettingsTab({
       // For custom profiles, we're not loading anything
       setIsLoadingGlobalMemory(false);
     }
-  }, [editedProfile.is_standard_version]);
+  }, [editedProfile.is_standard_version, setTempRamMb]);
 
   const browseForJavaPath = async () => {
     try {
@@ -380,7 +382,13 @@ export function JavaSettingsTab({
               <>
                 <RangeSlider
                   value={tempRamMb}
-                  onChange={setTempRamMb}
+                  onChange={(value) => {
+                    setTempRamMb(value);
+                    // For standard profiles, save to global settings immediately
+                    if (editedProfile.is_standard_version) {
+                      handleMemoryChange(value);
+                    }
+                  }}
                   min={512}
                   max={systemRam}
                   step={512}
