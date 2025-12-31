@@ -68,6 +68,8 @@ pub struct LauncherConfig {
     #[serde(default = "default_global_memory_settings")]
     pub global_memory_settings: MemorySettings,
     #[serde(default)]
+    pub global_custom_jvm_args: Option<String>,
+    #[serde(default)]
     pub custom_game_directory: Option<PathBuf>,
     #[serde(default = "default_use_browser_based_login")]
     pub use_browser_based_login: bool,
@@ -131,6 +133,7 @@ impl Default for LauncherConfig {
             hooks: Hooks::default(),
             hide_on_process_start: default_hide_on_process_start(),
             global_memory_settings: default_global_memory_settings(),
+            global_custom_jvm_args: None,
             custom_game_directory: None,
             use_browser_based_login: default_use_browser_based_login(),
             referral_state: None,
@@ -357,6 +360,7 @@ impl ConfigManager {
                 && current.hide_on_process_start == new_config.hide_on_process_start
                 && current.global_memory_settings.min == new_config.global_memory_settings.min
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
+                && current.global_custom_jvm_args == new_config.global_custom_jvm_args
                 && current.custom_game_directory == new_config.custom_game_directory
                 && current.use_browser_based_login == new_config.use_browser_based_login
                 && current.referral_state == new_config.referral_state
@@ -442,6 +446,12 @@ impl ConfigManager {
                         new_config.global_memory_settings.min, new_config.global_memory_settings.max
                     );
                 }
+                if current.global_custom_jvm_args != new_config.global_custom_jvm_args {
+                    info!(
+                        "Changing global custom JVM args: {:?} -> {:?}",
+                        current.global_custom_jvm_args, new_config.global_custom_jvm_args
+                    );
+                }
                 if current.custom_game_directory != new_config.custom_game_directory {
                     info!(
                         "Changing custom game directory: {:?} -> {:?}",
@@ -470,6 +480,7 @@ impl ConfigManager {
                     hooks: new_config.hooks,
                     hide_on_process_start: new_config.hide_on_process_start,
                     global_memory_settings: new_config.global_memory_settings,
+                    global_custom_jvm_args: new_config.global_custom_jvm_args.clone(),
                     custom_game_directory: new_config.custom_game_directory.clone(),
                     use_browser_based_login: new_config.use_browser_based_login,
                     referral_state: new_config.referral_state.clone(),
