@@ -19,8 +19,7 @@ import {
   type QualityLevel,
   useQualitySettingsStore,
 } from "../../store/quality-settings-store";
-// DISABLED: Snow effect (seasonal feature)
-// import { SnowEffectToggle } from "../ui/SnowEffectToggle";
+import { SnowEffectToggle } from "../ui/SnowEffectToggle";
 import { cn } from "../../lib/utils";
 import { toast } from "react-hot-toast";
 import { GroupTabs, type GroupTab } from ".././ui/GroupTabs";
@@ -521,13 +520,11 @@ export function SettingsTab() {
                   size="sm"
                 />
               </div>
-              {/* DISABLED: Snow effect (seasonal feature)
               <SnowEffectToggle
                 showLabel={true}
                 size="sm"
                 disabled={saving}
               />
-              */}
               <div className="flex items-center gap-3">
                 <span className="text-xs text-white/60 font-minecraft-ten">Quality: Low</span>
                 <input

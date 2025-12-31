@@ -7,9 +7,9 @@ interface SnowEffectState {
   setSnowEffect: (enabled: boolean) => void;
 }
 
-// DISABLED: Snow effect is a seasonal feature (December only)
-// Force disabled until next winter season
-const SNOW_EFFECT_FORCE_DISABLED = true;
+// Snow effect is a seasonal feature (December only)
+// Set to false to allow users to enable it manually via settings
+const SNOW_EFFECT_FORCE_DISABLED = false;
 
 // Check if current month is December (month index 11, since months are 0-indexed)
 const isDecember = () => {
