@@ -37,6 +37,7 @@ export interface LauncherConfig {
   hooks: Hooks;
   hide_on_process_start: boolean;
   global_memory_settings: MemorySettings;
+  global_custom_jvm_args: string | null; // Option<String> - Global JVM args for standard profiles
   custom_game_directory: string | null; // Option<PathBuf>
   use_browser_based_login: boolean;
   referral_state: ReferralState | null; // Referral tracking state

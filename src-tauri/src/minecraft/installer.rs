@@ -524,14 +524,23 @@ pub async fn install_minecraft_version(
         launch_params = launch_params.with_main_class(&piston_meta.main_class);
     }
 
-    // Add custom JVM arguments from profile settings string
-    if let Some(jvm_args_str) = &profile.settings.custom_jvm_args {
+    // Add custom JVM arguments (global for standard profiles, profile-specific for custom)
+    let custom_jvm_args_str = if profile.is_standard_version {
+        let state = State::get().await?;
+        let config = state.config_manager.get_config().await;
+        config.global_custom_jvm_args.clone()
+    } else {
+        profile.settings.custom_jvm_args.clone()
+    };
+
+    if let Some(jvm_args_str) = custom_jvm_args_str {
         if !jvm_args_str.trim().is_empty() {
             let mut current_jvm_args = launch_params.additional_jvm_args.clone();
             let custom_args: Vec<String> =
                 jvm_args_str.split_whitespace().map(String::from).collect();
             info!(
-                "Adding custom JVM arguments from profile: {:?}",
+                "Adding custom JVM arguments from {}: {:?}",
+                if profile.is_standard_version { "global settings" } else { "profile" },
                 custom_args
             );
             current_jvm_args.extend(custom_args);
