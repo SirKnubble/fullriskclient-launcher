@@ -828,6 +828,8 @@ impl MinecraftAuthStore {
                 }
             );
 
+            info!("[NoRisk Token] Account is known to have child protection enabled: {}", creds.ignore_child_protection_warning);
+
             match NoRiskApi::refresh_norisk_token_v3(
                 &system_id,
                 &creds.username,
@@ -849,6 +851,9 @@ impl MinecraftAuthStore {
                         info!("[NoRisk Token] Storing token in production credentials");
                         copied_credentials.norisk_credentials.production = Some(norisk_token);
                     }
+
+                    // reset child protection warning flag on successful token refresh
+                    copied_credentials.ignore_child_protection_warning = false;
 
                     // Update the account in storage
                     info!("[NoRisk Token] Updating account in storage");

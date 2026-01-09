@@ -39,6 +39,7 @@ import { Button } from "./components/ui/buttons/Button";
 import { openExternalUrl } from "./services/tauri-service";
 import { ExternalLink } from "lucide-react";
 import { MinecraftAuthService } from "./services/minecraft-auth-service";
+import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -138,69 +139,6 @@ export function App() {
             );
             toast.error("Could not globally process Minecraft process status.");
           }
-        } else if (event.payload.event_type === FrontendEventType.Error && event.payload.error && event.payload.error.toLowerCase().includes("child protection")) {
-          // run async logic without blocking the event callback
-          (async () => {
-            try {
-              const active = await MinecraftAuthService.getActiveAccount();
-              // If the active account opted to ignore this warning, don't show modal
-              if (active && active.ignore_child_protection_warning) {
-                return;
-              }
-
-              showModal(
-                "child-protection-modal",
-                <Modal
-                  title="Microsoft Account Restriction"
-                  onClose={async () => {
-                    hideModal("child-protection-modal");
-                  }}
-                  width="xl"
-                  variant="flat"
-                >
-                  <div className="p-4">
-                    <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                      It looks like your Microsoft account has a child protection or privacy mode enabled that restricts multiplayer functionality. Because of this the launcher cannot fully complete your login and a lot of NoRisk Client features won't be available.
-                    </p>
-                    <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                      Please review your Microsoft / Xbox account parental controls or family settings and ensure multiplayer access is allowed, then try logging in again.
-                    </p>
-                    <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                      The setting you are looking for can be found on the Xbox website under "Privacy & Online Safety" → "Online Safety" → "you can join cross-network play" → "Allow".
-                    </p>
-                    <div className="flex justify-center gap-4">
-                      <Button
-                        variant="secondary"
-                        size="md"
-                        onClick={async () => {
-                          try {
-                            if (active && active.id) {
-                              await MinecraftAuthService.setIgnoreChildProtection(active.id, true);
-                            }
-                          } catch (e) {
-                            console.error("Failed to persist ignoreChildProtection flag:", e);
-                          } finally {
-                            hideModal("child-protection-modal");
-                          }
-                        }}
-                      >
-                        Ignore for this account
-                      </Button>
-                      <Button
-                        onClick={() => openExternalUrl(`https://www.xbox.com/user/settings/privacy-and-safety?gamertag=${event.payload.message}&activetab=main:privilegetab`)}
-                        variant="info"
-                        size="md"
-                      >
-                        Open Microsoft Account Settings
-                      </Button>
-                    </div>
-                  </div>
-                </Modal>,
-              );
-            } catch (e) {
-              console.error("Failed to handle child-protection modal logic:", e);
-            }
-          })();
         }
       },
     );
@@ -333,6 +271,7 @@ export function App() {
         <GlobalCrashReportModal />
         <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
         <GlobalModalPortal />
+        <ChildProtectionModal />
         <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
           <Outlet context={profilesTabContext} />
         </AppLayout>
