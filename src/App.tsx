@@ -23,6 +23,8 @@ import { TermsOfServiceModal } from "./components/modals/TermsOfServiceModal";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
+import { useGlobalModal } from "./hooks/useGlobalModal";
+import { Modal } from "./components/ui/Modal";
 import { refreshNrcDataOnMount } from "./services/nrc-service";
 import {
   getLauncherConfig,
@@ -33,6 +35,9 @@ import { loadIcons } from '@iconify/react';
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
+import { Button } from "./components/ui/buttons/Button";
+import { openExternalUrl } from "./services/tauri-service";
+import { ExternalLink } from "lucide-react";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -44,6 +49,7 @@ export function App() {
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
   const { hasAcceptedTermsOfService } = useThemeStore();
+  const { showModal, hideModal } = useGlobalModal();
 
   const activeTab = location.pathname.substring(1) || "play";
 
@@ -131,6 +137,39 @@ export function App() {
             );
             toast.error("Could not globally process Minecraft process status.");
           }
+        } else if (event.payload.event_type === FrontendEventType.Error && event.payload.error.toLowerCase().includes("child protection")) {
+          showModal(
+              "child-protection-modal",
+              <Modal
+                title="Microsoft Account Restriction"
+                onClose={async () => {
+                  hideModal("child-protection-modal");
+                }}
+                width="md"
+                variant="flat"
+              >
+                <div className="p-4">
+                  <p className="text-white/90 mb-6 text-center font-minecraft-ten">
+                    It looks like your Microsoft account has a child protection or privacy mode enabled that restricts multiplayer functionality. because of this the launcher cannot fully complete the login.
+                  </p>
+                  <p className="text-white/90 mb-6 text-center font-minecraft-ten">
+                    Please review your Microsoft / XBox account parental controls or family settings and ensure multiplayer access is allowed, then try logging in again.
+                  </p>
+                  <p className="text-white/90 mb-6 text-center font-minecraft-ten">
+                    The setting you are looking for can be found on the Xbox website under "Privacy & Online Safety" → "Online Safety" → "you can join cross-network play" → "Allow".
+                  </p>
+                  <div className="flex justify-center gap-4">
+                    <Button
+                      onClick={() => openExternalUrl(`https://www.xbox.com/user/settings/privacy-and-safety?gamertag=${event.payload.message}&activetab=main:privilegetab`)}
+                      variant="info"
+                      size="md"
+                    >
+                      Open Microsoft Account Settings
+                    </Button>
+                  </div>
+                </div>
+              </Modal>,
+            );
         }
       },
     );
