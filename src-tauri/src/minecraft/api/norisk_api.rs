@@ -7,6 +7,8 @@ use crate::{
     config::HTTP_CLIENT,
     error::{AppError, Result},
 };
+use crate::state::state_manager::State;
+use crate::state::event_state::{EventPayload, EventType};
 use chrono::Utc;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
@@ -374,8 +376,43 @@ impl NoRiskApi {
         // Step 2: Join the Minecraft server session (client-side authentication)
         debug!("[NoRisk API] Step 2: Joining Minecraft server session with server ID: {}", server_id);
         let mc_api = crate::minecraft::api::mc_api::MinecraftApiService::new();
-        mc_api.join_server_session(access_token, selected_profile, server_id).await?;
-        info!("[NoRisk API] Successfully joined Minecraft server session");
+        match mc_api.join_server_session(access_token, selected_profile, server_id).await {
+            Ok(_) => {
+                info!("[NoRisk API] Successfully joined Minecraft server session");
+            }
+            Err(join_err) => {
+                // Inspect the error text for the specific InsufficientPrivilegesException coming from
+                // the Minecraft session API (/session/minecraft/join). If found, emit a UI event so the
+                // frontend can show a popup explaining that child protection / privacy settings on the
+                // Microsoft account are limiting multiplayer and causing login to fail.
+                let err_text = format!("{}", join_err);
+
+                if err_text.contains("InsufficientPrivilegesException") && err_text.contains("/session/minecraft/join") {
+                    debug!("[NoRisk API] Detected InsufficientPrivilegesException on join_server_session - emitting frontend event");
+
+                    // Try to emit a state event (best-effort). Don't fail the whole flow because the emit failed.
+                    if let Ok(state) = State::get().await {
+                        let payload = EventPayload {
+                            event_id: uuid::Uuid::new_v4(),
+                            event_type: EventType::Error,
+                            target_id: None,
+                            message: String::from(username),
+                            progress: None,
+                            error: Some(String::from("Your Microsoft account appears to have a child protection / privacy mode enabled which restricts multiplayer access. This prevents the launcher from completing login via the Minecraft session API (/session/minecraft/join). Please review your Microsoft account settings.")),
+                        };
+
+                        if let Err(e) = state.emit_event(payload).await {
+                            error!("[NoRisk API] Failed to emit InsufficientPrivilegesException event to frontend: {}", e);
+                        }
+                    } else {
+                        error!("[NoRisk API] Could not get global state to emit InsufficientPrivilegesException event");
+                    }
+                }
+
+                // Return the original error so callers can handle it as before
+                return Err(join_err);
+            }
+        }
 
         // Step 3: Call NoRisk API v2 (server will verify with has_joined)
         let base_url = Self::get_api_base(is_experimental);
