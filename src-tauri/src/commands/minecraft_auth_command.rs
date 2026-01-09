@@ -25,6 +25,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             get_active_account,
             set_active_account,
             get_accounts,
+            set_account_ignore_child_protection,
         ])
         .build()
 }
@@ -384,4 +385,15 @@ pub async fn get_accounts() -> Result<Vec<Credentials>, CommandError> {
         .get_all_accounts()
         .await?;
     Ok(accounts)
+}
+
+/// Set whether to ignore the child-protection multiplayer warning for a specific account
+#[tauri::command]
+pub async fn set_account_ignore_child_protection(account_id: Uuid, ignore: bool) -> Result<(), CommandError> {
+    let state = State::get().await?;
+    state
+        .minecraft_account_manager_v2
+        .set_ignore_child_protection(account_id, ignore)
+        .await?;
+    Ok(())
 }
