@@ -3,7 +3,7 @@ use crate::error::{AppError, Result};
 use crate::state::profile_state::{Mod, ModLoader, ModPackInfo, ModPackSource, ModSource, Profile, ProfileSettings, ProfileState};
 use log::{debug, error, info, warn};
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -203,6 +203,7 @@ pub struct CurseForgeFile {
     pub isEarlyAccessContent: Option<bool>,
     pub earlyAccessEndDate: Option<String>,
     pub fileFingerprint: u64,
+    #[serde(default, deserialize_with = "parse_vec_default_on_null")]
     pub modules: Vec<CurseForgeModule>,
 }
 
@@ -241,6 +242,14 @@ pub struct CurseForgeFileIndex {
     pub releaseType: u32,
     pub gameVersionTypeId: Option<u32>,
     pub modLoader: Option<u32>,
+}
+
+fn parse_vec_default_on_null<'de, D, T>(deserializer: D) -> std::result::Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 // Function to search for mods on CurseForge
