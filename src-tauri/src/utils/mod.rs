@@ -25,6 +25,6 @@ pub mod serde_utils; // Serde helpers for flexible deserialization
 
 // Füge hier ggf. andere Util-Module hinzu
 // pub mod network_utils;
-// pub mod string_utils;
+pub mod string_utils;
 
 // Mache server_ping verfügbar
