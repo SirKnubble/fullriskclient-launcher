@@ -1044,7 +1044,12 @@ impl MinecraftAuthStore {
                     info!("[Account Manager] Successfully acquired write lock");
                     if let Some(existing) = accounts.iter_mut().find(|acc| acc.id == updated.id) {
                         info!("[Account Manager] Updating account in list");
-                        *existing = updated.clone();
+                        // Preserve ignore flag from in-memory existing account to avoid
+                        // overwriting a recent user 'ignore' action performed concurrently.
+                        let existing_flag = existing.ignore_child_protection_warning;
+                        let mut merged = updated.clone();
+                        merged.ignore_child_protection_warning = existing_flag || merged.ignore_child_protection_warning;
+                        *existing = merged;
                     }
                     info!("[Account Manager] Releasing write lock");
                 } // Write-Lock wird hier freigegeben
@@ -1075,8 +1080,14 @@ impl MinecraftAuthStore {
             // Wenn der Account existiert, aktualisiere ihn
             if let Some(existing) = accounts.iter_mut().find(|acc| acc.id == credentials.id) {
                 info!("[Account Manager] Found existing account, updating credentials");
-                *existing = credentials;
-                info!("[Account Manager] Account successfully updated");
+                // Preserve the existing ignore_child_protection_warning flag to avoid
+                // races where another concurrent flow set the flag while this flow
+                // was constructing credentials from stale data.
+                let existing_flag = existing.ignore_child_protection_warning;
+                let mut merged = credentials.clone();
+                merged.ignore_child_protection_warning = existing_flag || merged.ignore_child_protection_warning;
+                *existing = merged;
+                info!("[Account Manager] Account successfully updated (merged ignore flag)");
             } else {
                 // Wenn der Account nicht existiert, füge ihn hinzu
                 info!("[Account Manager] No existing account found, creating new account");
@@ -1195,7 +1206,12 @@ impl MinecraftAuthStore {
                     info!("[Account Manager] Successfully acquired write lock");
                     if let Some(existing) = accounts.iter_mut().find(|acc| acc.id == updated.id) {
                         info!("[Account Manager] Updating account in list");
-                        *existing = updated.clone();
+                        // Preserve ignore flag from in-memory existing account to avoid
+                        // overwriting a recent user 'ignore' action performed concurrently.
+                        let existing_flag = existing.ignore_child_protection_warning;
+                        let mut merged = updated.clone();
+                        merged.ignore_child_protection_warning = existing_flag || merged.ignore_child_protection_warning;
+                        *existing = merged;
                     }
                     info!("[Account Manager] Releasing write lock");
                 } // Write-Lock wird hier freigegeben
