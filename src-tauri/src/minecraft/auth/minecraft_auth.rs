@@ -1072,6 +1072,14 @@ impl MinecraftAuthStore {
         {
             let mut accounts = self.accounts.write().await;
 
+            // If new credentials are active, deactivate all other accounts first
+            if credentials.active {
+                info!("[Account Manager] New account is active, deactivating all other accounts");
+                for account in accounts.iter_mut() {
+                    account.active = false;
+                }
+            }
+
             // Wenn der Account existiert, aktualisiere ihn
             if let Some(existing) = accounts.iter_mut().find(|acc| acc.id == credentials.id) {
                 info!("[Account Manager] Found existing account, updating credentials");
