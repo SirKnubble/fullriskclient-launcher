@@ -23,6 +23,8 @@ import { TermsOfServiceModal } from "./components/modals/TermsOfServiceModal";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
+import { useGlobalModal } from "./hooks/useGlobalModal";
+import { Modal } from "./components/ui/Modal";
 import { refreshNrcDataOnMount } from "./services/nrc-service";
 import {
   getLauncherConfig,
@@ -33,6 +35,11 @@ import { loadIcons } from '@iconify/react';
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
+import { Button } from "./components/ui/buttons/Button";
+import { openExternalUrl } from "./services/tauri-service";
+import { ExternalLink } from "lucide-react";
+import { MinecraftAuthService } from "./services/minecraft-auth-service";
+import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -44,6 +51,7 @@ export function App() {
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
   const { hasAcceptedTermsOfService } = useThemeStore();
+  const { showModal, hideModal } = useGlobalModal();
 
   const activeTab = location.pathname.substring(1) || "play";
 
@@ -263,6 +271,7 @@ export function App() {
         <GlobalCrashReportModal />
         <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
         <GlobalModalPortal />
+        <ChildProtectionModal />
         <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
           <Outlet context={profilesTabContext} />
         </AppLayout>
