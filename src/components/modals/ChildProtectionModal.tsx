@@ -53,7 +53,7 @@ export default function ChildProtectionModal() {
                         Please review your Microsoft / Xbox account parental controls or family settings and ensure multiplayer access is allowed, then try logging in again.
                       </p>
                       <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                        The setting you are looking for can be found on the Xbox website under "Privacy & Online Safety" → "Online Safety" → "you can join cross-network play" → "Allow".
+                        The setting you are looking for can be found on the Xbox website under "Privacy & Online Safety" → "Online Safety" → "You can join multiplayer games" → "Allow".
                       </p>
                       <div className="flex justify-center gap-4">
                         <Button
