@@ -14,6 +14,7 @@ use serde_json;
 use std::collections::HashMap;
 use rand;
 use uuid::Uuid;
+use crate::utils::string_utils::safe_truncate;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -814,7 +815,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
@@ -886,7 +887,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
