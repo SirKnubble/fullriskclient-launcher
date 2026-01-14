@@ -62,6 +62,9 @@ pub struct Credentials {
     pub expires: DateTime<Utc>,
     pub norisk_credentials: NoRiskCredentials,
     pub active: bool,
+    /// If true, the launcher will not show the child-protection multiplayer warning modal for this account
+    #[serde(default)]
+    pub ignore_child_protection_warning: bool,
     /// The authentication flow used to create this account (optional for backwards compatibility)
     #[serde(default)]
     pub auth_flow: Option<AuthFlow>,
@@ -656,6 +659,7 @@ impl MinecraftAuthStore {
                     experimental: None,
                 },
             },
+            ignore_child_protection_warning: existing_account.as_ref().map(|a| a.ignore_child_protection_warning).unwrap_or(false),
             auth_flow: Some(AuthFlow::Direct),
         };
 
@@ -728,6 +732,7 @@ impl MinecraftAuthStore {
                     experimental: None,
                 },
             },
+            ignore_child_protection_warning: existing_account.as_ref().map(|a| a.ignore_child_protection_warning).unwrap_or(false),
             auth_flow: Some(AuthFlow::Sisu),
         };
 
@@ -823,6 +828,8 @@ impl MinecraftAuthStore {
                 }
             );
 
+            info!("[NoRisk Token] Account is known to have child protection enabled: {}", creds.ignore_child_protection_warning);
+
             match NoRiskApi::refresh_norisk_token_v3(
                 &system_id,
                 &creds.username,
@@ -844,6 +851,9 @@ impl MinecraftAuthStore {
                         info!("[NoRisk Token] Storing token in production credentials");
                         copied_credentials.norisk_credentials.production = Some(norisk_token);
                     }
+
+                    // reset child protection warning flag on successful token refresh
+                    copied_credentials.ignore_child_protection_warning = false;
 
                     // Update the account in storage
                     info!("[NoRisk Token] Updating account in storage");
@@ -921,6 +931,7 @@ impl MinecraftAuthStore {
             expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
             norisk_credentials: creds.norisk_credentials.clone(),
             active: creds.active,
+            ignore_child_protection_warning: creds.ignore_child_protection_warning,
             auth_flow: Some(AuthFlow::Direct),
         };
 
@@ -972,6 +983,7 @@ impl MinecraftAuthStore {
             expires: oauth_token.date + Duration::seconds(oauth_token.value.expires_in as i64),
             norisk_credentials: creds.norisk_credentials.clone(),
             active: creds.active,
+            ignore_child_protection_warning: creds.ignore_child_protection_warning,
             auth_flow: Some(AuthFlow::Sisu),
         };
 
@@ -1301,6 +1313,24 @@ impl MinecraftAuthStore {
         self.save().await?;
         info!("[Account Manager] Successfully saved changes");
 
+        Ok(())
+    }
+
+    /// Set whether to ignore the child-protection multiplayer warning for a specific account
+    pub async fn set_ignore_child_protection(&self, account_id: Uuid, ignore: bool) -> Result<()> {
+        info!("[Account Manager] Setting ignore_child_protection_warning={} for account {}", ignore, account_id);
+
+        {
+            let mut accounts = self.accounts.write().await;
+            if let Some(account) = accounts.iter_mut().find(|acc| acc.id == account_id) {
+                account.ignore_child_protection_warning = ignore;
+            } else {
+                return Err(AppError::AccountError(format!("Account with ID {} not found", account_id)));
+            }
+        }
+
+        // Persist changes
+        self.save().await?;
         Ok(())
     }
 }
