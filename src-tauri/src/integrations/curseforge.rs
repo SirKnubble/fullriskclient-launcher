@@ -318,7 +318,7 @@ pub async fn search_mods(
                 .iter()
                 .map(|loader| (*loader as u32).to_string())
                 .collect();
-            query_params.push(("modLoaderTypes".to_string(), loader_ids.join(",")));
+            query_params.push(("modLoaderTypes".to_string(), format!("[{}]", loader_ids.join(","))));
             log::debug!("CurseForge search - Mod loader types: {:?}", loader_types);
         }
     }
