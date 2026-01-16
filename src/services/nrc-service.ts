@@ -3,6 +3,7 @@ import type { BlogPost } from '../types/wordPress';
 import type { UpdateInfo } from '../types/updater';
 import type { Profile } from '../types/profile';
 import type { AdventCalendarDay, Reward } from '../types/advent';
+import type { UserNotification } from '../types/notification';
 import { useProfileStore } from '../store/profile-store';
 import { getBlockedModsConfig } from './flagsmith-service';
 
@@ -230,6 +231,26 @@ export const getAdventCalendar = (): Promise<AdventCalendarDay[]> => {
  */
 export const claimAdventCalendarDay = (tag: number): Promise<AdventCalendarDay> => {
   return invoke('claim_advent_calendar_day_command', { tag });
+};
+
+/**
+ * Fetches all notifications for the current user.
+ *
+ * @returns A promise that resolves to an array of UserNotification objects.
+ * @throws If the backend command fails.
+ */
+export const getNotifications = (): Promise<UserNotification[]> => {
+  return invoke('get_notifications');
+};
+
+/**
+ * Marks all notifications as read.
+ *
+ * @returns A promise that resolves when all notifications are marked as read.
+ * @throws If the backend command fails.
+ */
+export const markAllNotificationsRead = (): Promise<void> => {
+  return invoke('mark_all_notifications_read');
 };
 
 // Re-export logging utilities for backward compatibility
