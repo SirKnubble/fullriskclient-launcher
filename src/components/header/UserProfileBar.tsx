@@ -11,6 +11,7 @@ import { MinecraftAccountManager } from "../account/MinecraftAccountManager";
 import { IconButton } from "../ui/buttons/IconButton";
 import { useSocialsModalStore } from "../../store/socials-modal-store";
 import { Icon } from "@iconify/react";
+import { NotificationBell } from "./NotificationBell";
 
 interface UserProfileBarProps {
   className?: string;
@@ -54,6 +55,7 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
   return (
     <div className={cn("relative flex items-center gap-3", className)}>
       <div className="profile-bar-container flex items-center gap-2">
+        <NotificationBell />
         <RunningInstancesIndicator />
 
         <div ref={profileButtonRef}>
@@ -63,7 +65,7 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
           />
         </div>
 
-        <IconButton 
+        <IconButton
           icon={<Icon icon="solar:link-linear" className="w-5 h-5" />}
           onClick={openSocialsModal}
           variant="flat"

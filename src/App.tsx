@@ -40,6 +40,9 @@ import { openExternalUrl } from "./services/tauri-service";
 import { ExternalLink } from "lucide-react";
 import { MinecraftAuthService } from "./services/minecraft-auth-service";
 import ChildProtectionModal from "./components/modals/ChildProtectionModal";
+import { NotificationModal } from "./components/modals/NotificationModal";
+import { useNotificationStore } from "./store/notification-store";
+import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -52,6 +55,8 @@ export function App() {
   const { openCrashModal } = useCrashModalStore();
   const { hasAcceptedTermsOfService } = useThemeStore();
   const { showModal, hideModal } = useGlobalModal();
+  const { activeAccount } = useMinecraftAuthStore();
+  const { fetchNotifications } = useNotificationStore();
 
   const activeTab = location.pathname.substring(1) || "play";
 
@@ -168,6 +173,15 @@ export function App() {
     refreshNrcDataOnMount();
   }, []);
 
+  // Fetch notifications when user is logged in
+  useEffect(() => {
+    if (activeAccount) {
+      fetchNotifications().catch((error) => {
+        console.error("[App.tsx] Failed to fetch notifications:", error);
+      });
+    }
+  }, [activeAccount, fetchNotifications]);
+
   // Icons beim App-Start vorladen
   useEffect(() => {
     const preloadIcons = async () => {
@@ -272,6 +286,7 @@ export function App() {
         <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
         <GlobalModalPortal />
         <ChildProtectionModal />
+        <NotificationModal />
         <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
           <Outlet context={profilesTabContext} />
         </AppLayout>
