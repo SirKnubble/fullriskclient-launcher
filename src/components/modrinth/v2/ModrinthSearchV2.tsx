@@ -359,12 +359,28 @@ export function ModrinthSearchV2({
     setLoading(true);
     setError(null);
 
+    // Determine game version for search
+    let gameVersionForSearch = selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined;
+
+    // CurseForge API requires gameVersion when using modLoaderType filter
+    // Auto-set to latest release version if loader is selected but no version specified
+    if (modSource === 'CurseForge' &&
+        currentSelectedLoaders.length > 0 &&
+        !gameVersionForSearch &&
+        gameVersionsData.length > 0) {
+      const latestRelease = gameVersionsData.find(v => v.version_type === 'release');
+      if (latestRelease) {
+        gameVersionForSearch = latestRelease.version;
+        console.log('[ModrinthSearchV2] CurseForge: Auto-setting game version to', latestRelease.version, 'for loader filter to work');
+      }
+    }
+
     try {
       const response: UnifiedModSearchResponse = await UnifiedService.searchMods({
         query: searchTerm,
         source: modSource,
         project_type: convertToUnifiedProjectType(projectType),
-        game_version: selectedGameVersions.length > 0 ? selectedGameVersions[0] : undefined,
+        game_version: gameVersionForSearch,
         mod_loaders: currentSelectedLoaders.length > 0 ? currentSelectedLoaders : undefined,
         limit,
         offset: newSearch ? 0 : offset,

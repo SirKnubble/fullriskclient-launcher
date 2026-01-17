@@ -3,7 +3,7 @@ use crate::error::{AppError, Result};
 use crate::state::profile_state::{Mod, ModLoader, ModPackInfo, ModPackSource, ModSource, Profile, ProfileSettings, ProfileState};
 use log::{debug, error, info, warn};
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -20,6 +20,9 @@ use sysinfo::System;
 
 // Import for profile image upload functionality
 use crate::commands::path_commands::UploadProfileImagesPayload;
+use crate::utils::serde_utils::deserialize_optional_u64_from_string;
+
+use crate::utils::string_utils::safe_truncate;
 
 // Base URL for CurseForge API
 const CURSEFORGE_API_BASE_URL: &str = "https://api.curseforge.com/v1";
@@ -202,6 +205,7 @@ pub struct CurseForgeFile {
     pub isEarlyAccessContent: Option<bool>,
     pub earlyAccessEndDate: Option<String>,
     pub fileFingerprint: u64,
+    #[serde(default, deserialize_with = "parse_vec_default_on_null")]
     pub modules: Vec<CurseForgeModule>,
 }
 
@@ -240,6 +244,14 @@ pub struct CurseForgeFileIndex {
     pub releaseType: u32,
     pub gameVersionTypeId: Option<u32>,
     pub modLoader: Option<u32>,
+}
+
+fn parse_vec_default_on_null<'de, D, T>(deserializer: D) -> std::result::Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 // Function to search for mods on CurseForge
@@ -306,7 +318,7 @@ pub async fn search_mods(
                 .iter()
                 .map(|loader| (*loader as u32).to_string())
                 .collect();
-            query_params.push(("modLoaderTypes".to_string(), loader_ids.join(",")));
+            query_params.push(("modLoaderTypes".to_string(), format!("[{}]", loader_ids.join(","))));
             log::debug!("CurseForge search - Mod loader types: {:?}", loader_types);
         }
     }
@@ -360,7 +372,7 @@ pub async fn search_mods(
     // Log response body for debugging (truncated if too long)
     const MAX_BODY_LOG_LENGTH: usize = 2000;
     let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
-        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+        format!("{}... (truncated, full length: {})", safe_truncate(&response_text, MAX_BODY_LOG_LENGTH), response_text.len())
     } else {
         response_text.clone()
     };
@@ -382,7 +394,7 @@ pub async fn search_mods(
             log::error!(
                 "CurseForge JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
                 parse_err,
-                &response_text[..response_text.len().min(500)]
+                safe_truncate(&response_text, 500)
             );
 
             // Try to parse as error response
@@ -393,7 +405,7 @@ pub async fn search_mods(
             return Err(AppError::Other(format!(
                 "Failed to parse CurseForge JSON response: {}. Response starts with: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             )));
         }
     };
@@ -651,7 +663,7 @@ pub async fn get_mod_files(
     // Log response body for debugging (truncated if too long)
     const MAX_BODY_LOG_LENGTH: usize = 2000;
     let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
-        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+        format!("{}... (truncated, full length: {})", safe_truncate(&response_text, MAX_BODY_LOG_LENGTH), response_text.len())
     } else {
         response_text.clone()
     };
@@ -673,7 +685,7 @@ pub async fn get_mod_files(
             log::error!(
                 "CurseForge files JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
                 parse_err,
-                &response_text[..response_text.len().min(500)]
+                safe_truncate(&response_text, 500)
             );
 
             // Try to parse as error response
@@ -684,7 +696,7 @@ pub async fn get_mod_files(
             return Err(AppError::Other(format!(
                 "Failed to parse CurseForge files JSON response: {}. Response starts with: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             )));
         }
     };
@@ -802,7 +814,7 @@ pub async fn get_file_changelog(mod_id: u32, file_id: u32) -> Result<String> {
             log::error!(
                 "Failed to parse CurseForge changelog JSON response: {}. Response: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             );
             // Try to return the raw response if it's not JSON (fallback)
             if response_text.trim().is_empty() {
@@ -816,6 +828,61 @@ pub async fn get_file_changelog(mod_id: u32, file_id: u32) -> Result<String> {
     log::debug!("Successfully retrieved changelog for file ID {} (HTML length: {} chars)", file_id, changelog_response.data.len());
 
     Ok(changelog_response.data)
+}
+
+/// Response structure for CurseForge description API
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CurseForgeDescriptionResponse {
+    pub data: String,
+}
+
+/// Get the full description for a CurseForge mod
+/// Returns HTML formatted description
+pub async fn get_mod_description(mod_id: u32) -> Result<String> {
+    let url = format!("{}/mods/{}/description", CURSEFORGE_API_BASE_URL, mod_id);
+
+    log::info!("Getting CurseForge mod description: mod_id={}", mod_id);
+
+    let response = HTTP_CLIENT
+        .get(&url)
+        .header("x-api-key", CURSEFORGE_API_KEY)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to get CurseForge mod description: {}", e)))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error_text = response.text().await.unwrap_or_default();
+        log::warn!("CurseForge mod description API returned {}: {}", status, error_text);
+        return Ok(String::new());
+    }
+
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to read CurseForge description response: {}", e)))?;
+
+    // Parse the JSON response
+    let description_response: CurseForgeDescriptionResponse = match serde_json::from_str(&response_text) {
+        Ok(parsed) => parsed,
+        Err(parse_err) => {
+            log::error!(
+                "Failed to parse CurseForge description JSON response: {}. Response: {}",
+                parse_err,
+                safe_truncate(&response_text, 200)
+            );
+            if response_text.trim().is_empty() {
+                return Ok(String::new());
+            } else {
+                return Ok(response_text);
+            }
+        }
+    };
+
+    log::debug!("Successfully retrieved description for mod ID {} (HTML length: {} chars)", mod_id, description_response.data.len());
+
+    Ok(description_response.data)
 }
 
 /// Get multiple mods by their IDs
@@ -860,7 +927,7 @@ pub async fn get_mods_by_ids(
     // Log response body for debugging (truncated if too long)
     const MAX_BODY_LOG_LENGTH: usize = 2000;
     let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
-        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+        format!("{}... (truncated, full length: {})", safe_truncate(&response_text, MAX_BODY_LOG_LENGTH), response_text.len())
     } else {
         response_text.clone()
     };
@@ -882,7 +949,7 @@ pub async fn get_mods_by_ids(
             log::error!(
                 "CurseForge get mods by IDs JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
                 parse_err,
-                &response_text[..response_text.len().min(500)]
+                safe_truncate(&response_text, 500)
             );
 
             // Try to parse as error response
@@ -893,7 +960,7 @@ pub async fn get_mods_by_ids(
             return Err(AppError::Other(format!(
                 "Failed to parse CurseForge get mods by IDs JSON response: {}. Response starts with: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             )));
         }
     };
@@ -950,7 +1017,7 @@ pub async fn get_files_by_ids(file_ids: Vec<u32>) -> Result<Vec<CurseForgeFile>>
     // Log response body for debugging (truncated if too long)
     const MAX_BODY_LOG_LENGTH: usize = 2000;
     let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
-        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+        format!("{}... (truncated, full length: {})", safe_truncate(&response_text, MAX_BODY_LOG_LENGTH), response_text.len())
     } else {
         response_text.clone()
     };
@@ -972,7 +1039,7 @@ pub async fn get_files_by_ids(file_ids: Vec<u32>) -> Result<Vec<CurseForgeFile>>
             log::error!(
                 "CurseForge get files by IDs JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
                 parse_err,
-                &response_text[..response_text.len().min(500)]
+                safe_truncate(&response_text, 500)
             );
 
             // Try to parse as error response
@@ -983,7 +1050,7 @@ pub async fn get_files_by_ids(file_ids: Vec<u32>) -> Result<Vec<CurseForgeFile>>
             return Err(AppError::Other(format!(
                 "Failed to parse CurseForge get files by IDs JSON response: {}. Response starts with: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             )));
         }
     };
@@ -1020,8 +1087,8 @@ pub struct CurseForgeMinecraft {
     pub version: String,
     #[serde(rename = "modLoaders")]
     pub mod_loaders: Vec<CurseForgeModLoader>,
-    #[serde(rename = "recommendedRam")]
-    pub recommended_ram: Option<u64>, // Optional field for recommended RAM
+    #[serde(rename = "recommendedRam", default, deserialize_with = "deserialize_optional_u64_from_string")]
+    pub recommended_ram: Option<u64>, // Optional field for recommended RAM (can be string or number)
 }
 
 /// Represents a mod loader entry in CurseForge manifest
@@ -2262,7 +2329,7 @@ pub async fn check_mod_updates_bulk(
     // Log response body for debugging (truncated if too long)
     const MAX_BODY_LOG_LENGTH: usize = 2000;
     let logged_body = if response_text.len() > MAX_BODY_LOG_LENGTH {
-        format!("{}... (truncated, full length: {})", &response_text[..MAX_BODY_LOG_LENGTH], response_text.len())
+        format!("{}... (truncated, full length: {})", safe_truncate(&response_text, MAX_BODY_LOG_LENGTH), response_text.len())
     } else {
         response_text.clone()
     };
@@ -2284,7 +2351,7 @@ pub async fn check_mod_updates_bulk(
             error!(
                 "CurseForge fingerprint JSON parsing failed. Parse error: {}. Response body (first 500 chars): {}",
                 parse_err,
-                &response_text[..response_text.len().min(500)]
+                safe_truncate(&response_text, 500)
             );
 
             // Try to parse as error response
@@ -2295,7 +2362,7 @@ pub async fn check_mod_updates_bulk(
             return Err(AppError::Other(format!(
                 "Failed to parse CurseForge fingerprint JSON response: {}. Response starts with: {}",
                 parse_err,
-                &response_text[..response_text.len().min(200)]
+                safe_truncate(&response_text, 200)
             )));
         }
     };

@@ -6,8 +6,7 @@ import type { Profile } from "../../../types/profile";
 import { Button } from "../../ui/buttons/Button";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { RangeSlider } from "../../ui/RangeSlider";
-import { Input } from "../../ui/Input";
-import { TextArea } from "../../ui/TextArea";
+import { Input, SearchStyleTextArea } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
 import { Card } from "../../ui/Card";
 import { gsap } from "gsap";
@@ -15,7 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "react-hot-toast";
 import { cn } from "../../../lib/utils";
-import { getGlobalMemorySettings, setGlobalMemorySettings } from "../../../services/launcher-config-service";
+import { getGlobalMemorySettings, setGlobalMemorySettings, getGlobalCustomJvmArgs, setGlobalCustomJvmArgs } from "../../../services/launcher-config-service";
 import type { MemorySettings } from "../../../types/launcherConfig";
 
 interface JavaSettingsTabProps {
@@ -80,6 +79,10 @@ export function JavaSettingsTab({
   const [globalMemorySettings, setGlobalMemorySettingsState] = useState<MemorySettings | null>(null);
   const [isLoadingGlobalMemory, setIsLoadingGlobalMemory] = useState(false);
   const [isSystemRamLoaded, setIsSystemRamLoaded] = useState(false);
+
+  // Global JVM args for standard profiles
+  const [globalJvmArgs, setGlobalJvmArgsState] = useState<string | null>(null);
+  const [isLoadingGlobalJvmArgs, setIsLoadingGlobalJvmArgs] = useState(false);
   
 
   useEffect(() => {
@@ -169,6 +172,8 @@ export function JavaSettingsTab({
       getGlobalMemorySettings()
         .then((settings) => {
           setGlobalMemorySettingsState(settings);
+          // Synchronize tempRamMb with global settings for standard profiles
+          setTempRamMb(settings.max);
         })
         .catch((error) => {
           console.error("Failed to load global memory settings:", error);
@@ -180,6 +185,28 @@ export function JavaSettingsTab({
     } else {
       // For custom profiles, we're not loading anything
       setIsLoadingGlobalMemory(false);
+    }
+  }, [editedProfile.is_standard_version, setTempRamMb]);
+
+  // Load global JVM args for standard profiles
+  useEffect(() => {
+    if (editedProfile.is_standard_version) {
+      setIsLoadingGlobalJvmArgs(true);
+      getGlobalCustomJvmArgs()
+        .then((args) => {
+          setGlobalJvmArgsState(args);
+          // Initialize useCustomArgs based on whether global args exist
+          setUseCustomArgs((args?.length || 0) > 0);
+        })
+        .catch((error) => {
+          console.error("Failed to load global JVM args:", error);
+          toast.error("Failed to load global JVM settings");
+        })
+        .finally(() => {
+          setIsLoadingGlobalJvmArgs(false);
+        });
+    } else {
+      setIsLoadingGlobalJvmArgs(false);
     }
   }, [editedProfile.is_standard_version]);
 
@@ -297,10 +324,22 @@ export function JavaSettingsTab({
     testCustomJavaPath(installation.path); // Auto-test selected detected path
   };
 
-  const handleJavaArgsChange = (args: string) => {
-    const newSettings = { ...editedProfile.settings };
-    newSettings.custom_jvm_args = args;
-    updateProfile({ settings: newSettings });
+  const handleJavaArgsChange = async (args: string) => {
+    if (editedProfile.is_standard_version) {
+      // For standard profiles, save to global settings
+      try {
+        await setGlobalCustomJvmArgs(args || null);
+        setGlobalJvmArgsState(args || null);
+      } catch (error) {
+        console.error("Failed to save global JVM args:", error);
+        toast.error("Failed to save global JVM settings");
+      }
+    } else {
+      // For custom profiles, save to profile settings
+      const newSettings = { ...editedProfile.settings };
+      newSettings.custom_jvm_args = args;
+      updateProfile({ settings: newSettings });
+    }
   };
 
   const handleCustomJavaToggle = (checked: boolean) => {
@@ -323,21 +362,42 @@ export function JavaSettingsTab({
     }
   };
 
-  const handleCustomArgsToggle = (checked: boolean) => {
+  const handleCustomArgsToggle = async (checked: boolean) => {
     setUseCustomArgs(checked);
-    const newSettings = { ...editedProfile.settings };
-    if (checked) {
-      if (!newSettings.custom_jvm_args) {
-        newSettings.custom_jvm_args = [
-          "-XX:+UseG1GC",
-          "-XX:+ParallelRefProcEnabled",
-          "-XX:MaxGCPauseMillis=200",
-        ].join(" ");
+
+    const defaultArgs = [
+      "-XX:+UseG1GC",
+      "-XX:+ParallelRefProcEnabled",
+      "-XX:MaxGCPauseMillis=200",
+    ].join(" ");
+
+    if (editedProfile.is_standard_version) {
+      // For standard profiles, save to global settings
+      try {
+        if (checked) {
+          const argsToSet = globalJvmArgs || defaultArgs;
+          await setGlobalCustomJvmArgs(argsToSet);
+          setGlobalJvmArgsState(argsToSet);
+        } else {
+          await setGlobalCustomJvmArgs(null);
+          setGlobalJvmArgsState(null);
+        }
+      } catch (error) {
+        console.error("Failed to save global JVM args:", error);
+        toast.error("Failed to save global JVM settings");
       }
     } else {
-      newSettings.custom_jvm_args = null;
+      // For custom profiles, save to profile settings
+      const newSettings = { ...editedProfile.settings };
+      if (checked) {
+        if (!newSettings.custom_jvm_args) {
+          newSettings.custom_jvm_args = defaultArgs;
+        }
+      } else {
+        newSettings.custom_jvm_args = null;
+      }
+      updateProfile({ settings: newSettings });
     }
-    updateProfile({ settings: newSettings });
 
     if (checked && isBackgroundAnimationEnabled) {
       const textareaContainer = argsRef.current?.querySelector(
@@ -381,7 +441,13 @@ export function JavaSettingsTab({
               <>
                 <RangeSlider
                   value={tempRamMb}
-                  onChange={setTempRamMb}
+                  onChange={(value) => {
+                    setTempRamMb(value);
+                    // For standard profiles, save to global settings immediately
+                    if (editedProfile.is_standard_version) {
+                      handleMemoryChange(value);
+                    }
+                  }}
                   min={512}
                   max={systemRam}
                   step={512}
@@ -540,38 +606,52 @@ export function JavaSettingsTab({
         </div>
       </div>
 
-      {!editedProfile.is_standard_version && (
-        <div ref={argsRef} className="space-y-4">
-          <div>
-            
-          <div className="mb-3">
-            <Checkbox
-              checked={useCustomArgs}
-              onChange={(e) => handleCustomArgsToggle(e.target.checked)}
-              label="custom java arguments"
-              className="text-2xl"
-              variant="flat"
-            />
-          </div>
+      <div ref={argsRef} className="space-y-4">
+        <div>
 
-          {useCustomArgs && (
-            <div className="custom-args-textarea">
-              <TextArea
-                value={editedProfile.settings?.custom_jvm_args || ""}
-                onChange={(e) => handleJavaArgsChange(e.target.value)}
-                placeholder="enter java arguments..."
-                className="w-full min-h-[100px] text-2xl"
-                variant="flat"
-              />
-              <p className="mt-2 text-xs text-white/50 font-minecraft-ten tracking-wide">
-                Arguments should be separated by spaces. Example: -Xmx4G
-                -XX:+UseG1GC
-              </p>
-            </div>
-          )}
+        <div className="mb-3">
+          <Checkbox
+            checked={useCustomArgs}
+            onChange={(e) => handleCustomArgsToggle(e.target.checked)}
+            label={editedProfile.is_standard_version ? "global custom java arguments" : "custom java arguments"}
+            className="text-2xl"
+            variant="flat"
+            disabled={editedProfile.is_standard_version && isLoadingGlobalJvmArgs}
+          />
         </div>
+
+        {useCustomArgs && (
+          <div className="custom-args-textarea">
+            {editedProfile.is_standard_version && isLoadingGlobalJvmArgs ? (
+              <div className="flex items-center justify-center py-8">
+                <Icon icon="solar:refresh-bold" className="w-6 h-6 animate-spin text-white mr-3" />
+                <span className="text-white font-minecraft">Loading settings...</span>
+              </div>
+            ) : (
+              <>
+                <SearchStyleTextArea
+                  value={editedProfile.is_standard_version
+                    ? (globalJvmArgs || "")
+                    : (editedProfile.settings?.custom_jvm_args || "")}
+                  onChange={(e) => handleJavaArgsChange(e.target.value)}
+                  placeholder="enter java arguments..."
+                  minHeight="100px"
+                />
+                <p className="mt-2 text-xs text-white/50 font-minecraft-ten tracking-wide">
+                  Arguments should be separated by spaces. Example: -Xmx4G
+                  -XX:+UseG1GC
+                  {editedProfile.is_standard_version && (
+                    <span className="block mt-1 text-accent">
+                      This setting applies to all standard profiles
+                    </span>
+                  )}
+                </p>
+              </>
+            )}
+          </div>
+        )}
       </div>
-      )}
+    </div>
     </div>
   );
 }

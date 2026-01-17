@@ -36,6 +36,8 @@ export default defineConfig(async () => ({
         main: resolve(__dirname, 'index.html'),
         updater: resolve(__dirname, 'updater.html'),
         logWindow: resolve(__dirname, 'log-window.html'),
+        minecraftLogWindow: resolve(__dirname, 'minecraft-log-window.html'),
+        singleLogWindow: resolve(__dirname, 'single-log-window.html')
       }
     }
   }

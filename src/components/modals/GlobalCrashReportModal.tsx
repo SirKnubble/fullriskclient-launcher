@@ -12,6 +12,7 @@ import type { CrashlogDto } from '../../types/processState';
 import { openExternalUrl } from '../../services/tauri-service';
 import { Window } from '@tauri-apps/api/window';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import type { EventPayload, CrashReportContentAvailablePayload } from '../../types/events';
 import { EventType } from '../../types/events';
 
@@ -62,25 +63,52 @@ export function GlobalCrashReportModal() {
     const focusRelevantWindow = async () => {
       if (isCrashModalOpen && crashData?.process_id) {
         const crashedProcessId = crashData.process_id;
-        console.log(`Crash modal open for process ${crashedProcessId}. Attempting to focus relevant window.`);
+        console.log(`Crash modal open for process ${crashedProcessId}. Opening/focusing log window.`);
 
-        const logWindowLabel = `log_window_${crashedProcessId}`;
+        // Try to find existing single log window for this process
+        const singleLogWindowLabel = `single_log_window_${crashedProcessId}`;
+        let foundLogWindow = false;
+
         try {
-          const targetWindowInstance = await Window.getByLabel(logWindowLabel);
-          if (targetWindowInstance) {
-            console.log(`Focusing log window: ${logWindowLabel}`);
-            await targetWindowInstance.show();
-            await targetWindowInstance.unminimize();
-            await targetWindowInstance.setFocus();
+          const singleLogWindow = await Window.getByLabel(singleLogWindowLabel);
+          if (singleLogWindow) {
+            console.log(`Focusing existing single log window: ${singleLogWindowLabel}`);
+            await singleLogWindow.show();
+            await singleLogWindow.unminimize();
+            await singleLogWindow.setFocus();
+            foundLogWindow = true;
           }
         } catch (e) {
-          console.warn(`Log window with label ${logWindowLabel} not found for process ${crashedProcessId}:`, e);
+          // Single log window not found, try main log window
         }
 
+        if (!foundLogWindow) {
+          // Open main log window with crashed process info
+          try {
+            console.log("Opening minecraft log window for crashed process");
+            const processMetadata = crashData.process_metadata;
+            if (processMetadata) {
+              // Pass crashed process as JSON so log window can show it
+              await invoke("open_minecraft_log_window", {
+                crashedProcess: JSON.stringify({
+                  ...processMetadata,
+                  id: crashedProcessId,
+                  state: { Crashed: { exit_code: crashData.exit_code } }
+                })
+              });
+            } else {
+              await invoke("open_minecraft_log_window", { crashedProcess: null });
+            }
+          } catch (e) {
+            console.error("Failed to open log window for crash:", e);
+          }
+        }
+
+        // Also focus main window
         try {
           const mainWindowInstance = await Window.getByLabel('main');
           if (mainWindowInstance) {
-            console.log("Focusing main application window as fallback.");
+            console.log("Focusing main application window.");
             await mainWindowInstance.show();
             await mainWindowInstance.unminimize();
             await mainWindowInstance.setFocus();

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NoRisk Launcher",
-  "version": "0.7.0",
+  "version": "0.6.17-beta.8",
   "identifier": "gg.norisk.NoRiskClientLauncherV3",
   "build": {
     "beforeDevCommand": "yarn dev",
@@ -67,7 +67,35 @@
           "https://crafatar.com",
           "https://media.forgecdn.net",
           "data:",
-          "https://qr-generator-putuwaw.vercel.app"
+          "https://qr-generator-putuwaw.vercel.app",
+          "https://i.ytimg.com",
+          "https://img.youtube.com",
+          "https://*.githubusercontent.com",
+          "https://raw.githubusercontent.com",
+          "https://i.imgur.com",
+          "https://*.imgur.com",
+          "https://discordapp.com",
+          "https://cdn.discordapp.com",
+          "https://*.gitlab.io",
+          "https://gitlab.com",
+          "https://mc-heads.net",
+          "https://*.mc-heads.net",
+          "https://wsrv.nl",
+          "https://i.ibb.co",
+          "https://media.githubusercontent.com",
+          "https://avatars.githubusercontent.com",
+          "https://pixelmonmod.com",
+          "https://avatars.cloudhaven.gg"
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'"
+        ],
+        "frame-src": [
+          "'self'",
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com",
+          "https://player.vimeo.com"
         ]
       },
       "assetProtocol": {
@@ -83,8 +111,10 @@
   },
   "bundle": {
     "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper" },
       "nsis": {
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "./installer-hooks.nsi"
       }
     },
     "macOS": {

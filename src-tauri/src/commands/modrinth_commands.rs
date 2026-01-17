@@ -475,3 +475,21 @@ pub async fn switch_modpack_version_command(
 
     Ok(result)
 }
+
+/// Fetches team members for a specific Modrinth project.
+#[tauri::command]
+pub async fn get_modrinth_project_members(
+    project_id_or_slug: String,
+) -> Result<Vec<modrinth::ModrinthTeamMember>, CommandError> {
+    log::debug!(
+        "Received get_modrinth_project_members command for project: {}",
+        project_id_or_slug
+    );
+
+    let members = modrinth::get_project_members(project_id_or_slug)
+        .await
+        .map_err(CommandError::from)?;
+
+    log::info!("Successfully fetched {} team members", members.len());
+    Ok(members)
+}

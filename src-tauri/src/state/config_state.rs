@@ -22,6 +22,22 @@ pub struct Hooks {
     pub post_exit: Option<String>,
 }
 
+/// Referral tracking state - keeps code even after redemption for tracing
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ReferralState {
+    /// The download UUID from the installer filename
+    pub code: String,
+    /// Whether the code has been successfully reported to backend
+    #[serde(default)]
+    pub redeemed: bool,
+    /// Timestamp when the code was redeemed
+    #[serde(default)]
+    pub redeemed_at: Option<i64>,
+    /// Account UUID that redeemed the code
+    #[serde(default)]
+    pub redeemed_by_account: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherConfig {
     #[serde(default = "default_config_version")]
@@ -52,7 +68,14 @@ pub struct LauncherConfig {
     #[serde(default = "default_global_memory_settings")]
     pub global_memory_settings: MemorySettings,
     #[serde(default)]
+    pub global_custom_jvm_args: Option<String>,
+    #[serde(default)]
     pub custom_game_directory: Option<PathBuf>,
+    #[serde(default = "default_use_browser_based_login")]
+    pub use_browser_based_login: bool,
+    /// Referral tracking state - code stays even after redemption
+    #[serde(default)]
+    pub referral_state: Option<ReferralState>,
 }
 
 fn default_config_version() -> u32 {
@@ -90,6 +113,10 @@ fn default_global_memory_settings() -> MemorySettings {
     }
 }
 
+fn default_use_browser_based_login() -> bool {
+    false
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -106,7 +133,10 @@ impl Default for LauncherConfig {
             hooks: Hooks::default(),
             hide_on_process_start: default_hide_on_process_start(),
             global_memory_settings: default_global_memory_settings(),
+            global_custom_jvm_args: None,
             custom_game_directory: None,
+            use_browser_based_login: default_use_browser_based_login(),
+            referral_state: None,
         }
     }
 }
@@ -198,6 +228,9 @@ impl ConfigManager {
                             }
                             if let Some(hide) = obj.get("hide_on_process_start").and_then(|v| v.as_bool()) {
                                 migrated_config.hide_on_process_start = hide;
+                            }
+                            if let Some(browser_login) = obj.get("use_browser_based_login").and_then(|v| v.as_bool()) {
+                                migrated_config.use_browser_based_login = browser_login;
                             }
                             
                             // Migrate numeric fields
@@ -327,7 +360,10 @@ impl ConfigManager {
                 && current.hide_on_process_start == new_config.hide_on_process_start
                 && current.global_memory_settings.min == new_config.global_memory_settings.min
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
+                && current.global_custom_jvm_args == new_config.global_custom_jvm_args
                 && current.custom_game_directory == new_config.custom_game_directory
+                && current.use_browser_based_login == new_config.use_browser_based_login
+                && current.referral_state == new_config.referral_state
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -410,10 +446,22 @@ impl ConfigManager {
                         new_config.global_memory_settings.min, new_config.global_memory_settings.max
                     );
                 }
+                if current.global_custom_jvm_args != new_config.global_custom_jvm_args {
+                    info!(
+                        "Changing global custom JVM args: {:?} -> {:?}",
+                        current.global_custom_jvm_args, new_config.global_custom_jvm_args
+                    );
+                }
                 if current.custom_game_directory != new_config.custom_game_directory {
                     info!(
                         "Changing custom game directory: {:?} -> {:?}",
                         current.custom_game_directory, new_config.custom_game_directory
+                    );
+                }
+                if current.use_browser_based_login != new_config.use_browser_based_login {
+                    info!(
+                        "Changing use browser based login: {} -> {}",
+                        current.use_browser_based_login, new_config.use_browser_based_login
                     );
                 }
 
@@ -432,7 +480,10 @@ impl ConfigManager {
                     hooks: new_config.hooks,
                     hide_on_process_start: new_config.hide_on_process_start,
                     global_memory_settings: new_config.global_memory_settings,
+                    global_custom_jvm_args: new_config.global_custom_jvm_args.clone(),
                     custom_game_directory: new_config.custom_game_directory.clone(),
+                    use_browser_based_login: new_config.use_browser_based_login,
+                    referral_state: new_config.referral_state.clone(),
                 };
 
                 true

@@ -47,7 +47,8 @@ const navItems = [
   { id: "mods", icon: "solar:widget-bold", label: "Mods" },
   { id: "skins", icon: "solar:emoji-funny-circle-bold", label: "Skins" },
   { id: "capes", icon: "solar:shop-bold", label: "Capes" },
-  { id: "advent-calendar", icon: "solar:gift-bold", label: "Advent" },
+  // DISABLED: Advent Calendar (seasonal feature)
+  // { id: "advent-calendar", icon: "solar:gift-bold", label: "Advent" },
   { id: "settings", icon: "solar:settings-bold", label: "Settings" },
 ];
 

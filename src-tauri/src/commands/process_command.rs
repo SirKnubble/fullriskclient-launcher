@@ -48,46 +48,6 @@ pub async fn get_full_log(process_id: Uuid) -> Result<String, CommandError> {
 }
 
 #[tauri::command]
-pub async fn open_log_window<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    process_id: Uuid,
-    is_live_logs: Option<bool>,
-) -> Result<(), CommandError> {
-    let window_label = format!("log_window_{}", process_id);
-
-    if let Some(window) = app.get_webview_window(&window_label) {
-        window.set_focus().map_err(|e| {
-            CommandError::from(crate::error::AppError::Other(format!(
-                "Failed to focus existing log window {}: {}",
-                window_label, e
-            )))
-        })?;
-        return Ok(());
-    }
-
-    let is_live = is_live_logs.unwrap_or(false);
-
-    let window = tauri::WebviewWindowBuilder::new(
-        &app,
-        &window_label,
-        tauri::WebviewUrl::App(
-            format!(
-                "log-window.html?processId={}&isLiveLogs={}",
-                process_id, is_live
-            )
-            .into(),
-        ),
-    )
-    .title(format!("Minecraft Logs ({})", process_id))
-    .inner_size(1200.0, 800.0)
-    .center()
-    .build()
-    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
-
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn fetch_crash_report(profile_id: Uuid, process_id: Option<Uuid>) -> Result<Option<String>, CommandError> {
     let state = State::get().await?;
     let crash_content = state
@@ -104,5 +64,135 @@ pub async fn set_discord_state(
 ) -> Result<(), CommandError> {
     let state = State::get().await?;
     //TODO
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_minecraft_log_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    crashed_process: Option<String>, // JSON-encoded ProcessMetadata for crashed process
+) -> Result<(), CommandError> {
+    let window_label = "minecraft_log_window";
+
+    if let Some(window) = app.get_webview_window(window_label) {
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus minecraft log window: {}",
+                e
+            )))
+        })?;
+        return Ok(());
+    }
+
+    let url = match &crashed_process {
+        Some(json) => format!(
+            "minecraft-log-window.html?crashedProcess={}",
+            urlencoding::encode(json)
+        ),
+        None => "minecraft-log-window.html".to_string(),
+    };
+
+    let _window = tauri::WebviewWindowBuilder::new(
+        &app,
+        window_label,
+        tauri::WebviewUrl::App(url.into()),
+    )
+    .title("Minecraft Logs")
+    .inner_size(1200.0, 800.0)
+    .decorations(false)
+    .center()
+    .build()
+    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_single_log_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    instance_id: String,
+    instance_name: String,
+    profile_id: String,
+    account_name: Option<String>,
+    start_time: Option<i64>,
+) -> Result<(), CommandError> {
+    let window_label = format!("single_log_window_{}", instance_id);
+
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus single log window: {}",
+                e
+            )))
+        })?;
+        return Ok(());
+    }
+
+    let account_param = account_name
+        .as_ref()
+        .map(|n| format!("&accountName={}", urlencoding::encode(n)))
+        .unwrap_or_default();
+
+    let start_time_param = start_time
+        .map(|t| format!("&startTime={}", t))
+        .unwrap_or_default();
+
+    let window_title = match &account_name {
+        Some(name) => format!("Logs - {} - {}", instance_name, name),
+        None => format!("Logs - {}", instance_name),
+    };
+
+    let _window = tauri::WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        tauri::WebviewUrl::App(
+            format!(
+                "single-log-window.html?instanceId={}&instanceName={}&profileId={}{}{}",
+                instance_id,
+                urlencoding::encode(&instance_name),
+                profile_id,
+                account_param,
+                start_time_param
+            )
+            .into(),
+        ),
+    )
+    .title(window_title)
+    .inner_size(900.0, 600.0)
+    .decorations(false)
+    .center()
+    .build()
+    .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn focus_main_window<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), CommandError> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.show().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to show main window: {}",
+                e
+            )))
+        })?;
+        window.unminimize().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to unminimize main window: {}",
+                e
+            )))
+        })?;
+        // Trick to bring window to front on Windows: temporarily set always on top
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_always_on_top(false);
+        window.set_focus().map_err(|e| {
+            CommandError::from(crate::error::AppError::Other(format!(
+                "Failed to focus main window: {}",
+                e
+            )))
+        })?;
+    }
     Ok(())
 }

@@ -15,7 +15,7 @@ use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
-use crate::utils::path_utils::find_unique_profile_segment;
+use crate::utils::path_utils::{find_unique_profile_segment, copy_dir_recursively, count_files_recursively};
 use crate::utils::profile_utils::{
     check_for_group_migration, CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
     GenericModrinthInfo, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
@@ -25,7 +25,8 @@ use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
 use crate::utils::world_utils;
 use crate::utils::{
-    datapack_utils, path_utils, profile_utils, repair_utils, resourcepack_utils, shaderpack_utils,
+    datapack_utils, path_utils, profile_utils, referral_utils, repair_utils, resourcepack_utils,
+    shaderpack_utils,
 };
 use chrono::Utc;
 use log::{error, info, trace, warn};
@@ -75,6 +76,8 @@ pub struct CopyProfileParams {
     use_shared_minecraft_folder: Option<bool>,
     // Option um nur bestimmte Dateien zu kopieren
     include_files: Option<Vec<PathBuf>>,
+    // Option um alle Dateien zu kopieren (ignoriert include_files wenn true)
+    copy_all_files: Option<bool>,
 }
 
 // Export profile command parameters
@@ -316,6 +319,13 @@ pub async fn launch_profile(
         log::info!("[Command] No preferred account set. Using global active account.");
         get_active_account().await?
     };
+
+    // Fallback: Try to report pending referral code before launch (in case login report failed)
+    if let Some(ref creds) = credentials {
+        if let Err(e) = referral_utils::report_referral_after_login(creds.id).await {
+            log::debug!("[Command] Referral report before launch failed (may already be reported): {}", e);
+        }
+    }
 
     let profile_id = profile.id; // Store profile ID for later use
     let profile_clone = profile.clone();
@@ -1608,7 +1618,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
     // 8. Kopiere die Dateien basierend auf den Parametern
     let files_copied = if let Some(include_files) = &params.include_files {
         if !include_files.is_empty() {
-            // Wenn eine nicht-leere Include-Liste angegeben wurde, verwende die neue Funktion
+            // Wenn eine nicht-leere Include-Liste angegeben wurde, kopiere nur diese Dateien
             info!(
                 "Copying only specified files ({} paths) to new profile {}",
                 include_files.len(),
@@ -1630,12 +1640,33 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
             );
             0
         }
-    } else {
+    } else if params.copy_all_files == Some(false) {
+        // Explizit auf false gesetzt bedeutet: kopiere nichts
         info!(
-            "No include_files specified, copying no files to new profile {}",
+            "copy_all_files explicitly set to false, not copying any files to new profile {}",
             new_profile.id
         );
         0
+    } else {
+        // Default: kopiere alle Dateien (copy_all_files ist true oder nicht angegeben)
+        info!(
+            "Copying all files recursively from {} to {} for new profile {}",
+            source_full_path.display(),
+            new_profile_path.display(),
+            new_profile.id
+        );
+
+        let io_semaphore = state.io_semaphore.clone();
+        copy_dir_recursively(&source_full_path, &new_profile_path, io_semaphore).await?;
+        
+        // Zähle die kopierten Dateien für die Log-Ausgabe
+        let files_count = count_files_recursively(&new_profile_path).await.unwrap_or(0);
+        info!(
+            "Successfully copied all files ({} files) to new profile {}",
+            files_count,
+            new_profile.id
+        );
+        files_count as u64
     };
 
     info!(
