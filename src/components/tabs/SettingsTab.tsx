@@ -37,13 +37,14 @@ import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ColorPickerModal } from "../modals/ColorPickerModal";
 import { ThemeSelector } from "../ThemeSelector";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
+import { DebugSection } from "./DebugSection";
 
 export function SettingsTab() {
   const [config, setConfig] = useState<LauncherConfig | null>(null);
   const [tempConfig, setTempConfig] = useState<LauncherConfig | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<boolean>(false); const [activeTab, setActiveTab] = useState<"general" | "appearance" | "advanced">(
+  const [saving, setSaving] = useState<boolean>(false); const [activeTab, setActiveTab] = useState<"general" | "appearance" | "advanced" | "debug">(
     "general",
   );
 
@@ -64,6 +65,11 @@ export function SettingsTab() {
       {
         id: "advanced",
         name: "Advanced",
+        count: undefined,
+      },
+      {
+        id: "debug",
+        name: "Debug",
         count: undefined,
       },
     ];
@@ -563,6 +569,25 @@ export function SettingsTab() {
 
   const renderAdvancedTab = () => (
     <div className="space-y-6">
+      {/* Browser-Based Login Section */}
+      <div>
+        <CompactSettingsGrid
+          settings={[
+            {
+              id: "browser-based-login",
+              label: "Browser-Based Login",
+              tooltip: "Use external browser for Microsoft login instead of embedded window. Recommended for Flatpak or if you experience issues with the login window.",
+              type: "toggle",
+              value: tempConfig?.use_browser_based_login || false,
+              onChange: (checked) =>
+                tempConfig &&
+                setTempConfig({ ...tempConfig, use_browser_based_login: checked }),
+            },
+          ]}
+          disabled={saving}
+        />
+      </div>
+
       <div>
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
@@ -976,6 +1001,8 @@ export function SettingsTab() {
         return renderAppearanceTab();
       case "advanced":
         return renderAdvancedTab();
+      case "debug":
+        return <DebugSection />;
       default:
         return null;
     }
@@ -990,7 +1017,7 @@ export function SettingsTab() {
         <GroupTabs
           groups={groups}
           activeGroup={activeTab}
-          onGroupChange={(groupId) => setActiveTab(groupId as "general" | "appearance" | "advanced")}
+          onGroupChange={(groupId) => setActiveTab(groupId as "general" | "appearance" | "advanced" | "debug")}
           showAddButton={false}
         />
 

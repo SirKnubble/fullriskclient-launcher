@@ -11,6 +11,7 @@ import type {
   ModrinthCategory,
   ModrinthLoader,
   ModrinthGameVersion,
+  ModrinthTeamMember,
 } from "../types/modrinth";
 import type {
   UnifiedModVersionsParams,
@@ -85,6 +86,12 @@ export class ModrinthService {
   static async getProjectDetails(ids: string[]): Promise<ModrinthProject[]> {
     return invoke<ModrinthProject[]>("get_modrinth_project_details", {
       ids,
+    });
+  }
+
+  static async getProjectMembers(projectIdOrSlug: string): Promise<ModrinthTeamMember[]> {
+    return invoke<ModrinthTeamMember[]>("get_modrinth_project_members", {
+      projectIdOrSlug,
     });
   }
 

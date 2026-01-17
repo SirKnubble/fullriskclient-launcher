@@ -12,6 +12,7 @@ import { IconButton } from "../ui/buttons/IconButton";
 import { useSocialsModalStore } from "../../store/socials-modal-store";
 import { useFriendsStore } from "../../store/friends-store";
 import { Icon } from "@iconify/react";
+import { NotificationBell } from "./NotificationBell";
 
 interface UserProfileBarProps {
   className?: string;
@@ -56,6 +57,7 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
   return (
     <div className={cn("relative flex items-center gap-3", className)}>
       <div className="profile-bar-container flex items-center gap-2">
+        <NotificationBell />
         <RunningInstancesIndicator />
 
         <div ref={profileButtonRef}>

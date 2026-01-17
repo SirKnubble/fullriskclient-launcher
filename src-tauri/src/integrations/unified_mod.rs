@@ -115,15 +115,15 @@ impl UnifiedSortType {
 
     pub fn to_curseforge_sort_field_and_order(&self) -> (Option<curseforge::CurseForgeModSearchSortField>, Option<curseforge::CurseForgeSortOrder>) {
         match self {
-            UnifiedSortType::Relevance => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Relevance => (Some(curseforge::CurseForgeModSearchSortField::Featured), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::Downloads => (Some(curseforge::CurseForgeModSearchSortField::TotalDownloads), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::Newest => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::Updated => (Some(curseforge::CurseForgeModSearchSortField::LastUpdated), Some(curseforge::CurseForgeSortOrder::Desc)),
-            UnifiedSortType::Name => (Some(curseforge::CurseForgeModSearchSortField::Name), Some(curseforge::CurseForgeSortOrder::Asc)),
-            UnifiedSortType::Author => (Some(curseforge::CurseForgeModSearchSortField::Author), Some(curseforge::CurseForgeSortOrder::Asc)),
+            UnifiedSortType::Name => (Some(curseforge::CurseForgeModSearchSortField::Name), Some(curseforge::CurseForgeSortOrder::Desc)),
+            UnifiedSortType::Author => (Some(curseforge::CurseForgeModSearchSortField::Author), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::Featured => (Some(curseforge::CurseForgeModSearchSortField::Featured), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::Popularity => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),
-            UnifiedSortType::Category => (Some(curseforge::CurseForgeModSearchSortField::Category), Some(curseforge::CurseForgeSortOrder::Asc)),
+            UnifiedSortType::Category => (Some(curseforge::CurseForgeModSearchSortField::Category), Some(curseforge::CurseForgeSortOrder::Desc)),
             UnifiedSortType::GameVersion => (Some(curseforge::CurseForgeModSearchSortField::GameVersion), Some(curseforge::CurseForgeSortOrder::Desc)),
             // Follows doesn't have a direct CurseForge equivalent, use Popularity as fallback
             UnifiedSortType::Follows => (Some(curseforge::CurseForgeModSearchSortField::Popularity), Some(curseforge::CurseForgeSortOrder::Desc)),

@@ -25,11 +25,12 @@ use utils::debug_utils;
 use utils::updater_utils;
 
 use crate::commands::process_command::{
-    fetch_crash_report, get_full_log, get_process, get_processes, get_processes_by_profile,
-    open_log_window, set_discord_state, stop_process,
+    fetch_crash_report, focus_main_window, get_full_log, get_process, get_processes,
+    get_processes_by_profile, open_minecraft_log_window, open_single_log_window,
+    set_discord_state, stop_process,
 };
 use commands::minecraft_auth_command::{
-    begin_login, get_accounts, get_active_account, remove_account, set_active_account,
+    begin_login, cancel_login, get_accounts, get_active_account, is_flatpak, remove_account, set_active_account,
 };
 use commands::minecraft_command::{
     add_skin,
@@ -71,20 +72,22 @@ use commands::profile_command::{
 };
 
 // Use statements for registered commands only
-use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command};
+use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command, get_curseforge_mod_description_command};
 
 use commands::modrinth_commands::{
     check_modrinth_updates, check_mod_updates_unified_command, download_and_install_modrinth_modpack,
     get_all_modrinth_versions_for_contexts, get_modrinth_categories_command,
     get_modrinth_game_versions_command, get_modrinth_loaders_command, get_modrinth_mod_versions,
-    get_modpack_versions_unified_command, get_modrinth_project_details, get_modrinth_versions_by_hashes, search_modrinth_mods,
+    get_modpack_versions_unified_command, get_modrinth_project_details, get_modrinth_project_members,
+    get_modrinth_versions_by_hashes, search_modrinth_mods,
     search_modrinth_projects, search_mods_unified_command, get_mod_versions_unified_command,
     switch_modpack_version_command
 };
 
 use commands::file_command::{
-    delete_file, get_icons_for_archives, get_icons_for_norisk_mods, open_file, open_file_directory,
-    read_file_bytes, set_file_enabled,
+    delete_file, get_icons_for_archives, get_icons_for_norisk_mods, list_all_mc_logs,
+    list_crash_reports, list_launcher_logs, open_file, open_file_directory, read_file_bytes,
+    set_file_enabled,
 };
 
 // Import config commands
@@ -152,21 +155,41 @@ async fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             info!("SingleInstance plugin: Second instance triggered with args: {:?}", argv);
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
+
+            match app.get_webview_window("main") {
+                Some(window) => {
+                    if let Err(e) = window.show() {
+                        error!("SingleInstance: Failed to show main window: {}", e);
+                    }
+                    if let Err(e) = window.unminimize() {
+                        error!("SingleInstance: Failed to unminimize main window: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        error!("SingleInstance: Failed to focus main window: {}", e);
+                    }
+                    info!("SingleInstance: Brought existing window to front.");
+                }
+                None => {
+                    // Main window doesn't exist - first instance is a zombie
+                    error!("SingleInstance: CRITICAL - Main window does not exist!");
+                    error!("SingleInstance: First instance is a zombie. Exiting to release lock.");
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                        let _ = app
+                            .dialog()
+                            .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                Please join our Discord for support:\n\
+                                https://discord.norisk.gg")
+                            .kind(MessageDialogKind::Error)
+                            .title("NoRisk Launcher - Critical Error")
+                            .blocking_show();
+                    }
+
+                    std::process::exit(1);
+                }
             }
-            // Focus the main window on second instance
-            /*if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize(); // Ensure it's not minimized
-                let _ = window.set_focus();   // Bring to front and focus
-            }
-            // Call the handler for .noriskpack files
-            let app_handle_clone = app.clone();
-            tauri::async_runtime::spawn(async move {
-                norisk_packs::handle_noriskpack_file_paths(&app_handle_clone, argv).await;
-            });*/
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -186,10 +209,21 @@ async fn main() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                if let Err(e) = window.show() {
+                                    error!("Tray menu: Failed to show window: {}", e);
+                                }
+                                if let Err(e) = window.unminimize() {
+                                    error!("Tray menu: Failed to unminimize window: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    error!("Tray menu: Failed to focus window: {}", e);
+                                }
+                            }
+                            None => {
+                                error!("Tray menu: Main window not found - application in inconsistent state");
+                            }
                         }
                     }
                     "quit" => {
@@ -203,20 +237,30 @@ async fn main() {
                         button_state: MouseButtonState::Up,
                         ..
                     } => {
-                        // Beim Klick auf das Tray-Icon das Fenster anzeigen/verstecken
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let is_visible = window.is_visible().unwrap_or(false);
-                            let is_minimized = window.is_minimized().unwrap_or(false);
-                            
-                            if is_visible && !is_minimized {
-                                // Fenster ist sichtbar und nicht minimiert -> verstecken
-                                let _ = window.hide();
-                            } else {
-                                // Fenster ist versteckt oder minimiert -> anzeigen
-                                let _ = window.show();
-                                let _ = window.unminimize();
-                                let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                let is_visible = window.is_visible().unwrap_or(false);
+                                let is_minimized = window.is_minimized().unwrap_or(false);
+
+                                if is_visible && !is_minimized {
+                                    if let Err(e) = window.hide() {
+                                        error!("Tray click: Failed to hide window: {}", e);
+                                    }
+                                } else {
+                                    if let Err(e) = window.show() {
+                                        error!("Tray click: Failed to show window: {}", e);
+                                    }
+                                    if let Err(e) = window.unminimize() {
+                                        error!("Tray click: Failed to unminimize window: {}", e);
+                                    }
+                                    if let Err(e) = window.set_focus() {
+                                        error!("Tray click: Failed to focus window: {}", e);
+                                    }
+                                }
+                            }
+                            None => {
+                                error!("Tray click: Main window not found - application in inconsistent state");
                             }
                         }
                     }
@@ -224,12 +268,22 @@ async fn main() {
                         button: MouseButton::Left,
                         ..
                     } => {
-                        // Doppelklick zeigt immer das Fenster
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
+                        match app.get_webview_window("main") {
+                            Some(window) => {
+                                if let Err(e) = window.show() {
+                                    error!("Tray double-click: Failed to show window: {}", e);
+                                }
+                                if let Err(e) = window.unminimize() {
+                                    error!("Tray double-click: Failed to unminimize window: {}", e);
+                                }
+                                if let Err(e) = window.set_focus() {
+                                    error!("Tray double-click: Failed to focus window: {}", e);
+                                }
+                            }
+                            None => {
+                                error!("Tray double-click: Main window not found - application in inconsistent state");
+                            }
                         }
                     }
                     _ => {}
@@ -322,17 +376,50 @@ async fn main() {
                 }
 
                 info!("Updater process finished. Attempting to show main window...");
-                if let Some(main_window) = state_init_app_handle.get_webview_window("main") { 
-                    if let Err(e) = main_window.show() {
-                        error!("Failed to show main window: {}", e);
-                    } else {
-                        info!("Main window shown successfully.");
-                        if let Err(e) = main_window.set_focus() {
-                            error!("Failed to focus main window: {}", e);
+                if let Some(main_window) = state_init_app_handle.get_webview_window("main") {
+                    match main_window.show() {
+                        Ok(_) => {
+                            info!("Main window shown successfully.");
+                            if let Err(e) = main_window.set_focus() {
+                                error!("Failed to focus main window (non-critical): {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            error!("CRITICAL: Failed to show main window: {}", e);
+
+                            #[cfg(target_os = "windows")]
+                            {
+                                use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                                let _ = state_init_app_handle
+                                    .dialog()
+                                    .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                        Please join our Discord for support:\n\
+                                        https://discord.norisk.gg")
+                                    .kind(MessageDialogKind::Error)
+                                    .title("NoRisk Launcher - Critical Error")
+                                    .blocking_show();
+                            }
+
+                            std::process::exit(1);
                         }
                     }
                 } else {
-                    error!("Could not get main window handle to show it after update check!");
+                    error!("CRITICAL: Could not get main window handle!");
+
+                    #[cfg(target_os = "windows")]
+                    {
+                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+                        let _ = state_init_app_handle
+                            .dialog()
+                            .message("The NoRisk Launcher encountered a critical error.\n\n\
+                                Please join our Discord for support:\n\
+                                https://discord.norisk.gg")
+                            .kind(MessageDialogKind::Error)
+                            .title("NoRisk Launcher - Critical Error")
+                            .blocking_show();
+                    }
+
+                    std::process::exit(1);
                 }
 
                 // --- Test Unified Mod Search ---
@@ -391,8 +478,12 @@ async fn main() {
             get_process,
             get_processes_by_profile,
             stop_process,
-            open_log_window,
+            open_minecraft_log_window,
+            open_single_log_window,
+            focus_main_window,
             begin_login,
+            cancel_login,
+            is_flatpak,
             remove_account,
             get_active_account,
             set_active_account,
@@ -406,10 +497,12 @@ async fn main() {
             import_curseforge_pack,
             download_and_install_curseforge_modpack_command,
             get_curseforge_file_changelog_command,
+            get_curseforge_mod_description_command,
             get_modrinth_mod_versions,
             add_modrinth_mod_to_profile,
             add_modrinth_content_to_profile,
             get_modrinth_project_details,
+            get_modrinth_project_members,
             check_modrinth_updates,
             check_mod_updates_unified_command,
             get_icons_for_archives,
@@ -495,6 +588,9 @@ async fn main() {
             get_profile_log_files,
             get_log_file_content,
             list_profile_screenshots,
+            list_launcher_logs,
+            list_crash_reports,
+            list_all_mc_logs,
             open_file,
             read_file_bytes,
             get_app_version,
@@ -525,6 +621,9 @@ async fn main() {
             commands::nrc_commands::discord_auth_link,
             commands::nrc_commands::discord_auth_status,
             commands::nrc_commands::discord_auth_unlink,
+            commands::nrc_commands::github_auth_link,
+            commands::nrc_commands::github_auth_status,
+            commands::nrc_commands::github_auth_unlink,
             commands::nrc_commands::submit_crash_log_command,
             commands::nrc_commands::log_message_command,
             commands::flagsmith_commands::set_blocked_mods_config,
@@ -537,6 +636,9 @@ async fn main() {
             commands::nrc_commands::reset_mobile_app_token,
             commands::nrc_commands::get_advent_calendar_command,
             commands::nrc_commands::claim_advent_calendar_day_command,
+            commands::nrc_commands::get_referral_info,
+            commands::nrc_commands::get_notifications,
+            commands::nrc_commands::mark_all_notifications_read,
             get_capes_by_hashes,
             get_owned_vanilla_capes,
             get_currently_equipped_vanilla_cape,

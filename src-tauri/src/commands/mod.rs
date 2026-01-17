@@ -11,6 +11,8 @@ pub mod minecraft_auth_command;
 pub mod minecraft_command;
 pub mod modrinth_commands;
 pub mod nrc_commands;
+pub mod oauth_error_html;
+pub mod oauth_success_html;
 pub mod path_commands;
 pub mod process_command;
 pub mod profile_command;

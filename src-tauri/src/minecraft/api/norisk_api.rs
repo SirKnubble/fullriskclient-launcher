@@ -7,12 +7,16 @@ use crate::{
     config::HTTP_CLIENT,
     error::{AppError, Result},
 };
+use crate::state::state_manager::State;
+use crate::state::event_state::{EventPayload, EventType};
+use chrono::Utc;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use rand;
 use uuid::Uuid;
+use crate::utils::string_utils::safe_truncate;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +30,34 @@ pub struct CrashlogDto {
 pub struct ServerIdResponse {
     pub server_id: String,
     pub expires_in: i32,
+}
+
+/// Information about a referral code and its referrer
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferralInfo {
+    /// Display name of the referrer (username, creator name, etc.)
+    pub referrer_name: String,
+    /// Optional avatar/profile picture URL
+    #[serde(default)]
+    pub referrer_avatar: Option<String>,
+    /// Whether the referral code is still valid
+    pub valid: bool,
+    /// Type of referral: "friend", "affiliate", "creator", "partner", etc.
+    #[serde(default)]
+    pub referral_type: Option<String>,
+    /// Translation key for the banner message (e.g., "referral.invited_by_friend")
+    #[serde(default)]
+    pub translation_key: Option<String>,
+    /// Fallback message if translation not found
+    #[serde(default)]
+    pub fallback_message: Option<String>,
+    /// Optional custom message from the referrer/backend
+    #[serde(default)]
+    pub custom_message: Option<String>,
+    /// Optional reward description (e.g., "Du erhältst 100 Coins!")
+    #[serde(default)]
+    pub reward_text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -345,8 +377,43 @@ impl NoRiskApi {
         // Step 2: Join the Minecraft server session (client-side authentication)
         debug!("[NoRisk API] Step 2: Joining Minecraft server session with server ID: {}", server_id);
         let mc_api = crate::minecraft::api::mc_api::MinecraftApiService::new();
-        mc_api.join_server_session(access_token, selected_profile, server_id).await?;
-        info!("[NoRisk API] Successfully joined Minecraft server session");
+        match mc_api.join_server_session(access_token, selected_profile, server_id).await {
+            Ok(_) => {
+                info!("[NoRisk API] Successfully joined Minecraft server session");
+            }
+            Err(join_err) => {
+                // Inspect the error text for the specific InsufficientPrivilegesException coming from
+                // the Minecraft session API (/session/minecraft/join). If found, emit a UI event so the
+                // frontend can show a popup explaining that child protection / privacy settings on the
+                // Microsoft account are limiting multiplayer and causing login to fail.
+                let err_text = format!("{}", join_err);
+
+                if err_text.contains("InsufficientPrivilegesException") && err_text.contains("/session/minecraft/join") {
+                    debug!("[NoRisk API] Detected InsufficientPrivilegesException on join_server_session - emitting frontend event");
+
+                    // Try to emit a state event (best-effort). Don't fail the whole flow because the emit failed.
+                    if let Ok(state) = State::get().await {
+                        let payload = EventPayload {
+                            event_id: uuid::Uuid::new_v4(),
+                            event_type: EventType::Error,
+                            target_id: None,
+                            message: String::from(username),
+                            progress: None,
+                            error: Some(String::from("Your Microsoft account appears to have a child protection / privacy mode enabled which restricts multiplayer access. This prevents the launcher from completing login via the Minecraft session API (/session/minecraft/join). Please review your Microsoft account settings.")),
+                        };
+
+                        if let Err(e) = state.emit_event(payload).await {
+                            error!("[NoRisk API] Failed to emit InsufficientPrivilegesException event to frontend: {}", e);
+                        }
+                    } else {
+                        error!("[NoRisk API] Could not get global state to emit InsufficientPrivilegesException event");
+                    }
+                }
+
+                // Return the original error so callers can handle it as before
+                return Err(join_err);
+            }
+        }
 
         // Step 3: Call NoRisk API v2 (server will verify with has_joined)
         let base_url = Self::get_api_base(is_experimental);
@@ -528,6 +595,47 @@ impl NoRiskApi {
 
         Self::delete_from_norisk_endpoint_text_with_parameters(
             "core/oauth/discord/unlink",
+            norisk_token,
+            Some(extra_params),
+            is_experimental,
+        )
+        .await
+    }
+
+    /// Request GitHub link status
+    pub async fn github_link_status(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<bool> {
+        debug!(
+            "[NoRisk API] Requesting GitHub link status with UUID: {}",
+            request_uuid
+        );
+        Self::get_from_norisk_endpoint(
+            "core/oauth/github/check",
+            norisk_token,
+            Some(request_uuid),
+            is_experimental,
+        )
+        .await
+    }
+
+    /// Request to unlink GitHub account
+    pub async fn unlink_github(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<String> {
+        debug!(
+            "[NoRisk API] Requesting GitHub unlink with UUID: {}",
+            request_uuid
+        );
+        let mut extra_params = HashMap::new();
+        extra_params.insert("uuid", request_uuid);
+
+        Self::delete_from_norisk_endpoint_text_with_parameters(
+            "core/oauth/github/unlink",
             norisk_token,
             Some(extra_params),
             is_experimental,
@@ -744,7 +852,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
@@ -816,7 +924,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
@@ -830,5 +938,345 @@ impl NoRiskApi {
         })
     }
 
-    // Add more NoRisk API methods as needed
+    /// Report a referral code to the backend for tracking.
+    /// Used for affiliate links, friend referrals, etc.
+    ///
+    /// SECURITY: Uses Bearer token authentication to ensure the request is legitimate.
+    /// The account UUID is sent as a query parameter.
+    pub async fn report_referral_code(
+        norisk_token: &str,
+        code: &str,
+        account_id: Uuid,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/launcher/referral/report", base_url);
+
+        info!("[NoRisk API] Reporting referral code: {} for account: {}", code, account_id);
+        debug!("[NoRisk API] Full URL: {}", url);
+
+        #[derive(Serialize)]
+        struct ReferralReportRequest<'a> {
+            code: &'a str,
+        }
+
+        let request_body = ReferralReportRequest { code };
+
+        let response = HTTP_CLIENT
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", account_id.to_string())])
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Referral report request failed: {}", e);
+                AppError::RequestError(format!("Failed to report referral code: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[NoRisk API] Referral report response status: {}", status);
+
+        if !status.is_success() {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            error!(
+                "[NoRisk API] Referral report error response: Status {}, Body: {}",
+                status, error_body
+            );
+            return Err(AppError::RequestError(format!(
+                "NoRisk API returned error status for referral report: {}, Body: {}",
+                status, error_body
+            )));
+        }
+
+        info!("[NoRisk API] Successfully reported referral code");
+        Ok(())
+    }
+
+    /// Get information about a referral code (public endpoint, no auth required).
+    /// Used to display referrer info in the UI before login.
+    pub async fn get_referral_info(code: &str, is_experimental: bool) -> Result<ReferralInfo> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/launcher/referral/info", base_url);
+
+        info!("[NoRisk API] Fetching referral info for code: {}", code);
+        debug!("[NoRisk API] Full URL: {}", url);
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .query(&[("code", code)])
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Referral info request failed: {}", e);
+                AppError::RequestError(format!("Failed to fetch referral info: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[NoRisk API] Referral info response status: {}", status);
+
+        if !status.is_success() {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            error!(
+                "[NoRisk API] Referral info error response: Status {}, Body: {}",
+                status, error_body
+            );
+            return Err(AppError::RequestError(format!(
+                "NoRisk API returned error status for referral info: {}, Body: {}",
+                status, error_body
+            )));
+        }
+
+        let info = response.json::<ReferralInfo>().await.map_err(|e| {
+            error!("[NoRisk API] Failed to parse referral info response: {}", e);
+            AppError::ParseError(format!("Failed to parse referral info: {}", e))
+        })?;
+
+        info!("[NoRisk API] Successfully fetched referral info for: {}", info.referrer_name);
+        Ok(info)
+    }
+
+    /// Get all notifications for the current user
+    pub async fn get_notifications(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<Vec<UserNotification>> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/notifications", base_url);
+
+        debug!("[NoRisk API] Fetching notifications from: {}", url);
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", request_uuid)])
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Notifications request failed: {}", e);
+                AppError::RequestError(format!("Failed to fetch notifications: {}", e))
+            })?;
+
+        crate::utils::api_utils::parse_response_with_logging(response, "Notifications").await
+    }
+
+    /// Mark all notifications as read
+    pub async fn mark_all_notifications_read(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/notifications/read/all", base_url);
+
+        debug!("[NoRisk API] Marking all notifications as read");
+
+        let response = HTTP_CLIENT
+            .put(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", request_uuid)])
+            .send()
+            .await
+            .map_err(|e| AppError::RequestError(e.to_string()))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::RequestError(format!("Status: {}", response.status())));
+        }
+        Ok(())
+    }
+}
+
+// === NOTIFICATION TYPES ===
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserNotification {
+    #[serde(rename = "_id")]
+    pub id: String,
+    #[serde(rename = "userId")]
+    pub user_id: String,
+    pub seen: bool,
+    pub notification: NotificationContent,
+    #[serde(rename = "deletionDate")]
+    pub deletion_date: Option<String>,
+}
+
+// User displayable info (for friends, grantors, etc.)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NotificationUser {
+    pub uuid: String,
+    pub name: String,
+    pub rank: String,
+}
+
+// Shop item minimal info
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NotificationShopItem {
+    pub id: String,
+    pub name: String,
+    pub rarity: String,
+}
+
+/// Wrapper enum that tries known notification types first, then falls back to Unknown.
+/// This prevents parsing failures when new notification types are added to the backend.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum NotificationContent {
+    Known(KnownNotificationContent),
+    Unknown(serde_json::Value),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum KnownNotificationContent {
+    // === Base Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.SimpleTextNotification")]
+    SimpleText {
+        message: String,
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+    #[serde(rename = "string")]
+    StringNotification {
+        #[serde(rename = "translationKey")]
+        translation_key: Option<String>,
+        fallback: String,
+        #[serde(default)]
+        args: std::collections::HashMap<String, String>,
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+
+    // === Friend Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.FriendRequestReceivedNotifications")]
+    FriendRequestReceived {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        friend: NotificationUser,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.FriendRequestAcceptedNotifications")]
+    FriendRequestAccepted {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        friend: NotificationUser,
+    },
+
+    // === Shop Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopGiftReceivedNotification")]
+    ShopGiftReceived {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        grantor: NotificationUser,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemBoughtNotification")]
+    ShopItemBought {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemExpiringSoonNotification")]
+    ShopItemExpiringSoon {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        #[serde(rename = "expirationDate")]
+        expiration_date: String,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemExpiredNotification")]
+    ShopItemExpired {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+    },
+
+    // === McReal Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPunishmentNotification")]
+    McRealPunishment {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        duration: String,
+        reason: String,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPunishmentRevokedNotification")]
+    McRealPunishmentRevoked {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPostCommentedNotification")]
+    McRealPostCommented {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        commenter: String,
+        #[serde(rename = "commenterInfo")]
+        commenter_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealCommentCommentedNotification")]
+    McRealCommentCommented {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "parentCommentId")]
+        parent_comment_id: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        commenter: String,
+        #[serde(rename = "commenterInfo")]
+        commenter_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPostedNotification")]
+    McRealPosted {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealMentionedInPostNotification")]
+    McRealMentionedInPost {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealMentionedInCommentNotification")]
+    McRealMentionedInComment {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
 }

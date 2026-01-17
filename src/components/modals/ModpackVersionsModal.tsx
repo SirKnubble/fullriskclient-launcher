@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Modal } from "../ui/Modal";
 import { Icon } from "@iconify/react";
 import { Button } from "../ui/buttons/Button";
@@ -213,6 +214,7 @@ function VersionItem({
                 // Render Markdown for Modrinth
                 <div className="prose prose-invert prose-sm max-w-none font-minecraft-ten">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                       h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
                       h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
@@ -227,6 +229,16 @@ function VersionItem({
                       pre: ({ children }) => <pre className="bg-black/30 p-2 rounded text-xs font-mono text-white/90 overflow-x-auto mb-2">{children}</pre>,
                       blockquote: ({ children }) => <blockquote className="border-l-2 border-accent pl-3 italic text-white/70 my-2">{children}</blockquote>,
                       a: ({ href, children }) => <a href={href} className="text-accent hover:text-accent/80 underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto mb-2">
+                          <table className="w-full border-collapse text-sm">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => <thead className="bg-black/30">{children}</thead>,
+                      tbody: ({ children }) => <tbody>{children}</tbody>,
+                      tr: ({ children }) => <tr className="border-b border-white/10 hover:bg-white/5">{children}</tr>,
+                      th: ({ children }) => <th className="p-2 border border-white/20 text-left font-semibold text-white/90">{children}</th>,
+                      td: ({ children }) => <td className="p-2 border border-white/20 text-white/80">{children}</td>,
                     }}
                   >
                     {displayChangelog}

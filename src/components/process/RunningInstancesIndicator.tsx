@@ -14,6 +14,7 @@ import { Dropdown } from "../ui/./dropdown/Dropdown";
 import { DropdownHeader } from "../ui/./dropdown/DropdownHeader";
 import { DropdownFooter } from "../ui/./dropdown/DropdownFooter";
 import { useThemeStore } from "../../store/useThemeStore";
+import { invoke } from "@tauri-apps/api/core";
 
 interface RunningInstancesIndicatorProps {
   className?: string;
@@ -124,6 +125,14 @@ export function RunningInstancesIndicator({
     }
   };
 
+  const handleOpenLogWindow = async () => {
+    try {
+      await invoke("open_minecraft_log_window", { crashedProcess: null });
+    } catch (err) {
+      console.error("Failed to open log window:", err);
+    }
+  };
+
   const instanceCount = processes.length;
   const hasInstances = instanceCount > 0;
 
@@ -133,7 +142,7 @@ export function RunningInstancesIndicator({
         <Button
           variant={hasInstances ? "success" : "flat"}
           size="sm"
-          onClick={handleToggleDropdown}
+          onClick={handleOpenLogWindow}
           icon={<Icon icon="solar:monitor-bold" className="w-4 h-4" />}
           className="h-10"
         >
@@ -328,20 +337,36 @@ export function RunningInstancesIndicator({
           )}
         </div>
 
-        {processes.length > 0 && (
-          <>
-            <DropdownFooter>
-              <div className="flex items-center justify-between w-full">
-                <Label
-                  variant="success"
-                  size="xs"
-                  icon={
-                    <Icon icon="solar:play-circle-bold" className="w-4 h-4" />
-                  }
-                >
-                  {processes.length} instance{processes.length !== 1 ? "s" : ""}{" "}
-                  running
-                </Label>
+        <DropdownFooter>
+          <div className="flex items-center justify-between w-full">
+            {processes.length > 0 ? (
+              <Label
+                variant="success"
+                size="xs"
+                icon={
+                  <Icon icon="solar:play-circle-bold" className="w-4 h-4" />
+                }
+              >
+                {processes.length} instance{processes.length !== 1 ? "s" : ""}{" "}
+                running
+              </Label>
+            ) : (
+              <span className="text-white/40 text-xs font-minecraft">
+                no instances
+              </span>
+            )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="flat"
+                size="xs"
+                onClick={handleOpenLogWindow}
+                icon={
+                  <Icon icon="solar:monitor-bold" className="w-4 h-4" />
+                }
+              >
+                logs
+              </Button>
+              {processes.length > 0 && (
                 <Button
                   variant="destructive"
                   size="xs"
@@ -352,10 +377,10 @@ export function RunningInstancesIndicator({
                 >
                   stop all
                 </Button>
-              </div>
-            </DropdownFooter>
-          </>
-        )}
+              )}
+            </div>
+          </div>
+        </DropdownFooter>
       </Dropdown>
     </div>
   );
