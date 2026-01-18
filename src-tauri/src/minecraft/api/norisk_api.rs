@@ -16,6 +16,7 @@ use serde_json;
 use std::collections::HashMap;
 use rand;
 use uuid::Uuid;
+use crate::utils::string_utils::safe_truncate;
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -851,7 +852,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
@@ -923,7 +924,7 @@ impl NoRiskApi {
 
         debug!("[NoRisk API] Response body (first 500 chars): {}", 
             if response_text.len() > 500 {
-                format!("{}...", &response_text[..500])
+                format!("{}...", safe_truncate(&response_text, 500))
             } else {
                 response_text.clone()
             }
@@ -1040,4 +1041,242 @@ impl NoRiskApi {
         info!("[NoRisk API] Successfully fetched referral info for: {}", info.referrer_name);
         Ok(info)
     }
+
+    /// Get all notifications for the current user
+    pub async fn get_notifications(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<Vec<UserNotification>> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/notifications", base_url);
+
+        debug!("[NoRisk API] Fetching notifications from: {}", url);
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", request_uuid)])
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[NoRisk API] Notifications request failed: {}", e);
+                AppError::RequestError(format!("Failed to fetch notifications: {}", e))
+            })?;
+
+        crate::utils::api_utils::parse_response_with_logging(response, "Notifications").await
+    }
+
+    /// Mark all notifications as read
+    pub async fn mark_all_notifications_read(
+        norisk_token: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/notifications/read/all", base_url);
+
+        debug!("[NoRisk API] Marking all notifications as read");
+
+        let response = HTTP_CLIENT
+            .put(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", request_uuid)])
+            .send()
+            .await
+            .map_err(|e| AppError::RequestError(e.to_string()))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::RequestError(format!("Status: {}", response.status())));
+        }
+        Ok(())
+    }
+}
+
+// === NOTIFICATION TYPES ===
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UserNotification {
+    #[serde(rename = "_id")]
+    pub id: String,
+    #[serde(rename = "userId")]
+    pub user_id: String,
+    pub seen: bool,
+    pub notification: NotificationContent,
+    #[serde(rename = "deletionDate")]
+    pub deletion_date: Option<String>,
+}
+
+// User displayable info (for friends, grantors, etc.)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NotificationUser {
+    pub uuid: String,
+    pub name: String,
+    pub rank: String,
+}
+
+// Shop item minimal info
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NotificationShopItem {
+    pub id: String,
+    pub name: String,
+    pub rarity: String,
+}
+
+/// Wrapper enum that tries known notification types first, then falls back to Unknown.
+/// This prevents parsing failures when new notification types are added to the backend.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum NotificationContent {
+    Known(KnownNotificationContent),
+    Unknown(serde_json::Value),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type")]
+pub enum KnownNotificationContent {
+    // === Base Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.SimpleTextNotification")]
+    SimpleText {
+        message: String,
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+    #[serde(rename = "string")]
+    StringNotification {
+        #[serde(rename = "translationKey")]
+        translation_key: Option<String>,
+        fallback: String,
+        #[serde(default)]
+        args: std::collections::HashMap<String, String>,
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+
+    // === Friend Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.FriendRequestReceivedNotifications")]
+    FriendRequestReceived {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        friend: NotificationUser,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.FriendRequestAcceptedNotifications")]
+    FriendRequestAccepted {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        friend: NotificationUser,
+    },
+
+    // === Shop Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopGiftReceivedNotification")]
+    ShopGiftReceived {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        grantor: NotificationUser,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemBoughtNotification")]
+    ShopItemBought {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemExpiringSoonNotification")]
+    ShopItemExpiringSoon {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+        #[serde(rename = "expirationDate")]
+        expiration_date: String,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.ShopItemExpiredNotification")]
+    ShopItemExpired {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "shopItem")]
+        shop_item: NotificationShopItem,
+    },
+
+    // === McReal Notifications ===
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPunishmentNotification")]
+    McRealPunishment {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        duration: String,
+        reason: String,
+        #[serde(rename = "expirationDate")]
+        expiration_date: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPunishmentRevokedNotification")]
+    McRealPunishmentRevoked {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPostCommentedNotification")]
+    McRealPostCommented {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        commenter: String,
+        #[serde(rename = "commenterInfo")]
+        commenter_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealCommentCommentedNotification")]
+    McRealCommentCommented {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "parentCommentId")]
+        parent_comment_id: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        commenter: String,
+        #[serde(rename = "commenterInfo")]
+        commenter_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealPostedNotification")]
+    McRealPosted {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealMentionedInPostNotification")]
+    McRealMentionedInPost {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "postId")]
+        post_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+    },
+    #[serde(rename = "gg.norisk.networking.model.notifications.notification.McRealMentionedInCommentNotification")]
+    McRealMentionedInComment {
+        #[serde(rename = "createdAt")]
+        created_at: String,
+        #[serde(rename = "commentId")]
+        comment_id: String,
+        author: String,
+        #[serde(rename = "authorInfo")]
+        author_info: Option<NotificationUser>,
+        #[serde(rename = "commentPreview")]
+        comment_preview: Option<String>,
+    },
 }
