@@ -29,7 +29,7 @@ use crate::commands::process_command::{
     set_discord_state, stop_process,
 };
 use commands::minecraft_auth_command::{
-    begin_login, cancel_login, get_accounts, get_active_account, is_flatpak, remove_account, set_active_account, set_account_ignore_child_protection
+    begin_login, cancel_login, get_accounts, get_active_account, is_flatpak, remove_account, set_active_account
 };
 use commands::minecraft_command::{
     add_skin,
@@ -477,7 +477,6 @@ async fn main() {
             get_active_account,
             set_active_account,
             get_accounts,
-            set_account_ignore_child_protection,
             search_modrinth_mods,
             search_modrinth_projects,
             search_mods_unified_command,
