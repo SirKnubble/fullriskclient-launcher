@@ -866,7 +866,12 @@ impl MinecraftAuthStore {
                     info!("[NoRisk Token] Token refresh failed: {:?}", e);
                     info!("[NoRisk Token] Falling back to original credentials");
                     // Return the original credentials if token refresh fails
-                    Ok(creds.clone())
+                    let creds_mut =  &mut creds.clone();
+                    if e.to_string().contains("InsufficientPrivilegesException") && e.to_string().contains("/session/minecraft/join") {
+                        info!("[NoRisk Token] Detected child protection restriction, setting ignore_child_protection_warning to true");
+                        creds_mut.ignore_child_protection_warning = true;
+                    }
+                    Ok(creds_mut.clone())
                 }
             }
         } else {
@@ -1334,24 +1339,6 @@ impl MinecraftAuthStore {
         self.save().await?;
         info!("[Account Manager] Successfully saved changes");
 
-        Ok(())
-    }
-
-    /// Set whether to ignore the child-protection multiplayer warning for a specific account
-    pub async fn set_ignore_child_protection(&self, account_id: Uuid, ignore: bool) -> Result<()> {
-        info!("[Account Manager] Setting ignore_child_protection_warning={} for account {}", ignore, account_id);
-
-        {
-            let mut accounts = self.accounts.write().await;
-            if let Some(account) = accounts.iter_mut().find(|acc| acc.id == account_id) {
-                account.ignore_child_protection_warning = ignore;
-            } else {
-                return Err(AppError::AccountError(format!("Account with ID {} not found", account_id)));
-            }
-        }
-
-        // Persist changes
-        self.save().await?;
         Ok(())
     }
 }
