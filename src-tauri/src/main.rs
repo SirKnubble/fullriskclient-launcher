@@ -170,7 +170,7 @@ async fn main() {
                             .dialog()
                             .message("The NoRisk Launcher encountered a critical error.\n\n\
                                 Please join our Discord for support:\n\
-                                https://discord.gg/norisk")
+                                https://discord.norisk.gg")
                             .kind(MessageDialogKind::Error)
                             .title("NoRisk Launcher - Critical Error")
                             .blocking_show();
@@ -383,7 +383,7 @@ async fn main() {
                                     .dialog()
                                     .message("The NoRisk Launcher encountered a critical error.\n\n\
                                         Please join our Discord for support:\n\
-                                        https://discord.gg/norisk")
+                                        https://discord.norisk.gg")
                                     .kind(MessageDialogKind::Error)
                                     .title("NoRisk Launcher - Critical Error")
                                     .blocking_show();
@@ -402,7 +402,7 @@ async fn main() {
                             .dialog()
                             .message("The NoRisk Launcher encountered a critical error.\n\n\
                                 Please join our Discord for support:\n\
-                                https://discord.gg/norisk")
+                                https://discord.norisk.gg")
                             .kind(MessageDialogKind::Error)
                             .title("NoRisk Launcher - Critical Error")
                             .blocking_show();
@@ -626,6 +626,8 @@ async fn main() {
             commands::nrc_commands::get_advent_calendar_command,
             commands::nrc_commands::claim_advent_calendar_day_command,
             commands::nrc_commands::get_referral_info,
+            commands::nrc_commands::get_notifications,
+            commands::nrc_commands::mark_all_notifications_read,
             get_capes_by_hashes,
             get_owned_vanilla_capes,
             get_currently_equipped_vanilla_cape,
