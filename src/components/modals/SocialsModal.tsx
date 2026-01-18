@@ -304,7 +304,7 @@ export function SocialsModal() {
       onClose={closeModal}
       width="md"
     >
-      <div className="p-6 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
+      <div className={`p-6 ${!activeAccount.ignore_child_protection_warning ? 'min-h-45vh' : ''} max-h-[70vh] overflow-y-auto custom-scrollbar`}>
         {/* Referral Section */}
         <div className="flex flex-col items-center text-center space-y-4">
           <Icon
@@ -338,7 +338,9 @@ export function SocialsModal() {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-white/10 my-6" />
+        {!activeAccount.ignore_child_protection_warning && (
+          <div className="border-t border-white/10 my-6" />
+        )}
 
         {/* Account Linking Section */}
         <div className="space-y-2">
