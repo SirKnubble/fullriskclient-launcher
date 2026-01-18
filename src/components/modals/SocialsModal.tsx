@@ -65,6 +65,7 @@ export function SocialsModal() {
   const [experimentalMode, setExperimentalMode] = useState(false);
 
   const fetchDiscordStatus = useCallback(async (): Promise<boolean> => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingDiscordStatus(true);
     try {
       const status = await discordAuthStatus();
@@ -81,6 +82,7 @@ export function SocialsModal() {
   }, []);
 
   const fetchGithubStatus = useCallback(async (): Promise<boolean> => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingGithubStatus(true);
     try {
       const status = await githubAuthStatus();
@@ -97,6 +99,7 @@ export function SocialsModal() {
   }, []);
 
   const fetchMobileAppToken = useCallback(async () => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingMobileAppToken(true);
     try {
       const token = await getMobileAppToken();
@@ -254,7 +257,7 @@ export function SocialsModal() {
     return `https://qr-generator-putuwaw.vercel.app/api?data=${encodeURIComponent(codeContent)}&fill_color=${fillColor}`;
   };
 
-  const socialPlatforms: SocialPlatform[] = [
+  let socialPlatforms: SocialPlatform[] = [
     {
       key: "mobile",
       name: "Mobile App",
@@ -316,6 +319,10 @@ export function SocialsModal() {
 
   if (!isModalOpen) {
     return null;
+  }
+
+  if (activeAccount.ignore_child_protection_warning) {
+    socialPlatforms = socialPlatforms.filter(p => !["mobile", "discord", "github"].includes(p.key));
   }
 
   const renderPlatformRow = (platform: SocialPlatform) => {
