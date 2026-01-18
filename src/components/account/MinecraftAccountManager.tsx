@@ -388,10 +388,14 @@ function AccountItem({
         </div>
         <div className="min-w-0 flex items-center">
           <h4
-            className={`${isDropdownItem ? "text-3xl" : "text-2xl"} text-white font-minecraft truncate`}
+            className={`${isDropdownItem ? "text-3xl" : "text-2xl"} mb-1 text-white font-minecraft truncate`}
             title={account.minecraft_username || account.username}
           >
             {account.minecraft_username || account.username}
+            <span
+              className="text-sm ml-2"
+              title="Not fully logged into NRC"
+            >{account.ignore_child_protection_warning ? "⚠️" : ""}</span>
           </h4>
           {isActivating && (
             <Icon
