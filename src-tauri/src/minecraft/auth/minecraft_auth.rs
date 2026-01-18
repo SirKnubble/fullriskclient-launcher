@@ -1156,11 +1156,16 @@ impl MinecraftAuthStore {
             }
         } else {
             info!("[Token Check] Microsoft token is still valid");
-            info!("[Token Check] Checking NoRisk token status");
-            Ok(Some(
-                self.refresh_norisk_token_if_necessary(&creds.clone(), false, experimental_mode)
-                    .await?,
-            ))
+            if creds.ignore_child_protection_warning {
+                info!("[Token Check] Skipping NoRisk token check due to child protection warning ignore flag");
+                Ok(None)
+            } else {
+                info!("[Token Check] Checking NoRisk token status");
+                Ok(Some(
+                    self.refresh_norisk_token_if_necessary(&creds.clone(), false, experimental_mode)
+                        .await?,
+                ))
+            }
         }
     }
 
