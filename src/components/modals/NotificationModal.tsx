@@ -56,26 +56,51 @@ export function NotificationModal() {
   );
 }
 
-function NotificationItem({ notification }: { notification: UserNotification }) {
+function NotificationItem({ notification }: Readonly<{ notification: UserNotification }>) {
   const message = getNotificationMessage(notification.notification);
   const createdAt = notification.notification.createdAt;
   const relativeTime = createdAt ? timeAgo(new Date(createdAt).getTime()) : "";
 
+  const handleMarkSingleRead = async (e: any) => {
+    await useNotificationStore.getState().markAsRead(e);
+  }
+
   return (
     <div
-      className={`p-3 rounded-lg transition-colors ${
+      className={`p-3 rounded-lg transition-colors flex ${
         notification.seen
-          ? "bg-black/20"
+          ? "bg-black/20 border-l-4"
           : "bg-black/30 border-l-4 border-accent"
       }`}
       style={{
-        borderLeftColor: notification.seen ? undefined : "var(--accent-color)",
+        borderLeftColor: notification.seen ? "transparent" : "var(--accent-color)", // Transparent so spacing is maintained
+        justifyContent: "space-between",
+        alignItems: "flex-start",
       }}
     >
-      <p className={`text-sm font-sans ${notification.seen ? "text-white/60" : "text-white"}`}>
-        {message}
-      </p>
-      <p className="text-xs font-sans text-white/40 mt-1">{relativeTime}</p>
+      <div>
+        <p className={`text-sm font-sans ${notification.seen ? "text-white/60" : "text-white"}`}>
+          {message}
+        </p>
+        <p className="text-xs font-sans text-white/40 mt-1">{relativeTime}</p>
+      </div>
+      {/* Buttons/Icons */}
+      <div style={{display: "flex", justifyContent: "space-between", flexDirection: "column", alignItems: "center"}}>
+        {!notification.seen && (
+            <Icon
+                icon="mdi:close"
+                className="bold w-3 h-3 mt-1 text-accent"
+                style={{ cursor: "pointer" }}
+                onClick={() => handleMarkSingleRead(notification._id)}
+            />
+        )}
+        {false && (
+            <Icon
+              icon="mdi:chevron-right"
+              className="w-4 h-4 mt-1 text-white/40"
+            />
+        )}
+      </div>
     </div>
   );
 }
