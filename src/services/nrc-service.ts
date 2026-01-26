@@ -253,5 +253,17 @@ export const markAllNotificationsRead = (): Promise<void> => {
   return invoke('mark_all_notifications_read');
 };
 
+/**
+ * Marks a specific notification as read.
+ *
+ * @param notificationId The ID of the notification to mark as read.
+ * @returns A promise that resolves when the notification is marked as read.
+ * @throws If the backend command fails.
+ */
+export const markNotificationRead = (notificationId: string): Promise<void> => {
+  return invoke('mark_notification_read', { notificationId });
+};
+
+
 // Re-export logging utilities for backward compatibility
 export { log as logMessage, logDebug as logMessageDebug, logInfo as logMessageInfo, logWarn as logMessageWarn, logError as logMessageError } from '../utils/logging-utils';
