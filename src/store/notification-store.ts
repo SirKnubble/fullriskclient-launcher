@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { UserNotification } from "../types/notification";
-import { getNotifications, markAllNotificationsRead } from "../services/nrc-service";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "../services/nrc-service";
 
 interface NotificationStoreState {
   notifications: UserNotification[];
@@ -12,6 +12,7 @@ interface NotificationStoreState {
   setNotifications: (notifications: UserNotification[]) => void;
   fetchNotifications: () => Promise<void>;
   markAllAsRead: () => Promise<void>;
+    markAsRead: (notificationId: string) => Promise<void>;
   openModal: () => void;
   closeModal: () => void;
 }
@@ -53,6 +54,20 @@ export const useNotificationStore = create<NotificationStoreState>((set, get) =>
       }));
     } catch (error) {
       console.error("[NotificationStore] Failed to mark notifications as read:", error);
+    }
+  },
+
+  markAsRead: async (notificationId: string) => {
+    try {
+      await markNotificationRead(notificationId);
+      // Update local state to mark the specific notification as seen
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n._id === notificationId ? { ...n, seen: true } : n
+        ),
+      }));
+    } catch (error) {
+      console.error(`[NotificationStore] Failed to mark notification ${notificationId} as read:`, error);
     }
   },
 

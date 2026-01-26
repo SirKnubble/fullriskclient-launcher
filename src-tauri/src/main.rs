@@ -628,6 +628,7 @@ async fn main() {
             commands::nrc_commands::get_referral_info,
             commands::nrc_commands::get_notifications,
             commands::nrc_commands::mark_all_notifications_read,
+            commands::nrc_commands::mark_notification_read,
             get_capes_by_hashes,
             get_owned_vanilla_capes,
             get_currently_equipped_vanilla_cape,
