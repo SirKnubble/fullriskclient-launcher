@@ -25,7 +25,7 @@ use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
 use crate::utils::world_utils;
 use crate::utils::{
-    datapack_utils, path_utils, profile_utils, referral_utils, repair_utils, resourcepack_utils,
+    datapack_utils, disk_space_utils::DiskSpaceUtils, path_utils, profile_utils, referral_utils, repair_utils, resourcepack_utils,
     shaderpack_utils,
 };
 use chrono::Utc;
@@ -1304,6 +1304,25 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
         ))));
     }
 
+    // Check disk space before importing
+    let file_metadata = TokioFs::metadata(&file_path_buf).await.map_err(|e| {
+        log::error!("Failed to get file metadata for {:?}: {}", file_path_buf, e);
+        AppError::Io(e)
+    })?;
+    let file_size = file_metadata.len();
+    let estimated_required = file_size * 3; // 3x for extraction + mod downloads overhead
+
+    let profiles_dir = default_profile_path();
+
+    log::info!(
+        "Checking disk space: file size = {} bytes, estimated required = {} bytes",
+        file_size,
+        estimated_required
+    );
+    DiskSpaceUtils::ensure_space_for_download(&profiles_dir, estimated_required, 0.1).await?;
+
+    let state = State::get().await?;
+
     log::info!(
         "Processing modpack file: {:?}. Triggering processing...",
         file_path_buf
@@ -1340,9 +1359,7 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
         }
     };
 
-    // Get state to emit event
-    let state = State::get().await?;
-    // Emit event to trigger UI update for the newly created profile
+    // Emit event to trigger UI update for the newly created profile (reusing state from disk space check)
     if let Err(e) = state
         .event_state
         .trigger_profile_update(new_profile_id)

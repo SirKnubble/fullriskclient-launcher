@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 
 import { useAppDragDropStore } from '../store/appStore'; // Use the real store
 import { useProfileStore } from '../store/profile-store'; // Import useProfileStore
+import { parseErrorMessage } from '../utils/error-utils';
 import * as ContentService from '../services/content-service';
 import * as ProfileService from '../services/profile-service'; // Import ProfileService
 import * as WorldService from '../services/world-service'; // Import WorldService
@@ -73,11 +74,21 @@ export function useGlobalDragAndDrop() {
             );
 
             if (profilePackPath) {
+              const { isPathImporting, addImportingPath, removeImportingPath } = useProfileStore.getState();
+
+              // Check if this file is already being imported
+              if (isPathImporting(profilePackPath)) {
+                toast.error("This file is already being imported.");
+                return;
+              }
+
               const operationId = `profile-import-${Date.now()}`;
               console.log(`[DragDrop Hook ${instanceId}] Initiating profile import (OpID: ${operationId}) for: ${profilePackPath} at ${eventTimestamp}`);
               const loadingToastId = `loading-${operationId}`;
               const fileName = profilePackPath.substring(profilePackPath.lastIndexOf('/') + 1).substring(profilePackPath.lastIndexOf('\\') + 1); // Get file name for toast
               toast.loading(`Importing profile from ${fileName}...`, { id: loadingToastId });
+
+              addImportingPath(profilePackPath);
 
               try {
                 const newProfileId = await ProfileService.importProfileByPath(profilePackPath);
@@ -92,12 +103,24 @@ export function useGlobalDragAndDrop() {
                 navigate(`/profilesv2/${newProfileId}`);
               } catch (err) {
                 console.error(`[DragDrop Hook ${instanceId}] Profile import ERROR (OpID: ${operationId}) for: ${profilePackPath} at ${new Date().toISOString()}:`, err);
-                toast.error(
-                  `Failed to import profile from ${fileName}: ${err instanceof Error ? err.message : String(err)}`,
-                  { id: loadingToastId }
-                );
+                const errorMessage = parseErrorMessage(err);
+
+                // Check for disk space error and provide helpful hint
+                if (errorMessage.toLowerCase().includes("insufficient disk space")) {
+                  toast.error(
+                    `${errorMessage}\n\nTip: You can change the data location in Settings.`,
+                    { id: loadingToastId, duration: 8000 }
+                  );
+                } else {
+                  toast.error(
+                    `Failed to import profile from ${fileName}: ${errorMessage}`,
+                    { id: loadingToastId }
+                  );
+                }
+              } finally {
+                removeImportingPath(profilePackPath);
               }
-              return; 
+              return;
             }
 
             const {

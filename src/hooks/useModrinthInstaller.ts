@@ -287,6 +287,8 @@ export function useModrinthInstaller(
           version.id,
           file.filename,
           file.url,
+          undefined, // iconUrl
+          file.size,
         );
 
         setInstallState((prev) => ({ ...prev, [versionId]: "success" }));
