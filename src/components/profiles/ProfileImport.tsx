@@ -12,6 +12,7 @@ import { toast } from "react-hot-toast";
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import * as ProfileService from "../../services/profile-service";
 import { useProfileStore } from "../../store/profile-store";
+import { parseErrorMessage } from "../../utils/error-utils";
 
 interface ProfileImportProps {
   onClose: () => void;
@@ -48,24 +49,37 @@ export function ProfileImport({
       });
 
       if (selectedPath && typeof selectedPath === "string") {
+        const { isPathImporting, addImportingPath, removeImportingPath } = useProfileStore.getState();
+
+        // Check if this file is already being imported
+        if (isPathImporting(selectedPath)) {
+          toast.error("This file is already being imported.");
+          return;
+        }
+
         setIsImporting(true);
         onClose();
+        addImportingPath(selectedPath);
 
         loadingToastId = `loading-${operationId}`;
         const fileName = selectedPath.substring(selectedPath.lastIndexOf('/') + 1).substring(selectedPath.lastIndexOf('\\') + 1);
         toast.loading(`Importing profile from ${fileName}...`, { id: loadingToastId });
 
-        const newProfileId = await ProfileService.importProfileByPath(selectedPath);
+        try {
+          const newProfileId = await ProfileService.importProfileByPath(selectedPath);
 
-        toast.success(`Profile from ${fileName} imported successfully! Opening profile...`, {
-          id: loadingToastId,
-          duration: 3000,
-        });
-        useProfileStore.getState().fetchProfiles();
-        onImportComplete();
+          toast.success(`Profile from ${fileName} imported successfully! Opening profile...`, {
+            id: loadingToastId,
+            duration: 3000,
+          });
+          useProfileStore.getState().fetchProfiles();
+          onImportComplete();
 
-        // Navigate to the new profile
-        navigate(`/profilesv2/${newProfileId}`);
+          // Navigate to the new profile
+          navigate(`/profilesv2/${newProfileId}`);
+        } finally {
+          removeImportingPath(selectedPath);
+        }
 
       } else {
         if (selectedPath === null) {
@@ -78,11 +92,22 @@ export function ProfileImport({
       }
     } catch (err) {
       console.error("Failed to import profile:", err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      if (loadingToastId) {
-        toast.error(`Failed to import profile: ${errorMessage}`, { id: loadingToastId });
+      const errorMessage = parseErrorMessage(err);
+
+      // Check for disk space error and provide helpful hint
+      if (errorMessage.toLowerCase().includes("insufficient disk space")) {
+        const enhancedMessage = `${errorMessage}\n\nTip: You can change the data location in Settings.`;
+        if (loadingToastId) {
+          toast.error(enhancedMessage, { id: loadingToastId, duration: 8000 });
+        } else {
+          toast.error(enhancedMessage, { duration: 8000 });
+        }
       } else {
-        toast.error(`Failed to import profile: ${errorMessage}`);
+        if (loadingToastId) {
+          toast.error(`Failed to import profile: ${errorMessage}`, { id: loadingToastId });
+        } else {
+          toast.error(`Failed to import profile: ${errorMessage}`);
+        }
       }
     } finally {
       setIsImporting(false);

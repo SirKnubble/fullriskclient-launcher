@@ -4,6 +4,8 @@ use crate::integrations::curseforge::{
     import_curseforge_pack_as_profile, download_and_install_curseforge_modpack, get_file_changelog,
     get_mod_description
 };
+use crate::state::profile_state::default_profile_path;
+use crate::utils::disk_space_utils::DiskSpaceUtils;
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -65,11 +67,24 @@ pub async fn download_and_install_curseforge_modpack_command(
     file_name: String,
     download_url: String,
     icon_url: Option<String>,
+    file_size: Option<u64>,
 ) -> Result<String, CommandError> {
     log::info!(
-        "Executing download_and_install_curseforge_modpack for project {}, file {}, icon_url: {:?}",
-        project_id, file_id, icon_url
+        "Executing download_and_install_curseforge_modpack for project {}, file {}, icon_url: {:?}, file_size: {:?}",
+        project_id, file_id, icon_url, file_size
     );
+
+    // Check disk space before downloading if file_size is known
+    if let Some(size) = file_size {
+        let estimated_required = size * 3; // 3x for download + extraction + mod downloads overhead
+        let profiles_dir = default_profile_path();
+        log::info!(
+            "Checking disk space: file size = {} bytes, estimated required = {} bytes",
+            size,
+            estimated_required
+        );
+        DiskSpaceUtils::ensure_space_for_download(&profiles_dir, estimated_required, 0.1).await?;
+    }
 
     let profile_id_uuid = download_and_install_curseforge_modpack(
         project_id,

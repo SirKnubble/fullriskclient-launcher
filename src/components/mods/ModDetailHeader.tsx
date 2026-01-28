@@ -182,7 +182,8 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
           fileId,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       } else {
         newProfileId = await ModrinthService.downloadAndInstallModpack(
@@ -190,7 +191,8 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
           latestVersion.id,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       }
 

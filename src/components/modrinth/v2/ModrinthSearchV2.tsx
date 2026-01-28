@@ -2198,7 +2198,8 @@ export function ModrinthSearchV2({
           fileId,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       } else {
         // Default to Modrinth
@@ -2207,7 +2208,8 @@ export function ModrinthSearchV2({
           latestVersion.id,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       }
 
@@ -2290,7 +2292,8 @@ export function ModrinthSearchV2({
           fileId,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       } else {
         // Default to Modrinth
@@ -2299,7 +2302,8 @@ export function ModrinthSearchV2({
           version.id,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       }
 

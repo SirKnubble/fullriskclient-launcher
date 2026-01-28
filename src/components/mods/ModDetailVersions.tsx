@@ -192,7 +192,8 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
           fileId,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       } else {
         newProfileId = await ModrinthService.downloadAndInstallModpack(
@@ -200,7 +201,8 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
           version.id,
           primaryFile.filename,
           primaryFile.url,
-          project.icon_url || undefined
+          project.icon_url || undefined,
+          primaryFile.size
         );
       }
 

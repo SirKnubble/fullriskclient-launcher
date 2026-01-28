@@ -48,6 +48,7 @@ export class CurseForgeService {
     fileName: string,
     downloadUrl: string,
     iconUrl?: string,
+    fileSize?: number,
   ): Promise<string> {
     return invoke<string>("download_and_install_curseforge_modpack_command", {
       projectId,
@@ -55,6 +56,7 @@ export class CurseForgeService {
       fileName,
       downloadUrl,
       iconUrl,
+      fileSize,
     });
   }
 
