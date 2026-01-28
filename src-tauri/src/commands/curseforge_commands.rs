@@ -50,7 +50,7 @@ pub async fn import_curseforge_pack(pack_path: String) -> Result<String, Command
     }
 
     // Import the pack (without project_id/file_id for manually imported packs)
-    let profile_id = import_curseforge_pack_as_profile(path_buf, None, None)
+    let profile_id = import_curseforge_pack_as_profile(path_buf, None, None, None, 0.0, 1.0)
         .await
         .map_err(CommandError::from)?;
 
@@ -68,6 +68,7 @@ pub async fn download_and_install_curseforge_modpack_command(
     download_url: String,
     icon_url: Option<String>,
     file_size: Option<u64>,
+    event_id: Option<String>,
 ) -> Result<String, CommandError> {
     log::info!(
         "Executing download_and_install_curseforge_modpack for project {}, file {}, icon_url: {:?}, file_size: {:?}",
@@ -86,12 +87,16 @@ pub async fn download_and_install_curseforge_modpack_command(
         DiskSpaceUtils::ensure_space_for_download(&profiles_dir, estimated_required, 0.1).await?;
     }
 
+    // Parse event_id if provided
+    let event_id_uuid = event_id.and_then(|id| uuid::Uuid::parse_str(&id).ok());
+
     let profile_id_uuid = download_and_install_curseforge_modpack(
         project_id,
         file_id,
         file_name,
         download_url,
         icon_url,
+        event_id_uuid,
     )
     .await
     .map_err(|e| {

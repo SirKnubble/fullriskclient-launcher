@@ -165,6 +165,7 @@ pub async fn download_and_install_modrinth_modpack(
     download_url: String,
     icon_url: Option<String>,
     file_size: Option<u64>,
+    event_id: Option<String>,
 ) -> Result<Uuid, CommandError> {
     log::info!(
         "Executing download_and_install_modrinth_modpack for project \"{}\", version \"{}\", icon_url: {:?}, file_size: {:?}",
@@ -193,11 +194,15 @@ pub async fn download_and_install_modrinth_modpack(
         file_name.clone() // Clone if already correct to ensure ownership for logging later if needed
     };
 
+    // Parse event_id if provided
+    let event_id_uuid = event_id.and_then(|id| uuid::Uuid::parse_str(&id).ok());
+
     let profile_id_uuid = mrpack::download_and_process_mrpack(
             &download_url,
             &file_name_mrpack,
             Some(project_id),
             Some(version_id),
+            event_id_uuid,
         )
     .await
     .map_err(|e| {

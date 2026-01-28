@@ -1384,12 +1384,12 @@ pub async fn switch_modpack_version(request: ModpackSwitchRequest) -> Result<Mod
     info!("Extracting overrides from modpack to profile...");
     match &request.modpack_source {
         crate::state::profile_state::ModPackSource::Modrinth { .. } => {
-            crate::integrations::mrpack::extract_mrpack_overrides(&temp_file_path, &profile).await?;
+            crate::integrations::mrpack::extract_mrpack_overrides(&temp_file_path, &profile, None, 0.0, 1.0).await?;
             info!("Successfully extracted Modrinth modpack overrides");
         }
         crate::state::profile_state::ModPackSource::CurseForge { .. } => {
             if let Some(manifest) = curseforge_manifest {
-                crate::integrations::curseforge::extract_curseforge_overrides(&temp_file_path, &profile, &manifest).await?;
+                crate::integrations::curseforge::extract_curseforge_overrides(&temp_file_path, &profile, &manifest, None, 0.0, 1.0).await?;
                 info!("Successfully extracted CurseForge modpack overrides");
             } else {
                 warn!("CurseForge manifest not available for override extraction");

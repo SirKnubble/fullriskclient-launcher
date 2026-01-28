@@ -1241,16 +1241,16 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         let new_profile_id = match file_extension.as_deref() {
             Some("mrpack") => {
                 log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-                mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
+                mrpack::import_mrpack_as_profile(file_path_buf, None, None, None, 0.0, 1.0).await?
             }
             Some("noriskpack") => {
                 log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
-                crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf)
+                crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf, None)
                     .await?
             }
             Some("zip") => {
                 log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
-                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None, None, 0.0, 1.0).await?
             }
             _ => {
                 log::error!(
@@ -1288,7 +1288,7 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
 
 /// Imports a profile from a specified file path.
 #[tauri::command]
-pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError> {
+pub async fn import_profile(file_path_str: String, event_id: Option<String>) -> Result<Uuid, CommandError> {
     log::info!(
         "Executing import_profile command with file_path: {}",
         file_path_str
@@ -1323,6 +1323,9 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
 
     let state = State::get().await?;
 
+    // Parse event_id if provided
+    let event_id_uuid = event_id.and_then(|id| uuid::Uuid::parse_str(&id).ok());
+
     log::info!(
         "Processing modpack file: {:?}. Triggering processing...",
         file_path_buf
@@ -1337,15 +1340,15 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
     let new_profile_id = match file_extension.as_deref() {
         Some("mrpack") => {
             log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-            mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
+            mrpack::import_mrpack_as_profile(file_path_buf, None, None, event_id_uuid, 0.0, 1.0).await?
         }
         Some("noriskpack") => {
             log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
-            crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf).await?
+            crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf, event_id_uuid).await?
         }
         Some("zip") => {
             log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
-            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None, event_id_uuid, 0.0, 1.0).await?
         }
         _ => {
             log::error!(
