@@ -97,17 +97,18 @@ impl ChatApi {
         norisk_token: &str,
         chat_id: &str,
         page: u32,
+        limit: u32,
         is_experimental: bool,
     ) -> Result<Vec<ChatMessage>> {
         let base_url = NoRiskApi::get_api_base(is_experimental);
         let url = format!("{}/messaging/chat/{}/messages", base_url, chat_id);
 
-        debug!("[Chat API] Fetching messages for chat {} page {}", chat_id, page);
+        debug!("[Chat API] Fetching messages for chat {} page {} limit {}", chat_id, page, limit);
 
         let response = HTTP_CLIENT
             .get(&url)
             .header("Authorization", format!("Bearer {}", norisk_token))
-            .query(&[("page", page.to_string())])
+            .query(&[("page", page.to_string()), ("limit", limit.to_string())])
             .send()
             .await
             .map_err(|e| {

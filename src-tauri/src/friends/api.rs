@@ -208,6 +208,7 @@ impl FriendsApi {
 
     pub async fn get_current_user(
         norisk_token: &str,
+        username: &str,
         is_experimental: bool,
     ) -> Result<FriendsUser> {
         let base_url = NoRiskApi::get_api_base(is_experimental);
@@ -247,7 +248,7 @@ impl FriendsApi {
             AppError::ParseError(format!("Failed to parse user response: {}", e))
         })?;
 
-        Ok(api_response.into())
+        Ok(FriendsUser::from_api(api_response, username.to_string()))
     }
 
     pub async fn send_friend_request(

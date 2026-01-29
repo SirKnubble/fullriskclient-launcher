@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, memo, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { FriendsFriendUser, OnlineState, useFriendsStore } from "../../store/friends-store";
+import { useChatStore } from "../../store/chat-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
+import { NotificationBadge } from "../ui/NotificationBadge";
 import { cn } from "../../lib/utils";
 
 interface FriendListItemProps {
@@ -17,12 +19,19 @@ const statusConfig: Record<OnlineState, { color: string; label: string }> = {
   INVISIBLE: { color: "#6b7280", label: "OFFLINE" },
 };
 
-export function FriendListItem({ friend }: FriendListItemProps) {
+export const FriendListItem = memo(function FriendListItem({ friend }: FriendListItemProps) {
   const { removeFriend, openChat, closeChat, activeChatFriend } = useFriendsStore();
+  const { chats } = useChatStore();
   const { accentColor } = useThemeStore();
   const [isRemoving, setIsRemoving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const avatarUrl = useCrafatarAvatar({ uuid: friend.uuid, size: 48 });
+
+  const unreadCount = useMemo(() => {
+    const chat = chats.find(c => c.participants.some(p => p.userId === friend.uuid));
+    console.log("[FriendListItem]", friend.username, "uuid:", friend.uuid, "found chat:", chat?._id, "unread:", chat?.unreadMessages);
+    return chat?.unreadMessages ?? 0;
+  }, [chats, friend.uuid]);
 
   const handleOpenChat = () => {
     if (activeChatFriend?.uuid === friend.uuid) {
@@ -135,6 +144,7 @@ export function FriendListItem({ friend }: FriendListItemProps) {
           >
             <Icon icon="solar:chat-round-dots-bold" className="w-5 h-5" />
           </button>
+          <NotificationBadge count={unreadCount} />
         </div>
         <button
           onClick={(e) => {
@@ -170,4 +180,4 @@ export function FriendListItem({ friend }: FriendListItemProps) {
       </div>
     </div>
   );
-}
+});

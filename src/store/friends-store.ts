@@ -48,12 +48,13 @@ interface FriendsState {
   notificationsEnabled: boolean;
   error: string | null;
   activeChatFriend: FriendsFriendUser | null;
+  lastFetchedAt: number | null;
 
   openSidebar: () => void;
   closeSidebar: () => void;
   toggleSidebar: () => void;
 
-  loadFriends: () => Promise<void>;
+  loadFriends: (force?: boolean) => Promise<void>;
   loadPendingRequests: () => Promise<void>;
   loadCurrentUser: () => Promise<void>;
 
@@ -96,16 +97,26 @@ export const useFriendsStore = create<FriendsState>((set, get) => ({
   notificationsEnabled: true,
   error: null,
   activeChatFriend: null,
+  lastFetchedAt: null,
 
   openSidebar: () => set({ isSidebarOpen: true }),
   closeSidebar: () => set({ isSidebarOpen: false }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 
-  loadFriends: async () => {
+  loadFriends: async (force = false) => {
+    const state = get();
+    const now = Date.now();
+    const staleTime = 30_000; // 30 seconds
+
+    // Skip if we have data and it's not stale (unless forced)
+    if (!force && state.friends.length > 0 && state.lastFetchedAt && (now - state.lastFetchedAt) < staleTime) {
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const friends = await invoke<FriendsFriendUser[]>('get_friends');
-      set({ friends, isLoading: false });
+      set({ friends, isLoading: false, lastFetchedAt: now });
     } catch (e) {
       set({ error: String(e), isLoading: false });
     }

@@ -30,8 +30,10 @@ import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { FriendsSidebar } from "../friends/FriendsSidebar";
-import { useFriendsWebSocket } from "../../hooks/useFriendsWebSocket";
+// TODO: Re-enable when WebSocket is stable
+// import { useFriendsWebSocket } from "../../hooks/useFriendsWebSocket";
 import { useFriendsStore } from "../../store/friends-store";
+import { useChatStore } from "../../store/chat-store";
 import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
 import type { UpdateInfo } from "../../types/updater";
 import { ProfileWizardV2Modal } from "../modals/ProfileWizardV2Modal";
@@ -78,16 +80,19 @@ export function AppLayout({
   const { isEnabled: isSnowEnabled } = useSnowEffectStore();
   const { selectedTheme, isThemeActive } = useLauncherTheme();
   const { connectWebSocket, loadCurrentUser, loadFriends } = useFriendsStore();
+  const { loadChats } = useChatStore();
 
-  // Connect WebSocket on app start
-  useFriendsWebSocket();
+  // TODO: Re-enable when WebSocket is stable
+  // useFriendsWebSocket();
 
   useEffect(() => {
     const initFriends = async () => {
       try {
         await loadCurrentUser();
         await loadFriends();
-        await connectWebSocket();
+        await loadChats();
+        // TODO: Re-enable when WebSocket is stable
+        // await connectWebSocket();
       } catch (e) {
         // Silently fail - user might not be logged in yet
       }
