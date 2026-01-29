@@ -393,8 +393,12 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleUpdateClick = async () => {
+    if (isUpdating) return; // Prevent multiple simultaneous downloads
+
+    setIsUpdating(true);
     try {
       await toast.promise(
         downloadAndInstallUpdate(),
@@ -407,6 +411,8 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
     } catch (error) {
       console.error("Failed to download and install update:", error);
       // Toast error is already handled by the promise toast
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -501,11 +507,14 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
               noriskclient
             </h1>
             {availableUpdate && (
-              <Tooltip content={`Click to update: ${availableUpdate.version}`}>
-                <div className="cursor-pointer mt-2.5" onClick={handleUpdateClick}>
+              <Tooltip content={isUpdating ? 'Downloading update...' : `Click to update: ${availableUpdate.version}`}>
+                <div
+                  className={`mt-2.5 ${isUpdating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                  onClick={handleUpdateClick}
+                >
                   <Icon
-                    icon="solar:download-minimalistic-bold"
-                    className="w-6 h-6 transition-colors"
+                    icon={isUpdating ? "solar:download-minimalistic-bold" : "solar:download-minimalistic-bold"}
+                    className={`w-6 h-6 transition-colors ${isUpdating ? 'animate-pulse' : ''}`}
                     style={{
                       color: accentColor.value,
                     }}

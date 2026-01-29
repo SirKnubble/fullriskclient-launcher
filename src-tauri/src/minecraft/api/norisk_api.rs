@@ -187,7 +187,7 @@ impl NoRiskApi {
                         server_id
                     )));
                 }
-                
+
                 info!("[NoRisk API] Server ID request successful: {}", server_id);
                 Ok(server_response)
             }
@@ -493,7 +493,7 @@ impl NoRiskApi {
             Some(extra_params),
             is_experimental,
         )
-        .await
+            .await
     }
 
     pub async fn get_from_norisk_endpoint<T: for<'de> Deserialize<'de>>(
@@ -516,7 +516,7 @@ impl NoRiskApi {
             Some(extra_params),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Request norisk assets json for specific branch
@@ -532,19 +532,18 @@ impl NoRiskApi {
             Some(request_uuid),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Fetches the complete modpack configuration from the NoRisk API.
+    /// Uses v3 endpoint with Git-based config storage.
     pub async fn get_modpacks(
         norisk_token: &str,
-        is_experimental: bool,
+        _is_experimental: bool,
     ) -> Result<NoriskModpacksConfig> {
-        debug!(
-            "[NoRisk API] Fetching modpack configuration. Experimental: {}",
-            is_experimental
-        );
-        Self::get_from_norisk_endpoint("launcher/modpacks", norisk_token, None, is_experimental)
+        debug!("[NoRisk API] Fetching modpack configuration from v3 endpoint (staging)");
+        // TODO: Remove hardcoded staging once v3 is deployed to production
+        Self::get_from_norisk_endpoint("launcher/modpacks-v3", norisk_token, None, true)
             .await
     }
 
@@ -577,7 +576,7 @@ impl NoRiskApi {
             Some(request_uuid),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Request to unlink Discord account
@@ -599,7 +598,7 @@ impl NoRiskApi {
             Some(extra_params),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Request GitHub link status
@@ -618,7 +617,7 @@ impl NoRiskApi {
             Some(request_uuid),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Request to unlink GitHub account
@@ -640,7 +639,7 @@ impl NoRiskApi {
             Some(extra_params),
             is_experimental,
         )
-        .await
+            .await
     }
 
     /// Submits a crash log to the NoRisk API.
@@ -707,10 +706,10 @@ impl NoRiskApi {
         let base_url = Self::get_api_base(is_experimental);
         let endpoint = "mcreal/user/mobileAppToken";
         let url = format!("{}/{}", base_url, endpoint);
-        
+
         info!("[NoRisk API] Requesting mcreal app token");
         debug!("[NoRisk API] Full URL: {}", url);
-        
+
         let response = HTTP_CLIENT
             .get(url)
             .header("Authorization", format!("Bearer {}", norisk_token))
@@ -754,10 +753,10 @@ impl NoRiskApi {
         let base_url = Self::get_api_base(is_experimental);
         let endpoint = "mcreal/user/mobileAppToken/reset";
         let url = format!("{}/{}", base_url, endpoint);
-        
+
         info!("[NoRisk API] Resetting mcreal app token");
         debug!("[NoRisk API] Full URL: {}", url);
-        
+
         let response = HTTP_CLIENT
             .post(url)
             .header("Authorization", format!("Bearer {}", norisk_token))
@@ -850,7 +849,7 @@ impl NoRiskApi {
             AppError::ParseError(format!("Failed to read NoRisk API response text: {}", e))
         })?;
 
-        debug!("[NoRisk API] Response body (first 500 chars): {}", 
+        debug!("[NoRisk API] Response body (first 500 chars): {}",
             if response_text.len() > 500 {
                 format!("{}...", safe_truncate(&response_text, 500))
             } else {
@@ -922,7 +921,7 @@ impl NoRiskApi {
             AppError::ParseError(format!("Failed to read NoRisk API response text: {}", e))
         })?;
 
-        debug!("[NoRisk API] Response body (first 500 chars): {}", 
+        debug!("[NoRisk API] Response body (first 500 chars): {}",
             if response_text.len() > 500 {
                 format!("{}...", safe_truncate(&response_text, 500))
             } else {
@@ -1082,6 +1081,35 @@ impl NoRiskApi {
             .put(&url)
             .header("Authorization", format!("Bearer {}", norisk_token))
             .query(&[("uuid", request_uuid)])
+            .send()
+            .await
+            .map_err(|e| AppError::RequestError(e.to_string()))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::RequestError(format!("Status: {}", response.status())));
+        }
+        Ok(())
+    }
+
+    /// Mark a specific notification as read
+    /// https://api.norisk.gg/api/v1/core/notifications/read?notificationId=695623e0bc1b0644b2e97ba3
+    /// Method: PUT
+    pub async fn mark_notification_read(
+        norisk_token: &str,
+        notification_id: &str,
+        request_uuid: &str,
+        is_experimental: bool,
+    ) -> Result<()> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/notifications/read", base_url);
+        debug!(
+            "[NoRisk API] Marking notification {} as read",
+            notification_id
+        );
+        let response = HTTP_CLIENT
+            .put(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&[("uuid", request_uuid), ("notificationId", notification_id)])
             .send()
             .await
             .map_err(|e| AppError::RequestError(e.to_string()))?;

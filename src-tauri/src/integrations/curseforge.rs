@@ -1,5 +1,6 @@
 use crate::config::HTTP_CLIENT;
 use crate::error::{AppError, Result};
+use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{Mod, ModLoader, ModPackInfo, ModPackSource, ModSource, Profile, ProfileSettings, ProfileState};
 use log::{debug, error, info, warn};
 use reqwest;
@@ -1479,7 +1480,15 @@ pub async fn resolve_curseforge_manifest_files(manifest: &CurseForgeManifest) ->
 /// Extracts files from the "overrides" directory within a CurseForge modpack archive
 /// into the specified target profile directory, using concurrent streaming operations.
 /// This function is called with the manifest to determine the overrides directory name.
-pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, manifest: &CurseForgeManifest) -> Result<()> {
+/// If event_id is provided with progress_offset and progress_scale, progress events will be emitted.
+pub async fn extract_curseforge_overrides(
+    pack_path: &Path,
+    profile: &Profile,
+    manifest: &CurseForgeManifest,
+    event_id: Option<Uuid>,
+    progress_offset: f64,
+    progress_scale: f64,
+) -> Result<()> {
     let overrides_dir = manifest.overrides.as_deref().unwrap_or("overrides");
 
     info!(
@@ -1530,6 +1539,23 @@ pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, m
         "Found {} entries in the CurseForge pack archive. Preparing concurrent streaming for overrides...",
         num_entries
     );
+
+    // Count override files for progress tracking
+    let overrides_prefix_for_count = format!("{}/", overrides_dir);
+    let mut override_file_count = 0usize;
+    for index in 0..num_entries {
+        if let Some(entry) = zip_lister.file().entries().get(index) {
+            if let Ok(name) = entry.filename().as_str() {
+                if name.starts_with(&overrides_prefix_for_count) && !name.ends_with('/') {
+                    override_file_count += 1;
+                }
+            }
+        }
+    }
+
+    // Create a counter for tracking extraction progress
+    let extraction_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let total_files = override_file_count;
 
     let mut extraction_tasks = Vec::new();
 
@@ -1665,6 +1691,12 @@ pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, m
                     entry_filename_str, final_dest_path, entry_uncompressed_size
                 );
 
+                let task_counter = extraction_counter.clone();
+                let task_total = total_files;
+                let task_state = state.clone();
+                let task_event_id = event_id;
+                let task_progress_offset = progress_offset;
+                let task_progress_scale = progress_scale;
                 extraction_tasks.push(tokio::spawn(async move {
                     let _permit = task_io_semaphore.acquire().await.map_err(|e| {
                         error!(
@@ -1758,6 +1790,25 @@ pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, m
                         bytes_copied,
                         task_final_dest_path.display()
                     );
+
+                    // Increment counter and emit progress
+                    let completed = task_counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    if task_total > 0 {
+                        // Scale progress within the provided range
+                        let extraction_progress = completed as f64 / task_total as f64;
+                        let overall_progress = task_progress_offset + (extraction_progress * task_progress_scale);
+                        if let Some(id) = task_event_id {
+                            let _ = task_state.event_state.emit(EventPayload {
+                                event_id: id,
+                                event_type: EventType::TaskProgress,
+                                target_id: None,
+                                message: format!("Extracting files... ({}/{})", completed, task_total),
+                                progress: Some(overall_progress),
+                                error: None,
+                            }).await;
+                        }
+                    }
+
                     Ok::<(), AppError>(())
                 }));
             }
@@ -1786,12 +1837,41 @@ pub async fn extract_curseforge_overrides(pack_path: &Path, profile: &Profile, m
 
 /// Imports a profile from a CurseForge modpack, processing, resolving, extracting, and saving it.
 /// If project_id and file_id are provided, detailed ModPackInfo will be created.
+/// If event_id is provided, progress events will be emitted.
+/// progress_offset and progress_scale can be used to adjust progress range (e.g. when called after a download phase).
 pub async fn import_curseforge_pack_as_profile(
     pack_path: PathBuf,
     project_id: Option<u32>,
-    file_id: Option<u32>
+    file_id: Option<u32>,
+    event_id: Option<Uuid>,
+    progress_offset: f64,
+    progress_scale: f64,
 ) -> Result<Uuid> {
     info!("Starting full import process for CurseForge pack: {:?}", pack_path);
+
+    let state = crate::state::state_manager::State::get().await?;
+
+    // Helper to emit progress if event_id is provided
+    // Progress is scaled: actual = offset + (progress * scale)
+    let emit_progress = |progress: f64, message: String| {
+        let state = state.clone();
+        let event_id = event_id;
+        let scaled_progress = progress_offset + (progress * progress_scale);
+        async move {
+            if let Some(id) = event_id {
+                let _ = state.event_state.emit(EventPayload {
+                    event_id: id,
+                    event_type: EventType::TaskProgress,
+                    target_id: None,
+                    message,
+                    progress: Some(scaled_progress),
+                    error: None,
+                }).await;
+            }
+        }
+    };
+
+    emit_progress(0.05, "Parsing modpack manifest...".to_string()).await;
 
     // Find manifest.json in the pack and read it directly
     let (profile, manifest) = process_curseforge_pack_from_zip(&pack_path).await?;
@@ -1801,6 +1881,9 @@ pub async fn import_curseforge_pack_as_profile(
         profile.name
     );
 
+    emit_progress(0.10, format!("Parsed manifest for '{}'", profile.name)).await;
+    emit_progress(0.15, format!("Resolving {} mods...", manifest.files.len())).await;
+
     // 2. Resolve mods from manifest files
     let resolved_mods = resolve_curseforge_manifest_files(&manifest).await?;
     info!(
@@ -1808,6 +1891,8 @@ pub async fn import_curseforge_pack_as_profile(
         resolved_mods.len()
     );
     profile.mods = resolved_mods;
+
+    emit_progress(0.40, format!("Resolved {} mods", profile.mods.len())).await;
 
     // 2.5. Create ModPackInfo for this modpack (if we have the required parameters)
     if let (Some(project_id), Some(file_id)) = (project_id, file_id) {
@@ -1867,17 +1952,23 @@ pub async fn import_curseforge_pack_as_profile(
         })?;
     }
 
+    emit_progress(0.45, "Extracting files...".to_string()).await;
+
     // 4. Extract overrides to the correct final profile location
     info!(
         "Extracting overrides to profile directory: {:?}",
         target_dir
     );
     // Use the absolute path to the pack file for extraction
-    extract_curseforge_overrides(&pack_path, &profile, &manifest).await?;
+    // Progress from 0.45 to 0.90 during extraction (45% of the remaining scale)
+    let extraction_progress_offset = progress_offset + (0.45 * progress_scale);
+    let extraction_progress_scale = 0.45 * progress_scale; // 45% of the total scale for extraction
+    extract_curseforge_overrides(&pack_path, &profile, &manifest, event_id, extraction_progress_offset, extraction_progress_scale).await?;
     info!("Successfully extracted overrides.");
 
+    emit_progress(0.90, "Saving profile...".to_string()).await;
+
     // 5. Save the profile using ProfileManager via State
-    let state = crate::state::state_manager::State::get().await?;
     info!(
         "Saving the new profile '{}' (ID: {})...",
         profile.name, profile.id
@@ -1888,22 +1979,48 @@ pub async fn import_curseforge_pack_as_profile(
         profile_id
     );
 
+    emit_progress(1.0, "Import complete!".to_string()).await;
+
     Ok(profile_id) // Return the ID of the created profile
 }
 
 
 /// Downloads a CurseForge modpack file and installs it as a new profile
+/// If event_id is provided, progress events will be emitted.
 pub async fn download_and_install_curseforge_modpack(
     project_id: u32,
     file_id: u32,
     file_name: String,
     download_url: String,
     icon_url: Option<String>,
+    event_id: Option<Uuid>,
 ) -> Result<Uuid> {
     info!(
         "Downloading and installing CurseForge modpack for project {}, file {}, URL: {}",
         project_id, file_id, download_url
     );
+
+    let state = crate::state::state_manager::State::get().await?;
+
+    // Helper to emit progress if event_id is provided
+    let emit_progress = |progress: f64, message: String| {
+        let state = state.clone();
+        let event_id = event_id;
+        async move {
+            if let Some(id) = event_id {
+                let _ = state.event_state.emit(EventPayload {
+                    event_id: id,
+                    event_type: EventType::TaskProgress,
+                    target_id: None,
+                    message,
+                    progress: Some(progress),
+                    error: None,
+                }).await;
+            }
+        }
+    };
+
+    emit_progress(0.0, "Downloading modpack...".to_string()).await;
 
     // Ensure the file name has .zip extension (CurseForge packs are usually .zip)
     let file_name_zip = if !file_name.ends_with(".zip") {
@@ -1947,11 +2064,15 @@ pub async fn download_and_install_curseforge_modpack(
         )));
     }
 
+    emit_progress(0.10, "Downloading modpack...".to_string()).await;
+
     // Get the bytes and write to file
     let bytes = response.bytes().await.map_err(|e| {
         error!("Failed to read CurseForge modpack bytes: {}", e);
         AppError::Download(format!("Failed to read CurseForge modpack bytes: {}", e))
     })?;
+
+    emit_progress(0.18, "Saving downloaded file...".to_string()).await;
 
     let mut file = tokio::fs::File::create(&temp_file_path).await.map_err(|e| {
         error!("Failed to create temporary file: {}", e);
@@ -1971,16 +2092,22 @@ pub async fn download_and_install_curseforge_modpack(
 
     drop(file); // Explicitly close the file
 
+    emit_progress(0.20, "Download complete, processing...".to_string()).await;
+
     info!(
         "Successfully downloaded CurseForge modpack to: {:?}",
         temp_file_path
     );
 
     // Install the modpack as a profile
+    // Use progress offset 0.20 and scale 0.80 to continue from download progress
     let profile_id = import_curseforge_pack_as_profile(
         temp_file_path.clone(),
         Some(project_id),
-        Some(file_id)
+        Some(file_id),
+        event_id,
+        0.20, // offset: download used 0-20%
+        0.80, // scale: import uses remaining 80%
     ).await?;
 
     info!(
