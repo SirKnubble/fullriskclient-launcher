@@ -45,21 +45,15 @@ interface FriendRequestPayload {
 
 export function useFriendsWebSocket() {
   const unlistenersRef = useRef<UnlistenFn[]>([]);
-  const {
-    updateFriendState,
-    loadPendingRequests,
-    loadFriends,
-    setWsConnected,
-  } = useFriendsStore();
 
   useEffect(() => {
     const setupListeners = async () => {
       const unlistenConnected = await listen("friends:ws_connected", () => {
-        setWsConnected(true);
+        useFriendsStore.getState().setWsConnected(true);
       });
 
       const unlistenDisconnected = await listen("friends:ws_disconnected", () => {
-        setWsConnected(false);
+        useFriendsStore.getState().setWsConnected(false);
       });
 
       const unlistenOnline = await listen<FriendOnlinePayload>(
@@ -68,7 +62,7 @@ export function useFriendsWebSocket() {
           const store = useFriendsStore.getState();
           const friend = store.friends.find(f => f.uuid === event.payload.uuid);
           const username = event.payload.username || friend?.username || "Friend";
-          updateFriendState(event.payload.uuid, "ONLINE", event.payload.server);
+          store.updateFriendState(event.payload.uuid, "ONLINE", event.payload.server);
           if (store.notificationsEnabled) {
             toast.player(`${username} is now online`, event.payload.uuid);
           }
@@ -81,7 +75,7 @@ export function useFriendsWebSocket() {
           const store = useFriendsStore.getState();
           const friend = store.friends.find(f => f.uuid === event.payload.uuid);
           const username = event.payload.username || friend?.username || "Friend";
-          updateFriendState(event.payload.uuid, "OFFLINE", undefined);
+          store.updateFriendState(event.payload.uuid, "OFFLINE", undefined);
           if (store.notificationsEnabled) {
             toast.player(`${username} went offline`, event.payload.uuid);
           }
@@ -91,7 +85,7 @@ export function useFriendsWebSocket() {
       const unlistenStateChanged = await listen<FriendStateChangedPayload>(
         "friends:status_changed",
         (event) => {
-          updateFriendState(event.payload.user.uuid, event.payload.newState, undefined);
+          useFriendsStore.getState().updateFriendState(event.payload.user.uuid, event.payload.newState, undefined);
         }
       );
 
@@ -108,7 +102,7 @@ export function useFriendsWebSocket() {
           const friend = store.friends.find(f => f.uuid === uuid);
 
           if (friend) {
-            updateFriendState(uuid, friend.state, server ?? undefined);
+            store.updateFriendState(uuid, friend.state, server ?? undefined);
           }
 
           if (server && store.notificationsEnabled) {
@@ -121,8 +115,8 @@ export function useFriendsWebSocket() {
       const unlistenRequest = await listen<FriendRequestPayload>(
         "friends:request_received",
         (event) => {
-          loadPendingRequests();
           const store = useFriendsStore.getState();
+          store.loadPendingRequests();
           const senderUuid = event.payload.friendRequest?.sender;
           const senderUser = event.payload.users?.find(u => u.uuid === senderUuid);
           if (senderUser && senderUuid !== store.currentUser?.uuid && store.notificationsEnabled) {
@@ -134,8 +128,9 @@ export function useFriendsWebSocket() {
       const unlistenRequestAccepted = await listen(
         "friends:request_accepted",
         () => {
-          loadFriends();
-          loadPendingRequests();
+          const store = useFriendsStore.getState();
+          store.loadFriends(true);
+          store.loadPendingRequests();
         }
       );
 
@@ -177,5 +172,5 @@ export function useFriendsWebSocket() {
       unlistenersRef.current.forEach((unlisten) => unlisten());
       unlistenersRef.current = [];
     };
-  }, [updateFriendState, loadPendingRequests, loadFriends, setWsConnected]);
+  }, []);
 }

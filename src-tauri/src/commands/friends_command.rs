@@ -82,13 +82,13 @@ pub async fn get_pending_requests() -> Result<Vec<FriendRequestWithUsers>, Comma
 
 #[tauri::command]
 pub async fn get_friends_user() -> Result<FriendsUser, CommandError> {
-    let (token, _, _, is_experimental) = get_auth_info().await?;
+    let (token, _, username, is_experimental) = get_auth_info().await?;
     let state = State::get().await.map_err(|e| CommandError {
         message: e.to_string(),
         kind: "StateError".to_string(),
     })?;
 
-    let user = FriendsApi::get_current_user(&token, is_experimental)
+    let user = FriendsApi::get_current_user(&token, &username, is_experimental)
         .await
         .map_err(|e| CommandError {
             message: e.to_string(),
@@ -214,22 +214,23 @@ pub async fn update_privacy_setting(
 
 #[tauri::command]
 pub async fn connect_friends_websocket(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<(), CommandError> {
-    let (token, uuid, username, is_experimental) = get_auth_info().await?;
-    let state = State::get().await.map_err(|e| CommandError {
-        message: e.to_string(),
-        kind: "StateError".to_string(),
-    })?;
-
-    state
-        .friends_state
-        .connect_websocket(Arc::new(app), uuid, username, token, is_experimental)
-        .await
-        .map_err(|e| CommandError {
-            message: e.to_string(),
-            kind: "WebSocketError".to_string(),
-        })?;
+    // TODO: Re-enable when WebSocket is stable
+    // let (token, uuid, username, is_experimental) = get_auth_info().await?;
+    // let state = State::get().await.map_err(|e| CommandError {
+    //     message: e.to_string(),
+    //     kind: "StateError".to_string(),
+    // })?;
+    //
+    // state
+    //     .friends_state
+    //     .connect_websocket(Arc::new(app), uuid, username, token, is_experimental)
+    //     .await
+    //     .map_err(|e| CommandError {
+    //         message: e.to_string(),
+    //         kind: "WebSocketError".to_string(),
+    //     })?;
 
     Ok(())
 }
@@ -305,14 +306,16 @@ pub async fn get_private_chats() -> Result<Vec<ComputedChat>, CommandError> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_chat_messages(chat_id: String, page: u32) -> Result<Vec<ChatMessage>, CommandError> {
+pub async fn get_chat_messages(chat_id: String, page: u32, limit: Option<u32>) -> Result<Vec<ChatMessage>, CommandError> {
     let (token, _, _, is_experimental) = get_auth_info().await?;
     let state = State::get().await.map_err(|e| CommandError {
         message: e.to_string(),
         kind: "StateError".to_string(),
     })?;
 
-    let messages = ChatApi::get_messages(&token, &chat_id, page, is_experimental)
+    let limit = limit.unwrap_or(25);
+
+    let messages = ChatApi::get_messages(&token, &chat_id, page, limit, is_experimental)
         .await
         .map_err(|e| CommandError {
             message: e.to_string(),

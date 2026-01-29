@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Icon } from "@iconify/react";
 import { FriendRequestWithUsers, useFriendsStore } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -10,7 +10,7 @@ interface FriendRequestItemProps {
   type: "incoming" | "outgoing";
 }
 
-export function FriendRequestItem({ request, type }: FriendRequestItemProps) {
+export const FriendRequestItem = memo(function FriendRequestItem({ request, type }: FriendRequestItemProps) {
   const { acceptRequest, denyRequest, currentUser } = useFriendsStore();
   const { accentColor } = useThemeStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -168,4 +168,4 @@ export function FriendRequestItem({ request, type }: FriendRequestItemProps) {
       )}
     </div>
   );
-}
+});

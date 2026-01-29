@@ -145,15 +145,17 @@ pub struct ApiFriendsInformationDto {
 #[serde(rename_all = "camelCase")]
 pub struct FriendsUser {
     pub uuid: Uuid,
+    pub username: String,
     pub state: OnlineState,
     pub server: Option<String>,
     pub privacy: FriendsPrivacySettings,
 }
 
-impl From<ApiFriendsUser> for FriendsUser {
-    fn from(api: ApiFriendsUser) -> Self {
+impl FriendsUser {
+    pub fn from_api(api: ApiFriendsUser, username: String) -> Self {
         Self {
             uuid: api.user_id,
+            username,
             state: api.state,
             server: api.server,
             privacy: api.privacy,
@@ -276,6 +278,8 @@ pub struct ChatMessage {
     pub content: String,
     #[serde(default)]
     pub relates_to: Option<String>,
+    #[serde(default)]
+    pub created_at: Option<i64>,
     #[serde(default)]
     pub sent_at: Option<i64>,
     #[serde(default)]

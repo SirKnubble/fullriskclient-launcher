@@ -1,5 +1,4 @@
 import { Icon } from "@iconify/react";
-import { cn } from "../../lib/utils";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
 interface MessageReaction {
@@ -12,6 +11,7 @@ interface Message {
   chatId: string;
   senderId: string;
   content: string;
+  createdAt?: number;
   sentAt?: number;
   receivedAt?: number;
   readAt?: number;
@@ -26,57 +26,70 @@ interface ChatMessageProps {
   message: Message;
   isOwn: boolean;
   friendUuid: string;
+  friendName: string;
+  currentUserUuid?: string;
+  currentUserName?: string;
   accentColor: string;
+  showHeader: boolean;
 }
 
-export function ChatMessage({ message, isOwn, friendUuid, accentColor }: ChatMessageProps) {
-  const avatarUrl = useCrafatarAvatar({ uuid: isOwn ? undefined : friendUuid, size: 24 });
+export function ChatMessage({ message, isOwn, friendUuid, friendName, currentUserUuid, currentUserName, accentColor, showHeader }: ChatMessageProps) {
+  const avatarUuid = isOwn ? currentUserUuid : friendUuid;
+  const avatarUrl = useCrafatarAvatar({ uuid: avatarUuid, size: 32 });
+
   const formatTime = (timestamp?: number) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  return (
-    <div
-      className={cn(
-        "flex gap-2 max-w-[80%]",
-        isOwn ? "ml-auto flex-row-reverse" : "mr-auto"
-      )}
-    >
-      {!isOwn && (
-        avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            className="w-6 h-6 rounded flex-shrink-0 mt-1"
-          />
-        ) : (
-          <div
-            className="w-6 h-6 rounded flex-shrink-0 mt-1 flex items-center justify-center"
-            style={{ backgroundColor: `${accentColor}30` }}
-          >
-            <Icon icon="solar:user-bold" className="w-3 h-3" style={{ color: accentColor }} />
-          </div>
-        )
-      )}
+  const timestamp = message.createdAt || message.sentAt || message.timestamp;
+  const displayName = isOwn ? (currentUserName || "You") : friendName;
 
-      <div
-        className="rounded-xl px-3 py-2"
-        style={{
-          backgroundColor: isOwn ? `${accentColor}25` : `${accentColor}15`,
-          border: `1px solid ${isOwn ? `${accentColor}50` : `${accentColor}30`}`,
-        }}
-      >
-        <p className="text-sm text-white whitespace-pre-wrap break-all font-minecraft-ten">
+  return (
+    <div className="flex gap-3 px-3 py-1 hover:bg-white/5 transition-colors group">
+      {/* Avatar or hover timestamp */}
+      <div className="w-8 flex-shrink-0 flex items-start justify-center pt-0.5">
+        {showHeader ? (
+          avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="w-8 h-8 rounded-md"
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-md flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}20` }}
+            >
+              <Icon icon="solar:user-bold" className="w-4 h-4" style={{ color: accentColor }} />
+            </div>
+          )
+        ) : (
+          <span className="text-[10px] text-white/30 opacity-0 group-hover:opacity-100 transition-opacity font-minecraft-ten">
+            {formatTime(timestamp)}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {showHeader && (
+          <div className="flex items-baseline gap-2 mb-0.5">
+            <span
+              className="font-minecraft-ten text-sm"
+              style={{ color: isOwn ? accentColor : "#ffffff" }}
+            >
+              {displayName}
+            </span>
+            <span className="text-[11px] text-white/40 font-minecraft-ten">
+              {formatTime(timestamp)}
+            </span>
+          </div>
+        )}
+        <p className="text-sm text-white/90 whitespace-pre-wrap break-words font-minecraft-ten leading-relaxed">
           {message.content}
         </p>
-        <div
-          className="text-xs mt-1.5 font-minecraft-ten"
-          style={{ color: isOwn ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.5)" }}
-        >
-          {formatTime(message.sentAt || message.timestamp)}
-        </div>
       </div>
     </div>
   );

@@ -29,6 +29,7 @@ export interface ChatMessage {
   senderId: string;
   content: string;
   relatesTo?: string;
+  createdAt?: number;
   sentAt?: number;
   receivedAt?: number;
   readAt?: number;
@@ -96,6 +97,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadChats: async () => {
     try {
       const chats = await invoke<ComputedChat[]>('get_private_chats');
+      console.log("[ChatStore] loadChats response:", chats);
+      chats.forEach(c => {
+        console.log("[ChatStore] Chat:", c._id, "participants:", c.participants, "unreadMessages:", c.unreadMessages);
+      });
       set({ chats });
     } catch (e) {
       set({ error: String(e) });
