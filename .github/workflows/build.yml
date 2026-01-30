@@ -86,7 +86,10 @@ jobs:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         run: |
           echo "--- Setting up tools ---"
-          sudo apt-get update && sudo apt-get install -y minisign
+          wget -q https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz
+          tar -xzf minisign-0.11-linux.tar.gz
+          sudo mv minisign-linux/x86_64/minisign /usr/local/bin/
+          
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           
