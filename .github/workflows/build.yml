@@ -78,7 +78,45 @@ jobs:
           # Revert to using packageManager and args
           args: --verbose ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }} # Füge --target hinzu, wenn es gesetzt ist
           packageManager: yarn # Set packageManager to yarn
+      
+      - name: Fix AppImage (Remove Wayland libs & Resign)
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+        run: |
+          echo "--- Setting up tools ---"
+          sudo apt-get update && sudo apt-get install -y minisign
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
           
+          cd ${{ matrix.output_path }}/appimage
+          
+          ORIGINAL_APPIMAGE=$(ls *.AppImage | head -n 1)
+          echo "Processing: $ORIGINAL_APPIMAGE"
+          
+          chmod +x "$ORIGINAL_APPIMAGE"
+          ./"$ORIGINAL_APPIMAGE" --appimage-extract > /dev/null
+          
+          echo "Removing bundled Wayland libraries..."
+          find squashfs-root -name "*wayland*" -delete
+    
+          echo "Repacking AppImage..."
+          export ARCH=x86_64
+          ../../../../../appimagetool-x86_64.AppImage squashfs-root/ "$ORIGINAL_APPIMAGE"
+        
+          echo "Re-signing AppImage..."
+          
+          echo "$TAURI_PRIVATE_KEY" > key.pem
+         
+          echo "$TAURI_KEY_PASSWORD" | minisign -S -s key.pem -m "$ORIGINAL_APPIMAGE"
+          
+          rm key.pem
+          rm -rf squashfs-root
+          
+          echo "--- Fix Complete ---"
+          ls -lh
+
       # --- Umbenennen und Artefakte vorbereiten --- 
       - name: Rename Linux Artifacts
         if: matrix.platform == 'ubuntu-22.04'
