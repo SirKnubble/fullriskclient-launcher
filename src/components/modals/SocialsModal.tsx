@@ -111,7 +111,8 @@ export function SocialsModal() {
   const [isProcessingMobileApp, setIsProcessingMobileApp] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
 
-  const fetchDiscordStatus = useCallback(async () => {
+  const fetchDiscordStatus = useCallback(async (): Promise<boolean> => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingDiscord(true);
     try {
       const status = await discordAuthStatus();
@@ -126,7 +127,8 @@ export function SocialsModal() {
     }
   }, []);
 
-  const fetchGithubStatus = useCallback(async () => {
+  const fetchGithubStatus = useCallback(async (): Promise<boolean> => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingGithub(true);
     try {
       const status = await githubAuthStatus();
@@ -142,6 +144,7 @@ export function SocialsModal() {
   }, []);
 
   const fetchMobileAppToken = useCallback(async () => {
+    if (activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingMobileApp(true);
     try {
       const token = await getMobileAppToken();
@@ -301,7 +304,7 @@ export function SocialsModal() {
       onClose={closeModal}
       width="md"
     >
-      <div className="p-6 min-h-[45vh] max-h-[70vh] overflow-y-auto custom-scrollbar">
+      <div className={`p-6 ${!activeAccount.ignore_child_protection_warning ? 'min-h-45vh' : ''} max-h-[70vh] overflow-y-auto custom-scrollbar`}>
         {/* Referral Section */}
         <div className="flex flex-col items-center text-center space-y-4">
           <Icon
@@ -335,98 +338,106 @@ export function SocialsModal() {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-white/10 my-6" />
+        {!activeAccount.ignore_child_protection_warning && (
+          <div className="border-t border-white/10 my-6" />
+        )}
 
         {/* Account Linking Section */}
         <div className="space-y-2">
           {/* Mobile App */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between px-3 bg-black/20 rounded-md h-[58px]">
-              <div className="flex items-center">
-                <Icon icon="material-symbols:phone-android" className="w-6 h-6 mr-3 text-white/80" />
-                <span className="text-white/90 font-minecraft-ten text-xs">Mobile App</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {mobileAppToken || isLoadingMobileApp ? (
-                  showQrCode ? (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleResetMobileAppToken}
-                      disabled={isProcessingMobileApp || isLoadingMobileApp}
-                      icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:refresh"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
-                      widthClassName="w-[140px]"
-                    >
-                      Reset
-                    </Button>
+          {!activeAccount.ignore_child_protection_warning && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between px-3 bg-black/20 rounded-md h-[58px]">
+                <div className="flex items-center">
+                  <Icon icon="material-symbols:phone-android" className="w-6 h-6 mr-3 text-white/80" />
+                  <span className="text-white/90 font-minecraft-ten text-xs">Mobile App</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {mobileAppToken || isLoadingMobileApp ? (
+                    showQrCode ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleResetMobileAppToken}
+                        disabled={isProcessingMobileApp || isLoadingMobileApp}
+                        icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:refresh"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
+                        widthClassName="w-[140px]"
+                      >
+                        Reset
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleShowQrCode}
+                        disabled={isProcessingMobileApp || isLoadingMobileApp}
+                        icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:qrcode"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
+                        widthClassName="w-[140px]"
+                      >
+                        Show QR
+                      </Button>
+                    )
                   ) : (
                     <Button
-                      variant="default"
+                      variant="secondary"
                       size="sm"
-                      onClick={handleShowQrCode}
-                      disabled={isProcessingMobileApp || isLoadingMobileApp}
-                      icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:qrcode"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
+                      disabled
                       widthClassName="w-[140px]"
                     >
-                      Show QR
+                      Failed
                     </Button>
-                  )
-                ) : (
-                  <Button
-                    variant="secondary"
+                  )}
+                  <IconButton
+                    variant="ghost"
                     size="sm"
+                    icon={<Icon icon="mdi:open-in-new" className="w-5 h-5" />}
+                    className="invisible"
                     disabled
-                    widthClassName="w-[140px]"
-                  >
-                    Failed
-                  </Button>
-                )}
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<Icon icon="mdi:open-in-new" className="w-5 h-5" />}
-                  className="invisible"
-                  disabled
-                />
-              </div>
-            </div>
-            {showQrCode && mobileAppToken && (
-              <div className="flex justify-center p-3 bg-black/10 rounded-md">
-                <div className="text-center space-y-2">
-                  <p className="text-white/70 font-minecraft-ten text-xs select-none">
-                    Scan with McReal App
-                  </p>
-                  <img
-                    src={generateQrCodeUrl()}
-                    alt="Mobile App QR Code"
-                    className="w-40 h-40 mx-auto border-2 border-white/20 rounded-lg"
                   />
                 </div>
               </div>
-            )}
-          </div>
+              {showQrCode && mobileAppToken && (
+                <div className="flex justify-center p-3 bg-black/10 rounded-md">
+                  <div className="text-center space-y-2">
+                    <p className="text-white/70 font-minecraft-ten text-xs select-none">
+                      Scan with McReal App
+                    </p>
+                    <img
+                      src={generateQrCodeUrl()}
+                      alt="Mobile App QR Code"
+                      className="w-40 h-40 mx-auto border-2 border-white/20 rounded-lg"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-          <AccountLinkRow
-            icon="ic:baseline-discord"
-            name="Discord"
-            isLoading={isLoadingDiscord}
-            isLinked={isDiscordLinked}
-            isProcessing={isProcessingDiscord}
-            onLink={handleDiscordLink}
-            onUnlink={handleDiscordUnlink}
-            visitUrl="https://discord.norisk.gg"
-          />
+          {!activeAccount.ignore_child_protection_warning && (
+            <AccountLinkRow
+              icon="ic:baseline-discord"
+              name="Discord"
+              isLoading={isLoadingDiscord}
+              isLinked={isDiscordLinked}
+              isProcessing={isProcessingDiscord}
+              onLink={handleDiscordLink}
+              onUnlink={handleDiscordUnlink}
+              visitUrl="https://discord.norisk.gg"
+            />
+          )}
 
-          <AccountLinkRow
-            icon="mdi:github"
-            name="GitHub"
-            isLoading={isLoadingGithub}
-            isLinked={isGithubLinked}
-            isProcessing={isProcessingGithub}
-            onLink={handleGithubLink}
-            onUnlink={handleGithubUnlink}
-            visitUrl="https://github.com/NoRiskClient"
+          {!activeAccount.ignore_child_protection_warning && (
+            <AccountLinkRow
+              icon="mdi:github"
+              name="GitHub"
+              isLoading={isLoadingGithub}
+              isLinked={isGithubLinked}
+              isProcessing={isProcessingGithub}
+              onLink={handleGithubLink}
+              onUnlink={handleGithubUnlink}
+              visitUrl="https://github.com/NoRiskClient"
           />
+          )}
         </div>
       </div>
     </Modal>
