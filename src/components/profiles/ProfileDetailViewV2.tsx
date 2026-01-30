@@ -88,6 +88,7 @@ export function ProfileDetailViewV2({
 
   // Get accounts from Minecraft Auth Store
   const accounts = useMinecraftAuthStore((state) => state.accounts);
+  const { activeAccount } = useMinecraftAuthStore();
   
   // Find preferred account if one is set
   const preferredAccount = currentProfile.preferred_account_id 
@@ -378,7 +379,7 @@ export function ProfileDetailViewV2({
 
 
   // Action buttons configuration similar to ProfilesTabV2
-  const actionButtons: ActionButton[] = [
+  let actionButtons: ActionButton[] = [
     {
       id: "back",
       label: "BACK",
@@ -434,6 +435,10 @@ export function ProfileDetailViewV2({
       },
     },
   ];
+
+  if (profile.selected_norisk_pack_id && activeAccount?.ignore_child_protection_warning) {
+    actionButtons = actionButtons.filter(btn => btn.id !== "play");
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">

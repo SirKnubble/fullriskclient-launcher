@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { type Event as TauriEvent, listen } from "@tauri-apps/api/event";
 import {
   type EventPayload as FrontendEventPayload,
@@ -10,7 +10,6 @@ import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { openExternalUrl } from "../../services/tauri-service";
-import { MinecraftAuthService } from "../../services/minecraft-auth-service";
 
 export default function ChildProtectionModal() {
   const { showModal, hideModal } = useGlobalModal();
@@ -30,11 +29,6 @@ export default function ChildProtectionModal() {
             // Async flow to check active account and show modal
             (async () => {
               try {
-                const active = await MinecraftAuthService.getActiveAccount();
-                if (active && active.ignore_child_protection_warning) {
-                  return; // user opted out for this account
-                }
-
                 showModal(
                   "child-protection-modal",
                   <Modal
@@ -59,19 +53,9 @@ export default function ChildProtectionModal() {
                         <Button
                           variant="secondary"
                           size="md"
-                          onClick={async () => {
-                            try {
-                              if (active && active.id) {
-                                await MinecraftAuthService.setIgnoreChildProtection(active.id, true);
-                              }
-                            } catch (e) {
-                              console.error("Failed to persist ignoreChildProtection flag:", e);
-                            } finally {
-                              hideModal("child-protection-modal");
-                            }
-                          }}
+                          onClick={() => hideModal("child-protection-modal")}
                         >
-                          Ignore for this account
+                          Ignore
                         </Button>
                         <Button
                           onClick={() => openExternalUrl(`https://www.xbox.com/user/settings/privacy-and-safety?gamertag=${event.payload.message}&activetab=main:privilegetab`)}
