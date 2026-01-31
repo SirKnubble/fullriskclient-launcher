@@ -108,8 +108,6 @@ export function ProfileCardV2({
     overlay: true,
   });
 
-  const { activeAccount } = useMinecraftAuthStore();
-
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
     {
@@ -387,10 +385,8 @@ export function ProfileCardV2({
       label: isLaunching ? "STOP" : "PLAY",
       icon: isLaunching ? "solar:stop-bold" : "solar:play-bold",
       variant: isLaunching ? "destructive" : "primary",
-      tooltip: profile.selected_norisk_pack_id && (activeAccount?.ignore_child_protection_warning) ? "Not fully logged into NRC" : isLaunching ? "Launch stoppen" : "Minecraft spielen!",
-      disabled: profile.selected_norisk_pack_id && (activeAccount?.ignore_child_protection_warning),
+      tooltip: isLaunching ? "Launch stoppen" : "Minecraft spielen!",
       onClick: (profile, e) => {
-        if (profile.selected_norisk_pack_id && activeAccount?.ignore_child_protection_warning) return;
         if (onPlay) {
           onPlay(profile);
         } else {
