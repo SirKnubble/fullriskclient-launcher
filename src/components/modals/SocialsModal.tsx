@@ -163,14 +163,14 @@ export function SocialsModal() {
         try {
           const config = await getLauncherConfig();
           setExperimentalMode(config.is_experimental);
-          // TODO: Switch back to config.is_experimental when ready for production
-          const baseUrl = true
-            ? "https://api-staging.norisk.gg"
-            : "https://api.norisk.gg";
-          const betaFlag = config.check_beta_channel ? "true" : "false";
-          setReferralLink(
-            `${baseUrl}/api/v1/launcher/referral/download?code=${activeAccount.username}&beta=${betaFlag}`
-          );
+          if (config.is_experimental) {
+            const betaFlag = config.check_beta_channel ? "true" : "false";
+            setReferralLink(
+              `https://api-staging.norisk.gg/api/v1/launcher/referral/download?code=${activeAccount.username}&beta=${betaFlag}`
+            );
+          } else {
+            setReferralLink(`https://nrc.gg/invite/${activeAccount.username}`);
+          }
         } catch (error) {
           console.error("Failed to generate referral link:", error);
         }
