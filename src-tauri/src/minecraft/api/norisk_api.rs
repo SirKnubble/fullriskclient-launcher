@@ -539,11 +539,11 @@ impl NoRiskApi {
     /// Uses v3 endpoint with Git-based config storage.
     pub async fn get_modpacks(
         norisk_token: &str,
-        _is_experimental: bool,
+        is_experimental: bool,
     ) -> Result<NoriskModpacksConfig> {
         debug!("[NoRisk API] Fetching modpack configuration from v3 endpoint (staging)");
         // TODO: Remove hardcoded staging once v3 is deployed to production
-        Self::get_from_norisk_endpoint("launcher/modpacks-v3", norisk_token, None, true)
+        Self::get_from_norisk_endpoint("launcher/modpacks-v3", norisk_token, None, is_experimental)
             .await
     }
 
