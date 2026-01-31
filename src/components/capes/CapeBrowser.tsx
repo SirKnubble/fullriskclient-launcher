@@ -732,7 +732,7 @@ export function CapeBrowser(): JSX.Element {
 
                 <button
                   onClick={() => {
-                    if (!activeAccount && !activeAccount.ignore_child_protection_warning) return;
+                    if (!activeAccount || activeAccount.ignore_child_protection_warning) return;
                     const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
