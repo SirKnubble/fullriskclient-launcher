@@ -169,7 +169,7 @@ export function GlobalCrashReportModal() {
       if (!contentReceived) {
         console.log(`Actively fetching crash report as fallback for process ${crashData.process_id}`);
         try {
-          const fetchedContent = await fetchCrashReport(crashData.profile_id, crashData.process_id);
+          const fetchedContent = await fetchCrashReport(crashData.profile_id, crashData.process_id, crashData.process_metadata?.start_time);
           if (fetchedContent && !contentReceived) {
             console.log(`Successfully fetched crash report via fallback`);
             contentReceived = true;
@@ -215,7 +215,7 @@ export function GlobalCrashReportModal() {
       if (crashData.process_id && !displayedCrashReportContent) {
         toast.loading('Fetching latest crash report before upload...', { id: mainToastId });
         try {
-          const fetchedContent = await fetchCrashReport(crashData.profile_id, crashData.process_id);
+          const fetchedContent = await fetchCrashReport(crashData.profile_id, crashData.process_id, crashData.process_metadata?.start_time);
           if (fetchedContent) {
             console.log('Fetched fresh crash report before upload');
             setDisplayedCrashReportContent(fetchedContent);
