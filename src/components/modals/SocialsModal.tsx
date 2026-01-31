@@ -112,7 +112,7 @@ export function SocialsModal() {
   const [showQrCode, setShowQrCode] = useState(false);
 
   const fetchDiscordStatus = useCallback(async (): Promise<boolean> => {
-    if (activeAccount.ignore_child_protection_warning) return false;
+    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingDiscord(true);
     try {
       const status = await discordAuthStatus();
@@ -128,7 +128,7 @@ export function SocialsModal() {
   }, []);
 
   const fetchGithubStatus = useCallback(async (): Promise<boolean> => {
-    if (activeAccount.ignore_child_protection_warning) return false;
+    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingGithub(true);
     try {
       const status = await githubAuthStatus();
@@ -144,7 +144,7 @@ export function SocialsModal() {
   }, []);
 
   const fetchMobileAppToken = useCallback(async () => {
-    if (activeAccount.ignore_child_protection_warning) return false;
+    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingMobileApp(true);
     try {
       const token = await getMobileAppToken();
@@ -290,7 +290,7 @@ export function SocialsModal() {
     return `https://qr-generator-putuwaw.vercel.app/api?data=${encodeURIComponent(data)}&fill_color=${fillColor}`;
   };
 
-  if (!isModalOpen) {
+  if (!isModalOpen || !activeAccount) {
     return null;
   }
 
