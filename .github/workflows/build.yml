@@ -82,43 +82,39 @@ jobs:
       - name: Fix AppImage (Remove Wayland libs & Resign)
         if: matrix.platform == 'ubuntu-22.04'
         env:
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          # Pass the secrets directly to the environment
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
-          echo "--- Setting up tools ---"
-          wget -q https://github.com/jedisct1/minisign/releases/download/0.11/minisign-0.11-linux.tar.gz
-          tar -xzf minisign-0.11-linux.tar.gz
-          sudo mv minisign-linux/x86_64/minisign /usr/local/bin/
+          echo "--- Fix AppImage Started ---"
+          
+          BUNDLE_DIR="$(pwd)/${{ matrix.output_path }}/appimage"
+          cd "$BUNDLE_DIR"
+          APPIMAGE=$(ls *.AppImage | head -n 1)
+          echo "Target: $APPIMAGE"
+          
+          chmod +x "$APPIMAGE"
+          ./"$APPIMAGE" --appimage-extract > /dev/null
+          
+          echo "Removing conflicting libraries..."
+          find squashfs-root -name "*wayland*" -delete
           
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           
-          cd ${{ matrix.output_path }}/appimage
-          
-          ORIGINAL_APPIMAGE=$(ls *.AppImage | head -n 1)
-          echo "Processing: $ORIGINAL_APPIMAGE"
-          
-          chmod +x "$ORIGINAL_APPIMAGE"
-          ./"$ORIGINAL_APPIMAGE" --appimage-extract > /dev/null
-          
-          echo "Removing bundled Wayland libraries..."
-          find squashfs-root -name "*wayland*" -delete
-    
-          echo "Repacking AppImage..."
           export ARCH=x86_64
-          ../../../../../appimagetool-x86_64.AppImage squashfs-root/ "$ORIGINAL_APPIMAGE"
-        
-          echo "Re-signing AppImage..."
+          ./appimagetool-x86_64.AppImage squashfs-root/ "$APPIMAGE"
           
-          echo "$TAURI_PRIVATE_KEY" > key.pem
-         
-          echo "$TAURI_KEY_PASSWORD" | minisign -S -s key.pem -m "$ORIGINAL_APPIMAGE"
+          echo "Re-signing..."
           
-          rm key.pem
-          rm -rf squashfs-root
+          cd - > /dev/null
+          
+          yarn tauri signer sign "$BUNDLE_DIR/$APPIMAGE"
+          
+          cd "$BUNDLE_DIR"
+          rm -rf squashfs-root appimagetool-x86_64.AppImage
           
           echo "--- Fix Complete ---"
-          ls -lh
 
       # --- Umbenennen und Artefakte vorbereiten --- 
       - name: Rename Linux Artifacts
