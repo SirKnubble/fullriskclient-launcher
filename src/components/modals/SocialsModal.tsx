@@ -112,7 +112,6 @@ export function SocialsModal() {
   const [showQrCode, setShowQrCode] = useState(false);
 
   const fetchDiscordStatus = useCallback(async (): Promise<boolean> => {
-    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingDiscord(true);
     try {
       const status = await discordAuthStatus();
@@ -128,7 +127,6 @@ export function SocialsModal() {
   }, []);
 
   const fetchGithubStatus = useCallback(async (): Promise<boolean> => {
-    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingGithub(true);
     try {
       const status = await githubAuthStatus();
@@ -144,7 +142,6 @@ export function SocialsModal() {
   }, []);
 
   const fetchMobileAppToken = useCallback(async () => {
-    if (!activeAccount || activeAccount.ignore_child_protection_warning) return false;
     setIsLoadingMobileApp(true);
     try {
       const token = await getMobileAppToken();
@@ -304,7 +301,7 @@ export function SocialsModal() {
       onClose={closeModal}
       width="md"
     >
-      <div className={`p-6 ${!activeAccount.ignore_child_protection_warning ? 'min-h-45vh' : ''} max-h-[70vh] overflow-y-auto custom-scrollbar`}>
+      <div className="p-6 min-h-45vh max-h-[70vh] overflow-y-auto custom-scrollbar">
         {/* Referral Section */}
         <div className="flex flex-col items-center text-center space-y-4">
           <Icon
@@ -338,15 +335,12 @@ export function SocialsModal() {
         </div>
 
         {/* Divider */}
-        {!activeAccount.ignore_child_protection_warning && (
-          <div className="border-t border-white/10 my-6" />
-        )}
+        <div className="border-t border-white/10 my-6" />
 
         {/* Account Linking Section */}
         <div className="space-y-2">
           {/* Mobile App */}
-          {!activeAccount.ignore_child_protection_warning && (
-            <div className="space-y-2">
+          <div className="space-y-2">
               <div className="flex items-center justify-between px-3 bg-black/20 rounded-md h-[58px]">
                 <div className="flex items-center">
                   <Icon icon="material-symbols:phone-android" className="w-6 h-6 mr-3 text-white/80" />
@@ -411,11 +405,9 @@ export function SocialsModal() {
                 </div>
               )}
             </div>
-          )}
 
-          {!activeAccount.ignore_child_protection_warning && (
-            <AccountLinkRow
-              icon="ic:baseline-discord"
+          <AccountLinkRow
+            icon="ic:baseline-discord"
               name="Discord"
               isLoading={isLoadingDiscord}
               isLinked={isDiscordLinked}
@@ -424,20 +416,17 @@ export function SocialsModal() {
               onUnlink={handleDiscordUnlink}
               visitUrl="https://discord.norisk.gg"
             />
-          )}
 
-          {!activeAccount.ignore_child_protection_warning && (
-            <AccountLinkRow
-              icon="mdi:github"
-              name="GitHub"
-              isLoading={isLoadingGithub}
-              isLinked={isGithubLinked}
-              isProcessing={isProcessingGithub}
-              onLink={handleGithubLink}
-              onUnlink={handleGithubUnlink}
-              visitUrl="https://github.com/NoRiskClient"
+          <AccountLinkRow
+            icon="mdi:github"
+            name="GitHub"
+            isLoading={isLoadingGithub}
+            isLinked={isGithubLinked}
+            isProcessing={isProcessingGithub}
+            onLink={handleGithubLink}
+            onUnlink={handleGithubUnlink}
+            visitUrl="https://github.com/NoRiskClient"
           />
-          )}
         </div>
       </div>
     </Modal>

@@ -56,13 +56,12 @@ export function CapeBrowser(): JSX.Element {
   const [isUploading, setIsUploading] = useState(false);
   const [isUnequipping, setIsUnequipping] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
-  const { activeAccount } = useMinecraftAuthStore();
   const [filters, setFilters] = useState<CapeFiltersData>({
     sortBy: "",
     timeFrame: "",
     showOwnedOnly: false,
     showFavoritesOnly: false,
-    showVanillaOnly: activeAccount?.ignore_child_protection_warning ?? false,
+    showVanillaOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -192,6 +191,7 @@ export function CapeBrowser(): JSX.Element {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isLoadingRef = useRef(false);
+  const { activeAccount } = useMinecraftAuthStore();
 
   useEffect(() => {
     preloadIcons(["solar:add-square-bold-duotone"]);
@@ -704,12 +704,11 @@ export function CapeBrowser(): JSX.Element {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={() => {
-                    if (!activeAccount || activeAccount.ignore_child_protection_warning) return;
                     const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: false, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
-                    if (!isLoadingRef.current && activeAccount || activeAccount.ignore_child_protection_warning) {
+                    if (!isLoadingRef.current) {
                       setIsLoadingAll(true);
                       fetchCapesData(0, newFilters, "", false).finally(() => {
                         setIsLoadingAll(false);
@@ -720,64 +719,60 @@ export function CapeBrowser(): JSX.Element {
                     !filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-                  } ${!activeAccount || activeAccount.ignore_child_protection_warning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  }`}
                   style={{
                     backgroundColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
                     borderColor: (!filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
-                  title={!activeAccount || activeAccount.ignore_child_protection_warning ? "Not fully logged into NRC" : undefined}
                 >
                   <span className="lowercase">all</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    if (!activeAccount || activeAccount.ignore_child_protection_warning) return;
+                    if (!activeAccount) return;
                     const newFilters = { ...filters, showOwnedOnly: true, showFavoritesOnly: false, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
-                    if (!isLoadingRef.current && activeAccount && !activeAccount.ignore_child_protection_warning) {
+                    if (!isLoadingRef.current && activeAccount) {
                       setIsLoadingMy(true);
                       fetchCapesData(0, newFilters, "", false).finally(() => {
                         setIsLoadingMy(false);
                       });
                     }
                   }}
-                  disabled={!activeAccount || activeAccount.ignore_child_protection_warning}
+                  disabled={!activeAccount}
                   className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
                     filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-                  } ${!activeAccount || activeAccount.ignore_child_protection_warning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${!activeAccount ? 'opacity-50 cursor-not-allowed' : ''}`}
                   style={{
                     backgroundColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
                     borderColor: (filters.showOwnedOnly && !filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
-                  title={!activeAccount || activeAccount.ignore_child_protection_warning ? "Not fully logged into NRC" : undefined}
+                  title={!activeAccount ? "No active Minecraft account" : undefined}
                 >
                   <span className="lowercase">my capes</span>
                 </button>
 
                 <button
                   onClick={() => {
-                    if (!activeAccount || activeAccount.ignore_child_protection_warning) return;
                     const newFilters = { ...filters, showOwnedOnly: false, showFavoritesOnly: true, showVanillaOnly: false };
                     setFilters(newFilters);
                     setSearchQuery("");
                     setCurrentPage(0);
                   }}
-                  disabled={!activeAccount || activeAccount.ignore_child_protection_warning}
                   className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
                     filters.showFavoritesOnly && !filters.showVanillaOnly
                       ? 'text-white'
                       : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-                  } ${!activeAccount || activeAccount.ignore_child_protection_warning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  }`}
                   style={{
                     backgroundColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? `${accentColor.value}20` : undefined,
                     borderColor: (filters.showFavoritesOnly && !filters.showVanillaOnly) ? accentColor.value : undefined,
                   }}
-                  title={!activeAccount || activeAccount.ignore_child_protection_warning ? "Not fully logged into NRC" : undefined}
                 >
                   <span className="lowercase">favorites</span>
                 </button>
@@ -841,7 +836,7 @@ export function CapeBrowser(): JSX.Element {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
-                  {activeAccount && !activeAccount.ignore_child_protection_warning && !filters.showVanillaOnly && (
+                  {activeAccount && (
                     <>
                       <button
                         onClick={handleDownloadTemplate}
