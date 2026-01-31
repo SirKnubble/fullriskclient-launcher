@@ -54,13 +54,13 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      - name: Clean workspace (including node_modules)
+        run: git clean -fdx
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-
-      - name: Clean workspace (including node_modules)
-        run: git clean -fdx
 
       - name: install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
