@@ -4,7 +4,6 @@ import { useFriendsStore, OnlineState } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 import { StatusSelector } from "./StatusSelector";
-import { toast } from "../ui/GlobalToaster";
 
 const statusConfig: Record<OnlineState, { color: string; label: string; glow: string }> = {
   ONLINE: { color: "#22c55e", label: "Online", glow: "0 0 8px rgba(34, 197, 94, 0.6)" },
@@ -82,18 +81,10 @@ export function SettingsPanel() {
 
   const status = statusConfig[currentUser.state];
 
-  const settingLabels: Record<string, string> = {
-    showServer: "Show Server",
-    allowRequests: "Allow Requests",
-    allowServerInvites: "Server Invites",
-  };
-
   const handleToggle = async (setting: string, currentValue: boolean) => {
     setLoadingSettings((prev) => ({ ...prev, [setting]: true }));
     try {
       await updatePrivacySetting(setting, !currentValue);
-      const label = settingLabels[setting] || setting;
-      toast.info(`${label} ${!currentValue ? "enabled" : "disabled"}`);
     } catch (e) {
       console.error("Failed to update privacy setting:", e);
     } finally {
@@ -111,18 +102,18 @@ export function SettingsPanel() {
         }}
       >
         <div className="flex items-center gap-3">
-          <button
-            onClick={closeSettings}
-            className="p-1.5 rounded-lg transition-all duration-200"
-            style={{
-              backgroundColor: `${accentColor.value}20`,
-              color: accentColor.value,
-            }}
-          >
-            <Icon icon="solar:arrow-left-linear" className="w-4 h-4" />
-          </button>
           <span className="text-sm font-medium text-white font-minecraft-ten">Settings</span>
         </div>
+        <button
+          onClick={closeSettings}
+          className="p-1.5 rounded-lg transition-all duration-200"
+          style={{
+            backgroundColor: `${accentColor.value}20`,
+            color: accentColor.value,
+          }}
+        >
+          <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">

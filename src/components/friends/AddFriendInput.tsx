@@ -87,14 +87,14 @@ export function AddFriendInput() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft text-xs text-red-400 bg-red-500/10 border border-red-500/20">
-          <Icon icon="solar:danger-circle-bold" className="w-4 h-4 flex-shrink-0" />
-          {error}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg font-minecraft-ten text-xs text-red-400 bg-red-500/10 border border-red-500/20">
+          <Icon icon="solar:danger-circle-bold" className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words min-w-0">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft text-xs text-green-400 bg-green-500/10 border border-green-500/20">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft-ten text-xs text-green-400 bg-green-500/10 border border-green-500/20">
           <Icon icon="solar:check-circle-bold" className="w-4 h-4 flex-shrink-0" />
           friend request sent!
         </div>
