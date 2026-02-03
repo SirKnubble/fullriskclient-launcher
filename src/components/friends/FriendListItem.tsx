@@ -41,15 +41,13 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
     }
   };
 
-  const handleRemoveClick = async () => {
+  const handleRemoveClick = () => {
     if (isRemoving) return;
+    setConfirmRemove(true);
+  };
 
-    if (!confirmRemove) {
-      setConfirmRemove(true);
-      setTimeout(() => setConfirmRemove(false), 3000);
-      return;
-    }
-
+  const handleConfirmRemove = async () => {
+    if (isRemoving) return;
     setIsRemoving(true);
     try {
       await removeFriend(friend.username, friend.uuid);
@@ -63,6 +61,54 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
 
   const status = statusConfig[friend.state];
   const [isHovered, setIsHovered] = useState(false);
+
+  if (confirmRemove) {
+    return (
+      <div
+        className="flex items-center justify-between p-3 rounded-xl transition-all duration-200"
+        style={{
+          backgroundColor: "rgba(239, 68, 68, 0.15)",
+          border: "1px solid rgba(239, 68, 68, 0.4)",
+          minHeight: "72px",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <Icon icon="solar:trash-bin-minimalistic-bold" className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <span className="text-sm font-minecraft-ten text-red-400">
+            Remove friend?
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleConfirmRemove}
+            disabled={isRemoving}
+            className="px-3 py-1.5 rounded-lg text-xs font-minecraft-ten transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.3)",
+              border: "1px solid rgba(239, 68, 68, 0.5)",
+              color: "#ef4444",
+            }}
+          >
+            {isRemoving ? (
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin" />
+            ) : (
+              "Confirm"
+            )}
+          </button>
+          <button
+            onClick={() => setConfirmRemove(false)}
+            className="px-3 py-1.5 rounded-lg text-xs font-minecraft-ten text-white/60 transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -154,28 +200,21 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
           disabled={isRemoving}
           className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
           style={{
-            backgroundColor: confirmRemove ? "rgba(239, 68, 68, 0.25)" : `${accentColor.value}20`,
-            border: `1px solid ${confirmRemove ? "rgba(239, 68, 68, 0.5)" : `${accentColor.value}40`}`,
-            color: confirmRemove ? "#ef4444" : accentColor.value,
+            backgroundColor: `${accentColor.value}20`,
+            border: `1px solid ${accentColor.value}40`,
+            color: accentColor.value,
           }}
           onMouseEnter={(e) => {
-            if (!confirmRemove) {
-              e.currentTarget.style.backgroundColor = `${accentColor.value}40`;
-              e.currentTarget.style.borderColor = `${accentColor.value}70`;
-            }
+            e.currentTarget.style.backgroundColor = `${accentColor.value}40`;
+            e.currentTarget.style.borderColor = `${accentColor.value}70`;
           }}
           onMouseLeave={(e) => {
-            if (!confirmRemove) {
-              e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
-              e.currentTarget.style.borderColor = `${accentColor.value}40`;
-            }
+            e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
+            e.currentTarget.style.borderColor = `${accentColor.value}40`;
           }}
-          title={confirmRemove ? "Click again to remove" : "Remove Friend"}
+          title="Remove Friend"
         >
-          <Icon
-            icon={confirmRemove ? "solar:trash-bin-minimalistic-bold" : "solar:user-minus-bold"}
-            className={cn("w-5 h-5", isRemoving && "animate-pulse")}
-          />
+          <Icon icon="solar:user-minus-bold" className="w-5 h-5" />
         </button>
       </div>
     </div>

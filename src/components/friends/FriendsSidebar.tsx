@@ -164,22 +164,6 @@ export function FriendsSidebar() {
               </div>
             </div>
 
-            <div
-              className="flex items-center gap-3 px-4 py-3 rounded-xl"
-              style={{
-                backgroundColor: `${accentColor.value}15`,
-                border: `1px solid ${accentColor.value}40`,
-              }}
-            >
-              <Icon icon="solar:magnifer-bold" className="w-5 h-5" style={{ color: `${accentColor.value}80` }} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search friends..."
-                className="flex-1 bg-transparent text-white text-sm font-minecraft-ten placeholder:text-white/30 focus:outline-none"
-              />
-            </div>
           </div>
 
           <div className="p-3" style={{ borderBottom: `1px solid ${accentColor.value}30` }}>
@@ -224,6 +208,25 @@ export function FriendsSidebar() {
                 )}
               </button>
             </div>
+
+            {activeTab === "friends" && (
+              <div
+                className="flex items-center gap-3 px-4 py-3 rounded-xl mt-3"
+                style={{
+                  backgroundColor: `${accentColor.value}15`,
+                  border: `1px solid ${accentColor.value}40`,
+                }}
+              >
+                <Icon icon="solar:magnifer-bold" className="w-5 h-5" style={{ color: `${accentColor.value}80` }} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search friends..."
+                  className="flex-1 bg-transparent text-white text-sm font-minecraft-ten placeholder:text-white/30 focus:outline-none"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -287,7 +290,7 @@ function FriendsTab({
     return (
       <div className="p-3 space-y-3">
         {[...Array(5)].map((_, i) => (
-          <FriendSkeleton key={i} />
+          <FriendSkeleton key={i} accentColor={accentColor} />
         ))}
       </div>
     );
