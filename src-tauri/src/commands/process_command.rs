@@ -1,6 +1,7 @@
 use crate::error::CommandError;
 use crate::state::process_state::ProcessMetadata;
 use crate::state::state_manager::State;
+use chrono::{DateTime, Utc};
 use tauri::Manager;
 use uuid::Uuid;
 
@@ -48,11 +49,17 @@ pub async fn get_full_log(process_id: Uuid) -> Result<String, CommandError> {
 }
 
 #[tauri::command]
-pub async fn fetch_crash_report(profile_id: Uuid, process_id: Option<Uuid>) -> Result<Option<String>, CommandError> {
+pub async fn fetch_crash_report(profile_id: Uuid, process_id: Option<Uuid>, process_start_time: Option<String>) -> Result<Option<String>, CommandError> {
     let state = State::get().await?;
+
+    // Parse the ISO 8601 timestamp if provided
+    let parsed_start_time: Option<DateTime<Utc>> = process_start_time
+        .as_ref()
+        .and_then(|ts| ts.parse::<DateTime<Utc>>().ok());
+
     let crash_content = state
         .process_manager
-        .fetch_latest_crash_report(profile_id, process_id)
+        .fetch_latest_crash_report(profile_id, process_id, parsed_start_time)
         .await?;
     Ok(crash_content)
 }
