@@ -64,19 +64,4 @@ export class MinecraftAuthService {
       return false;
     }
   }
-
-  static async setIgnoreChildProtection(
-    accountId: string,
-    ignore: boolean
-  ): Promise<void> {
-    try {
-      await invoke("set_account_ignore_child_protection", {
-        accountId,
-        ignore,
-      });
-    } catch (error) {
-      console.error("Failed to set ignoreChildProtection flag:", error);
-      throw error;
-    }
-  }
 }
