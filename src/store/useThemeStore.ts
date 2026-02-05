@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { setProfileGroupingPreference } from "../services/launcher-config-service";
 import { ModPlatform } from "../types/unified";
+import type { SupportedLanguage } from "../i18n";
 
 export type AccentColor = {
   name: string;
@@ -248,6 +249,9 @@ interface ThemeState {
   // Featured profile mode
   featureMode: boolean;
   setFeatureMode: (enabled: boolean) => void;
+  // Language
+  language: SupportedLanguage;
+  setLanguage: (lang: SupportedLanguage) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -275,6 +279,8 @@ export const useThemeStore = create<ThemeState>()(
       newsSectionWidth: 375,
       // Featured profile mode - defaults
       featureMode: false,
+      // Language - defaults
+      language: "en" as SupportedLanguage,
 
       setAccentColor: (color: AccentColor) => {
         set({ accentColor: color });
@@ -446,6 +452,12 @@ export const useThemeStore = create<ThemeState>()(
       setFeatureMode: (enabled: boolean) => {
         set({ featureMode: enabled });
       },
+
+      // Language
+      setLanguage: (lang: SupportedLanguage) => {
+        set({ language: lang });
+        import("../i18n/i18n").then((mod) => mod.default.changeLanguage(lang));
+      },
     }),    {
       name: "norisk-theme-storage",
       onRehydrateStorage: () => (state) => {
@@ -457,6 +469,10 @@ export const useThemeStore = create<ThemeState>()(
           
           state.applyAccentColorToDOM();
           state.applyBorderRadiusToDOM();
+          // Apply language on rehydrate
+          if (state.language) {
+            import("../i18n/i18n").then((mod) => mod.default.changeLanguage(state.language));
+          }
           // Ensure collapsedProfileGroups exists after rehydrate
           if (!Array.isArray(state.collapsedProfileGroups)) {
             state.collapsedProfileGroups = [];

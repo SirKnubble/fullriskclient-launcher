@@ -673,7 +673,7 @@ async fn main() {
             delete_chat_message,
             send_typing_indicator,
             add_message_reaction,
-            remove_message_reaction
+            remove_message_reaction,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
