@@ -1,4 +1,5 @@
 import { useState, memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { FriendsFriendUser, OnlineState, useFriendsStore } from "../../store/friends-store";
 import { useChatStore } from "../../store/chat-store";
@@ -11,15 +12,16 @@ interface FriendListItemProps {
   friend: FriendsFriendUser;
 }
 
-const statusConfig: Record<OnlineState, { color: string; label: string }> = {
-  ONLINE: { color: "#22c55e", label: "ONLINE" },
-  AFK: { color: "#f97316", label: "AFK" },
-  BUSY: { color: "#ef4444", label: "BUSY" },
-  OFFLINE: { color: "#6b7280", label: "OFFLINE" },
-  INVISIBLE: { color: "#6b7280", label: "OFFLINE" },
+const statusColors: Record<OnlineState, string> = {
+  ONLINE: "#22c55e",
+  AFK: "#f97316",
+  BUSY: "#ef4444",
+  OFFLINE: "#6b7280",
+  INVISIBLE: "#6b7280",
 };
 
 export const FriendListItem = memo(function FriendListItem({ friend }: FriendListItemProps) {
+  const { t } = useTranslation();
   const { removeFriend, openChat, closeChat, activeChatFriend } = useFriendsStore();
   const { chats } = useChatStore();
   const { accentColor } = useThemeStore();
@@ -59,6 +61,14 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
     }
   };
 
+  const statusConfig: Record<OnlineState, { color: string; label: string }> = {
+    ONLINE: { color: statusColors.ONLINE, label: t('friends.status.online') },
+    AFK: { color: statusColors.AFK, label: t('friends.status.afk') },
+    BUSY: { color: statusColors.BUSY, label: t('friends.status.busy') },
+    OFFLINE: { color: statusColors.OFFLINE, label: t('friends.status.offline') },
+    INVISIBLE: { color: statusColors.INVISIBLE, label: t('friends.status.offline') },
+  };
+
   const status = statusConfig[friend.state];
   const [isHovered, setIsHovered] = useState(false);
 
@@ -75,7 +85,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
         <div className="flex items-center gap-2">
           <Icon icon="solar:trash-bin-minimalistic-bold" className="w-5 h-5 text-red-400 flex-shrink-0" />
           <span className="text-sm font-minecraft-ten text-red-400">
-            Remove friend?
+            {t('friends.remove_confirm')}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -92,7 +102,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
             {isRemoving ? (
               <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin" />
             ) : (
-              "Confirm"
+              t('common.confirm')
             )}
           </button>
           <button
@@ -103,7 +113,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
               border: "1px solid rgba(255, 255, 255, 0.2)",
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       </div>
@@ -157,7 +167,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
           {friend.server ? (
             <>
               <Icon icon="solar:server-bold" className="w-4 h-4" />
-              <span className="truncate">playing on {friend.server}</span>
+              <span className="truncate">{t('friends.playing_on', { server: friend.server })}</span>
             </>
           ) : (
             <span>{status.label}</span>
@@ -186,7 +196,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
               e.currentTarget.style.backgroundColor = activeChatFriend?.uuid === friend.uuid ? `${accentColor.value}40` : `${accentColor.value}20`;
               e.currentTarget.style.borderColor = `${accentColor.value}40`;
             }}
-            title="Chat"
+            title={t('friends.chat')}
           >
             <Icon icon="solar:chat-round-dots-bold" className="w-5 h-5" />
           </button>
@@ -212,7 +222,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
             e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
             e.currentTarget.style.borderColor = `${accentColor.value}40`;
           }}
-          title="Remove Friend"
+          title={t('friends.remove_friend')}
         >
           <Icon icon="solar:user-minus-bold" className="w-5 h-5" />
         </button>

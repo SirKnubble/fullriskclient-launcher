@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useFriendsStore, FriendsFriendUser } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { FriendListItem } from "./FriendListItem";
@@ -19,6 +20,7 @@ type FriendListRow =
 type TabType = "friends" | "requests";
 
 export function FriendsSidebar() {
+  const { t } = useTranslation();
   const {
     friends,
     pendingRequests,
@@ -121,12 +123,12 @@ export function FriendsSidebar() {
                     backgroundColor: isSettingsOpen ? `${accentColor.value}40` : `${accentColor.value}20`,
                     border: `1px solid ${isSettingsOpen ? `${accentColor.value}70` : `${accentColor.value}50`}`,
                   }}
-                  title="Settings"
+                  title={t('common.settings')}
                 >
                   <Icon icon="solar:settings-bold" className="w-5 h-5" style={{ color: accentColor.value }} />
                 </button>
                 <h2 className="text-lg font-bold text-white font-minecraft-ten uppercase tracking-wide">
-                  Friends
+                  {t('friends.title')}
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -134,14 +136,14 @@ export function FriendsSidebar() {
                   onClick={() => { loadFriends(true); loadPendingRequests(); }}
                   className="p-2 rounded-full transition-all duration-200 hover:scale-105"
                   style={{ backgroundColor: `${accentColor.value}20`, border: `1px solid ${accentColor.value}50`, color: accentColor.value }}
-                  title="Refresh"
+                  title={t('common.refresh')}
                 >
                   <Icon icon="solar:refresh-bold" className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => {
                     toggleNotifications();
-                    toast.info(notificationsEnabled ? "Notifications disabled" : "Notifications enabled");
+                    toast.info(notificationsEnabled ? t('friends.notifications_disabled') : t('friends.notifications_enabled'));
                   }}
                   className="p-2 rounded-full transition-all duration-200 hover:scale-105"
                   style={{
@@ -149,7 +151,7 @@ export function FriendsSidebar() {
                     border: `1px solid ${notificationsEnabled ? `${accentColor.value}50` : "rgba(239, 68, 68, 0.5)"}`,
                     color: notificationsEnabled ? accentColor.value : "#ef4444",
                   }}
-                  title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+                  title={notificationsEnabled ? t('friends.disable_notifications') : t('friends.enable_notifications')}
                 >
                   <Icon icon={notificationsEnabled ? "solar:bell-bold" : "solar:bell-off-bold"} className="w-5 h-5" />
                 </button>
@@ -157,7 +159,7 @@ export function FriendsSidebar() {
                   onClick={handleClose}
                   className="p-2 rounded-full transition-all duration-200 hover:scale-105"
                   style={{ backgroundColor: `${accentColor.value}20`, border: `1px solid ${accentColor.value}50`, color: accentColor.value }}
-                  title="Close"
+                  title={t('common.close')}
                 >
                   <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
                 </button>
@@ -183,7 +185,7 @@ export function FriendsSidebar() {
                 }}
               >
                 <Icon icon="solar:users-group-rounded-bold" className="w-4 h-4" />
-                Friends
+                {t('friends.tab_friends')}
               </button>
               <button
                 onClick={() => setActiveTab("requests")}
@@ -197,7 +199,7 @@ export function FriendsSidebar() {
                 }}
               >
                 <Icon icon="solar:letter-bold" className="w-4 h-4" />
-                Requests
+                {t('friends.tab_requests')}
                 {incomingRequests.length > 0 && (
                   <span
                     className="text-xs font-minecraft-ten"
@@ -222,7 +224,7 @@ export function FriendsSidebar() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search friends..."
+                  placeholder={t('friends.search_placeholder')}
                   className="flex-1 bg-transparent text-white text-sm font-minecraft-ten placeholder:text-white/30 focus:outline-none"
                 />
               </div>
@@ -265,6 +267,7 @@ function FriendsTab({
   isLoading: boolean;
   accentColor: string;
 }) {
+  const { t } = useTranslation();
   // Build virtualized list with headers
   const listItems = useMemo<FriendListRow[]>(() => {
     const items: FriendListRow[] = [];
@@ -305,8 +308,8 @@ function FriendsTab({
         >
           <Icon icon="solar:users-group-rounded-bold" className="w-8 h-8" style={{ color: accentColor }} />
         </div>
-        <p className="text-white/50 text-xs font-minecraft-ten">No Friends Yet</p>
-        <p className="text-white/30 text-xl mt-1 font-minecraft">add some!</p>
+        <p className="text-white/50 text-xs font-minecraft-ten">{t('friends.no_friends_title')}</p>
+        <p className="text-white/30 text-xl mt-1 font-minecraft">{t('friends.no_friends_desc')}</p>
       </div>
     );
   }
@@ -333,7 +336,7 @@ function FriendsTab({
                 "text-xs font-bold uppercase tracking-wider font-minecraft-ten",
                 isOnline ? "text-white/70" : "text-white/40"
               )}>
-                {isOnline ? "Online" : "Offline"} — {row.count}
+                {isOnline ? t('friends.online') : t('friends.offline')} — {row.count}
               </span>
             </div>
           );
@@ -358,11 +361,12 @@ function RequestsTab({
   outgoingRequests: ReturnType<typeof useFriendsStore.getState>["pendingRequests"];
   accentColor: string;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="p-4 border-b border-white/10">
         <div className="text-xs font-medium text-white/40 mb-3 font-minecraft-ten uppercase tracking-wider">
-          Add Friend
+          {t('friends.add_friend')}
         </div>
         <AddFriendInput />
       </div>
@@ -374,7 +378,7 @@ function RequestsTab({
             style={{ color: "#22c55e" }}
           >
             <Icon icon="solar:inbox-in-bold" className="w-4 h-4" />
-            Incoming — {incomingRequests.length}
+            {t('friends.incoming')} — {incomingRequests.length}
           </div>
           <div className="px-3 space-y-2 pb-4">
             {incomingRequests.map((r) => (
@@ -391,7 +395,7 @@ function RequestsTab({
             style={{ color: "rgba(255, 255, 255, 0.5)" }}
           >
             <Icon icon="solar:inbox-out-bold" className="w-4 h-4" />
-            Pending — {outgoingRequests.length}
+            {t('friends.pending')} — {outgoingRequests.length}
           </div>
           <div className="px-3 space-y-2 pb-4">
             {outgoingRequests.map((r) => (
@@ -409,8 +413,8 @@ function RequestsTab({
           >
             <Icon icon="solar:letter-linear" className="w-7 h-7" style={{ color: accentColor }} />
           </div>
-          <p className="text-white/50 text-xs font-minecraft-ten">No Pending Requests</p>
-          <p className="text-white/30 text-xl mt-1 font-minecraft">add friends above!</p>
+          <p className="text-white/50 text-xs font-minecraft-ten">{t('friends.no_requests_title')}</p>
+          <p className="text-white/30 text-xl mt-1 font-minecraft">{t('friends.no_requests_desc')}</p>
         </div>
       )}
     </>

@@ -7,6 +7,7 @@ import type {
 } from "../types/profile";
 import * as ProfileService from "../services/profile-service";
 import type { FileNode } from "../types/fileSystem";
+import i18n from '../i18n/i18n';
 
 interface ProfileState {
   profiles: Profile[];
@@ -74,7 +75,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to fetch all profiles and last played:", error);
-      set({ error: "Failed to load profiles data", loading: false });
+      set({ error: i18n.t('profiles.errors.load_failed'), loading: false });
     }
   },
 
