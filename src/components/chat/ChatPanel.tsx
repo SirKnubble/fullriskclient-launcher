@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback, useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -8,7 +9,7 @@ import { useFriendsStore, FriendsFriendUser } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
-function getDateLabel(timestamp: number): string {
+function getDateLabel(timestamp: number, t: (key: string) => string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -16,9 +17,9 @@ function getDateLabel(timestamp: number): string {
   const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   if (messageDate.getTime() === today.getTime()) {
-    return "Today";
+    return t('chat.today');
   } else if (messageDate.getTime() === yesterday.getTime()) {
-    return "Yesterday";
+    return t('chat.yesterday');
   } else {
     return date.toLocaleDateString(undefined, {
       weekday: 'long',
@@ -71,6 +72,7 @@ interface ChatPanelProps {
 const MESSAGES_PER_PAGE = 5; // Backend pageSize
 
 export function ChatPanel({ friend }: ChatPanelProps) {
+  const { t } = useTranslation();
   const { accentColor } = useThemeStore();
   const { closeChat, currentUser } = useFriendsStore();
   const [chat, setChat] = useState<ChatInfo | null>(null);
@@ -444,8 +446,8 @@ export function ChatPanel({ friend }: ChatPanelProps) {
                 style={{ color: accentColor.value }}
               />
             </div>
-            <p className="text-white/50 text-xs font-minecraft-ten">No Messages Yet</p>
-            <p className="text-white/30 text-xl mt-1 font-minecraft">say hello!</p>
+            <p className="text-white/50 text-xs font-minecraft-ten">{t('chat.no_messages_title')}</p>
+            <p className="text-white/30 text-xl mt-1 font-minecraft">{t('chat.no_messages_desc')}</p>
           </div>
         ) : (
           <>
@@ -465,7 +467,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
             {!hasMore && !isLoadingMore && (
               <div className="flex justify-center py-2">
                 <span className="text-xs font-minecraft-ten text-white/30">
-                  — start of conversation —
+                  {t('chat.start_of_conversation')}
                 </span>
               </div>
             )}
@@ -475,7 +477,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
               const prevTimestamp = prevMessage ? (prevMessage.createdAt || prevMessage.sentAt || prevMessage.timestamp || 0) : 0;
 
               const showDateSeparator = index === 0 ||
-                getDateLabel(timestamp) !== getDateLabel(prevTimestamp);
+                getDateLabel(timestamp, t) !== getDateLabel(prevTimestamp, t);
 
               // Discord-style: show header if different sender or > 5 min gap
               const isNewGroup = !prevMessage ||
@@ -495,7 +497,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
                           border: `1px solid ${accentColor.value}30`,
                         }}
                       >
-                        {getDateLabel(timestamp)}
+                        {getDateLabel(timestamp, t)}
                       </div>
                     </div>
                   )}

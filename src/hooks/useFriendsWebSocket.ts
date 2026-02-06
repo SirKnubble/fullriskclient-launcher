@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { useFriendsStore, OnlineState } from "../store/friends-store";
 import { toast } from "../components/ui/GlobalToaster";
+import i18n from '../i18n/i18n';
 
 interface FriendOnlinePayload {
   uuid: string;
@@ -64,7 +65,7 @@ export function useFriendsWebSocket() {
           const username = event.payload.username || friend?.username || "Friend";
           store.updateFriendState(event.payload.uuid, "ONLINE", event.payload.server);
           if (store.notificationsEnabled) {
-            toast.player(`${username} is now online`, event.payload.uuid);
+            toast.player(i18n.t('friends.notifications.online', { username }), event.payload.uuid);
           }
         }
       );
@@ -77,7 +78,7 @@ export function useFriendsWebSocket() {
           const username = event.payload.username || friend?.username || "Friend";
           store.updateFriendState(event.payload.uuid, "OFFLINE", undefined);
           if (store.notificationsEnabled) {
-            toast.player(`${username} went offline`, event.payload.uuid);
+            toast.player(i18n.t('friends.notifications.offline', { username }), event.payload.uuid);
           }
         }
       );
@@ -107,7 +108,7 @@ export function useFriendsWebSocket() {
 
           if (server && store.notificationsEnabled) {
             const displayName = username || friend?.username || "Friend";
-            toast.player(`${displayName} is now playing on ${server}`, uuid);
+            toast.player(i18n.t('friends.notifications.playing_on', { name: displayName, server }), uuid);
           }
         }
       );
@@ -120,7 +121,7 @@ export function useFriendsWebSocket() {
           const senderUuid = event.payload.friendRequest?.sender;
           const senderUser = event.payload.users?.find(u => u.uuid === senderUuid);
           if (senderUser && senderUuid !== store.currentUser?.uuid && store.notificationsEnabled) {
-            toast.player(`${senderUser.ign} sent you a friend request`, senderUuid);
+            toast.player(i18n.t('friends.notifications.friend_request', { name: senderUser.ign }), senderUuid);
           }
         }
       );
@@ -149,7 +150,7 @@ export function useFriendsWebSocket() {
           const senderName = friend?.username || "Someone";
           const preview = content.slice(0, 50) + (content.length > 50 ? "..." : "");
 
-          toast.player(`${senderName}: ${preview}`, senderId);
+          toast.player(i18n.t('friends.notifications.chat_preview', { name: senderName, message: preview }), senderId);
         }
       );
 

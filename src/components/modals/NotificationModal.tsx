@@ -1,6 +1,7 @@
 "use client";
 
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { useNotificationStore, useUnreadCount } from "../../store/notification-store";
@@ -8,6 +9,7 @@ import { getNotificationMessage, UserNotification } from "../../types/notificati
 import { timeAgo } from "../../utils/time-utils";
 
 export function NotificationModal() {
+  const { t } = useTranslation();
   const { notifications, isModalOpen, closeModal, markAllAsRead, isLoading } = useNotificationStore();
   const unreadCount = useUnreadCount();
 
@@ -19,7 +21,7 @@ export function NotificationModal() {
 
   return (
     <Modal
-      title="Notifications"
+      title={t('notification_modal.title')}
       titleIcon={<Icon icon="solar:bell-bold" className="w-6 h-6" />}
       onClose={closeModal}
       width="md"
@@ -31,7 +33,7 @@ export function NotificationModal() {
             onClick={handleMarkAllRead}
             icon={<Icon icon="mdi:check-all" />}
           >
-            Mark all read
+            {t('notification_modal.mark_all_read')}
           </Button>
         ) : undefined
       }
@@ -44,7 +46,7 @@ export function NotificationModal() {
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-white/50">
             <Icon icon="solar:bell-off-outline" className="w-12 h-12 mb-2" />
-            <p className="font-minecraft-ten text-sm">No notifications</p>
+            <p className="font-minecraft-ten text-sm">{t('notification_modal.no_notifications')}</p>
           </div>
         ) : (
           notifications.map((notification) => (

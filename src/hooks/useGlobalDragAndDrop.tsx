@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { useAppDragDropStore } from '../store/appStore'; // Use the real store
 import { useProfileStore } from '../store/profile-store'; // Import useProfileStore
 import { parseErrorMessage } from '../utils/error-utils';
+import i18n from '../i18n/i18n';
 import * as ContentService from '../services/content-service';
 import * as ProfileService from '../services/profile-service'; // Import ProfileService
 import * as WorldService from '../services/world-service'; // Import WorldService
@@ -80,7 +81,7 @@ export function useGlobalDragAndDrop() {
 
               // Check if this file is already being imported
               if (isPathImporting(profilePackPath)) {
-                toast.error("This file is already being imported.");
+                toast.error(i18n.t('dragdrop.already_importing'));
                 return;
               }
 
@@ -104,14 +105,14 @@ export function useGlobalDragAndDrop() {
 
                   // Update toast with progress
                   toast.custom(
-                    () => <ProgressToast message={`Importing ${fileName}`} progress={progress} />,
+                    () => <ProgressToast message={i18n.t('dragdrop.importing', { fileName })} progress={progress} />,
                     { id: toastId, duration: Infinity }
                   );
                 });
 
                 // Show initial progress toast
                 toast.custom(
-                  () => <ProgressToast message={`Importing ${fileName}`} progress={0} />,
+                  () => <ProgressToast message={i18n.t('dragdrop.importing', { fileName })} progress={0} />,
                   { id: toastId, duration: Infinity }
                 );
 
@@ -125,7 +126,7 @@ export function useGlobalDragAndDrop() {
                 }
 
                 toast.success(
-                  `Profile import initiated for ${fileName}. Opening profile...`,
+                  i18n.t('dragdrop.import_success', { fileName }),
                   { id: toastId, duration: 3000 }
                 );
                 useProfileStore.getState().fetchProfiles(); // Fetch profiles after successful import
@@ -139,12 +140,12 @@ export function useGlobalDragAndDrop() {
                 // Check for disk space error and provide helpful hint
                 if (errorMessage.toLowerCase().includes("insufficient disk space")) {
                   toast.error(
-                    `${errorMessage}\n\nTip: You can change the data location in Settings.`,
+                    `${errorMessage}\n\n${i18n.t('dragdrop.disk_space_tip')}`,
                     { id: toastId, duration: 8000 }
                   );
                 } else {
                   toast.error(
-                    `Failed to import profile from ${fileName}: ${errorMessage}`,
+                    i18n.t('dragdrop.import_failed', { fileName, error: errorMessage }),
                     { id: toastId }
                   );
                 }
@@ -202,7 +203,7 @@ export function useGlobalDragAndDrop() {
                 });
 
                 const loadingToastId = `loading-${operationId}`;
-                toast.loading(`Importing ${potentialWorldFolders.length} world folder(s)...`, { id: loadingToastId });
+                toast.loading(i18n.t('dragdrop.importing_worlds', { count: potentialWorldFolders.length }), { id: loadingToastId });
 
                 Promise.all(importPromises).then((results) => {
                   const successful = results.filter(r => r.success);
@@ -211,25 +212,25 @@ export function useGlobalDragAndDrop() {
                   if (successful.length > 0) {
                     console.log(`[DragDrop Hook ${instanceId}] World import completed: ${successful.length} successful, ${failed.length} failed`);
                     toast.success(
-                      `${successful.length} world(s) imported successfully.${failed.length > 0 ? ` ${failed.length} failed.` : ''}`,
+                      i18n.t('dragdrop.worlds_imported_success', { count: successful.length }) + (failed.length > 0 ? ` ${failed.length} failed.` : ''),
                       { id: loadingToastId, duration: 4000 }
                     );
                     // Trigger refresh of worlds list
                     useAppDragDropStore.getState().triggerWorldsRefresh();
                   } else {
                     console.error(`[DragDrop Hook ${instanceId}] All world imports failed`);
-                    const errorMsg = failed.length > 0 && failed[0].error instanceof Error 
-                      ? failed[0].error.message 
+                    const errorMsg = failed.length > 0 && failed[0].error instanceof Error
+                      ? failed[0].error.message
                       : 'Failed to import worlds';
                     toast.error(
-                      `Failed to import worlds: ${errorMsg}`,
+                      i18n.t('dragdrop.worlds_import_failed', { error: errorMsg }),
                       { id: loadingToastId }
                     );
                   }
                 });
                 return;
               } else {
-                toast('Drop a Minecraft world folder to import it. World folders must contain a level.dat file.');
+                toast(i18n.t('dragdrop.world_drop_hint'));
               }
             }
 
@@ -256,7 +257,7 @@ export function useGlobalDragAndDrop() {
                   itemTypeName = 'data packs';
                   break;
                 default:
-                  toast.error(`Drag and drop not configured for content type: ${currentContentType}`);
+                  toast.error(i18n.t('dragdrop.not_configured', { type: currentContentType }));
                   return;
               }
 
@@ -269,7 +270,7 @@ export function useGlobalDragAndDrop() {
                 console.log(`[DragDrop Hook ${instanceId}] Initiating content import (OpID: ${operationId}) for ${relevantFiles.length} files at ${eventTimestamp}`);
                 
                 const loadingToastId = `loading-${operationId}`;
-                toast.loading(`Importing ${relevantFiles.length} ${itemTypeName} via drag & drop...`, { id: loadingToastId });
+                toast.loading(i18n.t('dragdrop.importing_content', { count: relevantFiles.length, itemType: itemTypeName }), { id: loadingToastId });
 
                 ContentService.installLocalContentToProfile({
                   profile_id: currentProfileId,
@@ -279,23 +280,23 @@ export function useGlobalDragAndDrop() {
                 .then(() => {
                   console.log(`[DragDrop Hook ${instanceId}] Content import SUCCESS (OpID: ${operationId}) at ${new Date().toISOString()}`);
                   toast.success(
-                    `${relevantFiles.length} ${itemTypeName} import initiated. List will refresh.`,
-                    { id: loadingToastId } 
+                    i18n.t('dragdrop.content_import_success', { count: relevantFiles.length, itemType: itemTypeName }),
+                    { id: loadingToastId }
                   );
                   useAppDragDropStore.getState().triggerRefresh(currentContentType);
                 })
                 .catch((err) => {
                   console.error(`[DragDrop Hook ${instanceId}] Content import ERROR (OpID: ${operationId}) at ${new Date().toISOString()}:`, err);
                   toast.error(
-                    `Failed to import ${itemTypeName}: ${err instanceof Error ? err.message : String(err)}`,
-                    { id: loadingToastId } 
+                    i18n.t('dragdrop.content_import_failed', { itemType: itemTypeName, error: err instanceof Error ? err.message : String(err) }),
+                    { id: loadingToastId }
                   );
                 });
               } else {
-                toast(`No files matching expected types (${expectedExtensions.join(', ')}) for ${itemTypeName} were dropped.`);
+                toast(i18n.t('dragdrop.no_matching_files', { extensions: expectedExtensions.join(', '), itemType: itemTypeName }));
               }
             } else {
-              toast('Drop files onto an active profile content area to import them, or drop a .noriskpack/.mrpack/.zip file anywhere to import a profile.');
+              toast(i18n.t('dragdrop.drop_hint'));
             }
           } else if (payload.type === 'cancel') {
             console.log(`[DragDrop Hook ${instanceId}] File drop cancelled at ${eventTimestamp}`);
@@ -303,7 +304,7 @@ export function useGlobalDragAndDrop() {
         });
       } catch (error) {
         console.error(`[DragDrop Hook ${instanceId}] Failed to set up drag and drop listener:`, error);
-        toast.error("Could not initialize drag & drop listener.");
+        toast.error(i18n.t('dragdrop.listener_init_failed'));
       }
     };
 
