@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { SearchStyleInput } from "../../ui/Input";
 import { IconButton } from "../../ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
@@ -34,6 +35,7 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
   selectedSourceProfileId,
   onSourceProfileChange,
 }) => {
+  const { t } = useTranslation();
   const [showSourceSelectInput, setShowSourceSelectInput] = useState(false);
   const [profileSearchValue, setProfileSearchValue] = useState('');
   const [maxProfilesToShow, setMaxProfilesToShow] = useState(9);
@@ -114,7 +116,7 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
             id="quickProfileNameInput"
             value={profileName}
             onChange={(e) => onProfileNameChange(e.target.value)}
-            placeholder="Enter name for new profile"
+            placeholder={t('placeholders.new_profile_name')}
             icon="solar:user-bold"
             error={error || undefined}
             disabled={isLoading}
@@ -177,7 +179,7 @@ export const ModrinthQuickProfile: React.FC<ModrinthQuickProfileProps> = ({
                   type="text"
                   value={profileSearchValue}
                   onChange={(e) => setProfileSearchValue(e.target.value)}
-                  placeholder="Search profiles..."
+                  placeholder={t('placeholders.search_profiles')}
                   className="w-full pl-7 pr-3 py-1.5 bg-black/20 border border-white/10 rounded-md text-xs font-minecraft-ten text-white placeholder-white/50 focus:border-accent focus:outline-none transition-colors"
                   disabled={isLoading}
                 />

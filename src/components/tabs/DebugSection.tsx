@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { toast } from "react-hot-toast";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { useTranslation } from "react-i18next";
 import {
   listLauncherLogs,
   listCrashReports,
@@ -15,6 +16,7 @@ import {
 type DebugTab = "launcher" | "minecraft" | "crashes";
 
 export function DebugSection() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<DebugTab>("launcher");
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,10 +61,10 @@ export function DebugSection() {
       const content = await getLogFileContent(file.path);
       const url = await uploadLogToMclogs(content);
       await writeText(url);
-      toast.success("Uploaded & copied to clipboard!");
+      toast.success(t('debug.uploaded_copied'));
     } catch (e) {
       console.error("Failed to upload:", e);
-      toast.error("Failed to upload: " + getErrorMessage(e));
+      toast.error(t('debug.upload_failed', { error: getErrorMessage(e) }));
     }
     setUploadingFile(null);
   }
@@ -71,10 +73,10 @@ export function DebugSection() {
     try {
       const content = await getLogFileContent(file.path);
       await writeText(content);
-      toast.success("Copied to clipboard!");
+      toast.success(t('debug.copied'));
     } catch (e) {
       console.error("Failed to copy:", e);
-      toast.error("Failed to copy: " + getErrorMessage(e));
+      toast.error(t('debug.copy_failed', { error: getErrorMessage(e) }));
     }
   }
 

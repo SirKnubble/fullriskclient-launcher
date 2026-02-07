@@ -13,8 +13,9 @@ import { useThemeStore } from '../../../store/useThemeStore'; // For accent colo
 import { cn } from '../../../lib/utils';
 import { ModrinthQuickProfile } from './ModrinthQuickProfile'; // New import
 // Potentially import Profile type if available and not 'any'
-// import type { Profile } from '../../../types/profile'; 
+// import type { Profile } from '../../../types/profile';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface ModrinthQuickInstallModalV2Props {
   isOpen: boolean;
@@ -57,6 +58,7 @@ export const ModrinthQuickInstallModalV2: React.FC<ModrinthQuickInstallModalV2Pr
   findBestVersionForProfile,
   onInstallToNewProfile,
 }) => {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor); // Moved hook to the top
   const [showQuickProfileView, setShowQuickProfileView] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
@@ -104,14 +106,14 @@ export const ModrinthQuickInstallModalV2: React.FC<ModrinthQuickInstallModalV2Pr
     setLastCreationErrorMessage(null);
     
     if (!project || !versions || versions.length === 0) { // Guard clause
-        toast.error("Cannot create profile: Project or version data is missing.");
+        toast.error(t('modrinth.errors.missing_data'));
         setCreationResult('error'); // Set error state if essential data is missing
         setLastCreationErrorMessage("Project or version data is missing for profile creation.");
         return;
     }
     const versionToInstall = versions[0];
     if (!versionToInstall) {
-        toast.error("Cannot create profile: No suitable version found.");
+        toast.error(t('modrinth.errors.no_suitable_version'));
         setCreationResult('error');
         setLastCreationErrorMessage("No suitable version found for the new profile.");
         return;

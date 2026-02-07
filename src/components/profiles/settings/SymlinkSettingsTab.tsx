@@ -4,6 +4,7 @@ import type { Profile, SymlinkInfo } from "../../../types/profile";
 import { Button } from "../../ui/buttons/Button";
 import { IconButton } from "../../ui/buttons/IconButton";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { useLaunchStateStore, LaunchState } from "../../../store/launch-state-store";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -29,6 +30,7 @@ export function SymlinkSettingsTab({
   updateProfile,
   allProfiles,
 }: SymlinkSettingsTabProps) {
+  const { t } = useTranslation();
   const { showModal, hideModal } = useGlobalModal();
   const { confirm, confirmDialog } = useConfirmDialog();
   const [symlinks, setSymlinks] = useState<SymlinkInfo[]>([]);
@@ -53,7 +55,7 @@ export function SymlinkSettingsTab({
       const errorMessage = error instanceof Error ? error.message : String(error.message);
       logError(`Failed to load symlinks for profile ${editedProfile.id}: ${errorMessage}`);
       console.error("Failed to load symlinks:", error);
-      toast.error("Failed to load symlinks");
+      toast.error(t('symlinks.load_failed'));
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ export function SymlinkSettingsTab({
       }
     } catch (error) {
       console.error("Failed to open folder picker:", error);
-      toast.error("Failed to open folder picker");
+      toast.error(t('symlinks.folder_picker_failed'));
     }
   };
 
@@ -127,7 +129,7 @@ export function SymlinkSettingsTab({
       }
     } catch (error) {
       console.error("Failed to open file picker:", error);
-      toast.error("Failed to open file picker");
+      toast.error(t('symlinks.file_picker_failed'));
     }
   };
 
@@ -151,7 +153,7 @@ export function SymlinkSettingsTab({
       if (errorMessage.includes("os error 1314") || errorMessage.includes("erforderliches Recht")) {
         logWarn(`Symlink creation failed due to Windows permissions. Profile: ${editedProfile.id}`);
         toast.error(
-          "Windows requires Administrator rights or Developer Mode for symlinks. Please run the launcher as Administrator or enable Developer Mode in Windows Settings.",
+          t('symlinks.windows_admin_required'),
           { duration: 8000 }
         );
       } else {
@@ -162,9 +164,9 @@ export function SymlinkSettingsTab({
 
   const removeSymlink = async (path: string) => {
     const confirmed = await confirm({
-      title: "Remove Symlink",
-      message: `Are you sure you want to remove the symlink "${path}"? The original files will not be deleted.`,
-      confirmText: "Remove",
+      title: t('symlinks.remove_title'),
+      message: t('symlinks.remove_confirm', { path }),
+      confirmText: t('symlinks.remove_button'),
       cancelText: "Cancel",
       type: "danger",
     });

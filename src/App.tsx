@@ -43,6 +43,7 @@ import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 import { NotificationModal } from "./components/modals/NotificationModal";
 import { useNotificationStore } from "./store/notification-store";
 import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
+import { useTranslation } from "react-i18next";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -50,6 +51,7 @@ export type ProfilesTabContext = {
 };
 
 export function App() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
@@ -142,7 +144,7 @@ export function App() {
               "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
               e,
             );
-            toast.error("Could not globally process Minecraft process status.");
+            toast.error(t('app.errors.process_status'));
           }
         }
       },
@@ -255,7 +257,7 @@ export function App() {
       console.log("[App.tsx] Grouping preference saved successfully.");
     } catch (error) {
       console.error("[App.tsx] Failed to save grouping preference:", error);
-      toast.error("Failed to save grouping preference.");
+      toast.error(t('app.errors.save_grouping'));
     }
   };
 
