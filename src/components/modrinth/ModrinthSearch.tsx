@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { ModrinthService } from "../../services/modrinth-service";
@@ -100,6 +101,7 @@ export const ModrinthSearch: React.FC<ModrinthSearchProps> = ({
   selectedLoaders = [],
   selectedEnvironmentOptions = [],
 }) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<ModrinthSearchHit[]>([]);
@@ -1211,7 +1213,7 @@ export const ModrinthSearch: React.FC<ModrinthSearchProps> = ({
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search mods, modpacks, resource packs..."
+                placeholder={t('placeholders.search_modrinth')}
                 clearable={searchTerm.length > 0}
                 onClear={() => setSearchTerm("")}
                 icon={<Icon icon="pixel:search" className="w-6 h-6" />}
@@ -1435,10 +1437,10 @@ export const ModrinthSearch: React.FC<ModrinthSearchProps> = ({
                 icon="pixel:grid-solid"
                 message={
                   searchTerm.trim()
-                    ? `No results found for "${searchTerm}"`
+                    ? t('empty_states.no_results_for', { query: searchTerm })
                     : searchResults.length === 0
-                      ? "No content found. Try a different search."
-                      : "Browse popular content"
+                      ? t('empty_states.no_content_found')
+                      : t('empty_states.browse_popular')
                 }
               />
             ) : null}

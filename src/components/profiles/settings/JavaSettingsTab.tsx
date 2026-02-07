@@ -132,7 +132,7 @@ export function JavaSettingsTab({
       setDetectedJavaInstallations(installations);
       if (installations.length === 0) {
         toast(
-          "No Java installations found on your system. You may need to specify the path manually if you use a custom Java setup.",
+          t('java.no_installations_found'),
         );
       } else if (!customJavaPathInput) {
         const currentProfileJavaPath = editedProfile.settings?.java_path;
@@ -149,7 +149,7 @@ export function JavaSettingsTab({
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       setJavaDetectionError(errorMessage); // Store for internal reference if needed
-      toast.error(`Failed to detect Java: ${errorMessage}`);
+      toast.error(t('java.detect_failed', { error: errorMessage }));
       setDetectedJavaInstallations([]);
     } finally {
       setIsDetectingJava(false);
@@ -179,7 +179,7 @@ export function JavaSettingsTab({
         })
         .catch((error) => {
           console.error("Failed to load global memory settings:", error);
-          toast.error("Failed to load global memory settings");
+          toast.error(t('java.load_memory_failed'));
         })
         .finally(() => {
           setIsLoadingGlobalMemory(false);
@@ -202,7 +202,7 @@ export function JavaSettingsTab({
         })
         .catch((error) => {
           console.error("Failed to load global JVM args:", error);
-          toast.error("Failed to load global JVM settings");
+          toast.error(t('java.load_jvm_failed'));
         })
         .finally(() => {
           setIsLoadingGlobalJvmArgs(false);
@@ -236,7 +236,7 @@ export function JavaSettingsTab({
   const testCustomJavaPath = async (path_to_test?: string) => {
     const currentPath = path_to_test || customJavaPathInput;
     if (!currentPath) {
-      toast.error("Please select or enter a Java path to test.");
+      toast.error(t('java.select_path_to_test'));
       return;
     }
     setIsValidatingJavaPath(true);
@@ -248,7 +248,7 @@ export function JavaSettingsTab({
       });
       if (isValid) {
         setValidationResult("valid");
-        toast.success("Java path is valid!");
+        toast.success(t('java.path_valid'));
         updateProfile({
           settings: {
             ...editedProfile.settings,
@@ -299,7 +299,7 @@ export function JavaSettingsTab({
         setGlobalMemorySettingsState(newGlobalSettings);
       } catch (error) {
         console.error("Failed to save global memory settings:", error);
-        toast.error("Failed to save global RAM settings");
+        toast.error(t('java.save_ram_failed'));
       }
     } else {
       // For custom profiles, save to profile settings
@@ -334,7 +334,7 @@ export function JavaSettingsTab({
         setGlobalJvmArgsState(args || null);
       } catch (error) {
         console.error("Failed to save global JVM args:", error);
-        toast.error("Failed to save global JVM settings");
+        toast.error(t('java.save_jvm_failed'));
       }
     } else {
       // For custom profiles, save to profile settings
@@ -386,7 +386,7 @@ export function JavaSettingsTab({
         }
       } catch (error) {
         console.error("Failed to save global JVM args:", error);
-        toast.error("Failed to save global JVM settings");
+        toast.error(t('java.save_jvm_failed'));
       }
     } else {
       // For custom profiles, save to profile settings
@@ -523,7 +523,7 @@ export function JavaSettingsTab({
                     id="custom-java-path-input"
                     value={customJavaPathInput}
                     onChange={(e) => handleJavaPathInputChange(e.target.value)}
-                    placeholder="Path to java executable (e.g., .../bin/javaw.exe)"
+                    placeholder={t('placeholders.java_path')}
                     className="flex-1 text-2xl py-3"
                     variant="flat"
                   />

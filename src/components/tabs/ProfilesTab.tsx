@@ -16,6 +16,7 @@ import { ProfileWizardV2 } from "../profiles/wizard-v2/ProfileWizardV2";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/buttons/Button";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { ProfileDetailView } from "../profiles/ProfileDetailView";
 import { ExportProfileModal } from "../profiles/ExportProfileModal";
 import { TabLayout } from "../ui/TabLayout";
@@ -24,6 +25,7 @@ import { ProfileScreenshotModal } from "../profiles/ProfileScreenshotModal";
 import type { ScreenshotInfo as ActualScreenshotInfo } from "../../types/profile";
 
 export function ProfilesTab() {
+  const { t } = useTranslation();
   console.log("[ProfilesTab] Rendering or re-rendering.");
   const {
     profiles,
@@ -146,7 +148,7 @@ export function ProfilesTab() {
         console.warn(
           `[ProfilesTab] Route Effect: Profile with ID '${currentRouteProfileId}' not found. Navigating to /profiles.`,
         );
-        toast.error(`Profile with ID '${currentRouteProfileId}' not found.`);
+        toast.error(t('profiles.errors.profile_not_found', { id: currentRouteProfileId }));
         navigate("/profiles", { replace: true });
         setShowDetailView(false);
         setSelectedProfile(null);
@@ -330,7 +332,7 @@ export function ProfilesTab() {
     );
     const deletePromise = useProfileStore.getState().deleteProfile(profileId);
     toast.promise(deletePromise, {
-      loading: `Deleting profile '${profileName}'...`,
+      loading: t('profiles.deletingProfile'),
       success: () => {
         fetchProfiles();
         if (params.profileId === profileId) {
@@ -339,10 +341,10 @@ export function ProfilesTab() {
           );
           navigate("/profiles");
         }
-        return `Profile '${profileName}' deleted successfully!`;
+        return t('profiles.deleteSuccess');
       },
       error: (err) =>
-        `Failed to delete profile: ${err instanceof Error ? err.message : String(err.message)}`,
+        t('profiles.deleteError', { error: err instanceof Error ? err.message : String(err.message) }),
     });
   };
 
@@ -361,7 +363,7 @@ export function ProfilesTab() {
       await setProfileGroupingCriterionStore(newCriterion);
     } catch (error) {
       console.error("Failed to save grouping preference:", error);
-      toast.error("Failed to save grouping preference.");
+      toast.error(t('app.errors.save_grouping'));
     }
   };
 

@@ -11,6 +11,7 @@ import { writeImage } from "@tauri-apps/plugin-clipboard-manager";
 import { Image as TauriImage } from "@tauri-apps/api/image";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 
 interface ProfileScreenshotModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export function ProfileScreenshotModal({
   screenshot,
   onScreenshotDeleted,
 }: ProfileScreenshotModalProps) {
+  const { t } = useTranslation();
   const [isModalImageLoaded, setIsModalImageLoaded] = useState(false);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -102,7 +104,7 @@ export function ProfileScreenshotModal({
       // No explicit success toast needed as the OS will show the folder
     } catch (error) {
       console.error("Failed to reveal item in folder:", error);
-      toast.error("Failed to open folder. See console for details.");
+      toast.error(t('profiles.errors.open_folder_failed'));
     }
   };
 

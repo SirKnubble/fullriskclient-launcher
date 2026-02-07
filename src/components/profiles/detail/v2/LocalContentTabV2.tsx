@@ -351,7 +351,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           setNoriskPacksConfig(config);
         } catch (err) {
           console.error("Failed to fetch NoRisk packs config:", err);
-          toast.error("Failed to load NoRisk pack list.");
+          toast.error(t('content.errors.load_norisk_packs'));
           setNoriskPacksConfig(null);
         } finally {
           setIsFetchingPacksConfig(false);

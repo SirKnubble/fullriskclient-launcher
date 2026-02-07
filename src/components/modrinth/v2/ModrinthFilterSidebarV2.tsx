@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../../lib/utils';
 import type {
   ModrinthProjectType,
@@ -260,6 +261,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
   filterServerRequired,
   onServerRequiredToggle,
 }) => {
+  const { t } = useTranslation();
   // Extract the 'Categories' group if it exists
   const categoriesGroup = dynamicFilterGroups.find(
     group => group.headerValue.toLowerCase() === 'categories'
@@ -329,7 +331,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
                 <Icon icon="solar:magnifer-bold" className="w-3 h-3 text-white/50 flex-shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search version..."
+                  placeholder={t('placeholders.search_version')}
                   value={gameVersionSearchTerm}
                   onChange={(e) => onGameVersionSearchTermChange(e.target.value)}
                   className="bg-transparent text-white placeholder-white/50 font-minecraft-ten text-xs flex-1 outline-none min-w-0"

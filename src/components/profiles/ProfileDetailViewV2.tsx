@@ -124,12 +124,12 @@ export function ProfileDetailViewV2({
     if (params.quickPlaySingleplayer) {
       // Launch with specific world using QuickPlay
       console.log(`🚀 QuickPlay Singleplayer: Launching world: ${params.quickPlaySingleplayer}`);
-      toast.success(`🚀 Launching world: ${params.quickPlaySingleplayer}`);
+      toast.success(t('profiles.toast.launching_world', { name: params.quickPlaySingleplayer }));
       handleQuickPlayLaunch(params.quickPlaySingleplayer, undefined);
     } else if (params.quickPlayMultiplayer) {
       // Launch with specific server using QuickPlay
       console.log(`🌐 QuickPlay Multiplayer: Joining server: ${params.quickPlayMultiplayer}`);
-      toast.success(`🌐 Joining server: ${params.quickPlayMultiplayer}`);
+      toast.success(t('profiles.toast.joining_server', { name: params.quickPlayMultiplayer }));
       handleQuickPlayLaunch(undefined, params.quickPlayMultiplayer);
     } else {
       // Regular launch

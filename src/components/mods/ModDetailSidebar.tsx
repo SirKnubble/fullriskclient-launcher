@@ -3,6 +3,8 @@
 import React from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n/i18n";
 import { useNavigate } from "react-router-dom";
 import type { UnifiedProjectDetails } from "../../types/unified";
 import { UnifiedDependencyType } from "../../types/unified";
@@ -28,7 +30,7 @@ function LinkItem({ icon, label, url }: LinkItemProps) {
       await openExternalUrl(url);
     } catch (error) {
       console.error("Failed to open URL:", error);
-      toast.error("Could not open link in browser.");
+      toast.error(i18n.t('common.open_link_failed'));
     }
   };
 
@@ -145,6 +147,7 @@ function formatGameVersions(versions: string[]): string[] {
 }
 
 export function ModDetailSidebar({ project, accentColor }: ModDetailSidebarProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleOpenLicense = async () => {

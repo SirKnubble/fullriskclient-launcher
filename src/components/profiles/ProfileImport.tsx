@@ -17,6 +17,7 @@ import { useImportProgressStore } from "../../store/import-progress-store";
 import { parseErrorMessage } from "../../utils/error-utils";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { EventType, type EventPayload } from "../../types/events";
+import { useTranslation } from "react-i18next";
 
 interface ProfileImportProps {
   onClose: () => void;
@@ -27,6 +28,7 @@ export function ProfileImport({
   onClose,
   onImportComplete,
 }: ProfileImportProps) {
+  const { t } = useTranslation();
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export function ProfileImport({
 
         // Check if this file is already being imported
         if (isPathImporting(selectedPath)) {
-          toast.error("This file is already being imported.");
+          toast.error(t('profiles.errors.already_importing'));
           return;
         }
 
@@ -117,7 +119,7 @@ export function ProfileImport({
           // No toast for cancellation is usually fine
         } else {
           console.warn("File selection dialog did not return a valid path or was an array:", selectedPath);
-          toast.error("Could not get selected file path. Please try again.");
+          toast.error(t('profiles.errors.file_path_failed'));
         }
       }
     } catch (err) {

@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { ProfileIcon } from "./ProfileIcon";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { cn } from "../../lib/utils";
+import { useTranslation } from "react-i18next";
 import { useLaunchStateStore } from "../../store/launch-state-store";
 
 interface ProfileCardProps {
@@ -39,6 +40,7 @@ export function ProfileCard({
   interactionMode = "launch",
   onSettingsNavigation,
 }: ProfileCardProps) {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
   const navigate = useNavigate();
 
@@ -137,7 +139,7 @@ export function ProfileCard({
   const handleClone = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!profile.id) {
-      toast.error("Profile ID is missing, cannot clone.");
+      toast.error(t('profiles.errors.id_missing_clone'));
       return;
     }
     try {
@@ -174,7 +176,7 @@ export function ProfileCard({
       }
     } catch (err) {
       console.error("Error in clone setup or dialog: ", err);
-      toast.error("Could not initiate cloning process.");
+      toast.error(t('profiles.errors.clone_failed'));
       setIsCloning(false);
     }
   };
@@ -267,7 +269,7 @@ export function ProfileCard({
 
   const handleRepairFromContextMenu = async () => {
     if (!profile?.id) {
-      toast.error("Profile ID is missing, cannot repair.");
+      toast.error(t('profiles.errors.id_missing_repair'));
       return;
     }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Profile } from "../../../types/profile";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
@@ -31,6 +32,7 @@ export function NRCTab({
   updateProfile,
   onRefresh,
 }: NRCTabProps) {
+  const { t } = useTranslation();
   const [noriskPacks, setNoriskPacks] = useState<Record<string, NoriskPack>>({});
   const [loading, setLoading] = useState(false);
   const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<string | null>(null);
@@ -126,7 +128,7 @@ export function NRCTab({
     try {
       setIsRepairing(true);
       await ProfileService.repairProfile(profile.id);
-      toast.success("Profile repair completed successfully!");
+      toast.success(t('profiles.repair_success'));
     } catch (err) {
       console.error("Failed to repair profile:", err);
       const errorMessage = err instanceof Error ? err.message : String(err);

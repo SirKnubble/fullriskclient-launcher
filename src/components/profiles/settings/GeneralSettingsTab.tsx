@@ -144,7 +144,7 @@ export function GeneralSettingsTab({
               <SearchStyleInput
                 value={editedProfile.group || ""}
                 onChange={(e) => updateProfile({ group: e.target.value || null })}
-                placeholder="e.g. modpacks, vanilla+"
+                placeholder={t('placeholders.group_name')}
                 className="text-xl w-full"
                 disabled={profile.is_standard_version ? true : false}
               />

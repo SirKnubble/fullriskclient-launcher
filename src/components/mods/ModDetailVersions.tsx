@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { UnifiedProjectDetails, UnifiedVersion } from "../../types/unified";
 import { ModPlatform } from "../../types/unified";
@@ -69,6 +70,7 @@ function mapProjectTypeToContentType(projectType: string): ContentType | null {
 }
 
 export function ModDetailVersions({ project }: ModDetailVersionsProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { profiles, fetchProfiles } = useProfileStore();
   const { showModal, hideModal } = useGlobalModal();
@@ -170,7 +172,7 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
   // Handle modpack version install (creates new profile)
   const handleModpackInstall = async (searchHit: ModrinthSearchHit, version: UnifiedVersion) => {
     if (!version.files?.length) {
-      toast.error("No files available for this version");
+      toast.error(t('mod_detail.no_files_for_version'));
       return;
     }
 
@@ -262,7 +264,7 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
 
     const handleProfileSelect = async (_: any, profile: Profile) => {
       if (!version.files?.length) {
-        toast.error("No files available");
+        toast.error(t('mod_detail.no_files_available'));
         return;
       }
 

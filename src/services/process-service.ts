@@ -5,6 +5,7 @@ import { getLauncherConfig } from "./launcher-config-service";
 import flagsmith from "flagsmith";
 import { toast } from "react-hot-toast";
 import { logInfo, logWarn } from "../utils/logging-utils";
+import i18n from '../i18n/i18n';
 
 export async function isMinecraftRunning(profileId: string): Promise<boolean> {
   try {
@@ -38,7 +39,7 @@ export async function launch(
       const isAllowed = flagsmith.hasFeature("show_experimental_mode", { fallback: false });
       logInfo(`[ProcessService] Feature flag check result: ${isAllowed}`);
       if (!isAllowed) {
-        toast.error("Please disable experimental mode in Settings.");
+        toast.error(i18n.t('settings.disable_experimental'));
         return; // Block launch
       }
     }

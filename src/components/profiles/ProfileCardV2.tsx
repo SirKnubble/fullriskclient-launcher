@@ -150,7 +150,7 @@ export function ProfileCardV2({
         if (onOpenFolder) {
           onOpenFolder(profile);
         } else {
-          toast.success(`📁 Opening folder for ${profile.name}!`);
+          toast.success(t('profiles.toast.opening_folder', { name: profile.name }));
           console.log("Opening folder for profile:", profile.name);
         }
       },
@@ -198,7 +198,7 @@ export function ProfileCardV2({
         if (onDelete) {
           onDelete(profile.id, profile.name);
         } else {
-          toast.error(`🗑️ Delete ${profile.name}!`);
+          toast.error(t('profiles.toast.delete_fallback', { name: profile.name }));
           console.log("Deleting profile:", profile.name);
         }
       },
@@ -404,7 +404,7 @@ export function ProfileCardV2({
         if (onMods) {
           onMods(profile);
         } else {
-          toast.success(`📦 Managing mods for ${profile.name}!`);
+          toast.success(t('profiles.toast.managing_mods', { name: profile.name }));
           console.log("Managing mods for profile:", profile.name);
         }
       },
@@ -474,7 +474,7 @@ export function ProfileCardV2({
               if (onMods) {
                 onMods(profile);
               } else {
-                toast.success(`📦 Managing mods for ${profile.name}!`);
+                toast.success(t('profiles.toast.managing_mods', { name: profile.name }));
                 console.log("Managing mods for profile:", profile.name);
               }
             }
@@ -741,7 +741,7 @@ export function ProfileCardV2({
             if (onMods) {
               onMods(profile);
             } else {
-              toast.success(`📦 Managing mods for ${profile.name}!`);
+              toast.success(t('profiles.toast.managing_mods', { name: profile.name }));
               console.log("Managing mods for profile:", profile.name);
             }
           }

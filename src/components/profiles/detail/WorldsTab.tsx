@@ -34,6 +34,7 @@ import type {
 import type { CopyWorldParams, Profile } from "../../../types/profile";
 import { timeAgo } from "../../../utils/time-utils";
 import * as WorldService from "../../../services/world-service";
+import { useTranslation } from "react-i18next";
 import {
   getDifficultyString,
   getGameModeString,
@@ -91,6 +92,7 @@ export function WorldsTab({
   searchQuery = "",
   onLaunchRequest,
 }: WorldsTabProps) {
+  const { t } = useTranslation();
   const allProfilesFromStore = useProfileStore((state) => state.profiles);
   const isLoadingProfilesFromStore = useProfileStore((state) => state.loading);
   const { showModal, hideModal } = useGlobalModal();
@@ -118,12 +120,12 @@ export function WorldsTab({
     if (isWorld) {
       // Launch with specific world using QuickPlay
       console.log(`🚀 QuickPlay Singleplayer: Launching world: ${item.folder_name}`);
-      toast.success(`🚀 Launching world: ${item.display_name || item.folder_name}`);
+      toast.success(t('worlds.launching_world', { name: item.display_name || item.folder_name }));
       handleQuickPlayLaunch(item.folder_name, undefined);
     } else if (item.address) {
       // Launch with specific server using QuickPlay
       console.log(`🌐 QuickPlay Multiplayer: Joining server: ${item.address}`);
-      toast.success(`🌐 Joining server: ${item.name || item.address}`);
+      toast.success(t('worlds.joining_server', { name: item.name || item.address }));
       handleQuickPlayLaunch(undefined, item.address);
     } else {
       // Regular launch as fallback
@@ -547,7 +549,7 @@ export function WorldsTab({
   const handleOpenWorldFolder = useCallback(
     async (world: WorldInfo) => {
       if (!world?.icon_path) {
-        toast.error("World path is not available.");
+        toast.error(t('worlds.path_not_available'));
         console.error(
           "Cannot open world folder: Profile path is missing.",
           profile,

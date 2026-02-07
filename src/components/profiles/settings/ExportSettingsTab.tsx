@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Profile } from "../../../types/profile"; // Adjust path as needed
 import { SearchStyleInput } from "../../ui/Input";
 import { Checkbox } from "../../ui/Checkbox";
@@ -38,6 +39,7 @@ export function ExportSettingsTab({
   onExportActionAvailable,
   isInModalContext = false, // Default to false
 }: ExportSettingsTabProps) {
+  const { t } = useTranslation();
   const [exportFilename, setExportFilename] = useState(profile.name);
   const [selectedExportPaths, setSelectedExportPaths] = useState<Set<string>>(
     new Set()
@@ -160,7 +162,7 @@ export function ExportSettingsTab({
 
   const handleExport = async () => {
     if (!exportFilename.trim()) {
-      toast.error("Please enter a filename for the export.");
+      toast.error(t('export.enter_filename'));
       return;
     }
 
@@ -264,7 +266,7 @@ export function ExportSettingsTab({
           <SearchStyleInput
             value={exportFilename}
             onChange={(e) => setExportFilename(e.target.value)}
-            placeholder="Enter filename without extension"
+            placeholder={t('placeholders.enter_filename')}
             icon="solar:document-text-bold"
             disabled={isExporting}
           />

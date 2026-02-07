@@ -13,6 +13,7 @@ import type { DropdownOption } from '../../ui/CustomDropdown';
 import { ModrinthQuickProfile } from './ModrinthQuickProfile';
 import { ActionButton } from '../../ui/ActionButton';
 import { toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Universal Profiles Modal for Modrinth Installation
@@ -85,6 +86,7 @@ export function ModrinthQuickInstallProfilesModal({
   installStatus = {},
   version,
 }: ModrinthQuickInstallProfilesModalProps) {
+  const { t } = useTranslation();
   const { profilesTabSortBy, setProfilesTabSortBy, accentColor } = useThemeStore();
   const [searchValue, setSearchValue] = useState('');
   const [sortValue, setSortValue] = useState(profilesTabSortBy);
@@ -376,7 +378,7 @@ export function ModrinthQuickInstallProfilesModal({
               <div className="flex gap-3 items-start">
                 <div className="flex-1">
                   <SearchWithFilters
-                    placeholder="Search profiles..."
+                    placeholder={t('placeholders.search_profiles')}
                     searchValue={searchValue}
                     onSearchChange={handleSearchChange}
                     sortOptions={sortOptions}
