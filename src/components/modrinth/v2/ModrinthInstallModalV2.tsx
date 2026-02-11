@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   ModrinthSearchHit,
   ModrinthVersion,
@@ -57,6 +58,7 @@ export const ModrinthInstallModalV2: React.FC<ModrinthInstallModalV2Props> = ({
   onUninstallClick,
   onInstallToNewProfile,
 }) => {
+  const { t } = useTranslation();
   const [showQuickProfileView, setShowQuickProfileView] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -189,7 +191,7 @@ export const ModrinthInstallModalV2: React.FC<ModrinthInstallModalV2Props> = ({
     modalContentLayout = (
       <>
         <div className="mb-1 mt-1">
-          <p className="text-gray-300 mb-2 text-base font-minecraft-ten">Select Profile(s) to install to:</p>
+          <p className="text-gray-300 mb-2 text-base font-minecraft-ten">{t('modrinth.select_profiles_to_install')}</p>
           {isLoadingStatus ? (
             <div className="flex justify-center items-center py-6">
               <svg
@@ -212,7 +214,7 @@ export const ModrinthInstallModalV2: React.FC<ModrinthInstallModalV2Props> = ({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              <span className="ml-3 text-gray-300">Loading profiles...</span>
+              <span className="ml-3 text-gray-300">{t('profiles.loadingProfiles')}</span>
             </div>
           ) : (
             <div

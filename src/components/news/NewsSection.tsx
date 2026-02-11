@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { fetchNewsAndChangelogs } from "../../services/nrc-service";
 import { openExternalUrl } from "../../services/tauri-service";
@@ -15,6 +16,7 @@ interface NewsSectionProps {
 }
 
 export function NewsSection({ className }: NewsSectionProps) {
+  const { t } = useTranslation();
   const newsRef = useRef<HTMLDivElement>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -120,7 +122,7 @@ export function NewsSection({ className }: NewsSectionProps) {
             icon="pixel:exclamation-triangle-solid"
             className="w-8 h-8 text-red-400 mx-auto mb-2"
           />
-          <p className="text-red-400">Error: {error}</p>
+          <p className="text-red-400">{t('common.error')}: {error}</p>
         </div>
       );
     }
@@ -133,7 +135,7 @@ export function NewsSection({ className }: NewsSectionProps) {
             icon="pixel:newspaper-solid"
             className="w-8 h-8 text-white/50 mx-auto mb-2"
           />
-          <p className="text-white/70">No news available at the moment.</p>
+          <p className="text-white/70">{t('news.no_news_available')}</p>
         </div>
       );
     }
@@ -141,7 +143,7 @@ export function NewsSection({ className }: NewsSectionProps) {
     return (
       <div className="flex flex-col space-y-1 w-full">
         {posts.map((post) => {
-          const rawTitle = post.yoast_head_json?.title || "News Item";
+          const rawTitle = post.yoast_head_json?.title || t('news.item');
           const suffixToRemove = " - NoRisk Client Blog";
           let displayTitle = rawTitle;
           if (rawTitle.endsWith(suffixToRemove)) {

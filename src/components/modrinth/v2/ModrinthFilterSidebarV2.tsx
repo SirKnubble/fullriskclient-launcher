@@ -320,8 +320,8 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
       }}
     >
       <div className="">
-        <AccordionItem 
-          title="Game Version" 
+        <AccordionItem
+          title={t('modrinth.game_versions')}
           defaultOpen={totalGameVersionFilters > 0}
           activeCount={totalGameVersionFilters}
         >
@@ -351,7 +351,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
               ))}
               
               {displayedGameVersions.length === 0 && (
-                <p className="text-gray-500 italic p-1 text-xs text-center">No matching versions.</p>
+                <p className="text-gray-500 italic p-1 text-xs text-center">{t('modrinth.no_matching_versions')}</p>
               )}
             </div>
             
@@ -395,8 +395,8 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
           </AccordionItem>
         )}
 
-        <AccordionItem 
-          title="Loader" 
+        <AccordionItem
+          title={t('modrinth.mod_loaders')}
           defaultOpen={totalLoaderFilters > 0}
           activeCount={totalLoaderFilters}
         >
@@ -414,7 +414,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
                 />
               );
             })}
-            {availableLoaders.length === 0 && <p className="text-gray-500 italic p-1 text-xs text-center">No loaders for {projectType}.</p>}
+            {availableLoaders.length === 0 && <p className="text-gray-500 italic p-1 text-xs text-center">{t('modrinth.no_loaders_for', { type: projectType })}</p>}
           </div>
         </AccordionItem>
 
@@ -437,27 +437,27 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
                   accentColor={accentColor}
                 />
               )) : (
-                <p className="text-xs text-gray-500 italic p-1 text-center">No options for {group.accordionTitle}.</p>
+                <p className="text-xs text-gray-500 italic p-1 text-center">{t('modrinth.no_options_for', { title: group.accordionTitle })}</p>
               )}
             </div>
           </AccordionItem>
         ))}
 
-        <AccordionItem 
-          title="Environment" 
+        <AccordionItem
+          title={t('modrinth.environment')}
           defaultOpen={totalEnvironmentFilters > 0}
           activeCount={totalEnvironmentFilters}
         > 
           <div className="space-y-1 pr-1">
             <FilterOption
-              label="Client"
+              label={t('modrinth.client')}
               icon={<Icon icon="solar:devices-bold" className="w-4 h-4 mr-1.5" />}
               isSelected={filterClientRequired}
               onClick={onClientRequiredToggle}
               accentColor={accentColor}
             />
             <FilterOption
-              label="Server"
+              label={t('modrinth.server')}
               icon={<Icon icon="solar:server-bold" className="w-4 h-4 mr-1.5" />}
               isSelected={filterServerRequired}
               onClick={onServerRequiredToggle}
