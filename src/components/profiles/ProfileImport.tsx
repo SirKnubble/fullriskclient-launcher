@@ -48,11 +48,11 @@ export function ProfileImport({
         directory: false,
         filters: [
           {
-            name: "Modpack Files",
+            name: t('profiles.import.modpack_files'),
             extensions: ["noriskpack", "mrpack", "zip"],
           },
         ],
-        title: "Select Modpack to Import",
+        title: t('profiles.import.select_modpack'),
       });
 
       if (selectedPath && typeof selectedPath === "string") {

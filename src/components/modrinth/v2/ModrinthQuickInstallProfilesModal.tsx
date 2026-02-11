@@ -568,12 +568,12 @@ export function ModrinthQuickInstallProfilesModal({
                         ) : isInstalling ? (
                           <>
                             <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin" />
-                            <span>Installing...</span>
+                            <span>{t('modrinth.installing')}</span>
                           </>
                         ) : (
                           <>
                             <Icon icon="solar:download-bold" className="w-4 h-4" />
-                            <span>Install</span>
+                            <span>{t('modrinth.install')}</span>
                           </>
                         )}
                       </button>

@@ -147,19 +147,19 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
 
   // Select options
   const versionTypeOptions: SelectOption[] = [
-    { value: "all", label: "All Types" },
-    { value: "release", label: "Release" },
-    { value: "beta", label: "Beta" },
-    { value: "alpha", label: "Alpha" },
+    { value: "all", label: t('mod_detail.versions.all_types') },
+    { value: "release", label: t('mod_detail.versions.release') },
+    { value: "beta", label: t('mod_detail.versions.beta') },
+    { value: "alpha", label: t('mod_detail.versions.alpha') },
   ];
 
   const gameVersionOptions: SelectOption[] = [
-    { value: "all", label: "All Game Versions" },
+    { value: "all", label: t('mod_detail.versions.all_game_versions') },
     ...availableGameVersions.map(v => ({ value: v, label: v })),
   ];
 
   const loaderOptions: SelectOption[] = [
-    { value: "all", label: "All Loaders" },
+    { value: "all", label: t('mod_detail.versions.all_loaders') },
     ...availableLoaders.map(l => ({ value: l, label: l })),
   ];
 
@@ -329,7 +329,7 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <Icon icon="solar:refresh-bold" className="w-6 h-6 text-white/50 animate-spin" />
-        <span className="ml-2 text-white/50 font-minecraft-ten">Loading versions...</span>
+        <span className="ml-2 text-white/50 font-minecraft-ten">{t('modrinth.loading_versions')}</span>
       </div>
     );
   }

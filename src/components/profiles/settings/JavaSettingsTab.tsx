@@ -215,8 +215,7 @@ export function JavaSettingsTab({
   const browseForJavaPath = async () => {
     try {
       const selected = await open({
-        title:
-          "Select Java Executable (javaw.exe, java) or Installation Directory",
+        title: t('settings.java.select_java_executable'),
         directory: false,
         multiple: false,
       });
@@ -539,7 +538,7 @@ export function JavaSettingsTab({
                       />
                     }
                     className="text-2xl"
-                    aria-label="Browse for Java executable"
+                    aria-label={t('profiles.settings.browse_java')}
                   >
                     {t('profiles.settings.browse')}
                   </Button>
