@@ -131,7 +131,7 @@ export function CosmeticPreview({ modelPath }: CosmeticPreviewProps) {
         </Canvas>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
-          <div className="text-white/50 text-sm font-minecraft-ten">Loading...</div>
+          <div className="text-white/50 text-sm font-minecraft-ten">{loadingText}</div>
         </div>
       )}
     </div>

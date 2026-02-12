@@ -214,7 +214,7 @@ export function NewsSection({ className }: NewsSectionProps) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Icon icon="pixel:newspaper-solid" className="w-7 h-7 text-white" />
-            <h2 className="text-2xl font-minecraft lowercase text-white">NEWS</h2>
+            <h2 className="text-2xl font-minecraft lowercase text-white">{t('news.title')}</h2>
           </div>
         </div>
         <hr

@@ -243,12 +243,12 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
         progressUnlisten = null;
       }
 
-      toast.success(`Successfully installed ${project.title} v${version.version_number}!`, { id: toastId, duration: 3000 });
+      toast.success(t('mod_detail.install_success', { title: project.title, version: version.version_number }), { id: toastId, duration: 3000 });
       await fetchProfiles();
       navigate(`/profilesv2/${newProfileId}`);
     } catch (error: any) {
       console.error("Modpack installation failed:", error);
-      toast.error(`Failed to install: ${error.message || error}`, { id: toastId });
+      toast.error(t('mod_detail.install_failed', { error: error.message || error }), { id: toastId });
     } finally {
       // Clean up listener
       if (progressUnlisten) {
@@ -275,7 +275,7 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
         const contentType = mapProjectTypeToContentType(project.project_type);
 
         if (!contentType) {
-          toast.error(`Cannot install project type: ${project.project_type}`);
+          toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
           return;
         }
 
@@ -296,11 +296,11 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
         };
 
         await installContentToProfile(payload);
-        toast.success(`Installed ${project.title} v${version.version_number} to ${profile.name}`);
+        toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: version.version_number, profile: profile.name }));
         setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
       } catch (error) {
         console.error("Installation failed:", error);
-        toast.error(`Failed to install: ${error}`);
+        toast.error(t('mod_detail.install_failed', { error }));
       } finally {
         setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
       }
@@ -407,12 +407,12 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
                   onClick={handleClearFilters}
                 >
                   <Icon icon="solar:trash-bin-trash-bold" className="w-3 h-3 mr-1.5" />
-                  <span>Clear All</span>
+                  <span>{t('common.clear_all')}</span>
                 </TagBadge>
 
                 {versionTypeFilter !== "all" && (
                   <TagBadge variant="filter" className="inline-flex whitespace-nowrap">
-                    Type: {versionTypeFilter}
+                    {t('mod_detail.type')}: {versionTypeFilter}
                     <button
                       onClick={() => setVersionTypeFilter("all")}
                       className="ml-1.5 text-current opacity-70 hover:opacity-100"
