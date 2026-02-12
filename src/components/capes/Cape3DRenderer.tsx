@@ -134,7 +134,7 @@ export function Cape3DRenderer({
   const loadCapeTexture = useCallback(() => {
     if (!isActuallyVisible || !sceneRef.current || !imageUrl) {
       if (!imageUrl && isActuallyVisible) {
-        setErrorMessage("No cape image URL provided");
+        setErrorMessage(t('capes.no_image_url'));
       }
       setIsLoading(false);
       return;
@@ -169,7 +169,7 @@ export function Cape3DRenderer({
       undefined,
       (errorEvent: unknown) => {
         if (!isActuallyVisible) return;
-        setErrorMessage(`Failed to load texture: ${imageUrl?.split('/').pop()}`);
+        setErrorMessage(t('capes.texture_load_failed', { filename: imageUrl?.split('/').pop() }));
         setIsLoading(false);
       }
     );
@@ -315,7 +315,7 @@ export function Cape3DRenderer({
           )}
           {inView && isLoading && !errorMessage && (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/70 text-white px-3 py-1.5 rounded text-xs font-minecraft lowercase">
-              Loading 3D...
+              {t('capes.loading_3d')}
             </div>
           )}
         </div>

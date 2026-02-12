@@ -223,7 +223,7 @@ export function ProfilesTab() {
         key = profile.group || t('profiles.no_group');
       else {
         // Fallback for invalid/legacy grouping criteria (e.g., old "none" values)
-        key = profile.group || "No Group";
+        key = profile.group || t('profiles.no_group');
       }
       if (!result[key]) result[key] = [];
       result[key].push(profile);
@@ -501,7 +501,7 @@ export function ProfilesTab() {
         >
           <div ref={contentRef}>
             {loading ? (
-              <LoadingState message="loading profiles..." />
+              <LoadingState message={t('profiles.loadingProfiles')} />
             ) : error ? (
               <EmptyState
                 icon="solar:danger-triangle-bold"
@@ -539,7 +539,7 @@ export function ProfilesTab() {
                     )}
                     {!collapsedProfileGroups.includes(groupKey) && groupedProfiles[groupKey].length === 0 && (
                       <p className="text-neutral-500 italic text-center py-4">
-                        No profiles in this group.
+                        {t('profiles.no_profiles_in_group')}
                       </p>
                     )}
                   </div>
@@ -548,7 +548,7 @@ export function ProfilesTab() {
             ) : (
               <EmptyState
                 icon="solar:widget-bold"
-                message="no profiles found"
+                message={t('profiles.noProfilesFound')}
               />
             )}
           </div>

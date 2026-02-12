@@ -346,7 +346,7 @@ export function ModDetailPage() {
           className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
         >
           <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('common.back')}</span>
         </button>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
@@ -367,7 +367,7 @@ export function ModDetailPage() {
           className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
         >
           <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('common.back')}</span>
         </button>
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
@@ -394,7 +394,7 @@ export function ModDetailPage() {
           className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
         >
           <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('common.back')}</span>
         </button>
       </div>
 
