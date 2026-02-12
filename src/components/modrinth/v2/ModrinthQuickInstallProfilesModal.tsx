@@ -346,12 +346,12 @@ export function ModrinthQuickInstallProfilesModal({
                 className="flex items-center gap-2 px-4 py-2 text-white/70 hover:text-white transition-colors duration-200 text-2xl lowercase font-minecraft"
               >
                 <Icon icon="solar:arrow-left-linear" className="w-4 h-4" />
-                <span>Back to Profiles</span>
+                <span>{t('modrinth.back_to_profiles')}</span>
               </button>
 
               <ActionButton
                 icon={isCreatingProfile ? "solar:refresh-bold" : "solar:play-bold-duotone"}
-                label={isCreatingProfile ? "Creating..." : "Create & Install"}
+                label={isCreatingProfile ? t('modrinth.creating') : t('modrinth.create_and_install')}
                 variant="primary"
                 size="md"
                 className="py-[0.29em]"
@@ -391,7 +391,7 @@ export function ModrinthQuickInstallProfilesModal({
                 {onInstallToNewProfile && (
                   <ActionButton
                     icon="solar:add-folder-line-duotone"
-                    label="New Profile"
+                    label={t('profiles.new_profile')}
                     variant="primary"
                     size="md"
                     className="py-[0.29em]"

@@ -832,7 +832,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                           setOpenVersionDropdownId(item.filename);
                         }
                       }}
-                      title="View version options"
+                      title={t('content.view_version_options')}
                     >
                       <span
                         className={`font-minecraft-ten transition-transform duration-200 ${isItemOpen ? "rotate-90" : ""}`}

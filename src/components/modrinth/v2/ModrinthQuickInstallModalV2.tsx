@@ -360,9 +360,9 @@ export const ModrinthQuickInstallModalV2: React.FC<ModrinthQuickInstallModalV2Pr
     modalContentLayout = (
       <div className="p-4 text-center space-y-3">
         <Icon icon="solar:close-circle-bold" className="w-16 h-16 text-red-500 mx-auto" />
-        <h3 className="text-xl font-semibold text-gray-100">Operation Failed</h3>
+        <h3 className="text-xl font-semibold text-gray-100">{t('modrinth.operation_failed')}</h3>
         <p className="text-sm text-red-400">
-          {lastCreationErrorMessage || "An error occurred while creating the profile or installing content."}
+          {lastCreationErrorMessage || t('modrinth.error_creating_or_installing')}
         </p>
       </div>
     );

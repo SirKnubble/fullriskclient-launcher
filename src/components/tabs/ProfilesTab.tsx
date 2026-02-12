@@ -439,7 +439,7 @@ export function ProfilesTab() {
       // We are trying to show a detail view.
       if (loading) {
         // If the main list of profiles is still loading.
-        return <LoadingState message="Loading profiles..." />;
+        return <LoadingState message={t('profiles.loadingProfiles')} />;
       }
       // Main profile list is loaded. Check if the *specific* profile for detail view is ready.
       if (
@@ -485,7 +485,7 @@ export function ProfilesTab() {
       }
       // Not yet ready to show detail view (useEffect is probably working on it, or profile not found).
       // Show a loading state specific to the detail view transition.
-      return <LoadingState message="Loading profile details..." />;
+      return <LoadingState message={t('profiles.loading_details')} />;
     } else {
       // No routeProfileId, so we're showing the list view.
       return (

@@ -163,7 +163,7 @@ export function SettingsPanel() {
             />
           </div>
           <div className="text-center">
-            <div className="text-white font-minecraft-ten text-sm mb-1">Your Profile</div>
+            <div className="text-white font-minecraft-ten text-sm mb-1">{t('friends.settings.your_profile')}</div>
             <div className="text-white/50 font-minecraft text-2xl">{status.label}</div>
           </div>
         </div>

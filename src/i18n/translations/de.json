@@ -147,6 +147,7 @@
   "common.try_again": "Erneut versuchen",
   "common.enable": "AKTIVIEREN",
   "common.loading": "Laden...",
+  "common.loading_preview": "Vorschau wird geladen...",
   "common.error": "Fehler",
   "common.vanilla": "Vanilla",
   "common.unknown": "Unbekannt",
@@ -528,6 +529,9 @@
   "capes.errors.max_limit": "Du hast die maximale Anzahl an Lieblings-Capes erreicht.",
   "capes.errors.not_favorite": "Dieses Cape ist nicht in deinen Favoriten.",
   "capes.errors.user_not_found": "Benutzer nicht gefunden.",
+  "capes.error_rendering": "Fehler beim Rendern des Capes.",
+  "capes.failed_to_load": "Cape-Bild konnte nicht geladen werden.",
+  "capes.vanilla_cape": "Vanilla Cape",
 
   "profiles.card.standardVersionInfo": "Standardprofil – Version wird von NoRisk verwaltet",
   "profiles.card.tip": "Tipp",
@@ -754,6 +758,7 @@
   "common.not_available": "N/A",
   "common.enabled": "Aktiviert",
   "common.disabled": "Deaktiviert",
+  "common.active": "Aktiv",
   "common.disable": "Deaktivieren",
   "common.field_required": "Dieses Feld ist erforderlich",
 
@@ -864,6 +869,14 @@
 
   "content.dialog.select_to_import": "{{itemType}} zum Importieren für Profil auswählen: {{profileName}}",
 
+  "content.open_containing_folder": "Übergeordneten Ordner öffnen",
+  "content.unknown_file": "Unbekannte Datei",
+  "content.unknown_pack": "Unbekanntes Paket",
+  "content.by_creator": "von {{creator}}",
+  "content.confirm_deletion": "Erneut klicken zum Bestätigen",
+  "content.delete_pack": "Paket löschen",
+  "content.view_version_options": "Versionsoptionen anzeigen",
+
   "profiles.clone": "Profil klonen",
   "profiles.new_name": "Neuer Profilname",
   "profiles.clone_name_placeholder": "Einen Namen für das geklonte Profil eingeben",
@@ -957,6 +970,7 @@
   "friends.no_requests_desc": "füge oben Freunde hinzu!",
   "friends.status.away": "Abwesend",
   "friends.status.invisible": "Unsichtbar",
+  "friends.settings.your_profile": "Dein Profil",
   "friends.settings.status": "Status",
   "friends.settings.privacy": "Privatsphäre",
   "friends.settings.show_server": "Server anzeigen",
@@ -1212,9 +1226,21 @@
   "modrinth.no_options_for": "Keine Optionen für {{title}}.",
   "modrinth.install": "Installieren",
   "modrinth.installing": "Installiere...",
+  "modrinth.in_pack": "Im Pack",
+  "modrinth.in_norisk_pack": "Im NoRisk Pack",
+  "modrinth.blocked_mod_tooltip": "Diese Mod wird vom NoRisk Client blockiert, da sie bekanntermaßen Abstürze oder schwere Kompatibilitätsprobleme verursacht. Die Installation wird nicht empfohlen.",
+  "modrinth.warning_mod_tooltip": "Diese Version verursacht bekanntermaßen Abstürze oder Kompatibilitätsprobleme mit dem NoRisk Client. Die Installation ist möglich, wird aber nicht empfohlen.",
   "modrinth.select_profiles_to_install": "Wähle Profil(e) für die Installation:",
+  "modrinth.operation_failed": "Vorgang fehlgeschlagen",
+  "modrinth.error_creating_profile": "Beim {{action}} oder Installieren von Inhalten ist ein Fehler aufgetreten.",
+  "modrinth.copying_profile": "Kopieren des Profils",
+  "modrinth.creating_profile": "Erstellen des Profils",
+  "modrinth.error_creating_or_installing": "Beim Erstellen des Profils oder Installieren von Inhalten ist ein Fehler aufgetreten.",
   "modrinth.errors.missing_data": "Profil kann nicht erstellt werden: Projekt- oder Versionsdaten fehlen.",
   "modrinth.errors.no_suitable_version": "Profil kann nicht erstellt werden: Keine passende Version gefunden.",
+  "modrinth.back_to_profiles": "Zurück zu Profilen",
+  "modrinth.creating": "Erstelle...",
+  "modrinth.create_and_install": "Erstellen & Installieren",
 
   "symlink.configure": "Symlink konfigurieren",
   "symlink.create": "Symlink erstellen",
@@ -1223,6 +1249,9 @@
   "symlink.file_sync_hint": "Änderungen an dieser Datei werden automatisch mit deinem Profil synchronisiert",
   "symlink.folder_sync_hint": "Änderungen an diesem Ordner werden automatisch mit deinem Profil synchronisiert",
   "symlink.advanced_custom_location": "Erweitert: Eigener Speicherort",
+  "symlink.open_in_profile": "Im Profil öffnen",
+  "symlink.remove_symlink": "Symlink entfernen",
+  "symlink.add_new": "neuen symlink hinzufügen",
 
   "files.loading_structure": "Dateistruktur wird geladen...",
   "files.no_structure_available": "Keine Dateistruktur verfügbar.",
@@ -1295,6 +1324,18 @@
 
   "content.errors.load_norisk_packs": "NoRisk-Paketliste konnte nicht geladen werden.",
   "advent.load_failed": "Adventskalender konnte nicht geladen werden",
+  "advent.coins_amount": "{{amount}} Münzen",
+  "advent.added_to_account": "Deinem Konto gutgeschrieben",
+  "advent.loading_model": "Lade Modell...",
+  "advent.preparing_model": "Modell wird vorbereitet...",
+  "advent.unknown_reward": "Unbekannte Belohnung",
+  "advent.no_reward_available": "Keine Belohnung verfügbar",
+  "advent.model_error": "Modellfehler",
+
+  "lightbox.counter": "{{current}} von {{total}}",
+  "lightbox.press_space_zoom": "Leertaste zum Zoomen",
+  "lightbox.arrow_keys_navigate": "Pfeiltasten zum Navigieren",
+  "lightbox.esc_close": "Esc zum Schließen",
 
   "export.enter_filename": "Bitte gib einen Dateinamen für den Export ein.",
   "profiles.repair_success": "Profilreparatur erfolgreich abgeschlossen!",
@@ -1465,5 +1506,21 @@
   "profiles.import.select_modpack": "Modpack zum Importieren auswählen",
   "settings.java.select_java_executable": "Java-Datei (javaw.exe, java) oder Installationsverzeichnis auswählen",
   "mod_detail.description": "Beschreibung",
-  "mod_detail.no_description": "Keine Beschreibung verfügbar."
+  "mod_detail.no_description": "Keine Beschreibung verfügbar.",
+  "profiles.loading_profile": "Profil wird geladen...",
+  "profiles.errors.no_profile_id": "Keine Profil-ID angegeben",
+  "profiles.errors.not_found": "Profil nicht gefunden",
+  "profiles.loading_details": "Profildetails werden geladen...",
+  "profiles.new_profile": "Neues Profil",
+
+  "export.open_folder_after": "Ordner nach Export öffnen",
+  "export.exporting": "Exportiere...",
+  "export.export_profile": "Profil exportieren",
+
+  "designer.asset_management": "Asset-Verwaltung",
+  "designer.keep_local_assets": "Lokale Assets behalten",
+  "designer.keep_local_assets_description": "Wenn aktiviert, werden bearbeitete Assets (Wings, norisk.jsons, etc.) beim Neustart nicht überschrieben.",
+
+  "nrc.incompatible_warning": "NoRiskClient ist derzeit nicht mit diesem Loader oder dieser Version kompatibel! Du kannst es trotzdem erstellen, aber du wirst die Features nicht haben. Dies kann sich in Zukunft ändern.",
+  "nrc.no_features_warning": "Du wirst mit dieser Auswahl keine NoRiskClient-Features haben."
 }
