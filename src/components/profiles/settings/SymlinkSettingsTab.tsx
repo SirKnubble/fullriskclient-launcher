@@ -301,14 +301,14 @@ export function SymlinkSettingsTab({
                     size="sm"
                     onClick={() => openInternalPath(symlink.link_path)}
                     icon={<Icon icon="solar:folder-bold" className="w-3.5 h-3.5" />}
-                    label="Open in profile"
+                    label={t('symlink.open_in_profile')}
                   />
                   <IconButton
                     variant="destructive"
                     size="sm"
                     onClick={() => removeSymlink(symlink.link_path)}
                     icon={<Icon icon="solar:trash-bin-minimalistic-bold" className="w-3.5 h-3.5" />}
-                    label="Remove symlink"
+                    label={t('symlink.remove_symlink')}
                   />
                 </div>
               </div>
@@ -319,7 +319,7 @@ export function SymlinkSettingsTab({
 
       {/* Add New Symlink */}
       <div>
-        <h4 className="text-3xl font-minecraft text-white mb-3 lowercase">add new symlink</h4>
+        <h4 className="text-3xl font-minecraft text-white mb-3 lowercase">{t('symlink.add_new')}</h4>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Button 

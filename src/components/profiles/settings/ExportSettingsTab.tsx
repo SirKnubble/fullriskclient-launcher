@@ -368,7 +368,7 @@ export function ExportSettingsTab({
               <Checkbox
                 checked={exportOpenFolder}
                 onChange={(e) => setExportOpenFolder(e.target.checked)}
-                label="Open folder after export"
+                label={t('export.open_folder_after')}
                 className="text-xl"
                 customSize="md"
                 disabled={isExporting}

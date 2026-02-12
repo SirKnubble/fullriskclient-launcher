@@ -184,7 +184,7 @@ export function NRCTab({
                   <Checkbox
                     checked={showAllVersions}
                     onChange={(event) => setShowAllVersions(event.target.checked)}
-                    label="Show all versions"
+                    label={t('modrinth.show_all_versions')}
                     size="sm"
                     className="text-white/70"
                   />
@@ -195,15 +195,13 @@ export function NRCTab({
               {showYellowWarning ? (
                 <div className="text-center">
                   <p className="text-base text-yellow-400 font-minecraft-ten">
-                    NoRiskClient is not currently compatible with this loader or version!
-                    You can still create it, but you won't have the features.
-                    This may change in the future.
+                    {t('nrc.incompatible_warning')}
                   </p>
                 </div>
               ) : editedProfile.selected_norisk_pack_id === null || editedProfile.selected_norisk_pack_id === "" ? (
                 <div className="text-center">
                   <p className="text-sm text-amber-400 font-minecraft-ten">
-                    You won't have any NoRiskClient features with this selection.
+                    {t('nrc.no_features_warning')}
                   </p>
                 </div>
               ) : (

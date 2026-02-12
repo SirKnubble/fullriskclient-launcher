@@ -359,7 +359,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
               <CheckboxV2
                 checked={showAllGameVersionsSidebar}
                 onChange={onShowAllGameVersionsSidebarChange}
-                label="Show all versions"
+                label={t('modrinth.show_all_versions')}
                 size="lg"
               />
             </div>
@@ -370,7 +370,7 @@ export const ModrinthFilterSidebarV2: React.FC<ModrinthFilterSidebarV2Props> = (
         {projectType !== 'datapack' && (
           <AccordionItem
             key={categoriesGroup?.headerValue || "categories_filter_accordion"} // Use a fallback key
-            title={categoriesGroup?.accordionTitle || "Categories"} // Use a fallback title
+            title={categoriesGroup?.accordionTitle || t('modrinth.categories')} // Use a fallback title
             defaultOpen={categoryActiveCount > 0}
             activeCount={categoryActiveCount}
           >

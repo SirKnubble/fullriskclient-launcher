@@ -162,9 +162,9 @@ export const ModrinthInstallModalV2: React.FC<ModrinthInstallModalV2Props> = ({
     modalContentLayout = (
       <div className="p-4 text-center space-y-3">
         <Icon icon="solar:close-circle-bold" className="w-16 h-16 text-red-500 mx-auto" />
-        <h3 className="text-xl font-semibold text-gray-100">Operation Failed</h3>
+        <h3 className="text-xl font-semibold text-gray-100">{t('modrinth.operation_failed')}</h3>
         <p className="text-sm text-red-400">
-          {lastErrorMessage || `An error occurred while ${isActuallyCopying ? 'copying the profile' : 'creating the profile'} or installing content.`}
+          {lastErrorMessage || t('modrinth.error_creating_profile', { action: isActuallyCopying ? t('modrinth.copying_profile') : t('modrinth.creating_profile') })}
         </p>
         {/* Optional: Add a retry button here if applicable, which might call handleCreateAndInstallProfile again */}
         {/* For now, only close is available in footer */}

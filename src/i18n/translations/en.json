@@ -147,6 +147,7 @@
   "common.try_again": "Try Again",
   "common.enable": "ENABLE",
   "common.loading": "Loading...",
+  "common.loading_preview": "Loading Preview...",
   "common.error": "Error",
   "common.vanilla": "Vanilla",
   "common.unknown": "Unknown",
@@ -528,6 +529,9 @@
   "capes.errors.max_limit": "You have reached the maximum number of favorite capes.",
   "capes.errors.not_favorite": "This cape is not in your favorites.",
   "capes.errors.user_not_found": "User not found.",
+  "capes.error_rendering": "Error rendering cape.",
+  "capes.failed_to_load": "Failed to load cape image.",
+  "capes.vanilla_cape": "Vanilla Cape",
 
   "profiles.card.standardVersionInfo": "Standard profile – version managed by NoRisk",
   "profiles.card.tip": "Tip",
@@ -754,6 +758,7 @@
   "common.not_available": "N/A",
   "common.enabled": "Enabled",
   "common.disabled": "Disabled",
+  "common.active": "Active",
   "common.disable": "Disable",
   "common.field_required": "This field is required",
 
@@ -864,6 +869,14 @@
 
   "content.dialog.select_to_import": "Select {{itemType}} to Import for profile: {{profileName}}",
 
+  "content.open_containing_folder": "Open containing folder",
+  "content.unknown_file": "Unknown file",
+  "content.unknown_pack": "Unknown pack",
+  "content.by_creator": "by {{creator}}",
+  "content.confirm_deletion": "Click again to confirm deletion",
+  "content.delete_pack": "Delete pack",
+  "content.view_version_options": "View version options",
+
   "profiles.clone": "Clone Profile",
   "profiles.new_name": "New profile name",
   "profiles.clone_name_placeholder": "Enter a name for the cloned profile",
@@ -957,6 +970,7 @@
   "friends.no_requests_desc": "add friends above!",
   "friends.status.away": "Away",
   "friends.status.invisible": "Invisible",
+  "friends.settings.your_profile": "Your Profile",
   "friends.settings.status": "Status",
   "friends.settings.privacy": "Privacy",
   "friends.settings.show_server": "Show Server",
@@ -1216,7 +1230,16 @@
   "modrinth.no_options_for": "No options for {{title}}.",
   "modrinth.install": "Install",
   "modrinth.installing": "Installing...",
+  "modrinth.in_pack": "In Pack",
+  "modrinth.in_norisk_pack": "In NoRisk Pack",
+  "modrinth.blocked_mod_tooltip": "This mod is blocked by NoRisk Client as it is known to cause crashes or severe compatibility issues. Installation is not recommended.",
+  "modrinth.warning_mod_tooltip": "This version is known to cause crashes or compatibility issues with NoRisk Client. Installation is possible but not recommended.",
   "modrinth.select_profiles_to_install": "Select Profile(s) to install to:",
+  "modrinth.operation_failed": "Operation Failed",
+  "modrinth.error_creating_profile": "An error occurred while {{action}} or installing content.",
+  "modrinth.copying_profile": "copying the profile",
+  "modrinth.creating_profile": "creating the profile",
+  "modrinth.error_creating_or_installing": "An error occurred while creating the profile or installing content.",
   "modrinth.errors.missing_data": "Cannot create profile: Project or version data is missing.",
   "modrinth.errors.no_suitable_version": "Cannot create profile: No suitable version found.",
 
@@ -1227,6 +1250,9 @@
   "symlink.file_sync_hint": "Changes to this file will sync automatically with your profile",
   "symlink.folder_sync_hint": "Changes to this folder will sync automatically with your profile",
   "symlink.advanced_custom_location": "Advanced: Custom Location",
+  "symlink.open_in_profile": "Open in profile",
+  "symlink.remove_symlink": "Remove symlink",
+  "symlink.add_new": "add new symlink",
 
   "files.loading_structure": "Loading file structure...",
   "files.no_structure_available": "No file structure available.",
@@ -1479,5 +1505,38 @@
   "profiles.import.select_modpack": "Select Modpack to Import",
   "settings.java.select_java_executable": "Select Java Executable (javaw.exe, java) or Installation Directory",
   "mod_detail.description": "Description",
-  "mod_detail.no_description": "No description available."
+  "mod_detail.no_description": "No description available.",
+  "profiles.loading_profile": "Loading profile...",
+  "profiles.errors.no_profile_id": "No profile ID provided",
+  "profiles.errors.not_found": "Profile not found",
+  "profiles.loading_details": "Loading profile details...",
+  "profiles.new_profile": "New Profile",
+
+  "export.open_folder_after": "Open folder after export",
+  "export.exporting": "Exporting...",
+  "export.export_profile": "Export Profile",
+
+  "designer.asset_management": "Asset Management",
+  "designer.keep_local_assets": "Keep Local Assets",
+  "designer.keep_local_assets_description": "If checked, edited assets (wings, norisk.jsons, etc.) will not be overwritten upon relaunch.",
+
+  "nrc.incompatible_warning": "NoRiskClient is not currently compatible with this loader or version! You can still create it, but you won't have the features. This may change in the future.",
+  "nrc.no_features_warning": "You won't have any NoRiskClient features with this selection.",
+
+  "modrinth.back_to_profiles": "Back to Profiles",
+  "modrinth.creating": "Creating...",
+  "modrinth.create_and_install": "Create & Install",
+
+  "lightbox.counter": "{{current}} of {{total}}",
+  "lightbox.press_space_zoom": "Press Space to zoom",
+  "lightbox.arrow_keys_navigate": "Arrow keys to navigate",
+  "lightbox.esc_close": "Esc to close",
+
+  "advent.coins_amount": "{{amount}} Coins",
+  "advent.added_to_account": "Added to your account",
+  "advent.loading_model": "Loading model...",
+  "advent.preparing_model": "Preparing model...",
+  "advent.unknown_reward": "Unknown Reward",
+  "advent.no_reward_available": "No reward available",
+  "advent.model_error": "Model Error"
 }
