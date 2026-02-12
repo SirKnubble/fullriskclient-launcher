@@ -10,9 +10,10 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const LANGUAGE_OPTIONS: {
   value: SupportedLanguage;
   label: string;
+  flag: string;
 }[] = [
-  { value: "en", label: "English" },
-  { value: "de", label: "Deutsch" },
+  { value: "en", label: "English", flag: "circle-flags:gb" },
+  { value: "de", label: "Deutsch", flag: "circle-flags:de" },
 ];
 
 /**
