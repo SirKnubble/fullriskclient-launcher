@@ -1,6 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CapesBrowseResponse, BrowseCapesOptions, GetPlayerCapesPayloadOptions, CosmeticCape } from '../types/noriskCapes';
+import type { CapesBrowseResponse, BrowseCapesOptions, GetPlayerCapesPayloadOptions, CosmeticCape, OwnedCapesResponse } from '../types/noriskCapes';
 import type { MinecraftProfile } from '../types/minecraft';
+
+export const getCapeImageUrl = (hash: string, isExperimental: boolean): string => {
+  const base = isExperimental ? 'https://cdn.norisk.gg/capes-staging/prod' : 'https://cdn.norisk.gg/capes/prod';
+  return `${base}/${hash}.png`;
+};
+
+export const getCapeReviewImageUrl = (hash: string, isExperimental: boolean): string => {
+  const base = isExperimental ? 'https://cdn.norisk.gg/capes-staging/review' : 'https://cdn.norisk.gg/capes/review';
+  return `${base}/${hash}.png`;
+};
 
 /**
  * Browse capes with optional parameters
@@ -200,4 +210,12 @@ export const getCapesByHashes = (
   noriskToken?: string,
 ): Promise<CosmeticCape[]> => {
   return invoke('get_capes_by_hashes', { hashes, noriskToken });
-}; 
+};
+
+export const getOwnedCapesList = (
+  page?: number,
+  limit?: number,
+  noriskToken?: string,
+): Promise<OwnedCapesResponse> => {
+  return invoke('get_owned_capes_list', { page, limit, noriskToken });
+};

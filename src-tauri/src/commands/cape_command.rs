@@ -4,6 +4,7 @@ use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::state::state_manager::State;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
 use uuid::Uuid;
@@ -256,6 +257,42 @@ pub async fn get_player_capes(
                 "[CMD get_player_capes] Error from cape_api.get_player_capes: {:?}",
                 e
             );
+            CommandError::from(e)
+        })
+}
+
+/// Get owned capes grouped by review state (ACCEPTED, IN_REVIEW, DENIED)
+#[tauri::command]
+pub async fn get_owned_capes_list(
+    page: Option<u32>,
+    limit: Option<u32>,
+    norisk_token: Option<String>,
+) -> Result<HashMap<String, Vec<CosmeticCape>>, CommandError> {
+    debug!("Command called: get_owned_capes_list");
+
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let active_account = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or_else(|| CommandError::from(AppError::NoCredentialsError))?;
+
+    let token_to_use = match norisk_token {
+        Some(token) => token,
+        None => active_account
+            .norisk_credentials
+            .get_token_for_mode(is_experimental)?,
+    };
+
+    let cape_api = CapeApi::new();
+
+    cape_api
+        .get_owned_capes_list(&token_to_use, page, limit, is_experimental)
+        .await
+        .map_err(|e| {
+            debug!("Failed to get owned capes list: {:?}", e);
             CommandError::from(e)
         })
 }

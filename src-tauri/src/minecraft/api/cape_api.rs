@@ -32,6 +32,9 @@ pub struct CosmeticCape {
     /// Whether the cape has elytra
     #[serde(default = "default_true")]
     pub elytra: bool,
+    /// BlurHash for the cape image
+    #[serde(default, rename = "blurHash")]
+    pub blur_hash: Option<String>,
 }
 
 impl CosmeticCape {
@@ -283,6 +286,61 @@ impl CapeApi {
                 "Failed to parse Cape API response for get_player_capes: {}",
                 e
             ))
+        })
+    }
+
+    /// Get owned capes grouped by review state
+    pub async fn get_owned_capes_list(
+        &self,
+        norisk_token: &str,
+        page: Option<u32>,
+        limit: Option<u32>,
+        is_experimental: bool,
+    ) -> Result<HashMap<String, Vec<CosmeticCape>>> {
+        let endpoint = "cape/owned/list";
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/{}", base_url, endpoint);
+
+        debug!("[Cape API] Making request to get owned capes list");
+        debug!("[Cape API] Full URL: {}", url);
+
+        let mut query_params = HashMap::new();
+        if let Some(p) = page {
+            query_params.insert("page", p.to_string());
+        }
+        if let Some(l) = limit {
+            query_params.insert("limit", l.to_string());
+        }
+
+        let response = HTTP_CLIENT
+            .get(url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .query(&query_params)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Request failed: {}", e);
+                AppError::RequestError(format!("Failed to send get owned capes list request: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Response status: {}", status);
+
+        if !status.is_success() {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            error!("[Cape API] Error response: Status {}, Body: {}", status, error_body);
+            return Err(AppError::RequestError(format!(
+                "Cape API (get_owned_capes_list) returned error status: {}. Details: {}",
+                status, error_body
+            )));
+        }
+
+        response.json::<HashMap<String, Vec<CosmeticCape>>>().await.map_err(|e| {
+            error!("[Cape API] Failed to parse response: {}", e);
+            AppError::ParseError(format!("Failed to parse owned capes list response: {}", e))
         })
     }
 

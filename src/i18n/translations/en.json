@@ -501,6 +501,8 @@
   "capes.showAsElytra": "Show as Elytra",
   "capes.unequipCape": "Unequip Cape",
   "capes.selectCape": "Select Cape",
+  "capes.inReview": "In Review",
+  "capes.denied": "Denied",
   "capes.byCreator": "by {{creator}}",
   "capes.includesElytraTexture": "Includes elytra texture",
   "capes.uses": "{{formattedCount}} uses",
