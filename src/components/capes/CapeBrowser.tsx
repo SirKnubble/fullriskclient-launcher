@@ -7,6 +7,7 @@ import {
   downloadTemplateAndOpenExplorer,
   equipCape,
   getPlayerCapes,
+  getOwnedCapesList,
   unequipCape,
 } from "../../services/cape-service";
 import type {
@@ -37,6 +38,7 @@ import { toast } from "react-hot-toast";
 import { UploadCapeModal } from "./UploadCapeModal";
 import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
 import { translateCapeError, isCapeInReview } from "../../utils/cape-error-translations";
+import { getLauncherConfig } from "../../services/launcher-config-service";
 
 
 
@@ -66,6 +68,13 @@ export function CapeBrowser(): JSX.Element {
     showVanillaOnly: false,
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isExperimental, setIsExperimental] = useState(false);
+
+  useEffect(() => {
+    getLauncherConfig().then(config => {
+      setIsExperimental(config.is_experimental || false);
+    }).catch(() => {});
+  }, []);
 
   // Helper functions to get correct setters based on current filter
   const getCapesSetter = (showOwnedOnly: boolean) =>
@@ -225,33 +234,47 @@ export function CapeBrowser(): JSX.Element {
     loadAllCapes();
   }, []); // Only run once on mount
 
-  // Load MY capes when account becomes available
+  // Load MY capes when account becomes available (using owned/list endpoint for review states)
   useEffect(() => {
     const loadMyCapes = async () => {
       if (!activeAccount || myCapes.length > 0 || isLoadingMy) return;
 
       try {
         setIsLoadingMy(true);
-        const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-          player_identifier: activeAccount.id,
-        };
-        const response = await getPlayerCapes(playerCapesOptions);
-        setMyCapes(response);
+        const response = await getOwnedCapesList();
+        const accepted = response.ACCEPTED || [];
+        const inReview = response.IN_REVIEW || [];
+        const denied = response.DENIED || [];
+        const allOwned = [...accepted, ...inReview, ...denied];
+        setMyCapes(allOwned);
         setMyPagination({
           currentPage: 0,
-          pageSize: response.length,
-          totalItems: response.length,
+          pageSize: allOwned.length,
+          totalItems: allOwned.length,
           totalPages: 1,
         });
       } catch (error) {
-        console.error("Failed to load MY capes:", error);
+        console.error("Failed to load MY capes via owned/list, falling back to getPlayerCapes:", error);
+        // Fallback to old endpoint (only returns accepted capes)
+        try {
+          const fallbackCapes = await getPlayerCapes({ player_identifier: activeAccount.id });
+          setMyCapes(fallbackCapes);
+          setMyPagination({
+            currentPage: 0,
+            pageSize: fallbackCapes.length,
+            totalItems: fallbackCapes.length,
+            totalPages: 1,
+          });
+        } catch (fallbackError) {
+          console.error("Fallback also failed:", fallbackError);
+        }
       } finally {
         setIsLoadingMy(false);
       }
     };
 
     loadMyCapes();
-  }, [activeAccount]); // Run when activeAccount changes
+  }, [activeAccount]);
 
   // Load VANILLA capes when account becomes available and vanilla tab is active
   useEffect(() => {
@@ -319,20 +342,32 @@ export function CapeBrowser(): JSX.Element {
             totalPages: 1,
           });
         } else if (currentFilters.showOwnedOnly && currentActiveAccount) {
-          // Load user's own capes
-          const playerCapesOptions: GetPlayerCapesPayloadOptions = {
-            player_identifier: currentActiveAccount.id,
-          };
-          response = await getPlayerCapes(playerCapesOptions);
           const setCapes = getCapesSetter(currentFilters.showOwnedOnly);
           const setPagination = getPaginationSetter(currentFilters.showOwnedOnly);
-          setCapes(response);
-          setPagination({
-            currentPage: 0,
-            pageSize: response.length,
-            totalItems: response.length,
-            totalPages: 1,
-          });
+          try {
+            const ownedResponse = await getOwnedCapesList();
+            const accepted = ownedResponse.ACCEPTED || [];
+            const inReview = ownedResponse.IN_REVIEW || [];
+            const denied = ownedResponse.DENIED || [];
+            const allOwned = [...accepted, ...inReview, ...denied];
+            setCapes(allOwned);
+            setPagination({
+              currentPage: 0,
+              pageSize: allOwned.length,
+              totalItems: allOwned.length,
+              totalPages: 1,
+            });
+          } catch (ownedError) {
+            console.warn("owned/list failed, falling back to getPlayerCapes:", ownedError);
+            const fallbackCapes = await getPlayerCapes({ player_identifier: currentActiveAccount.id });
+            setCapes(fallbackCapes);
+            setPagination({
+              currentPage: 0,
+              pageSize: fallbackCapes.length,
+              totalItems: fallbackCapes.length,
+              totalPages: 1,
+            });
+          }
         } else {
           // Browse all capes
           const browseOptions: BrowseCapesOptions = {
@@ -885,6 +920,8 @@ export function CapeBrowser(): JSX.Element {
               groupFavoritesInHeader={filters.showFavoritesOnly}
               showFavoritesOnly={filters.showFavoritesOnly}
               isVanilla={filters.showVanillaOnly}
+              showReviewState={filters.showOwnedOnly}
+              isExperimental={isExperimental}
             />
       </div>
     </div>
