@@ -269,18 +269,22 @@ function CapeItemDisplay({
                 ? "bg-yellow-500/20 border-t border-yellow-500/30"
                 : "bg-red-500/20 border-t border-red-500/30"
             )}>
-              <Icon
-                icon={isInReview ? "solar:clock-circle-bold" : "solar:close-circle-bold"}
-                className={cn("w-3.5 h-3.5", isInReview ? "text-yellow-400" : "text-red-400")}
-              />
-              <span className={cn(
-                "text-[10px] font-minecraft-ten lowercase",
-                isInReview ? "text-yellow-300" : "text-red-300"
-              )}>
-                {isInReview ? t('capes.inReview') : t('capes.denied')}
-              </span>
+              {isDenied ? (
+                <Tooltip content={(cape as CosmeticCape).moderatorMessage}>
+                  <div className="flex items-center gap-1.5">
+                    <Icon icon="solar:close-circle-bold" className="w-4 h-4 text-red-400" />
+                    <span className="text-[11px] font-minecraft-ten lowercase text-red-400">{t('capes.denied')}</span>
+                  </div>
+                </Tooltip>
+              ) : (
+                <>
+                  <Icon icon="solar:clock-circle-bold" className="w-4 h-4 text-yellow-400" />
+                  <span className="text-[11px] font-minecraft-ten lowercase text-yellow-400">{t('capes.inReview')}</span>
+                </>
+              )}
             </div>
           )}
+
         </div>
 
         <div className="flex-grow min-w-0 w-full text-center">
