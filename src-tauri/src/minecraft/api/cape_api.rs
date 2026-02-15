@@ -408,18 +408,54 @@ impl CapeApi {
         }
     }
 
+    /// Check if the current user is a moderator (team member)
+    pub async fn check_is_moderator(
+        norisk_token: &str,
+        is_experimental: bool,
+    ) -> Result<bool> {
+        let base_url = if is_experimental {
+            "https://api-staging.norisk.gg/api/v1"
+        } else {
+            "https://api.norisk.gg/api/v1"
+        };
+        let url = format!("{}/core/permissions/is-moderator", base_url);
+
+        debug!("[Cape API] Checking moderator status");
+
+        let response = HTTP_CLIENT
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", norisk_token))
+            .send()
+            .await
+            .map_err(|e| {
+                error!("[Cape API] Moderator check request failed: {}", e);
+                AppError::RequestError(format!("Failed to check moderator status: {}", e))
+            })?;
+
+        let status = response.status();
+        debug!("[Cape API] Moderator check response status: {}", status);
+
+        if !status.is_success() {
+            return Ok(false);
+        }
+
+        response.json::<bool>().await.or(Ok(false))
+    }
+
     /// Delete a specific cape owned by the player
     ///
     /// Parameters:
     /// - norisk_token: Authentication token
     /// - player_uuid: UUID of the player who owns the cape
     /// - cape_hash: Hash of the cape to delete
+    /// - reason: Optional reason for deletion (used by moderators)
     /// - is_experimental: Whether to use the experimental API endpoint
     pub async fn delete_cape(
         &self,
         norisk_token: &str,
         player_uuid: &Uuid,
         cape_hash: &str,
+        reason: Option<&str>,
         is_experimental: bool,
     ) -> Result<()> {
         let endpoint = format!("cape/{}", cape_hash);
@@ -434,6 +470,9 @@ impl CapeApi {
 
         let mut query_params = HashMap::new();
         query_params.insert("uuid", player_uuid.to_string());
+        if let Some(r) = reason {
+            query_params.insert("reason", r.to_string());
+        }
 
         debug!(
             "[Cape API] Sending DELETE request with parameters: {:?}",

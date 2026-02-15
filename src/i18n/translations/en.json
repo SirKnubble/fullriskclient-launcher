@@ -520,6 +520,9 @@
   "capes.confirmDeleteMessagePrefix": "Are you sure you want to delete",
   "capes.confirmDeleteMessageSuffix": "? This action cannot be undone.",
   "capes.deleting": "Deleting...",
+  "capes.moderatorDeleteTitle": "Delete Cape (Moderator)",
+  "capes.moderatorDelete": "Delete Cape (Staff)",
+  "capes.deleteReasonPlaceholder": "Reason for deletion...",
 
   "capes.errors.inappropriate_content": "Your cape was rejected because it contains inappropriate content.",
   "capes.errors.copyright": "Your cape was rejected due to copyright infringement.",
