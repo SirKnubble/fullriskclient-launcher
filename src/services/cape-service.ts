@@ -87,12 +87,7 @@ export const deleteCape = (
  * Response from cape upload operation
  */
 export interface CapeUploadResponse {
-  /** The hash/ID of the uploaded cape */
   capeHash: string;
-  /** Whether the cape was resized to 512x256 */
-  wasResized: boolean;
-  /** Original dimensions if the cape was resized (null if already correct size) */
-  originalDimensions: [number, number] | null;
 }
 
 /**
@@ -101,7 +96,7 @@ export interface CapeUploadResponse {
  * @param imagePath Path to the cape image file (PNG)
  * @param noriskToken Optional NoRisk token
  * @param playerUuid Optional UUID of the player (defaults to active account)
- * @returns A promise that resolves to the cape upload response with hash and resize info
+ * @returns A promise that resolves to the cape upload response with hash
  */
 export const uploadCape = (
   imagePath: string,
