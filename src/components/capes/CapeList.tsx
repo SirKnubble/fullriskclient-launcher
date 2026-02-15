@@ -52,6 +52,8 @@ interface CapeItemDisplayProps {
   isVanilla?: boolean;
   showReviewState?: boolean;
   isExperimental?: boolean;
+  isModerator?: boolean;
+  onModeratorDeleteClick?: (cape: CosmeticCape, e: React.MouseEvent) => void;
 }
 
 function CapeItemDisplay({
@@ -70,6 +72,8 @@ function CapeItemDisplay({
   isVanilla = false,
   showReviewState = false,
   isExperimental = false,
+  isModerator = false,
+  onModeratorDeleteClick,
 }: CapeItemDisplayProps) {
   const { t } = useTranslation();
   const [creatorName, setCreatorName] = useState<string | null>(null);
@@ -165,7 +169,7 @@ function CapeItemDisplay({
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200",
+        "group relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200",
         isDenied ? "cursor-default opacity-60" : "cursor-pointer"
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -207,7 +211,23 @@ function CapeItemDisplay({
             <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
           </button>
         )}
+
       </div>
+
+      {isModerator && onModeratorDeleteClick && !isVanilla && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onModeratorDeleteClick(cape as CosmeticCape, e);
+          }}
+          className="absolute bottom-3 right-3 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/60 text-red-400 hover:text-white border border-red-500/30 hover:border-red-400 backdrop-blur-sm transition-all duration-200 opacity-0 group-hover:opacity-100"
+          title={t('capes.moderatorDelete')}
+          disabled={isCurrentlyEquipping}
+        >
+          <Icon icon="solar:trash-bin-trash-bold" className="w-3.5 h-3.5" />
+        </button>
+      )}
 
       <div className="flex flex-col items-center gap-3 relative z-10 w-full">
         <div
@@ -341,6 +361,8 @@ export interface CapeListProps {
   isVanilla?: boolean;
   showReviewState?: boolean;
   isExperimental?: boolean;
+  isModerator?: boolean;
+  onModeratorDeleteCape?: (cape: CosmeticCape) => void;
 }
 
 export function CapeList({
@@ -362,6 +384,8 @@ export function CapeList({
   isVanilla = false,
   showReviewState = false,
   isExperimental = false,
+  isModerator = false,
+  onModeratorDeleteCape,
 }: CapeListProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const creatorNameCacheRef = useRef<Map<string, string>>(new Map());
@@ -552,6 +576,16 @@ export function CapeList({
     [onDeleteCape, isVanilla],
   );
 
+  const handleModeratorDeleteClickInternal = useCallback(
+    (cape: CosmeticCape, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (onModeratorDeleteCape) {
+        onModeratorDeleteCape(cape);
+      }
+    },
+    [onModeratorDeleteCape],
+  );
+
   const handlePreview3D = useCallback(() => {
     // Preview is now handled by direct click, this function is kept for potential future use
     setContextMenu(null);
@@ -654,6 +688,8 @@ export function CapeList({
                   hideModal={(id) => hideModal(id)}
                   isVanilla={isVanilla}
                   isExperimental={isExperimental}
+                  isModerator={isModerator}
+                  onModeratorDeleteClick={handleModeratorDeleteClickInternal}
                 />
               );
             })}
@@ -694,6 +730,8 @@ export function CapeList({
                 isVanilla={isVanilla}
                 showReviewState={showReviewState}
                 isExperimental={isExperimental}
+                isModerator={isModerator}
+                onModeratorDeleteClick={handleModeratorDeleteClickInternal}
               />
             );
           })}

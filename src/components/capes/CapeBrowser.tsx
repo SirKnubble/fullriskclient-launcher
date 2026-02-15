@@ -33,7 +33,7 @@ import { useVanillaCapeStore } from "../../store/useVanillaCapeStore";
 import type { VanillaCape } from "../../types/vanillaCapes";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { preloadIcons } from "../../lib/icon-utils";
-import { deleteCape } from "../../services/cape-service";
+import { deleteCape, checkIsModerator } from "../../services/cape-service";
 import { toast } from "react-hot-toast";
 import { UploadCapeModal } from "./UploadCapeModal";
 import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
@@ -69,6 +69,7 @@ export function CapeBrowser(): JSX.Element {
   });
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isExperimental, setIsExperimental] = useState(false);
+  const [isModerator, setIsModerator] = useState(false);
 
   useEffect(() => {
     getLauncherConfig().then(config => {
@@ -203,6 +204,11 @@ export function CapeBrowser(): JSX.Element {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isLoadingRef = useRef(false);
   const { activeAccount } = useMinecraftAuthStore();
+
+  useEffect(() => {
+    if (!activeAccount) return;
+    checkIsModerator().then(setIsModerator).catch(() => setIsModerator(false));
+  }, [activeAccount]);
 
   useEffect(() => {
     preloadIcons(["solar:add-square-bold-duotone"]);
@@ -670,6 +676,27 @@ export function CapeBrowser(): JSX.Element {
     ));
   };
 
+  const handleModeratorDeleteCapeClick = (cape: CosmeticCape) => {
+    showModal('mod-delete-cape-modal', (
+      <ConfirmDeletionModal
+        capeToDelete={cape}
+        showReasonInput
+        onConfirmDelete={async (reason?: string) => {
+          try {
+            await deleteCape(cape._id, undefined, undefined, reason);
+            toast.success(t('capes.capeDeletedSuccess'));
+            refreshCurrentView();
+            hideModal('mod-delete-cape-modal');
+          } catch (err: any) {
+            console.error("Error deleting cape (moderator):", err);
+            toast.error(t('capes.failedToDeleteCape', { error: err.message || t('common.unknownError') }));
+          }
+        }}
+        onCancelDelete={() => hideModal('mod-delete-cape-modal')}
+      />
+    ));
+  };
+
   const handleUploadClick = async () => {
     try {
       const selectedFile = await open({
@@ -922,6 +949,8 @@ export function CapeBrowser(): JSX.Element {
               isVanilla={filters.showVanillaOnly}
               showReviewState={filters.showOwnedOnly}
               isExperimental={isExperimental}
+              isModerator={isModerator}
+              onModeratorDeleteCape={isModerator && !filters.showVanillaOnly ? handleModeratorDeleteCapeClick : undefined}
             />
       </div>
     </div>

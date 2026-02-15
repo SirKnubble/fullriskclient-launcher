@@ -74,13 +74,19 @@ export const equipCape = (
 export const deleteCape = (
   capeHash: string,
   noriskToken?: string,
-  playerUuid?: string
+  playerUuid?: string,
+  reason?: string
 ): Promise<void> => {
   return invoke('delete_cape', {
     capeHash,
     noriskToken,
-    playerUuid
+    playerUuid,
+    reason
   });
+};
+
+export const checkIsModerator = (): Promise<boolean> => {
+  return invoke('check_is_moderator');
 };
 
 /**
