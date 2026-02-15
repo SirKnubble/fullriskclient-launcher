@@ -676,7 +676,7 @@ pub async fn upload_cape(
             CommandError::from(e)
         })?;
 
-    debug!("Command completed: upload_cape, was_resized: {}", response.was_resized);
+    debug!("Command completed: upload_cape");
 
     Ok(response)
 }

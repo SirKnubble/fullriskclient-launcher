@@ -87,15 +87,8 @@ pub struct CapesBrowseResponse {
 /// Response struct for cape upload operations (serializable for Tauri)
 #[derive(Serialize, Debug)]
 pub struct CapeUploadResponse {
-    /// The hash/ID of the uploaded cape
     #[serde(rename = "capeHash")]
     pub cape_hash: String,
-    /// Whether the cape was resized to 512x256
-    #[serde(rename = "wasResized")]
-    pub was_resized: bool,
-    /// Original dimensions if the cape was resized (null if already correct size)
-    #[serde(rename = "originalDimensions")]
-    pub original_dimensions: Option<(u32, u32)>,
 }
 
 pub struct CapeApi;
@@ -514,31 +507,13 @@ impl CapeApi {
         debug!("[Cape API] Image path: {:?}", image_path);
         debug!("[Cape API] Full URL: {}", url);
 
-        // Read and resize the image file to ensure it's 512x256
-        let resize_result = crate::utils::file_utils::resize_cape_to_512x256(image_path).await.map_err(|e| {
+        let image_data = fs::read(image_path).await.map_err(|e| {
             error!(
-                "[Cape API] Failed to process image file {:?}: {}",
+                "[Cape API] Failed to read image file {:?}: {}",
                 image_path, e
             );
-            e
+            AppError::ImageProcessingError(format!("Failed to read image: {}", e))
         })?;
-
-        let image_data = resize_result.image_bytes;
-
-        // Log resize information
-        if resize_result.was_resized {
-            if let Some((orig_width, orig_height)) = resize_result.original_dimensions {
-                info!(
-                    "[Cape API] Cape was resized from {}x{} to 512x256 for player {}",
-                    orig_width, orig_height, player_uuid
-                );
-            }
-        } else {
-            debug!(
-                "[Cape API] Cape already had correct dimensions 512x256 for player {}",
-                player_uuid
-            );
-        }
 
         let mut query_params = HashMap::new();
         query_params.insert("uuid", player_uuid.to_string());
@@ -576,8 +551,6 @@ impl CapeApi {
             );
             Ok(CapeUploadResponse {
                 cape_hash: response_text,
-                was_resized: resize_result.was_resized,
-                original_dimensions: resize_result.original_dimensions,
             })
         } else {
             error!(
