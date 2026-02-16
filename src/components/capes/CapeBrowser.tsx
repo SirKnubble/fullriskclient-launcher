@@ -949,8 +949,8 @@ export function CapeBrowser(): JSX.Element {
               isVanilla={filters.showVanillaOnly}
               showReviewState={filters.showOwnedOnly}
               isExperimental={isExperimental}
-              isModerator={isModerator}
-              onModeratorDeleteCape={isModerator && !filters.showVanillaOnly ? handleModeratorDeleteCapeClick : undefined}
+              isModerator={isModerator && !filters.showOwnedOnly && !filters.showVanillaOnly}
+              onModeratorDeleteCape={isModerator && !filters.showVanillaOnly && !filters.showOwnedOnly ? handleModeratorDeleteCapeClick : undefined}
             />
       </div>
     </div>
