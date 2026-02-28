@@ -170,24 +170,7 @@ async fn main() {
                     info!("SingleInstance: Brought existing window to front.");
                 }
                 None => {
-                    // Main window doesn't exist - first instance is a zombie
-                    error!("SingleInstance: CRITICAL - Main window does not exist!");
-                    error!("SingleInstance: First instance is a zombie. Exiting to release lock.");
-
-                    #[cfg(target_os = "windows")]
-                    {
-                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
-                        let _ = app
-                            .dialog()
-                            .message("The NoRisk Launcher encountered a critical error.\n\n\
-                                Please join our Discord for support:\n\
-                                https://discord.norisk.gg")
-                            .kind(MessageDialogKind::Error)
-                            .title("NoRisk Launcher - Critical Error")
-                            .blocking_show();
-                    }
-
-                    std::process::exit(1);
+                    info!("SingleInstance: Main window not yet available, still starting up. Ignoring.");
                 }
             }
         }))
