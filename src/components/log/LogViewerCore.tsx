@@ -8,6 +8,7 @@ import { LogEntry, LogLevel } from "../../store/useProcessStore";
 import { openExternalUrl } from "../../services/tauri-service";
 import { uploadLogToMclogs } from "../../services/log-service";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { Virtuoso } from "react-virtuoso";
 
 // Hex colors for filter buttons
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -310,8 +311,7 @@ export function LogViewerCore({
       {/* Log Content */}
       <div
         ref={logContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar rounded-lg bg-black/60 backdrop-blur-sm"
+        className="flex-1 overflow-hidden p-4 font-mono text-sm rounded-lg bg-black/60 backdrop-blur-sm"
         style={{ boxShadow: `0 4px 20px ${accentColor.value}15` }}
       >
         {filteredLogs.length === 0 ? (
@@ -325,12 +325,13 @@ export function LogViewerCore({
             </div>
           )
         ) : (
-          <div className="space-y-0.5">
-            {filteredLogs.map((log) => (
-              <div
-                key={log.id}
-                className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded"
-              >
+          <Virtuoso
+            className="custom-scrollbar"
+            style={{ height: "100%" }}
+            data={filteredLogs}
+            followOutput={isAutoscrollEnabled ? "smooth" : false}
+            itemContent={(_index, log) => (
+              <div className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded">
                 {log.timestamp ? (
                   <>
                     <span className={`pr-2 select-none ${getLevelColorClass(log.level)}`}>
@@ -363,8 +364,8 @@ export function LogViewerCore({
                   </span>
                 )}
               </div>
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
 
