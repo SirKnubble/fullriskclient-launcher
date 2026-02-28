@@ -221,6 +221,8 @@ interface ThemeState {
   toggleBackgroundAnimation: () => void;
   hasAcceptedTermsOfService: boolean;
   acceptTermsOfService: () => void;
+  hasAcceptedCapeGuidelines: boolean;
+  acceptCapeGuidelines: () => void;
   borderRadius: number;
   setBorderRadius: (radius: number) => void;
   applyBorderRadiusToDOM: () => void;
@@ -259,6 +261,7 @@ export const useThemeStore = create<ThemeState>()(
       profileGroupingCriterion: "group",
       staticBackground: true,
       hasAcceptedTermsOfService: false,
+      hasAcceptedCapeGuidelines: false,
       customColorHistory: [],
       borderRadius: DEFAULT_BORDER_RADIUS,
       collapsedProfileGroups: [],
@@ -348,7 +351,11 @@ export const useThemeStore = create<ThemeState>()(
       toggleStaticBackground: () => {
         set((state) => ({ staticBackground: !state.staticBackground }));
       },      acceptTermsOfService: () => {
-        set({ hasAcceptedTermsOfService: true });      },      applyAccentColorToDOM: () => {
+        set({ hasAcceptedTermsOfService: true });
+      },
+      acceptCapeGuidelines: () => {
+        set({ hasAcceptedCapeGuidelines: true });
+      },      applyAccentColorToDOM: () => {
         const { accentColor } = get();
 
         const hexToRgb = (hex: string) => {

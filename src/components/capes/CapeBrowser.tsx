@@ -35,6 +35,7 @@ import { deleteCape } from "../../services/cape-service";
 import { toast } from "react-hot-toast";
 import { UploadCapeModal } from "./UploadCapeModal";
 import { ConfirmDeletionModal } from "./ConfirmDeletionModal";
+import { CapeGuidelinesModal } from "./CapeGuidelinesModal";
 import { translateCapeError, isCapeInReview } from "../../utils/cape-error-translations";
 
 
@@ -633,7 +634,7 @@ export function CapeBrowser(): JSX.Element {
     ));
   };
 
-  const handleUploadClick = async () => {
+  const openFilePickerAndUpload = async () => {
     try {
       const selectedFile = await open({
         multiple: false,
@@ -648,7 +649,6 @@ export function CapeBrowser(): JSX.Element {
         setPreviewImageUrl(imageUrl);
         setShowPreviewModal(true);
 
-        // Show modal using global modal system
         showModal('upload-cape-modal', (
           <UploadCapeModal
             previewImageUrl={imageUrl}
@@ -668,6 +668,23 @@ export function CapeBrowser(): JSX.Element {
         `Failed to select cape file: ${err.message || "Unknown error"}`,
       );
     }
+  };
+
+  const handleUploadClick = () => {
+    if (useThemeStore.getState().hasAcceptedCapeGuidelines) {
+      openFilePickerAndUpload();
+      return;
+    }
+
+    showModal('cape-guidelines-modal', (
+      <CapeGuidelinesModal
+        onAccept={() => {
+          hideModal('cape-guidelines-modal');
+          openFilePickerAndUpload();
+        }}
+        onClose={() => hideModal('cape-guidelines-modal')}
+      />
+    ));
   };
 
   const handleCancelUpload = () => {
