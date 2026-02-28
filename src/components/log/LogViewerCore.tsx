@@ -73,6 +73,10 @@ export interface LogViewerCoreProps {
   noLogsIcon?: string;
   noLogsTitle?: string;
   noLogsSubtitle?: string;
+  logFiles?: string[];
+  selectedLogPath?: string | null;
+  onLogSelect?: (path: string) => void;
+  onOpenFolder?: () => void;
 }
 
 export function LogViewerCore({
@@ -82,6 +86,10 @@ export function LogViewerCore({
   noLogsIcon = "solar:document-text-bold",
   noLogsTitle = "NO LOGS YET",
   noLogsSubtitle = "Waiting for log output...",
+  logFiles,
+  selectedLogPath,
+  onLogSelect,
+  onOpenFolder,
 }: LogViewerCoreProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
   const { showThreadPrefix, toggleShowThreadPrefix } = useLogSettingsStore();
@@ -98,6 +106,9 @@ export function LogViewerCore({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPopupRef = useRef<HTMLDivElement>(null);
+  const fileDropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const fileDropdownRef = useRef<HTMLDivElement>(null);
+  const [isFileDropdownOpen, setIsFileDropdownOpen] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
   const isUserScrollingRef = useRef(false);
 
@@ -134,7 +145,6 @@ export function LogViewerCore({
     }
   }, [filteredLogs.length]);
 
-  // Close settings popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -146,11 +156,20 @@ export function LogViewerCore({
       ) {
         setIsSettingsOpen(false);
       }
+      if (
+        isFileDropdownOpen &&
+        fileDropdownRef.current &&
+        fileDropdownButtonRef.current &&
+        !fileDropdownRef.current.contains(event.target as Node) &&
+        !fileDropdownButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsFileDropdownOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, isFileDropdownOpen]);
 
   // Check if scrolled to bottom
   const isAtBottom = useCallback(() => {
@@ -291,6 +310,25 @@ export function LogViewerCore({
         {/* Spacer */}
         <div className="flex-1" />
 
+        {logFiles && logFiles.length > 0 && onLogSelect && (
+          <button
+            ref={fileDropdownButtonRef}
+            onClick={() => setIsFileDropdownOpen(!isFileDropdownOpen)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-minecraft-ten transition-all max-w-[250px]"
+            style={{
+              backgroundColor: isFileDropdownOpen ? `${accentColor.value}25` : `${accentColor.value}15`,
+              border: `1px solid ${accentColor.value}30`,
+              color: "rgba(255,255,255,0.8)",
+            }}
+          >
+            <Icon icon="solar:document-text-bold" className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">
+              {selectedLogPath ? (selectedLogPath.split(/[\\/]/).pop() || selectedLogPath) : "Select log..."}
+            </span>
+            <Icon icon="solar:alt-arrow-down-bold" className="w-3 h-3 flex-shrink-0" />
+          </button>
+        )}
+
         {/* Settings Button */}
         <div className="relative">
           <button
@@ -414,6 +452,15 @@ export function LogViewerCore({
               CLEAR
             </button>
           )}
+          {onOpenFolder && (
+            <button
+              onClick={onOpenFolder}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-white/10 transition-colors text-white/60 hover:text-white/90 font-minecraft-ten text-xs"
+            >
+              <Icon icon="solar:folder-open-bold" className="w-4 h-4" />
+              OPEN FOLDER
+            </button>
+          )}
           <button
             onClick={handleUpload}
             disabled={isUploading}
@@ -477,6 +524,40 @@ export function LogViewerCore({
               </div>
             </div>
           </label>
+        </div>,
+        document.body
+      )}
+
+      {isFileDropdownOpen && fileDropdownButtonRef.current && createPortal(
+        <div
+          ref={fileDropdownRef}
+          className="fixed min-w-[200px] max-w-[400px] max-h-[300px] overflow-y-auto p-1 rounded-lg border custom-scrollbar"
+          style={{
+            top: fileDropdownButtonRef.current.getBoundingClientRect().bottom + 8,
+            right: window.innerWidth - fileDropdownButtonRef.current.getBoundingClientRect().right,
+            backgroundColor: "rgba(0, 0, 0, 0.95)",
+            borderColor: `${accentColor.value}40`,
+            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
+            zIndex: 9999,
+          }}
+        >
+          {logFiles?.map((path) => {
+            const name = path.split(/[\\/]/).pop() || path;
+            const isSelected = path === selectedLogPath;
+            return (
+              <button
+                key={path}
+                onClick={() => { onLogSelect?.(path); setIsFileDropdownOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs font-minecraft-ten rounded transition-all hover:bg-white/5"
+                style={{
+                  backgroundColor: isSelected ? `${accentColor.value}20` : undefined,
+                  color: isSelected ? accentColor.value : "rgba(255,255,255,0.7)",
+                }}
+              >
+                {name}
+              </button>
+            );
+          })}
         </div>,
         document.body
       )}
