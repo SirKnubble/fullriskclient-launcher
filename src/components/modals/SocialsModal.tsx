@@ -312,7 +312,7 @@ export function SocialsModal() {
             Refer your friends, get 3 Days of NRC+ and{" "}
             <span
               className="text-accent underline cursor-pointer hover:text-accent/80"
-              onClick={() => openExternalUrl("https://blog.norisk.gg/friend-referral")}
+              onClick={() => openExternalUrl(navigator.language.startsWith("de") ? "https://nrc.gg/freunde-werben" : "https://nrc.gg/invite-friends")}
             >
               more...
             </span>
