@@ -22,6 +22,7 @@ import { useProfileStore } from "../../store/profile-store";
 import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 import { parseMotdToHtml } from "../../utils/motd-utils";
+import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -78,6 +79,9 @@ export function ProfileCardV2({
   const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
+  const { isPinned, togglePin } = usePinnedProfilesStore();
+  const pinned = isPinned(profile.id);
+
   // Modpack versions state for conditional rendering
   const [modpackVersions, setModpackVersions] = useState(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
@@ -110,6 +114,14 @@ export function ProfileCardV2({
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
+    {
+      id: "pin",
+      label: pinned ? "Unpin" : "Pin to Top",
+      icon: pinned ? "solar:pin-bold" : "solar:pin-bold-duotone",
+      onClick: () => {
+        togglePin(profile.id);
+      },
+    },
     {
       id: "edit",
       label: "Edit Profile",
@@ -510,6 +522,20 @@ export function ProfileCardV2({
 
         {/* Action buttons - top right */}
         <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
+          {(pinned || isHovered) && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePin(profile.id);
+              }}
+              className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded transition-all duration-200 ${pinned ? 'bg-black/40 text-white border border-white/20' : 'bg-black/30 hover:bg-black/50 text-white/40 hover:text-white border border-white/10 hover:border-white/20'}`}
+              title={pinned ? "Unpin" : "Pin to Top"}
+              data-action="pin"
+            >
+              <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
+            </button>
+          )}
           {/* Settings button - hidden in 3D mode */}
           {variant === "default" && (
             <button
@@ -788,7 +814,21 @@ export function ProfileCardV2({
           >
             <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name) }} />
           </h3>
-          
+
+          {(pinned || isHovered) && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePin(profile.id);
+              }}
+              className={`flex-shrink-0 transition-all duration-200 ${pinned ? 'text-white' : 'text-white/40 hover:text-white'}`}
+              title={pinned ? "Unpin" : "Pin to Top"}
+            >
+              <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Preferred Account Indicator next to title */}
           {preferredAccount && (
             <Tooltip content={`Launch with: ${preferredAccount.username}`}>
