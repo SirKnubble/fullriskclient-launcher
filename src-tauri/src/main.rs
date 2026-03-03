@@ -103,8 +103,9 @@ use commands::path_commands::{get_launcher_directory, resolve_image_path};
 
 // Import cape commands
 use commands::cape_command::{
-    browse_capes, delete_cape, download_template_and_open_explorer, equip_cape, get_player_capes,
-    unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape, get_capes_by_hashes,
+    browse_capes, check_is_moderator, delete_cape, download_template_and_open_explorer, equip_cape,
+    get_player_capes, unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape,
+    get_capes_by_hashes, get_owned_capes_list,
 };
 
 // Import vanilla cape commands
@@ -576,8 +577,10 @@ async fn main() {
             set_discord_state,
             browse_capes,
             get_player_capes,
+            get_owned_capes_list,
             equip_cape,
             delete_cape,
+            check_is_moderator,
             upload_cape,
             unequip_cape,
             add_favorite_cape,

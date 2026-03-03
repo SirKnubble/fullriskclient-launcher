@@ -503,6 +503,8 @@
   "capes.showAsElytra": "Als Elytra anzeigen",
   "capes.unequipCape": "Cape ablegen",
   "capes.selectCape": "Cape auswählen",
+  "capes.inReview": "In Prüfung",
+  "capes.denied": "Abgelehnt",
   "capes.byCreator": "von {{creator}}",
   "capes.includesElytraTexture": "Enthält Elytra-Textur",
   "capes.uses": "{{formattedCount}} Verwendungen",
@@ -520,6 +522,9 @@
   "capes.confirmDeleteMessagePrefix": "Bist du sicher, dass du",
   "capes.confirmDeleteMessageSuffix": "löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
   "capes.deleting": "Wird gelöscht...",
+  "capes.moderatorDeleteTitle": "Cape löschen (Moderator)",
+  "capes.moderatorDelete": "Cape löschen (Team)",
+  "capes.deleteReasonPlaceholder": "Grund für die Löschung...",
 
   "capes.errors.inappropriate_content": "Dein Cape wurde abgelehnt, weil es unangemessene Inhalte enthält.",
   "capes.errors.copyright": "Dein Cape wurde wegen Urheberrechtsverletzung abgelehnt.",

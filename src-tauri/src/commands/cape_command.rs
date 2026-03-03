@@ -4,6 +4,7 @@ use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::state::state_manager::State;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
 use uuid::Uuid;
@@ -260,6 +261,42 @@ pub async fn get_player_capes(
         })
 }
 
+/// Get owned capes grouped by review state (ACCEPTED, IN_REVIEW, DENIED)
+#[tauri::command]
+pub async fn get_owned_capes_list(
+    page: Option<u32>,
+    limit: Option<u32>,
+    norisk_token: Option<String>,
+) -> Result<HashMap<String, Vec<CosmeticCape>>, CommandError> {
+    debug!("Command called: get_owned_capes_list");
+
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let active_account = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or_else(|| CommandError::from(AppError::NoCredentialsError))?;
+
+    let token_to_use = match norisk_token {
+        Some(token) => token,
+        None => active_account
+            .norisk_credentials
+            .get_token_for_mode(is_experimental)?,
+    };
+
+    let cape_api = CapeApi::new();
+
+    cape_api
+        .get_owned_capes_list(&token_to_use, page, limit, is_experimental)
+        .await
+        .map_err(|e| {
+            debug!("Failed to get owned capes list: {:?}", e);
+            CommandError::from(e)
+        })
+}
+
 /// Equip a specific cape for a player
 ///
 /// Parameters:
@@ -482,17 +519,45 @@ pub async fn remove_favorite_cape(
         })
 }
 
+/// Check if the current user is a moderator (team member)
+#[tauri::command]
+pub async fn check_is_moderator() -> Result<bool, CommandError> {
+    debug!("Command called: check_is_moderator");
+
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+
+    let active_account = state
+        .minecraft_account_manager_v2
+        .get_active_account()
+        .await?
+        .ok_or_else(|| CommandError::from(AppError::NoCredentialsError))?;
+
+    let token = active_account
+        .norisk_credentials
+        .get_token_for_mode(is_experimental)?;
+
+    CapeApi::check_is_moderator(&token, is_experimental)
+        .await
+        .map_err(|e| {
+            debug!("Failed to check moderator status: {:?}", e);
+            CommandError::from(e)
+        })
+}
+
 /// Delete a specific cape owned by the player
 ///
 /// Parameters:
 /// - cape_hash: Hash of the cape to delete
 /// - norisk_token: Optional NoRisk token
 /// - player_uuid: Optional UUID of the player (defaults to active account)
+/// - reason: Optional reason for deletion (used by moderators)
 #[tauri::command]
 pub async fn delete_cape(
     cape_hash: String,
     norisk_token: Option<String>,
     player_uuid: Option<Uuid>,
+    reason: Option<String>,
 ) -> Result<(), CommandError> {
     debug!(
         "Command called: delete_cape for cape_hash: {}, player_uuid: {:?}",
@@ -545,7 +610,7 @@ pub async fn delete_cape(
     };
 
     let result = cape_api
-        .delete_cape(&token_to_use, &uuid_to_use, &cape_hash, is_experimental)
+        .delete_cape(&token_to_use, &uuid_to_use, &cape_hash, reason.as_deref(), is_experimental)
         .await
         .map_err(|e| {
             debug!("Failed to delete cape: {:?}", e);
@@ -639,7 +704,7 @@ pub async fn upload_cape(
             CommandError::from(e)
         })?;
 
-    debug!("Command completed: upload_cape, was_resized: {}", response.was_resized);
+    debug!("Command completed: upload_cape");
 
     Ok(response)
 }
