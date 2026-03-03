@@ -47,7 +47,6 @@ export function LogsTab({
   isActive = false,
   onRefresh,
 }: LogsTabProps) {
-  const { t } = useTranslation();
   const [logFiles, setLogFiles] = useState<string[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [errorList, setErrorList] = useState<string | null>(null);
