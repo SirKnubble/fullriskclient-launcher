@@ -698,7 +698,7 @@ export function CapeBrowser(): JSX.Element {
     ));
   };
 
-  const handleUploadClick = async () => {
+  const openFilePickerAndUpload = async () => {
     try {
       const selectedFile = await open({
         multiple: false,
