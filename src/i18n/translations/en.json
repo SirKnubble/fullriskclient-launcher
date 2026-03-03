@@ -397,6 +397,8 @@
   "auth.errors.add_account": "Failed to add account: {{error}}",
   "auth.errors.remove_account": "Failed to remove account: {{error}}",
   "auth.errors.set_active": "Failed to set active account: {{error}}",
+  "auth.errors.session_expired": "Session expired. Please sign in again.",
+  "auth.errors.switch_failed": "Failed to switch account: {{error}}",
   "auth.loading.browser_sign_in": "Please sign in via your browser...",
   "auth.success.account_added": "Account '{{username}}' added successfully.",
   "auth.loginCancelled": "Login Cancelled",
