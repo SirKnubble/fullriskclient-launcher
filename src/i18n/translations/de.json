@@ -479,6 +479,8 @@
   "capes.searchVanillaCapePlaceholder": "Vanilla-Capes durchsuchen...",
   "capes.downloadTemplate": "Vorlage herunterladen",
   "capes.template": "Vorlage",
+  "capes.templateWithElytra": "Cape + Elytra",
+  "capes.templateWithoutElytra": "Nur Cape",
   "capes.uploadCape": "Cape hochladen",
   "capes.upload": "Hochladen",
   "capes.searchCapesPlaceholder": "Capes durchsuchen...",
