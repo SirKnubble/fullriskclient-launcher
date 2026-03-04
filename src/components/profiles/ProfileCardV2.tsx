@@ -520,22 +520,7 @@ export function ProfileCardV2({
           </div>
         )}
 
-        {(pinned || isHovered) && (
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              togglePin(profile.id);
-            }}
-            className={`absolute ${isCompact ? 'top-2' : 'top-3'} ${profile.is_standard_version ? (isCompact ? 'left-9' : 'left-10') : (isCompact ? 'left-2' : 'left-3')} z-20 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded transition-all duration-200 ${pinned ? 'bg-black/40 text-white border border-white/20' : 'bg-black/30 hover:bg-black/50 text-white/40 hover:text-white border border-white/10 hover:border-white/20'}`}
-            title={pinned ? "Unpin" : "Pin to Top"}
-            data-action="pin"
-          >
-            <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
-          </button>
-        )}
-
-        <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20`}>
+        <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
           {variant === "default" && (
             <button
             ref={settingsButtonRef}
@@ -599,7 +584,6 @@ export function ProfileCardV2({
           </button>
         </div>
 
-        {/* Profile content */}
         <div className={`flex items-center ${isCompact ? 'gap-3' : 'gap-4'} relative z-10 w-full`}>
           <div className={`relative ${isCompact ? 'w-16 h-16' : 'w-20 h-20'} flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden border-2 transition-all duration-200`}
             style={{
@@ -636,8 +620,16 @@ export function ProfileCardV2({
               >
                 <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name) }} />
               </h3>
-              
-              {/* Preferred Account Indicator next to title */}
+              {(pinned || isHovered) && (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(profile.id); }}
+                  className={`flex-shrink-0 transition-all duration-200 ${pinned ? 'text-white' : 'text-white/40 hover:text-white'}`}
+                  title={pinned ? "Unpin" : "Pin to Top"}
+                  data-action="pin"
+                >
+                  <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className="w-4 h-4" />
+                </button>
+              )}
               {preferredAccount && (
                 <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
                   <div className="flex items-center gap-1.5 text-white/60">
@@ -813,22 +805,16 @@ export function ProfileCardV2({
           >
             <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name) }} />
           </h3>
-
           {(pinned || isHovered) && (
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                togglePin(profile.id);
-              }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(profile.id); }}
               className={`flex-shrink-0 transition-all duration-200 ${pinned ? 'text-white' : 'text-white/40 hover:text-white'}`}
               title={pinned ? "Unpin" : "Pin to Top"}
+              data-action="pin"
             >
               <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className="w-4 h-4" />
             </button>
           )}
-
-          {/* Preferred Account Indicator next to title */}
           {preferredAccount && (
             <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
               <div className="flex items-center gap-1.5 text-white/60">
