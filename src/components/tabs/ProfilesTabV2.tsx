@@ -34,8 +34,7 @@ export function ProfilesTabV2() {
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
   const { openModal: openWizard } = useProfileWizardStore();
-
-  // Global modal system
+  const { isPinned } = usePinnedProfilesStore();
   const { showModal, hideModal } = useGlobalModal();
   
   // Persistent filters from theme store
@@ -277,7 +276,6 @@ export function ProfilesTabV2() {
   });
 
   // Sort filtered profiles
-  const { isPinned } = usePinnedProfilesStore();
   const sortedProfiles = [...filteredProfiles].sort((a, b) => {
     const aPinned = isPinned(a.id);
     const bPinned = isPinned(b.id);
