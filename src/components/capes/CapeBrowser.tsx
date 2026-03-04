@@ -763,8 +763,23 @@ export function CapeBrowser(): JSX.Element {
   };
 
 
-  const handleDownloadTemplate = async () => {
-    const promise = downloadTemplateAndOpenExplorer();
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
+  const templateMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showTemplateMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setShowTemplateMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showTemplateMenu]);
+
+  const handleDownloadTemplate = async (withElytra: boolean) => {
+    setShowTemplateMenu(false);
+    const promise = downloadTemplateAndOpenExplorer(withElytra);
     toast.promise(promise, {
       loading: t('capes.downloadingTemplate'),
       success: t('capes.templateDownloadedSuccess'),
@@ -919,16 +934,37 @@ export function CapeBrowser(): JSX.Element {
                 <div className="flex items-center gap-3">
                   {activeAccount && (
                     <>
-                      <button
-                        onClick={handleDownloadTemplate}
-                        className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
-                        title={t('capes.downloadTemplate')}
-                      >
-                        <div className="w-4 h-4 flex items-center justify-center">
-                          <Icon icon="solar:download-bold" className="w-4 h-4" />
-                        </div>
-                        <span>{t('capes.template')}</span>
-                      </button>
+                      <div className="relative" ref={templateMenuRef}>
+                        <button
+                          onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+                          className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
+                          title={t('capes.downloadTemplate')}
+                        >
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <Icon icon="solar:download-bold" className="w-4 h-4" />
+                          </div>
+                          <span>{t('capes.template')}</span>
+                          <Icon icon="solar:alt-arrow-down-bold" className="w-3 h-3" />
+                        </button>
+                        {showTemplateMenu && (
+                          <div className="absolute top-full left-0 mt-1 z-50 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg overflow-hidden min-w-[180px]">
+                            <button
+                              onClick={() => handleDownloadTemplate(false)}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/10 font-minecraft text-xl lowercase transition-all duration-200"
+                            >
+                              <Icon icon="solar:document-bold" className="w-4 h-4" />
+                              <span>{t('capes.templateWithoutElytra')}</span>
+                            </button>
+                            <button
+                              onClick={() => handleDownloadTemplate(true)}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/10 font-minecraft text-xl lowercase transition-all duration-200"
+                            >
+                              <Icon icon="solar:wing-bold" className="w-4 h-4" />
+                              <span>{t('capes.templateWithElytra')}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
                       <button
                         onClick={handleUploadClick}
@@ -960,7 +996,7 @@ export function CapeBrowser(): JSX.Element {
               hasMoreItems={hasMoreItems}
               isFetchingMore={isFetchingMore}
               onTriggerUpload={activeAccount ? handleUploadClick : undefined}
-              onDownloadTemplate={activeAccount ? handleDownloadTemplate : undefined}
+              onDownloadTemplate={activeAccount ? () => setShowTemplateMenu(true) : undefined}
               groupFavoritesInHeader={filters.showFavoritesOnly}
               showFavoritesOnly={filters.showFavoritesOnly}
               isVanilla={filters.showVanillaOnly}

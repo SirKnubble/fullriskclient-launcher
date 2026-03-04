@@ -792,21 +792,19 @@ pub async fn unequip_cape(
 #[tauri::command]
 pub async fn download_template_and_open_explorer(
     app_handle: tauri::AppHandle,
+    with_elytra: bool,
 ) -> Result<(), CommandError> {
-    debug!("Command called: download_template_and_open_explorer");
+    debug!("Command called: download_template_and_open_explorer (elytra: {})", with_elytra);
 
-    // Get the state manager
     let state = State::get().await?;
-
-    // Get the is_experimental value from the config state
     let is_experimental = state.config_manager.is_experimental_mode().await;
     debug!("Using experimental mode: {}", is_experimental);
 
-    // Set template URL based on experimental mode
+    let template_file = if with_elytra { "template.png" } else { "template_no_elytra.png" };
     let template_url = if is_experimental {
-        "https://cdn.norisk.gg/capes-staging/template.png"
+        format!("https://cdn.norisk.gg/capes-staging/{}", template_file)
     } else {
-        "https://cdn.norisk.gg/capes/template.png"
+        format!("https://cdn.norisk.gg/capes/{}", template_file)
     };
     debug!("Template URL: {}", template_url);
 
@@ -827,8 +825,8 @@ pub async fn download_template_and_open_explorer(
 
     debug!("Downloads directory: {:?}", downloads_dir);
 
-    // Create the output file path
-    let file_path = downloads_dir.join("nrc_cape_template.png");
+    let download_name = if with_elytra { "nrc_cape_template.png" } else { "nrc_cape_template_no_elytra.png" };
+    let file_path = downloads_dir.join(download_name);
     let file_path_str = file_path.to_string_lossy().to_string();
 
     // Download the template using reqwest

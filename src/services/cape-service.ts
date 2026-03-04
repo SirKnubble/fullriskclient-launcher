@@ -138,9 +138,9 @@ export const unequipCape = (
  * 
  * @returns A promise that resolves when the template has been downloaded and the folder is opened
  */
-export const downloadTemplateAndOpenExplorer = (): Promise<void> => {
-  console.log('[cape-service] Downloading cape template and opening explorer');
-  return invoke('download_template_and_open_explorer');
+export const downloadTemplateAndOpenExplorer = (withElytra: boolean): Promise<void> => {
+  console.log('[cape-service] Downloading cape template and opening explorer (elytra:', withElytra, ')');
+  return invoke('download_template_and_open_explorer', { withElytra });
 };
 
 /**
