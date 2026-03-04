@@ -952,14 +952,14 @@ export function CapeBrowser(): JSX.Element {
                               onClick={() => handleDownloadTemplate(false)}
                               className="w-full flex items-center gap-2 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/10 font-minecraft text-xl lowercase transition-all duration-200"
                             >
-                              <Icon icon="solar:document-bold" className="w-4 h-4" />
+                              <Icon icon="solar:download-bold" className="w-4 h-4" />
                               <span>{t('capes.templateWithoutElytra')}</span>
                             </button>
                             <button
                               onClick={() => handleDownloadTemplate(true)}
                               className="w-full flex items-center gap-2 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/10 font-minecraft text-xl lowercase transition-all duration-200"
                             >
-                              <Icon icon="solar:wing-bold" className="w-4 h-4" />
+                              <Icon icon="solar:download-bold" className="w-4 h-4" />
                               <span>{t('capes.templateWithElytra')}</span>
                             </button>
                           </div>
