@@ -520,23 +520,22 @@ export function ProfileCardV2({
           </div>
         )}
 
-        {/* Action buttons - top right */}
-        <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20 flex flex-col gap-1`}>
-          {(pinned || isHovered) && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                togglePin(profile.id);
-              }}
-              className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded transition-all duration-200 ${pinned ? 'bg-black/40 text-white border border-white/20' : 'bg-black/30 hover:bg-black/50 text-white/40 hover:text-white border border-white/10 hover:border-white/20'}`}
-              title={pinned ? "Unpin" : "Pin to Top"}
-              data-action="pin"
-            >
-              <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
-            </button>
-          )}
-          {/* Settings button - hidden in 3D mode */}
+        {(pinned || isHovered) && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              togglePin(profile.id);
+            }}
+            className={`absolute ${isCompact ? 'top-2' : 'top-3'} ${profile.is_standard_version ? (isCompact ? 'left-9' : 'left-10') : (isCompact ? 'left-2' : 'left-3')} z-20 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded transition-all duration-200 ${pinned ? 'bg-black/40 text-white border border-white/20' : 'bg-black/30 hover:bg-black/50 text-white/40 hover:text-white border border-white/10 hover:border-white/20'}`}
+            title={pinned ? "Unpin" : "Pin to Top"}
+            data-action="pin"
+          >
+            <Icon icon={pinned ? "solar:pin-bold" : "solar:pin-bold-duotone"} className={isCompact ? 'w-3 h-3' : 'w-4 h-4'} />
+          </button>
+        )}
+
+        <div className={`absolute ${isCompact ? 'top-2 right-2' : 'top-3 right-3'} z-20`}>
           {variant === "default" && (
             <button
             ref={settingsButtonRef}
