@@ -22,7 +22,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
 
   const handleOpenPrivacyPolicy = async () => {
     try {
-      await openExternalUrl('https://blog.norisk.gg/en/privacy-policy/');
+      await openExternalUrl('https://norisk.gg/privacy');
       toast.success(t('tos.toast.privacy_opened'));
     } catch (error) {
       console.error("Failed to open Privacy Policy URL:", error);
@@ -32,7 +32,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
 
   const handleOpenTerms = async () => {
     try {
-      await openExternalUrl('https://blog.norisk.gg/en/terms-of-use/');
+      await openExternalUrl('https://norisk.gg/tos');
       toast.success(t('tos.toast.terms_opened'));
     } catch (error) {
       console.error("Failed to open Terms URL:", error);
