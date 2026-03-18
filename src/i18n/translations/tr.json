@@ -234,9 +234,9 @@
   "tos.button.view_full_terms": "Tam Şartları Görüntüle",
   "tos.toast.accepted": "Hizmet Şartları kabul edildi!",
   "tos.toast.privacy_opened": "Gizlilik Politikası tarayıcıda açıldı!",
-  "tos.toast.privacy_failed": "Gizlilik Politikası açılamadı. Manuel olarak blog.norisk.gg/privacy-policy/ adresini ziyaret edin.",
+  "tos.toast.privacy_failed": "Gizlilik Politikası açılamadı. Manuel olarak www.norisk.gg/privacy adresini ziyaret edin.",
   "tos.toast.terms_opened": "Hizmet Şartları tarayıcıda açıldı!",
-  "tos.toast.terms_failed": "Şartlar açılamadı. Manuel olarak blog.norisk.gg/en/terms-of-use/ adresini ziyaret edin.",
+  "tos.toast.terms_failed": "Şartlar açılamadı. Manuel olarak www.norisk.gg/tos adresini ziyaret edin.",
 
   "child_protection.title": "Microsoft Hesap Kısıtlaması",
   "child_protection.description": "Microsoft hesabınızda çok oyunculu özellikleri kısıtlayan bir çocuk koruması veya gizlilik modu etkin görünüyor. Bu nedenle başlatıcı girişi tamamlayamıyor.",
