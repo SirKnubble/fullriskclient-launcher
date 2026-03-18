@@ -61,7 +61,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right mr-3">
-                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide" title="(sirknubble did it better)">
+                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide">
                   {t('credits_modal.ui_frontend')}
                 </p>
               </div>
