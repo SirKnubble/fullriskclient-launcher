@@ -208,6 +208,7 @@ export function App() {
                       if (result.success) {
                         toast.success(t("deep_link.auth.success"));
                       } else {
+                        console.error("[App.tsx] Auth bridge confirm failed:", result.message);
                         toast.error(t("deep_link.auth.error"));
                       }
                     } catch (e) {
@@ -238,6 +239,7 @@ export function App() {
           if (message === "not_logged_in") {
             toast.error(t("deep_link.auth.not_logged_in"));
           } else {
+            console.error("[App.tsx] Auth bridge confirm failed:", message);
             toast.error(t("deep_link.auth.error"));
           }
         }
