@@ -234,9 +234,9 @@
   "tos.button.view_full_terms": "Ver Termos Completos",
   "tos.toast.accepted": "Termos de Serviço aceitos!",
   "tos.toast.privacy_opened": "Política de Privacidade aberta no navegador!",
-  "tos.toast.privacy_failed": "Falha ao abrir Política de Privacidade. Visite manualmente blog.norisk.gg/privacy-policy/.",
+  "tos.toast.privacy_failed": "Falha ao abrir Política de Privacidade. Visite manualmente www.norisk.gg/privacy.",
   "tos.toast.terms_opened": "Termos de Serviço abertos no navegador!",
-  "tos.toast.terms_failed": "Falha ao abrir termos. Visite manualmente blog.norisk.gg/en/terms-of-use/.",
+  "tos.toast.terms_failed": "Falha ao abrir termos. Visite manualmente www.norisk.gg/tos.",
 
   "child_protection.title": "Restrição de Conta Microsoft",
   "child_protection.description": "Sua conta Microsoft parece ter uma proteção infantil ou modo de privacidade ativo que restringe recursos multiplayer. Por isso, o launcher não consegue completar o login.",
