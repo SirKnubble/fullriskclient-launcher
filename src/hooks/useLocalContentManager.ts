@@ -13,7 +13,8 @@ import { CurseForgeService } from '../services/curseforge-service';
 import UnifiedService from '../services/unified-service';
 import { getLocalContent } from '../services/profile-service';
 import { toggleContentFromProfile, uninstallContentFromProfile, switchContentVersion, toggleModUpdates, bulkToggleModUpdates } from '../services/content-service';
-import { revealItemInDir, openPath } from '@tauri-apps/plugin-opener';
+import { openPath } from '@tauri-apps/plugin-opener';
+import { revealItemInDir } from '../utils/opener-utils';
 import { getUpdateIdentifier, getContentPlatform } from '../utils/update-identifier-utils';
 
 // Base type for content items managed by this hook - maps to ProfileLocalContentItem
@@ -929,22 +930,17 @@ export function useLocalContentManager<T extends LocalContentItem>({
   }, [profile, selectedItemIds]);
 
   const handleOpenItemFolder = useCallback(async (item: T) => {
-    console.log("handleOpenItemFolder", item);
     if (!item.path) {
       toast.error(i18n.t('content_manager.errors.path_not_available'));
       return;
     }
     try {
-      //TODO Reveal profilemods
       await revealItemInDir(item.path);
-      console.log(`[Opener] Successfully revealed item in directory: ${item.path}`);
     } catch (revealError: any) {
-      console.warn(`[Opener] revealItemInDir failed for ${item.path}:`, revealError);
       try {
-        await openPath(item.path);
-        console.log(`[Opener] Successfully opened path (fallback): ${item.path}`);
+        const parentPath = item.path.replace(/[\\/][^\\/]+$/, '');
+        await openPath(parentPath || item.path);
       } catch (openError: any) {
-        console.error(`[Opener] openPath also failed for ${item.path}:`, openError);
         const errorMsg = openError?.message || revealError?.message || "Failed to open item location.";
         toast.error(i18n.t('content_manager.errors.failed_open_location', { error: errorMsg }));
       }

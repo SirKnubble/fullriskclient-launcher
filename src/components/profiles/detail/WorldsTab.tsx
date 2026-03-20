@@ -19,7 +19,7 @@ import { ConfirmDeleteDialog } from "../../modals/ConfirmDeleteDialog";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
 import { useProfileLaunch } from "../../../hooks/useProfileLaunch.tsx";
 import { toast } from "react-hot-toast";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "../../../utils/opener-utils";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { LaunchButton } from "../../ui/buttons/LaunchButton";
 import { GenericList } from "../../ui/GenericList";

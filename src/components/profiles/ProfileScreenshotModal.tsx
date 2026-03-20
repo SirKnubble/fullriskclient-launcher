@@ -9,7 +9,7 @@ import type { ScreenshotInfo as ActualScreenshotInfo } from "../../types/profile
 import { IconButton } from "../ui/buttons/IconButton";
 import { writeImage } from "@tauri-apps/plugin-clipboard-manager";
 import { Image as TauriImage } from "@tauri-apps/api/image";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "../../utils/opener-utils";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
