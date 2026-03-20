@@ -234,9 +234,9 @@
   "tos.button.view_full_terms": "Показать полные условия",
   "tos.toast.accepted": "Условия использования приняты!",
   "tos.toast.privacy_opened": "Политика конфиденциальности открыта в браузере!",
-  "tos.toast.privacy_failed": "Не удалось открыть Политику конфиденциальности. Посетите вручную blog.norisk.gg/privacy-policy/.",
+  "tos.toast.privacy_failed": "Не удалось открыть Политику конфиденциальности. Посетите вручную www.norisk.gg/privacy.",
   "tos.toast.terms_opened": "Условия использования открыты в браузере!",
-  "tos.toast.terms_failed": "Не удалось открыть условия. Посетите вручную blog.norisk.gg/en/terms-of-use/.",
+  "tos.toast.terms_failed": "Не удалось открыть условия. Посетите вручную www.norisk.gg/tos.",
 
   "child_protection.title": "Ограничение учётной записи Microsoft",
   "child_protection.description": "Похоже, что у вашей учётной записи Microsoft включена защита детей или режим конфиденциальности, который ограничивает многопользовательские функции. Из-за этого лаунчер не может завершить вход.",

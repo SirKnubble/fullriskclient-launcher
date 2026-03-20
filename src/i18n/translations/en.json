@@ -234,9 +234,9 @@
   "tos.button.view_full_terms": "View Full Terms",
   "tos.toast.accepted": "Terms of Service accepted!",
   "tos.toast.privacy_opened": "Privacy Policy opened in your browser!",
-  "tos.toast.privacy_failed": "Could not open Privacy Policy. Please visit blog.norisk.gg/privacy-policy/ manually.",
+  "tos.toast.privacy_failed": "Could not open Privacy Policy. Please visit www.norisk.gg/privacy manually.",
   "tos.toast.terms_opened": "Terms of Service opened in your browser!",
-  "tos.toast.terms_failed": "Could not open Terms. Please visit blog.norisk.gg/en/terms-of-use/ manually.",
+  "tos.toast.terms_failed": "Could not open Terms. Please visit www.norisk.gg/tos manually.",
 
   "child_protection.title": "Microsoft Account Restriction",
   "child_protection.description": "It looks like your Microsoft account has a child protection or privacy mode enabled that restricts multiplayer functionality. Because of this the launcher cannot complete the login step.",
