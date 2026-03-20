@@ -69,8 +69,8 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               onLaunchSuccess?.();
             } else if (eventTypeFromPayload === FrontendEventType.Error) {
               console.log(`[useProfileLaunch] Error event via state_event for ${profileId}`);
-              const eventErrorMsg = eventMessage || "Error during launch process.";
-              toast.error(i18n.t('launch.error', { message: eventErrorMsg }));
+              const eventErrorMsg = eventMessage || i18n.t('launch.error.unknown');
+              toast.error(i18n.t('launch.error', { error: eventErrorMsg }), { id: `launch-error-${profileId}` });
               setLaunchError(profileId, eventErrorMsg);
               onLaunchError?.(eventErrorMsg);
             } else {
@@ -141,7 +141,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
           console.error(`[useProfileLaunch] Error during polling is_profile_launching:`, err);
           const pollErrorMsg =
             err.message || err.toString() || "Error while checking profile status.";
-          toast.error(i18n.t('launch.polling_error', { message: pollErrorMsg }));
+          toast.error(i18n.t('launch.polling_error', { error: pollErrorMsg }), { id: `launch-error-${profileId}` });
           finalizeButtonLaunch(profileId, pollErrorMsg);
           clearPolling();
         }
@@ -165,7 +165,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
         typeof err === "string"
           ? err
           : err.message || err.toString() || "Unknown error during launch.";
-      toast.error(i18n.t('launch.failed', { message: launchErrorMsg }));
+      toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
       setLaunchError(profileId, launchErrorMsg);
       onLaunchError?.(launchErrorMsg);
     }
@@ -198,7 +198,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
           typeof err === "string"
             ? err
             : err.message || err.toString() || "Error during abort.";
-        toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }));
+        toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }), { id: `launch-error-${profileId}` });
         finalizeButtonLaunch(profileId, abortErrorMsg);
       }
       return;
@@ -257,7 +257,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
             typeof err === "string"
               ? err
               : err.message || err.toString() || "Error during abort.";
-          toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }));
+          toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }), { id: `launch-error-${profileId}` });
           finalizeButtonLaunch(profileId, abortErrorMsg);
         }
         return;
@@ -278,7 +278,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               typeof err === "string"
                 ? err
                 : err.message || err.toString() || "Unknown error during launch.";
-            toast.error(i18n.t('launch.failed', { message: launchErrorMsg }));
+            toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
             setLaunchError(profileId, launchErrorMsg);
             onLaunchError?.(launchErrorMsg);
           }
@@ -303,7 +303,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
                   typeof err === "string"
                     ? err
                     : err.message || err.toString() || "Unknown error during launch.";
-                toast.error(i18n.t('launch.failed', { message: launchErrorMsg }));
+                toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
                 setLaunchError(profileId, launchErrorMsg);
                 onLaunchError?.(launchErrorMsg);
               }
@@ -336,7 +336,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
             typeof err === "string"
               ? err
               : err.message || err.toString() || "Unknown error during launch.";
-          toast.error(i18n.t('launch.failed', { message: launchErrorMsg }));
+          toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
           setLaunchError(profileId, launchErrorMsg);
           onLaunchError?.(launchErrorMsg);
         }
