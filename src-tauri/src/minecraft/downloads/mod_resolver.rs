@@ -18,6 +18,7 @@ pub struct TargetMod {
     pub mod_id: String, // Canonical Key (e.g., "modrinth:AANobbMI")
     pub filename: String,
     pub cache_path: PathBuf,
+    pub sha1: Option<String>, // Known SHA1 from Modrinth/CurseForge (None for Maven/URL/local)
 }
 
 // --- Helper function to check if a filename is blocked by Flagsmith config ---
@@ -70,6 +71,7 @@ async fn try_add_mod_to_final_list(
     mod_name: &str,
     project_id: Option<&str>, // Only for Modrinth mods
     enable_flagsmith_blocking: bool, // Flag to enable/disable Flagsmith blocking
+    sha1: Option<String>, // Known SHA1 hash (Modrinth/CurseForge)
 ) -> bool {
     // 1. Check Modrinth Project ID if applicable
     if let Some(pid) = project_id {
@@ -120,9 +122,10 @@ async fn try_add_mod_to_final_list(
             mod_id: canonical_key,
             filename,
             cache_path,
+            sha1,
         },
     );
-    
+
     true
 }
 
@@ -170,6 +173,13 @@ pub async fn resolve_target_mods(
             ModSource::Url { url, .. } => Some(format!("url:{}", url)),
             ModSource::Maven { coordinates, .. } => Some(format!("maven:{}", coordinates)),
             _ => None, // Ignore other types
+        }
+    }
+    fn get_sha1_from_source(source: &ModSource) -> Option<String> {
+        match source {
+            ModSource::Modrinth { file_hash_sha1, .. } => file_hash_sha1.clone(),
+            ModSource::CurseForge { file_hash_sha1, .. } => file_hash_sha1.clone(),
+            _ => None,
         }
     }
 
@@ -240,6 +250,7 @@ pub async fn resolve_target_mods(
                                             mod_name,
                                             Some(project_id),
                                             enable_flagsmith_blocking,
+                                            None, // Pack mods don't store SHA1
                                         ).await;
                                     }
                                     Err(e) => {
@@ -277,8 +288,9 @@ pub async fn resolve_target_mods(
                                             &mut final_mods,
                                             "pack URL",
                                             mod_name,
-                                            None, // URL mods don't have project IDs
+                                            None,
                                             enable_flagsmith_blocking,
+                                            None,
                                         ).await;
                                     }
                                     Err(e) => {
@@ -326,8 +338,9 @@ pub async fn resolve_target_mods(
                                             &mut final_mods,
                                             "pack Maven",
                                             mod_name,
-                                            None, // Maven mods don't have project IDs
+                                            None,
                                             enable_flagsmith_blocking,
+                                            None,
                                         ).await;
                                     }
                                     Err(e) => {
@@ -432,6 +445,7 @@ pub async fn resolve_target_mods(
                                 mod_name,
                                 Some(project_id),
                                 enable_flagsmith_blocking,
+                                get_sha1_from_source(&mod_info.source),
                             ).await;
                         }
                         Err(e) => {
@@ -470,6 +484,7 @@ pub async fn resolve_target_mods(
                                 mod_name,
                                 Some(project_id),
                                 enable_flagsmith_blocking,
+                                get_sha1_from_source(&mod_info.source),
                             ).await;
                         }
                         Err(e) => {
@@ -511,8 +526,9 @@ pub async fn resolve_target_mods(
                                 &mut final_mods,
                                 mod_type_str,
                                 mod_name,
-                                None, // URL/Maven mods don't have project IDs
+                                None,
                                 enable_flagsmith_blocking,
+                                None, // URL/Maven mods don't have SHA1
                             ).await;
                         }
                         Err(e) => {
@@ -571,7 +587,8 @@ pub async fn resolve_target_mods(
                 let target = TargetMod {
                     mod_id: canonical_key.clone(),
                     filename: info.filename.clone(),
-                    cache_path: info.path.clone(), // Use the direct path from custom_mods
+                    cache_path: info.path.clone(),
+                    sha1: None, // Local custom mods don't have known SHA1
                 };
 
                 // Use the unique canonical key
@@ -643,3 +660,32 @@ pub async fn build_fabric_add_mods_arg(
         meta.to_string_lossy().replace("\\", "/")
     ))
 }
+
+/// Creates a Forge addMods meta file listing ALL mod JARs (absolute paths, one per line).
+/// ForgeModLoader reads this via `-Dnrc.addMods=@<meta>` and registers each JAR with ModListHelper.
+pub async fn build_forge_add_mods_meta(
+    profile_id: Uuid,
+    minecraft_version: &str,
+    target_mods: &[TargetMod],
+) -> crate::error::Result<PathBuf> {
+    let runtime_dir = LAUNCHER_DIRECTORY.meta_dir().join("runtime");
+    fs::create_dir_all(&runtime_dir).await?;
+
+    let meta_file_path = runtime_dir.join(format!(
+        "nrc_forge_mods_{}_{}.txt",
+        profile_id, minecraft_version
+    ));
+
+    let mut meta_contents = String::new();
+    for tm in target_mods {
+        let p = tm.cache_path.to_string_lossy().replace("\\", "/");
+        meta_contents.push_str(&p);
+        meta_contents.push('\n');
+    }
+
+    fs::write(&meta_file_path, meta_contents).await?;
+    Ok(meta_file_path)
+}
+
+
+
