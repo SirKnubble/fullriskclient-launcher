@@ -1128,7 +1128,7 @@ impl NoRiskApi {
         is_experimental: bool,
     ) -> Result<()> {
         let base_url = Self::get_api_base(is_experimental);
-        let url = format!("{}/auth/bridge/confirm", base_url);
+        let url = format!("{}/launcher/auth/bridge/confirm", base_url);
 
         debug!("[NoRisk API] Confirming auth bridge session: {}", session_id);
 

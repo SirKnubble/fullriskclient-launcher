@@ -234,9 +234,9 @@
   "tos.button.view_full_terms": "Vollständige Bedingungen anzeigen",
   "tos.toast.accepted": "Nutzungsbedingungen akzeptiert!",
   "tos.toast.privacy_opened": "Datenschutzrichtlinie wurde im Browser geöffnet!",
-  "tos.toast.privacy_failed": "Datenschutzrichtlinie konnte nicht geöffnet werden. Bitte besuche blog.norisk.gg/privacy-policy/ manuell.",
+  "tos.toast.privacy_failed": "Datenschutzrichtlinie konnte nicht geöffnet werden. Bitte besuche www.norisk.gg/privacy manuell.",
   "tos.toast.terms_opened": "Nutzungsbedingungen wurden im Browser geöffnet!",
-  "tos.toast.terms_failed": "Bedingungen konnten nicht geöffnet werden. Bitte besuche blog.norisk.gg/en/terms-of-use/ manuell.",
+  "tos.toast.terms_failed": "Bedingungen konnten nicht geöffnet werden. Bitte besuche www.norisk.gg/tos manuell.",
 
   "child_protection.title": "Microsoft-Konto Einschränkung",
   "child_protection.description": "Es sieht so aus, als hätte dein Microsoft-Konto einen Kinderschutz- oder Datenschutzmodus aktiviert, der Multiplayer-Funktionen einschränkt. Dadurch kann der Launcher den Anmeldeschritt nicht abschließen.",

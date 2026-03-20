@@ -22,7 +22,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
 
   const handleOpenPrivacyPolicy = async () => {
     try {
-      await openExternalUrl('https://blog.norisk.gg/en/privacy-policy/');
+      await openExternalUrl('https://norisk.gg/privacy');
       toast.success(t('tos.toast.privacy_opened'));
     } catch (error) {
       console.error("Failed to open Privacy Policy URL:", error);
@@ -32,7 +32,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
 
   const handleOpenTerms = async () => {
     try {
-      await openExternalUrl('https://blog.norisk.gg/en/terms-of-use/');
+      await openExternalUrl('https://norisk.gg/tos');
       toast.success(t('tos.toast.terms_opened'));
     } catch (error) {
       console.error("Failed to open Terms URL:", error);
@@ -65,7 +65,7 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
       footer={modalFooter}
       closeOnClickOutside={false}
     >
-      <div className="p-6 space-y-6 text-white">
+      <div className="p-6 space-y-6 text-white" style={{paddingBottom: 0}}>
         <div className="text-center space-y-4">
           <h3 className="text-3xl font-minecraft text-blue-400 lowercase">
             {t('tos.welcome')}
@@ -114,8 +114,8 @@ export function TermsOfServiceModal({ isOpen }: TermsOfServiceModalProps) {
           </Button>
         </div>
 
-        <div className="text-center text-sm text-gray-400">
-          <p>
+        <div className="text-center text-2xl text-gray-400 flex justify-center">
+          <p style={{lineHeight: 0.8, maxWidth: 600}}>
             {t('tos.withdraw_notice')}
           </p>
         </div>

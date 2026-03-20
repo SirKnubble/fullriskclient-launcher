@@ -61,7 +61,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right mr-3">
-                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide" title="(sirknubble did it better)">
+                <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide">
                   {t('credits_modal.ui_frontend')}
                 </p>
               </div>
@@ -113,7 +113,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             <Button
               variant="ghost"
               className="flex items-center gap-2 px-6 py-3 border border-[#ffffff20] hover:bg-white/5 transition-colors"
-              onClick={() => handleOpenUrl("https://blog.norisk.gg/open-source-licenses/")}
+              onClick={() => handleOpenUrl("https://norisk.gg/licenses")}
             >
               <Icon icon="solar:external-link-bold" className="w-5 h-5" />
               <span className="font-minecraft text-lg lowercase">{t('credits_modal.view_licenses')}</span>
