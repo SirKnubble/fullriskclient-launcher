@@ -766,7 +766,7 @@ pub async fn install_minecraft_version(
     )
     .await?;
 
-    // --- Prototype: Provide managed mods via Fabric addMods meta file (Fabric only) ---
+    // --- Provide managed mods via meta file (Fabric: addMods, Forge: NrcCoreMod) ---
     if modloader_enum == ModLoader::Fabric {
         let add_mods_arg = crate::minecraft::downloads::mod_resolver::build_fabric_add_mods_arg(
             profile.id,
@@ -778,6 +778,38 @@ pub async fn install_minecraft_version(
         current_jvm_args.push(add_mods_arg);
         launch_params = launch_params.with_additional_jvm_args(current_jvm_args);
         info!("Configured Fabric addMods meta file for profile '{}'", profile.name);
+    } else if modloader_enum == ModLoader::Forge || modloader_enum == ModLoader::NeoForge {
+        // Forge/NeoForge: use nrc-forgeloader to register mods from cache via meta file.
+        // Legacy Forge: -cp + -Dfml.coreMods.load (IFMLLoadingPlugin)
+        // Modern Forge + NeoForge: -cp, ServiceLoader discovers ForgeModLoader automatically
+        let loader_str = if modloader_enum == ModLoader::NeoForge { "neoforge" } else { "forge" };
+        let is_legacy_forge = modloader_enum == ModLoader::Forge
+            && ["1.7.10", "1.8.9", "1.12.2"].contains(&version_id);
+
+        let meta_path = crate::minecraft::downloads::mod_resolver::build_forge_add_mods_meta(
+            profile.id,
+            version_id,
+            &target_mods,
+        )
+        .await?;
+
+        let forge_libs = crate::minecraft::downloads::forge_libraries_download::ForgeLibrariesDownload::new();
+        let loader_path = forge_libs.resolve_forgeloader(version_id, loader_str).await?;
+
+        let mut current_jvm_args = launch_params.additional_jvm_args.clone();
+        let meta_path_str = meta_path.to_string_lossy().replace("\\", "/");
+        current_jvm_args.push(format!("-Dnrc.addMods=@{}", meta_path_str));
+
+        if is_legacy_forge {
+            current_jvm_args.push("-Dfml.coreMods.load=gg.norisk.forgeloader.forge.ForgeModLoader".to_string());
+        }
+        launch_params = launch_params.with_additional_jvm_args(current_jvm_args);
+
+        let mut libs = launch_params.additional_libraries.clone();
+        libs.push(loader_path);
+        launch_params = launch_params.with_additional_libraries(libs);
+
+        info!("Configured {} ForgeModLoader for profile '{}' ({} mods)", loader_str, profile.name, target_mods.len());
     }
 
     // --- Step: Sync mods from cache to profile directory ---
@@ -802,11 +834,16 @@ pub async fn install_minecraft_version(
     // Ensure mods folder exists for all loaders before launch/sync
     async_fs::create_dir_all(&profile_mods_path).await?;
 
-    // Pass the resolved target_mods list and the specific mods path to the sync function
-    if modloader_enum == ModLoader::Fabric {
+    // Sync mods to profile directory
+    // - Fabric/Forge: Remove managed mods from mods/ (all loaded via meta file from cache)
+    // - Others: Sync all mods
+    if modloader_enum == ModLoader::Fabric || modloader_enum == ModLoader::Forge || modloader_enum == ModLoader::NeoForge {
         info!(
-            "Skipping mods folder sync for Fabric (using addMods meta file instead)."
+            "Cleaning managed mods from mods/ folder (all mods loaded via meta file from cache)."
         );
+        mod_downloader_service
+            .clean_managed_mods(&target_mods, &profile_mods_path)
+            .await?;
     } else {
         mod_downloader_service
             .sync_mods_to_profile(&target_mods, &profile_mods_path)
