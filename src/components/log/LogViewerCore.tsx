@@ -9,7 +9,7 @@ import { LogEntry, LogLevel } from "../../store/useProcessStore";
 import { openExternalUrl } from "../../services/tauri-service";
 import { uploadLogToMclogs } from "../../services/log-service";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 // Hex colors for filter buttons
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -113,6 +113,7 @@ export function LogViewerCore({
   const fileDropdownRef = useRef<HTMLDivElement>(null);
   const [isFileDropdownOpen, setIsFileDropdownOpen] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isUserScrollingRef = useRef(false);
 
   // State for delayed "NO LOGS YET" display
@@ -196,11 +197,11 @@ export function LogViewerCore({
     }
   }, [isAtBottom, isAutoscrollEnabled]);
 
-  // Auto-scroll effect
+  // Auto-scroll effect — use Virtuoso's API
   useEffect(() => {
-    if (isAutoscrollEnabled && logContainerRef.current) {
+    if (isAutoscrollEnabled && virtuosoRef.current && filteredLogs.length > 0) {
       isUserScrollingRef.current = true;
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
       setTimeout(() => {
         isUserScrollingRef.current = false;
       }, 50);
@@ -251,10 +252,10 @@ export function LogViewerCore({
   };
 
   const scrollToBottom = () => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-      setIsAutoscrollEnabled(true);
+    if (virtuosoRef.current && filteredLogs.length > 0) {
+      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
     }
+    setIsAutoscrollEnabled(true);
   };
 
   return (
@@ -366,10 +367,12 @@ export function LogViewerCore({
           )
         ) : (
           <Virtuoso
+            ref={virtuosoRef}
             className="custom-scrollbar"
             style={{ height: "100%" }}
             data={filteredLogs}
-            followOutput={isAutoscrollEnabled ? "smooth" : false}
+            followOutput={() => isAutoscrollEnabled ? "auto" : false}
+            initialTopMostItemIndex={filteredLogs.length > 0 ? filteredLogs.length - 1 : 0}
             itemContent={(_index, log) => (
               <div className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded">
                 {log.timestamp ? (
