@@ -88,7 +88,7 @@ pub async fn track_minecraft_started_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([
         ("profile_id".to_string(), string_value(profile_id)),
-        ("minecraft_version".to_string(), string_value(minecraft_version)),
+        ("version".to_string(), string_value(minecraft_version)),
         ("loader".to_string(), string_value(loader)),
     ]);
 
@@ -102,6 +102,7 @@ pub async fn track_skin_added_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([
         ("skin_name".to_string(), string_value(skin_name)),
+        ("source".to_string(), string_value(source_type.clone())),
         ("source_type".to_string(), string_value(source_type)),
         ("source_value".to_string(), string_value(source_value)),
     ]);
@@ -120,7 +121,11 @@ pub async fn track_skin_deleted_event(
 pub async fn track_skin_selected_event(
     skin_variant: String,
 ) -> Result<(), String> {
-    let properties = HashMap::from([("skin_variant".to_string(), string_value(skin_variant))]);
+    let properties = HashMap::from([
+        ("skin_variant".to_string(), string_value(skin_variant.clone())),
+        ("skin_type".to_string(), string_value(skin_variant.clone())),
+        ("skin_name".to_string(), string_value(skin_variant)),
+    ]);
 
     dispatch_analytics_event("skin_selected", properties).await
 }
@@ -132,6 +137,7 @@ pub async fn track_skin_edited_event(
     let properties = HashMap::from([
         ("skin_name".to_string(), string_value(skin_name)),
         ("skin_variant".to_string(), string_value(skin_variant)),
+        ("edit_type".to_string(), string_value("properties_updated".to_string())),
     ]);
 
     dispatch_analytics_event("skin_edited", properties).await
@@ -139,8 +145,14 @@ pub async fn track_skin_edited_event(
 
 pub async fn track_cape_selected_event(
     cape_hash: String,
+    cape_source: String,
+    cape_name: String,
 ) -> Result<(), String> {
-    let properties = HashMap::from([("cape_hash".to_string(), string_value(cape_hash))]);
+    let properties = HashMap::from([
+        ("cape_hash".to_string(), string_value(cape_hash)),
+        ("cape_source".to_string(), string_value(cape_source)),
+        ("cape_name".to_string(), string_value(cape_name)),
+    ]);
 
     dispatch_analytics_event("cape_selected", properties).await
 }
@@ -152,7 +164,7 @@ pub async fn track_profile_created_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([
         ("profile_name".to_string(), string_value(profile_name)),
-        ("game_version".to_string(), string_value(game_version)),
+        ("version".to_string(), string_value(game_version)),
         ("loader".to_string(), string_value(loader)),
     ]);
 
@@ -170,7 +182,15 @@ pub async fn track_profile_imported_event(
 pub async fn track_color_changed_event(
     color: String,
 ) -> Result<(), String> {
-    let properties = HashMap::from([("color".to_string(), string_value(color))]);
+    let name = if color.trim().is_empty() {
+        "Custom".to_string()
+    } else {
+        color
+    };
+    let properties = HashMap::from([
+        ("color".to_string(), string_value(name.clone())),
+        ("color_name".to_string(), string_value(name)),
+    ]);
 
     dispatch_analytics_event("color_changed", properties).await
 }
@@ -180,13 +200,16 @@ pub async fn track_beta_updates_toggled_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([("enabled".to_string(), Value::Bool(enabled))]);
 
-    dispatch_analytics_event("beta_updates_toggled", properties).await
+    dispatch_analytics_event("beta_update_toggled", properties).await
 }
 
 pub async fn track_border_radius_changed_event(
     radius: f64,
 ) -> Result<(), String> {
-    let properties = HashMap::from([("radius".to_string(), number_value(radius))]);
+    let properties = HashMap::from([
+        ("radius".to_string(), number_value(radius)),
+        ("radius_px".to_string(), number_value(radius)),
+    ]);
 
     dispatch_analytics_event("border_radius_changed", properties).await
 }
@@ -196,7 +219,7 @@ pub async fn track_tab_clicked_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([("tab_name".to_string(), string_value(tab_name))]);
 
-    dispatch_analytics_event("tab_clicked", properties).await
+    dispatch_analytics_event("sidebar_tab_clicked", properties).await
 }
 
 #[command]
@@ -236,7 +259,7 @@ pub async fn track_analytics_event(event: AnalyticsEvent) -> Result<TrackEventRe
         events: vec![event_with_timestamp.clone()],
     };
 
-    let url = "https://track.norisk.gg/api/track";
+    let url = "https://analytics-api-staging.norisk.gg/api/track";
 
     info!("[Analytics] Sending event to backend: {}", url);
     info!("[Analytics] Request body: {:?}", request_body);

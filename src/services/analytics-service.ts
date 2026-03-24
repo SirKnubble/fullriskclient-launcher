@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 
-const ANALYTICS_API_URL = 'https://track.norisk.gg/api/track';
+const ANALYTICS_API_URL = 'https://analytics-api-staging.norisk.gg/';
 
 interface AnalyticsEvent {
     event_type: string;
@@ -134,17 +134,17 @@ export const trackLauncherStart = async (version?: string): Promise<void> => {
 };
 
 export const trackMinecraftStarted = async (profileId: string, minecraftVersion: string, loader?: string): Promise<void> => {
-    await trackEvent('minecraft_started', {
-        profile_id: profileId,
-        minecraft_version: minecraftVersion,
-        loader,
-    });
+        await trackEvent('minecraft_started', {
+            profile_id: profileId,
+            version: minecraftVersion,
+            loader,
+        });
 };
 
 export const trackTabClicked = async (tabName: string): Promise<void> => {
     console.log('[Analytics] Tracking tab click:', tabName);
     try {
-        await trackEvent('tab_clicked', {
+        await trackEvent('sidebar_tab_clicked', {
             tab_name: tabName,
         });
         console.log('[Analytics] Tab click tracked successfully:', tabName);
@@ -160,6 +160,7 @@ export const trackSkinAdded = async (
 ): Promise<void> => {
     await trackEvent('skin_added', {
         skin_name: skinName,
+        source: sourceType,
         source_type: sourceType,
         source_value: sourceValue || '',
     });
@@ -188,19 +189,22 @@ const getJavaVersion = async (): Promise<string> => {
 };
 
 export const trackColorChanged = async (colorName: string): Promise<void> => {
+    const name = colorName?.trim() || 'Custom';
     await trackEvent('color_changed', {
-        color: colorName,
+        color: name,
+        color_name: name,
     });
 };
 
 export const trackBorderRadiusChanged = async (radius: number): Promise<void> => {
     await trackEvent('border_radius_changed', {
         radius,
+        radius_px: radius,
     });
 };
 
 export const trackBetaUpdatesToggled = async (enabled: boolean): Promise<void> => {
-    await trackEvent('beta_updates_toggled', {
+    await trackEvent('beta_update_toggled', {
         enabled,
     });
 };

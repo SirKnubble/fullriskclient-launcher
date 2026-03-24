@@ -105,6 +105,8 @@ pub async fn equip_vanilla_cape(cape_id: Option<String>) -> Result<(), CommandEr
         // Track cape selected event
         let cape_hash = cape_id.unwrap_or_else(|| "unequipped".to_string());
         if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
+            cape_hash.clone(),
+            "vanilla".to_string(),
             cape_hash,
         ).await {
             warn!("Failed to track cape selected event: {}", e);

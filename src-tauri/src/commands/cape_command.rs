@@ -335,6 +335,8 @@ pub async fn equip_cape(
 
         // Track cape selected event
         if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
+            cape_hash.clone(),
+            "custom".to_string(),
             cape_hash,
         ).await {
             warn!("Failed to track cape selected event: {}", e);
