@@ -140,8 +140,16 @@ export function useProcessEvents(options: {
               // Reset tracking for this profile
               firstMcLogReceived.current.delete(payload.target_id);
               launchStartedForProfile.current.delete(payload.target_id);
-              // Refetch processes to get the new running process
-              fetchProcesses();
+              // Refetch processes to get the new running process, then auto-switch to it
+              const profileId = payload.target_id;
+              fetchProcesses().then(() => {
+                const newProcess = useProcessStore.getState().processes.find(
+                  p => p.profile_id === profileId
+                );
+                if (newProcess) {
+                  useProcessStore.getState().selectProcess(newProcess.id);
+                }
+              });
             }
 
             // Handle error events
