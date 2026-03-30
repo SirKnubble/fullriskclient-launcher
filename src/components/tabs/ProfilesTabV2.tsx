@@ -22,6 +22,7 @@ import { ExportProfileModal } from "../profiles/ExportProfileModal";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
+import { setDiscordState } from "../../utils/discordRpc";
 
 export function ProfilesTabV2() {
   const { t } = useTranslation();
@@ -49,6 +50,8 @@ export function ProfilesTabV2() {
     setProfilesTabLayoutMode,
   } = useThemeStore();
   
+  useEffect(() => { setDiscordState("Managing Profiles"); }, []);
+
   // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
   

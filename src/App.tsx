@@ -63,6 +63,7 @@ export function App() {
 
   const activeTab = location.pathname.substring(1) || "play";
 
+
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
     useState<string>("none");
 

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { ModrinthService } from "../../services/modrinth-service";
+import { setDiscordState } from "../../utils/discordRpc";
 import { CurseForgeService } from "../../services/curseforge-service";
 import type { ModrinthProject } from "../../types/modrinth";
 import type { CurseForgeMod } from "../../types/curseforge";
@@ -179,6 +180,8 @@ export function ModDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+
+  useEffect(() => { setDiscordState("Viewing a Mod"); }, []);
 
   useEffect(() => {
     async function loadProject() {

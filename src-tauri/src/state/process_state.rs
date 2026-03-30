@@ -639,7 +639,7 @@ impl ProcessManager {
                     "Notifying Discord manager about game process {} start.",
                     process_id
                 );
-                state.discord_manager.notify_game_start(process_id).await;
+                state.discord_manager.notify_game_start(process_id, metadata.profile_name.clone(), metadata.minecraft_version.clone()).await;
             }
             Err(e) => {
                 log::error!("Failed to get global state to update Discord timestamp for process {}: {}. Discord state might be incorrect.", process_id, e);
@@ -886,6 +886,9 @@ impl ProcessManager {
                     &removed_process,
                 )
                 .await;
+
+                // Notify Discord that game has stopped
+                state.discord_manager.notify_game_stop(process_id).await;
             } else {
                 log::error!("Monitor task for process {} could not get state to stop watcher or save processes.", process_id);
             }

@@ -363,6 +363,9 @@ impl MinecraftLauncher {
             command.arg(format!("-Dnorisk.profile.name={}", p.name));
         }
 
+        // Pass meta dir to game client for shared Discord state file
+        command.arg(format!("-Dnorisk.meta.dir={}", crate::config::LAUNCHER_DIRECTORY.meta_dir().display()));
+
         if let Some(creds) = &self.credentials {
             if has_norisk_pack {
                 // Get the appropriate NoRisk token based on experimental mode setting

@@ -16,6 +16,7 @@ import {
 // import { SnowEffectToggle } from "../ui/SnowEffectToggle";
 import { ReferralBanner } from "../ui/ReferralBanner";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
+import { setDiscordState } from "../../utils/discordRpc";
 
 export function PlayTab() {
   const {
@@ -30,6 +31,8 @@ export function PlayTab() {
   const { staticBackground, accentColor } = useThemeStore();
   const { currentEffect } = useBackgroundEffectStore();
   const { isThemeActive, selectedTheme } = useLauncherTheme();
+
+  useEffect(() => { setDiscordState("Idling"); }, []);
 
   useEffect(() => {
     if (!storeSelectedProfile && profiles.length > 0) {

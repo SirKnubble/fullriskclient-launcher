@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { setDiscordState } from '../../../utils/discordRpc';
 import UnifiedService from '../../../services/unified-service';
 import { ModrinthService } from '../../../services/modrinth-service';
 import { CurseForgeService } from '../../../services/curseforge-service';
@@ -478,6 +479,14 @@ export function ModrinthSearchV2({
 
   const handleProjectTypeChange = (newProjectType: ModrinthProjectType) => {
     setProjectType(newProjectType);
+    const discordMap: Record<string, string> = {
+      mod: "Browsing Mods",
+      modpack: "Browsing Modpacks",
+      resourcepack: "Browsing Resource Packs",
+      shader: "Browsing Shaders",
+      datapack: "Browsing Data Packs",
+    };
+    setDiscordState(discordMap[newProjectType] || "Browsing Mods");
   };
 
   // Simplified handleCategoryToggle - all category groups are multi-select
