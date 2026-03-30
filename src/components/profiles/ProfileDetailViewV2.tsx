@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 import type { Profile } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { useThemeStore } from "../../store/useThemeStore";
+import { setDiscordState } from "../../utils/discordRpc";
 import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
 import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
@@ -58,6 +59,8 @@ export function ProfileDetailViewV2({
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>("content");
   const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
+
+  useEffect(() => { setDiscordState("Editing a Profile"); }, []);
 
   // Context menu state
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);

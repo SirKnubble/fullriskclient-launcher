@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import type { Profile } from "../../../types/profile";
 import { useThemeStore } from "../../../store/useThemeStore";
+import { setDiscordState } from "../../../utils/discordRpc";
 import { useDisplayContextStore } from "../../../store/useDisplayContextStore";
 import { Icon } from "@iconify/react";
 import { Card } from "../../ui/Card";
@@ -39,6 +40,16 @@ export function BrowseTab({
   const [error, setError] = useState<string | null>(null);
 
   const activeContentType = contentTypeFromUrl || initialContentTypeFromProp;
+
+  useEffect(() => {
+    const discordMap: Record<string, string> = {
+      mods: "Browsing Mods",
+      resourcepacks: "Browsing Resource Packs",
+      shaderpacks: "Browsing Shaders",
+      datapacks: "Browsing Data Packs",
+    };
+    setDiscordState(discordMap[activeContentType] || "Browsing Mods");
+  }, [activeContentType]);
 
   useEffect(() => {
     setDisplayContext("detail");

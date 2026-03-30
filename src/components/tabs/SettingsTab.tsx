@@ -42,6 +42,7 @@ import { DebugSection } from "./DebugSection";
 import { useTranslation } from "react-i18next";
 import { LANGUAGE_OPTIONS } from "../../i18n";
 import type { SupportedLanguage } from "../../i18n";
+import { setDiscordState } from "../../utils/discordRpc";
 
 export function SettingsTab() {
   const { t } = useTranslation();
@@ -54,6 +55,7 @@ export function SettingsTab() {
     "general",
   );
 
+  useEffect(() => { setDiscordState("Configuring Settings"); }, []);
 
   // Create groups array for tabs
   const createGroups = (): GroupTab[] => {

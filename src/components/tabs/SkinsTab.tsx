@@ -3,6 +3,7 @@
 import type React from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { setDiscordState } from "../../utils/discordRpc";
 import type { MinecraftProfile, TexturesData } from "../../types/minecraft";
 import type {
   GetStarlightSkinRenderPayload,
@@ -383,6 +384,8 @@ export function SkinsTab() {
   const { showModal, hideModal } = useGlobalModal();
   const { t } = useTranslation();
   const { selectedSkinId, setSelectedSkinId } = useSkinStore();
+
+  useEffect(() => { setDiscordState("Browsing Skins"); }, []);
   const [skinData, setSkinData] = useState<MinecraftProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [localSkins, setLocalSkins] = useState<MinecraftSkin[]>([]);
