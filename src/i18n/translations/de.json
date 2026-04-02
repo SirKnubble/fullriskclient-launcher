@@ -71,6 +71,9 @@
   "settings.browser_login": "Browser-basierter Login",
   "settings.browser_login.tooltip": "Externen Browser für Microsoft-Anmeldung verwenden. Empfohlen für Flatpak oder bei Problemen mit dem Login-Fenster.",
 
+  "settings.cache_natives": "Native Libraries cachen",
+  "settings.cache_natives.tooltip": "Überspringt die Native-Library-Extraktion wenn sich nichts geändert hat. Beschleunigt den Start um ~600ms. Deaktivieren bei Problemen mit Native Libraries.",
+
   "settings.game_data_dir.title": "Spieldaten-Verzeichnis",
   "settings.game_data_dir.description": "Wähle einen benutzerdefinierten Speicherort für Spieldaten (Welten, Mods, Bibliotheken, etc.)",
   "settings.game_data_dir.tooltip": "Diese Einstellung erlaubt es, Spieldaten auf einem anderen Laufwerk zu speichern. Nützlich wenn das Hauptlaufwerk wenig Platz hat.",
