@@ -71,6 +71,9 @@
   "settings.browser_login": "Browser-Based Login",
   "settings.browser_login.tooltip": "Use external browser for Microsoft login instead of embedded window. Recommended for Flatpak or if you experience issues with the login window.",
 
+  "settings.cache_natives": "Cache Native Libraries",
+  "settings.cache_natives.tooltip": "Skip native library extraction if nothing has changed. Speeds up launch by ~600ms. Disable if you experience issues with native libraries.",
+
   "settings.game_data_dir.title": "Game Data Directory",
   "settings.game_data_dir.description": "Choose a custom location to store game data (worlds, mods, libraries, etc.)",
   "settings.game_data_dir.tooltip": "This setting allows you to store game data on a different drive or location. Useful if your main drive is running out of space. The launcher will automatically handle the location change for new downloads and installations.",

@@ -40,6 +40,7 @@ export interface LauncherConfig {
   global_custom_jvm_args: string | null; // Option<String> - Global JVM args for standard profiles
   custom_game_directory: string | null; // Option<PathBuf>
   use_browser_based_login: boolean;
+  cache_natives_extraction: boolean;
   referral_state: ReferralState | null; // Referral tracking state
   last_played_profile: string | null; // Option<Uuid>
 }

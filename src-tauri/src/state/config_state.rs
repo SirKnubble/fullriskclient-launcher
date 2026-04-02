@@ -73,6 +73,8 @@ pub struct LauncherConfig {
     pub custom_game_directory: Option<PathBuf>,
     #[serde(default = "default_use_browser_based_login")]
     pub use_browser_based_login: bool,
+    #[serde(default = "default_cache_natives_extraction")]
+    pub cache_natives_extraction: bool,
     /// Referral tracking state - code stays even after redemption
     #[serde(default)]
     pub referral_state: Option<ReferralState>,
@@ -117,6 +119,10 @@ fn default_use_browser_based_login() -> bool {
     false
 }
 
+fn default_cache_natives_extraction() -> bool {
+    true
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -136,6 +142,7 @@ impl Default for LauncherConfig {
             global_custom_jvm_args: None,
             custom_game_directory: None,
             use_browser_based_login: default_use_browser_based_login(),
+            cache_natives_extraction: default_cache_natives_extraction(),
             referral_state: None,
         }
     }
@@ -231,6 +238,9 @@ impl ConfigManager {
                             }
                             if let Some(browser_login) = obj.get("use_browser_based_login").and_then(|v| v.as_bool()) {
                                 migrated_config.use_browser_based_login = browser_login;
+                            }
+                            if let Some(cache_natives) = obj.get("cache_natives_extraction").and_then(|v| v.as_bool()) {
+                                migrated_config.cache_natives_extraction = cache_natives;
                             }
                             
                             // Migrate numeric fields
@@ -363,6 +373,7 @@ impl ConfigManager {
                 && current.global_custom_jvm_args == new_config.global_custom_jvm_args
                 && current.custom_game_directory == new_config.custom_game_directory
                 && current.use_browser_based_login == new_config.use_browser_based_login
+                && current.cache_natives_extraction == new_config.cache_natives_extraction
                 && current.referral_state == new_config.referral_state
             {
                 debug!("No config changes detected, skipping save");
@@ -483,6 +494,7 @@ impl ConfigManager {
                     global_custom_jvm_args: new_config.global_custom_jvm_args.clone(),
                     custom_game_directory: new_config.custom_game_directory.clone(),
                     use_browser_based_login: new_config.use_browser_based_login,
+                    cache_natives_extraction: new_config.cache_natives_extraction,
                     referral_state: new_config.referral_state.clone(),
                 };
 
