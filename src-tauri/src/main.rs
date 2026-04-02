@@ -4,6 +4,8 @@
     windows_subsystem = "windows"
 )]
 
+#[macro_use]
+mod utils;
 mod commands;
 mod config;
 mod error;
@@ -12,7 +14,6 @@ pub mod integrations;
 mod logging;
 mod minecraft;
 mod state;
-mod utils;
 
 use crate::integrations::norisk_packs;
 use crate::integrations::norisk_versions;
