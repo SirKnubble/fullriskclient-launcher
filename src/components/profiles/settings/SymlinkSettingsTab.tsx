@@ -10,11 +10,12 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
 import { useConfirmDialog } from "../../../hooks/useConfirmDialog";
 import { SymlinkConfigModal } from "./SymlinkConfigModal";
-import { 
-  getProfileInstancePath, 
-  addProfileSymlink, 
+import { logError, logWarn, logInfo } from "../../../utils/logging-utils";
+import {
+  getProfileInstancePath,
+  addProfileSymlink,
   removeProfileSymlink,
-  getProfileSymlinks 
+  getProfileSymlinks, getDefaultProfilePath
 } from "../../../services/profile-service";
 
 interface SymlinkSettingsTabProps {
@@ -49,6 +50,8 @@ export function SymlinkSettingsTab({
       const links = await getProfileSymlinks(editedProfile.id);
       setSymlinks(links);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error.message);
+      logError(`Failed to load symlinks for profile ${editedProfile.id}: ${errorMessage}`);
       console.error("Failed to load symlinks:", error);
       toast.error("Failed to load symlinks");
     } finally {
@@ -59,9 +62,11 @@ export function SymlinkSettingsTab({
   const openFolderPickerAndConfigure = async () => {
     try {
       // Step 1: Open folder picker
+      const profilesPath = await getDefaultProfilePath();
       const selected = await open({
         directory: true,
         multiple: false,
+        defaultPath: profilesPath,
         title: "Select folder to symlink into your profile",
       });
 
@@ -93,9 +98,11 @@ export function SymlinkSettingsTab({
   const openFilePickerAndConfigure = async () => {
     try {
       // Step 1: Open file picker
+      const profilesPath = await getDefaultProfilePath();
       const selected = await open({
         directory: false,
         multiple: false,
+        defaultPath: profilesPath,
         title: "Select file to symlink into your profile",
       });
 
@@ -126,6 +133,7 @@ export function SymlinkSettingsTab({
 
   const createSymlink = async (externalPath: string, targetPath: string) => {
     try {
+      logInfo(`Creating symlink for profile ${editedProfile.id}: ${targetPath} → ${externalPath}`);
       await addProfileSymlink({
         profile_id: editedProfile.id,
         relative_path: targetPath,
@@ -136,10 +144,12 @@ export function SymlinkSettingsTab({
       await loadSymlinks(); // Reload symlinks from filesystem
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
+      logError(`Symlink creation failed for profile ${editedProfile.id}: ${errorMessage}. Target: ${targetPath}, External: ${externalPath}`);
       console.error("Symlink creation failed:", error);
       
       // Check if it's a permission error on Windows
       if (errorMessage.includes("os error 1314") || errorMessage.includes("erforderliches Recht")) {
+        logWarn(`Symlink creation failed due to Windows permissions. Profile: ${editedProfile.id}`);
         toast.error(
           "Windows requires Administrator rights or Developer Mode for symlinks. Please run the launcher as Administrator or enable Developer Mode in Windows Settings.",
           { duration: 8000 }
@@ -162,11 +172,14 @@ export function SymlinkSettingsTab({
     if (!confirmed) return;
 
     try {
+      logInfo(`Removing symlink for profile ${editedProfile.id}: ${path}`);
       await removeProfileSymlink(editedProfile.id, path);
       toast.success(`Symlink removed: ${path}`);
       await loadSymlinks(); // Reload symlinks from filesystem
     } catch (error) {
-      toast.error(`Failed to remove symlink: ${error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error.message);
+      logError(`Failed to remove symlink for profile ${editedProfile.id}: ${errorMessage}. Path: ${path}`);
+      toast.error(`Failed to remove symlink: ${errorMessage}`);
     }
   };
 
@@ -178,6 +191,7 @@ export function SymlinkSettingsTab({
       const normalizedRelativePath = relativePath.replace(/\\/g, '/');
       const fullPath = `${normalizedInstancePath}/${normalizedRelativePath}`.replace(/\//g, '\\');
       
+      logInfo(`Opening internal path for profile ${editedProfile.id}: ${fullPath}`);
       console.log('Opening internal path:', {
         instancePath,
         relativePath,
@@ -186,8 +200,10 @@ export function SymlinkSettingsTab({
       
       await openPath(fullPath);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error.message);
+      logError(`Failed to open internal path for profile ${editedProfile.id}: ${errorMessage}. Path: ${relativePath}`);
       console.error("Failed to open internal path:", error);
-      toast.error(`Failed to open internal path: ${error}`);
+      toast.error(`Failed to open internal path: ${errorMessage}`);
     }
   };
 
@@ -208,8 +224,8 @@ export function SymlinkSettingsTab({
   return (
     <>
       {confirmDialog}
-      <div className="space-y-6">
-      <div>
+      <div className="space-y-6 overflow-x-hidden" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         <h3 className="text-3xl font-minecraft text-white mb-2 lowercase">folder symlinks</h3>
         <p className="text-xs text-white/70 font-minecraft-ten tracking-wide select-none">
           link folders or files from anywhere on your system to share content between profiles
@@ -217,9 +233,9 @@ export function SymlinkSettingsTab({
       </div>
 
       {/* Existing Symlinks */}
-      <div>
+      <div className="overflow-x-hidden" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         <h4 className="text-3xl font-minecraft text-white mb-3 lowercase">active symlinks</h4>
-        <div className="space-y-2">
+        <div className="space-y-2 overflow-x-hidden" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
           {loading ? (
             <p className="text-white/50 text-sm font-minecraft-ten">loading symlinks...</p>
           ) : symlinks.length === 0 ? (
@@ -228,29 +244,56 @@ export function SymlinkSettingsTab({
             symlinks.map((symlink) => (
               <div
                 key={symlink.link_path}
-                className="flex items-center justify-between p-4 bg-white/5 rounded border border-white/10 hover:bg-white/[0.07] transition-colors"
+                className="flex items-start justify-between gap-3 p-4 bg-white/5 rounded border border-white/10 hover:bg-white/[0.07] transition-colors overflow-hidden"
+                style={{ 
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                  minWidth: 0
+                }}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="flex-1 min-w-0 overflow-hidden" style={{ boxSizing: 'border-box' }}>
+                  <div className="flex items-center gap-2 mb-2 min-w-0 overflow-hidden">
                     <Icon 
                       icon={symlink.is_directory ? "solar:folder-bold" : "solar:file-bold"} 
                       className="w-5 h-5 text-accent flex-shrink-0" 
                     />
-                    <span className="text-white text-base font-medium truncate font-minecraft-ten">
+                    <span 
+                      className="text-white text-base font-medium truncate font-minecraft-ten min-w-0 flex-1"
+                      style={{ 
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        maxWidth: '100%'
+                      }}
+                      title={symlink.link_path}
+                    >
                       {symlink.link_path}
                     </span>
-                    <span className="text-xs text-white/40 font-minecraft-ten flex-shrink-0">
+                    <span className="text-xs text-white/40 font-minecraft-ten flex-shrink-0 whitespace-nowrap">
                       ({symlink.link_type})
                     </span>
                   </div>
-                  <div className="flex items-start gap-2 ml-7">
+                  <div className="flex items-start gap-2 ml-7 min-w-0 overflow-hidden">
                     <Icon icon="solar:arrow-right-bold" className="w-3 h-3 text-white/40 mt-0.5 flex-shrink-0" />
-                    <span className="text-white/60 text-xs break-all font-mono">
-                      {symlink.target_path}
-                    </span>
+                    <div className="min-w-0 flex-1 overflow-hidden" style={{ maxWidth: '100%' }}>
+                      <span 
+                        className="text-white/60 text-xs font-mono block"
+                        style={{ 
+                          display: 'block',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: '100%'
+                        }}
+                        title={symlink.target_path}
+                      >
+                        {symlink.target_path}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <IconButton
                     variant="secondary"
                     size="sm"
