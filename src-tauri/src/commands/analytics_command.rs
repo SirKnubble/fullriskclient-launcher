@@ -97,11 +97,14 @@ pub async fn track_minecraft_started_event(
 
 pub async fn track_skin_added_event(
     skin_name: String,
+    skin_variant: String,
     source_type: String,
     source_value: String,
 ) -> Result<(), String> {
     let properties = HashMap::from([
         ("skin_name".to_string(), string_value(skin_name)),
+        ("skin_variant".to_string(), string_value(skin_variant.clone())),
+        ("skin_type".to_string(), string_value(skin_variant)),
         ("source".to_string(), string_value(source_type.clone())),
         ("source_type".to_string(), string_value(source_type)),
         ("source_value".to_string(), string_value(source_value)),
@@ -119,12 +122,13 @@ pub async fn track_skin_deleted_event(
 }
 
 pub async fn track_skin_selected_event(
+    skin_name: String,
     skin_variant: String,
 ) -> Result<(), String> {
     let properties = HashMap::from([
+        ("skin_name".to_string(), string_value(skin_name)),
         ("skin_variant".to_string(), string_value(skin_variant.clone())),
-        ("skin_type".to_string(), string_value(skin_variant.clone())),
-        ("skin_name".to_string(), string_value(skin_variant)),
+        ("skin_type".to_string(), string_value(skin_variant)),
     ]);
 
     dispatch_analytics_event("skin_selected", properties).await
@@ -136,7 +140,8 @@ pub async fn track_skin_edited_event(
 ) -> Result<(), String> {
     let properties = HashMap::from([
         ("skin_name".to_string(), string_value(skin_name)),
-        ("skin_variant".to_string(), string_value(skin_variant)),
+        ("skin_variant".to_string(), string_value(skin_variant.clone())),
+        ("skin_type".to_string(), string_value(skin_variant)),
         ("edit_type".to_string(), string_value("properties_updated".to_string())),
     ]);
 

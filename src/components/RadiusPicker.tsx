@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react";
 import { useThemeStore, DEFAULT_BORDER_RADIUS, MIN_BORDER_RADIUS, MAX_BORDER_RADIUS } from "../store/useThemeStore";
 import { RangeSlider } from "./ui/RangeSlider";
 import { cn } from "../lib/utils";
-import { useState, useRef } from "react";
+import { useState } from "react";
 
 interface RadiusPickerProps {
   className?: string;
@@ -11,23 +11,10 @@ interface RadiusPickerProps {
 export const RadiusPicker = ({ className }: RadiusPickerProps) => {
   const { borderRadius, setBorderRadius } = useThemeStore();
   const [localRadius, setLocalRadius] = useState(borderRadius);
-  const trackingRef = useRef<number | null>(null);
 
   const handleSliderChange = (value: number) => {
     setLocalRadius(value);
     setBorderRadius(value);
-
-    // Clear any pending tracking
-    if (trackingRef.current) {
-      clearTimeout(trackingRef.current);
-    }
-
-    // Only track after 1 second of no changes (debounce)
-    trackingRef.current = window.setTimeout(() => {
-      const { trackBorderRadiusChanged } = require("../services/analytics-service");
-      trackBorderRadiusChanged(value).catch(console.error);
-      trackingRef.current = null;
-    }, 1000);
   };
 
   const getRadiusLabel = (radius: number): string => {

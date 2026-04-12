@@ -203,6 +203,8 @@ export const DEFAULT_BORDER_RADIUS = 0;
 export const MIN_BORDER_RADIUS = 0;
 export const MAX_BORDER_RADIUS = 32;
 
+let borderRadiusAnalyticsDebounceId: ReturnType<typeof setTimeout> | null = null;
+
 interface ThemeState {
   accentColor: AccentColor;
   setAccentColor: (color: AccentColor) => void;
@@ -311,7 +313,15 @@ export const useThemeStore = create<ThemeState>()(
             set({ borderRadius: clampedRadius });
             get().applyBorderRadiusToDOM();
 
-            // Tracking is now handled in RadiusPicker.tsx with debouncing
+            if (borderRadiusAnalyticsDebounceId !== null) {
+              clearTimeout(borderRadiusAnalyticsDebounceId);
+            }
+            borderRadiusAnalyticsDebounceId = setTimeout(() => {
+              borderRadiusAnalyticsDebounceId = null;
+              void import("../services/analytics-service").then(({ trackBorderRadiusChanged }) => {
+                trackBorderRadiusChanged(clampedRadius).catch(console.error);
+              });
+            }, 1000);
           },
 
           setCustomAccentColor: (hexColor: string) => {
