@@ -10,7 +10,7 @@ import type {
   UnifiedVersion
 } from '../../../types/unified';
 import { ModPlatform, UnifiedSortType, UnifiedProjectType } from '../../../types/unified';
-import { getBlockedModsConfig, isModBlockedByNoRisk } from '../../../services/flagsmith-service';
+import { getBlockedModsConfig, getModNoRiskStatus } from '../../../services/flagsmith-service';
 import type {
   ModrinthProjectType,
   ModrinthSearchResponse,
@@ -585,19 +585,19 @@ export function ModrinthSearchV2({
         project_id: projectId
       });
       
-      // Add blocked status to each version
-      const versionsWithBlockedStatus = response.versions.map(version => {
+      // Add NoRisk status to each version
+      const versionsWithNoRiskStatus = response.versions.map(version => {
         const primaryFile = version.files.find(file => file.primary) || version.files[0];
         const filename = primaryFile?.filename || '';
-        const isBlocked = isModBlockedByNoRisk(filename, projectId, version.id);
+        const noRiskStatus = getModNoRiskStatus(filename, projectId, version.id);
         
         return {
           ...version,
-          isBlocked // Add this property
+          noRiskStatus // Add this property ('blocked' | 'warning' | null)
         };
       });
       
-      const sortedVersions = versionsWithBlockedStatus.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
+      const sortedVersions = versionsWithNoRiskStatus.sort((a, b) => new Date(b.date_published).getTime() - new Date(a.date_published).getTime());
 
       setExpandedVersions(prev => ({ ...prev, [projectId]: sortedVersions }));
       // Initialize the number of displayed versions for this project
@@ -3083,19 +3083,24 @@ export function ModrinthSearchV2({
     norisk_pack_item_details: existingPreviousStatus?.norisk_pack_item_details || null,
   });
 
-  // Helper function to check if a project is blocked
-  const isProjectBlocked = (project: UnifiedModSearchResult): boolean => {
-    console.log('[isProjectBlocked] Checking project:', project.title, 'ID:', project.project_id);
-    console.log('[isProjectBlocked] Config loaded:', blockedModsConfigLoaded);
+  // Helper function to get NoRisk status for a project
+  const getProjectNoRiskStatus = (project: UnifiedModSearchResult): 'blocked' | 'warning' | null => {
+    console.log('[getProjectNoRiskStatus] Checking project:', project.title, 'ID:', project.project_id);
+    console.log('[getProjectNoRiskStatus] Config loaded:', blockedModsConfigLoaded);
     
     if (!blockedModsConfigLoaded) {
-      console.log('[isProjectBlocked] Config not loaded yet, returning false');
-      return false;
+      console.log('[getProjectNoRiskStatus] Config not loaded yet, returning null');
+      return null;
     }
     
-    const result = isModBlockedByNoRisk('', project.project_id, null);
-    console.log('[isProjectBlocked] Result for', project.project_id, ':', result);
+    const result = getModNoRiskStatus('', project.project_id, null);
+    console.log('[getProjectNoRiskStatus] Result for', project.project_id, ':', result);
     return result;
+  };
+
+  // Helper function to check if a project is blocked (for backward compatibility)
+  const isProjectBlocked = (project: UnifiedModSearchResult): boolean => {
+    return getProjectNoRiskStatus(project) === 'blocked';
   };
 
   return (
@@ -3163,6 +3168,7 @@ export function ModrinthSearchV2({
                   const currentVersionFilters = versionFilters[hit.project_id] || { gameVersions: [], loaders: [], versionType: 'all' };
                   const currentVersionDropdownUIState = versionDropdownUIState[hit.project_id] || { showAllGameVersions: false, gameVersionSearchTerm: '' };
                   const currentOpenVersionDropdowns = openVersionDropdowns[hit.project_id] || { type: false, gameVersion: false, loader: false };
+                  const projectNoRiskStatus = getProjectNoRiskStatus(hit);
 
                   return (
                     <ModrinthProjectCardV2
@@ -3203,6 +3209,7 @@ export function ModrinthSearchV2({
                       onDeleteVersionClick={handleDeleteVersionFromProfile}
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
+                      projectNoRiskStatus={projectNoRiskStatus}
                     />
                   );
                 })}
@@ -3246,6 +3253,7 @@ export function ModrinthSearchV2({
                   const currentVersionFilters = versionFilters[hit.project_id] || { gameVersions: [], loaders: [], versionType: 'all' };
                   const currentVersionDropdownUIState = versionDropdownUIState[hit.project_id] || { showAllGameVersions: false, gameVersionSearchTerm: '' };
                   const currentOpenVersionDropdowns = openVersionDropdowns[hit.project_id] || { type: false, gameVersion: false, loader: false };
+                  const projectNoRiskStatus = getProjectNoRiskStatus(hit);
 
                   return (
                     <ModrinthProjectCardV2
@@ -3286,6 +3294,7 @@ export function ModrinthSearchV2({
                       onDeleteVersionClick={handleDeleteVersionFromProfile}
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
+                      projectNoRiskStatus={projectNoRiskStatus}
                     />
                   );
                 }}

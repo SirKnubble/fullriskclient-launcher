@@ -11,6 +11,7 @@ use crate::state::event_state::{EventPayload, EventType};
 use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileSettings, ProfileState,
 };
+use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
 use crate::commands::analytics_command::track_minecraft_started_event;
 use crate::utils::datapack_utils::DataPackInfo;
@@ -93,6 +94,14 @@ pub struct CopyWorldParams {
     source_profile_id: Uuid,
     source_world_folder: String,
     target_profile_id: Uuid,
+    target_world_name: String,
+}
+
+// DTO for importing a world from an external path
+#[derive(Deserialize)]
+pub struct ImportWorldParams {
+    profile_id: Uuid,
+    source_world_path: String,
     target_world_name: String,
 }
 
@@ -257,16 +266,14 @@ pub async fn launch_profile(
 
     let version = profile.game_version.clone();
     let modloader = profile.loader.clone();
-
-    // Track minecraft_started event
-    if let Err(e) = track_minecraft_started_event(
-        profile.id.to_string(),
-        version.clone(),
-        format!("{:?}", modloader).to_lowercase(),
-    ).await {
-        info!("Failed to track minecraft_started event: {}", e);
-    }
-
+    
+    // Get experimental_mode from state config (needed for token refresh)
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+    log::info!(
+        "[Command] Global experimental mode is: {}",
+        is_experimental
+    );
+    
     // Helper function to get active account with proper error handling
     let get_active_account = || async {
         match state
@@ -291,12 +298,12 @@ pub async fn launch_profile(
         );
         match state
             .minecraft_account_manager_v2
-            .get_account_by_id(preferred_account_id)
+            .get_account_by_id_with_refresh(preferred_account_id, is_experimental)
             .await
         {
             Ok(Some(creds)) => {
                 log::info!(
-                    "[Command] Successfully retrieved preferred account: {}",
+                    "[Command] Successfully retrieved and refreshed preferred account: {}",
                     creds.username
                 );
                 Some(creds)
@@ -310,7 +317,7 @@ pub async fn launch_profile(
             }
             Err(e) => {
                 log::warn!(
-                    "[Command] Error getting preferred account: {}. Falling back to global active account.",
+                    "[Command] Error getting/refreshing preferred account: {}. Falling back to global active account.",
                     e
                 );
                 get_active_account().await?
@@ -2072,6 +2079,49 @@ pub async fn copy_world(params: CopyWorldParams) -> Result<String, CommandError>
     Ok(generated_folder_name) // Return the actual folder name created
 }
 
+/// Imports a Minecraft world from an external path into a profile's saves directory.
+#[tauri::command]
+pub async fn import_world(params: ImportWorldParams) -> Result<String, CommandError> {
+    info!(
+        "Executing import_world command: importing world from '{}' to profile {} with name '{}'",
+        params.source_world_path,
+        params.profile_id,
+        params.target_world_name
+    );
+
+    let source_world_path = std::path::PathBuf::from(&params.source_world_path);
+
+    // Call the utility function
+    let generated_folder_name = world_utils::import_world_from_external_path(
+        params.profile_id,
+        source_world_path,
+        &params.target_world_name,
+    )
+    .await?;
+
+    // Trigger UI updates for the profile
+    if let Ok(state) = State::get().await {
+        if let Err(e) = state
+            .event_state
+            .trigger_profile_update(params.profile_id)
+            .await
+        {
+            warn!(
+                "Failed to emit profile update event for profile {}: {}",
+                params.profile_id, e
+            );
+        }
+    } else {
+        warn!("Could not get state to emit profile update event after world import.");
+    }
+
+    info!(
+        "Successfully executed import_world command. New folder name: {}",
+        generated_folder_name
+    );
+    Ok(generated_folder_name) // Return the actual folder name created
+}
+
 /// Checks if a specific world's session.lock file can be locked, indicating if it's likely in use.
 #[tauri::command]
 pub async fn check_world_lock_status(
@@ -2353,7 +2403,16 @@ pub async fn add_profile_symlink(params: AddSymlinkParams) -> Result<(), Command
         .get_profile_instance_path(params.profile_id)
         .await?;
     
-    let link_path = instance_path.join(&params.relative_path);
+    // Normalize relative_path by converting to PathBuf (handles forward/backslash normalization)
+    // Split by '/' and push segments individually to ensure platform-appropriate separators
+    let mut normalized_relative = PathBuf::new();
+    for segment in params.relative_path.split('/') {
+        if !segment.is_empty() {
+            normalized_relative.push(segment);
+        }
+    }
+    
+    let link_path = instance_path.join(&normalized_relative);
     let target_path = PathBuf::from(&params.external_path);
     
     // Check if target exists
@@ -2378,7 +2437,7 @@ pub async fn add_profile_symlink(params: AddSymlinkParams) -> Result<(), Command
             symlink_utils::remove_symlink(&link_path).await?;
         } else {
             // Backup existing content
-            let backup_path = instance_path.join(format!("{}.backup", params.relative_path));
+            let backup_path = instance_path.join(&normalized_relative).with_extension("backup");
             tokio::fs::rename(&link_path, &backup_path).await
                 .map_err(|e| CommandError::from(AppError::Io(e)))?;
             info!("Backed up existing content to {:?}", backup_path);
@@ -2460,6 +2519,12 @@ pub async fn get_profile_instance_path(profile_id: Uuid) -> Result<String, Comma
         .profile_manager
         .get_profile_instance_path(profile_id)
         .await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn get_default_profile_path() -> Result<String, CommandError> {
+    let path = default_profile_path();
     Ok(path.to_string_lossy().to_string())
 }
 

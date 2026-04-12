@@ -37,6 +37,7 @@ use commands::minecraft_command::{
     apply_skin_from_base64,
     // Local skin database commands
     get_all_skins,
+    get_crafatar_avatar,
     get_fabric_loader_versions,
     get_forge_versions,
     get_minecraft_versions,
@@ -61,7 +62,7 @@ use commands::profile_command::{
     get_norisk_packs, get_norisk_packs_resolved, get_profile, get_profile_directory_structure,
     get_profile_latest_log_content, get_profile_log_files, get_servers_for_profile,
     get_standard_profiles, get_system_ram_mb, get_worlds_for_profile, import_local_mods,
-    import_profile, import_profile_from_file, is_content_installed, is_profile_launching,
+    import_profile, import_profile_from_file, import_world, is_content_installed, is_profile_launching,
     launch_profile, list_profile_screenshots, list_profiles, open_profile_folder,
     open_profile_latest_log, refresh_norisk_packs, refresh_standard_versions, repair_profile,
     resolve_loader_version, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
@@ -474,6 +475,7 @@ async fn main() {
             get_worlds_for_profile,
             get_servers_for_profile,
             copy_world,
+            import_world,
             check_world_lock_status,
             ping_minecraft_server,
             delete_world,
@@ -506,6 +508,7 @@ async fn main() {
             install_local_content_to_profile,
             switch_content_version,
             commands::minecraft_command::get_starlight_skin_render,
+            commands::minecraft_command::get_crafatar_avatar,
             commands::nrc_commands::discord_auth_link,
             commands::nrc_commands::discord_auth_status,
             commands::nrc_commands::discord_auth_unlink,
@@ -529,7 +532,8 @@ async fn main() {
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,
-            commands::profile_command::get_profile_instance_path
+            commands::profile_command::get_profile_instance_path,
+            commands::profile_command::get_default_profile_path
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

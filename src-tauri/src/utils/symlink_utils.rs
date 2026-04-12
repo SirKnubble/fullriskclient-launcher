@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use log::info;
+use log::{info, error};
 use std::path::Path;
 use serde::{Serialize, Deserialize};
 use tokio::fs;
@@ -54,18 +54,35 @@ async fn create_junction(target: &Path, junction: &Path) -> Result<()> {
     let target_abs = tokio::fs::canonicalize(target).await
         .map_err(|e| AppError::Other(format!("Failed to resolve target path: {}", e)))?;
     
+    // Normalize junction path to ensure proper separators on Windows
+    // PathBuf normalization should handle this, but we ensure it's canonicalized
+    let junction_normalized = if junction.is_absolute() {
+        tokio::fs::canonicalize(junction).await
+            .unwrap_or_else(|_| junction.to_path_buf())
+    } else {
+        junction.to_path_buf()
+    };
+    
+    // Convert to string with proper Windows separators
+    // to_string_lossy() should produce backslashes on Windows, but we ensure it's normalized
+    let junction_str = junction_normalized.to_string_lossy().replace('/', "\\");
+    let target_str = target_abs.to_string_lossy().replace('/', "\\");
+    
+    // Log the full command before execution
+    info!("Executing mklink command: mklink /J \"{}\" \"{}\"", junction_str, target_str);
+    
     // Use mklink /J which creates a junction point (no admin rights needed)
     let output = tokio::task::spawn_blocking({
-        let junction = junction.to_path_buf();
-        let target_abs = target_abs.clone();
+        let junction_str = junction_str.clone();
+        let target_str = target_str.clone();
         move || {
             Command::new("cmd")
                 .args(&[
                     "/C",
                     "mklink",
                     "/J",
-                    &junction.to_string_lossy(),
-                    &target_abs.to_string_lossy(),
+                    &junction_str,
+                    &target_str,
                 ])
                 .output()
         }
@@ -75,14 +92,19 @@ async fn create_junction(target: &Path, junction: &Path) -> Result<()> {
     .map_err(|e| AppError::Other(format!("Failed to execute mklink command: {}", e)))?;
 
     if !output.status.success() {
-        let error_msg = String::from_utf8_lossy(&output.stderr);
+        let stdout_msg = String::from_utf8_lossy(&output.stdout);
+        let stderr_msg = String::from_utf8_lossy(&output.stderr);
+        error!(
+            "mklink command failed. Junction: {:?}, Target: {:?}, Stdout: {}, Stderr: {}",
+            junction_normalized, target_abs, stdout_msg, stderr_msg
+        );
         return Err(AppError::Other(format!(
             "Failed to create junction point: {}",
-            error_msg
+            if !stderr_msg.is_empty() { stderr_msg } else { stdout_msg }
         )));
     }
 
-    info!("Successfully created junction point: {:?} -> {:?}", junction, target_abs);
+    info!("Successfully created junction point: {:?} -> {:?}", junction_normalized, target_abs);
     Ok(())
 }
 
