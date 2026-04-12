@@ -397,6 +397,15 @@ pub async fn launch_profile(
                         "Successfully installed/launched Minecraft version {} for profile {}",
                         version, profile_id
                     );
+                    if let Err(e) = track_minecraft_started_event(
+                        profile_id.to_string(),
+                        version.clone(),
+                        modloader.as_str().to_string(),
+                    )
+                    .await
+                    {
+                        warn!("Failed to track minecraft_started analytics event: {}", e);
+                    }
                     // Emit the new LaunchSuccessful event
                     let success_payload = EventPayload {
                         event_id: uuid::Uuid::new_v4(),

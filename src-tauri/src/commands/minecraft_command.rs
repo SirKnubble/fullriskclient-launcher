@@ -309,12 +309,24 @@ pub async fn upload_skin<R: tauri::Runtime>(
     };
 
     // Add the skin to the database
+    let track_name = skin.name.clone();
+    let track_variant = skin.variant.clone();
+
     match state.skin_manager.add_skin(skin).await {
         Ok(_) => debug!("Successfully added skin to local database"),
         Err(e) => {
             debug!("Failed to add skin to local database: {:?}", e);
             return Err(CommandError::from(e));
         }
+    }
+
+    if let Err(e) = crate::commands::analytics_command::track_skin_selected_event(
+        track_name,
+        track_variant,
+    )
+    .await
+    {
+        warn!("Failed to track skin selected event (upload_skin): {}", e);
     }
 
     debug!("Command completed: upload_skin");
@@ -492,12 +504,13 @@ pub async fn remove_skin(id: String) -> Result<bool, CommandError> {
 pub async fn apply_skin_from_base64(
     uuid: String,
     access_token: String,
+    skin_name: String,
     base64_data: String,
     skin_variant: String,
 ) -> Result<(), CommandError> {
     debug!(
-        "Command called: apply_skin_from_base64 for UUID: {} with variant: {}",
-        uuid, skin_variant
+        "Command called: apply_skin_from_base64 for UUID: {} skin_name: {} variant: {}",
+        uuid, skin_name, skin_variant
     );
     debug!("Base64 data length: {} characters", base64_data.len());
 
@@ -523,8 +536,11 @@ pub async fn apply_skin_from_base64(
 
             // Track skin selected/applied event
             if let Err(e) = crate::commands::analytics_command::track_skin_selected_event(
+                skin_name,
                 skin_variant.clone(),
-            ).await {
+            )
+            .await
+            {
                 warn!("Failed to track skin selected event: {}", e);
             }
         }
@@ -736,9 +752,12 @@ pub async fn add_skin_locally(
     // Track the event (ignore errors)
     if let Err(e) = crate::commands::analytics_command::track_skin_added_event(
         skin_to_add.name.clone(),
+        skin_to_add.variant.clone(),
         source_type.to_string(),
         source_value,
-    ).await {
+    )
+    .await
+    {
         warn!("Failed to track skin added event: {}", e);
     }
 

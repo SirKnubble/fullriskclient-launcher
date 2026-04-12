@@ -155,11 +155,14 @@ export const trackTabClicked = async (tabName: string): Promise<void> => {
 
 export const trackSkinAdded = async (
     skinName: string,
+    skinVariant: 'classic' | 'slim',
     sourceType: 'username' | 'uuid' | 'url' | 'file',
     sourceValue?: string
 ): Promise<void> => {
     await trackEvent('skin_added', {
         skin_name: skinName,
+        skin_variant: skinVariant,
+        skin_type: skinVariant,
         source: sourceType,
         source_type: sourceType,
         source_value: sourceValue || '',
