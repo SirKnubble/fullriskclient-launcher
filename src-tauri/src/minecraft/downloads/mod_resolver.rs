@@ -386,17 +386,22 @@ pub async fn resolve_target_mods(
 
         // 1. Game Version Check
         if let Some(mod_gv_list) = &mod_info.game_versions {
-            if !mod_gv_list.is_empty() && !mod_gv_list.contains(&minecraft_version.to_string()) {
+            let mc_ver = minecraft_version.to_string();
+            if !mod_gv_list.is_empty()
+                && !mod_gv_list.contains(&mc_ver)
+                && !mod_info.force_include_versions.contains(&mc_ver)
+            {
                 debug!(
-                    "Skipping profile mod '{}' (intended for MC {:?}) because target version is {}",
+                    "Skipping profile mod '{}' (intended for MC {:?}, force={:?}) because target version is {}",
                     mod_info
                         .display_name
                         .as_deref()
                         .unwrap_or(&mod_info.id.to_string()),
                     mod_gv_list,
+                    mod_info.force_include_versions,
                     minecraft_version
                 );
-                continue; // Skip if target game version is not in the list
+                continue; // Skip if target game version is not in either list
             }
         }
 
