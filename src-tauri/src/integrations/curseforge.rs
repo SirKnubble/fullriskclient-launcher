@@ -1458,6 +1458,7 @@ pub async fn resolve_curseforge_manifest_files(manifest: &CurseForgeManifest) ->
                 associated_loader: Some(determine_loader_from_curseforge_loaders(&manifest.minecraft.mod_loaders).0),
                 modpack_origin: Some(format!("curseforge:{}:{}", project_id, file_id)), // From modpack
                 updates_enabled: false, // Disable updates for modpack mods (updated with pack)
+                force_include_versions: Vec::new(),
             };
 
             info!(

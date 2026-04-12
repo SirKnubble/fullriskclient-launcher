@@ -345,6 +345,7 @@ pub async fn resolve_manifest_files(manifest: &ModrinthIndex) -> Result<Vec<Mod>
                     associated_loader: Some(pack_loader),
                     modpack_origin: Some(format!("modrinth:{}", version_info.project_id)), // From modpack
                     updates_enabled: false, // Disable updates for modpack mods (updated with pack)
+                    force_include_versions: Vec::new(),
                 };
 
                 info!(
