@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tokio::fs as tokio_fs;
 use tokio::io::AsyncWriteExt;
 
-const CRAFATAR_API_BASE: &str = "https://crafatar.com";
+const MCHEADS_API_BASE: &str = "https://mc-heads.net";
 const MINEATAR_API_BASE: &str = "https://api.mineatar.io";
 
 /// Normalizes UUID by removing hyphens for consistent cache filenames
@@ -31,7 +31,7 @@ impl CrafatarApiService {
         let cache_dir = LAUNCHER_DIRECTORY.meta_dir().join("crafatar_cache");
         if !cache_dir.exists() {
             std::fs::create_dir_all(&cache_dir).map_err(|e| {
-                AppError::Other(format!("Failed to create Crafatar cache directory: {}", e))
+                AppError::Other(format!("Failed to create MCHeads cache directory: {}", e))
             })?;
         }
         Ok(Self { cache_dir })
@@ -125,26 +125,30 @@ impl CrafatarApiService {
         overlay: bool,
         target_cache_path: &PathBuf,
     ) -> Result<Vec<u8>> {
+        // MCHeads URL format: /avatar/{uuid}/{size} or /avatar/{uuid}/{size}/nohelm
+        // UUID can be with or without hyphens, MCHeads accepts both
         let normalized_uuid = normalize_uuid(uuid);
-        let base_url = format!("{}/avatars/{}", CRAFATAR_API_BASE, normalized_uuid);
+        
+        // Build URL path based on size and overlay parameters
+        let url_path = if let Some(s) = size {
+            if overlay {
+                format!("/avatar/{}/{}", normalized_uuid, s)
+            } else {
+                format!("/avatar/{}/{}/nohelm", normalized_uuid, s)
+            }
+        } else {
+            if overlay {
+                format!("/avatar/{}", normalized_uuid)
+            } else {
+                format!("/avatar/{}/nohelm", normalized_uuid)
+            }
+        };
+        
+        let base_url = format!("{}{}", MCHEADS_API_BASE, url_path);
 
-        let mut query_params = Vec::new();
-        if let Some(s) = size {
-            query_params.push(("size", s.to_string()));
-        }
-        if overlay {
-            query_params.push(("overlay", "true".to_string()));
-        }
-
-        // Use global HTTP_CLIENT
-        let mut request_builder = HTTP_CLIENT.get(&base_url);
-        if !query_params.is_empty() {
-            request_builder = request_builder.query(&query_params);
-        }
-
-        let request = request_builder.build().map_err(|e| {
-            error!("Failed to build Crafatar API request: {}", e);
-            AppError::Other(format!("Failed to build Crafatar API request: {}", e))
+        let request = HTTP_CLIENT.get(&base_url).build().map_err(|e| {
+            error!("Failed to build MCHeads API request: {}", e);
+            AppError::Other(format!("Failed to build MCHeads API request: {}", e))
         })?;
 
         let final_url = request.url().to_string();
@@ -157,10 +161,10 @@ impl CrafatarApiService {
         // Use global HTTP_CLIENT to execute the request
         let response = HTTP_CLIENT.execute(request).await.map_err(|e| {
             warn!(
-                "Crafatar API request failed for UUID {} (size: {:?}, overlay: {}): {:?}",
+                "MCHeads API request failed for UUID {} (size: {:?}, overlay: {}): {:?}",
                 uuid, size, overlay, e
             );
-            AppError::Other(format!("Crafatar API request failed: {}", e))
+            AppError::Other(format!("MCHeads API request failed: {}", e))
         })?;
 
         let status = response.status();
@@ -172,14 +176,14 @@ impl CrafatarApiService {
                 .await
                 .unwrap_or_else(|_| format!("HTTP Error {}", status));
             warn!(
-                "Crafatar API call failed for UUID {} (size: {:?}, overlay: {}) with status {}: {}",
+                "MCHeads API call failed for UUID {} (size: {:?}, overlay: {}) with status {}: {}",
                 uuid, size, overlay, status, error_text
             );
 
             // If 503 error, try Mineatar as fallback
             if is_503_error {
                 debug!(
-                    "Crafatar returned 503 for UUID {} (size: {:?}, overlay: {}), trying Mineatar fallback...",
+                    "MCHeads returned 503 for UUID {} (size: {:?}, overlay: {}), trying Mineatar fallback...",
                     uuid, size, overlay
                 );
                 match Self::fetch_from_mineatar(uuid, size, overlay).await {
@@ -221,11 +225,11 @@ impl CrafatarApiService {
                     }
                     Err(mineatar_err) => {
                         error!(
-                            "Both Crafatar (503) and Mineatar failed for UUID {} (size: {:?}, overlay: {}). Crafatar error: {}, Mineatar error: {}",
+                            "Both MCHeads (503) and Mineatar failed for UUID {} (size: {:?}, overlay: {}). MCHeads error: {}, Mineatar error: {}",
                             uuid, size, overlay, error_text, mineatar_err
                         );
                         return Err(AppError::Other(format!(
-                            "Failed to fetch avatar for UUID '{}' (size: {:?}, overlay: {}): Crafatar returned 503, Mineatar fallback also failed: {}",
+                            "Failed to fetch avatar for UUID '{}' (size: {:?}, overlay: {}): MCHeads returned 503, Mineatar fallback also failed: {}",
                             uuid, size, overlay, mineatar_err
                         )));
                     }

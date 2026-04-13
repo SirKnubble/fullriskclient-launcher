@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { setProfileGroupingPreference } from "../services/launcher-config-service";
 import { ModPlatform } from "../types/unified";
+import type { SupportedLanguage } from "../i18n";
 
 export type AccentColor = {
   name: string;
@@ -148,12 +149,12 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
   const hexToRgb = (hex: string) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
-        ? {
+      ? {
           r: Number.parseInt(result[1], 16),
           g: Number.parseInt(result[2], 16),
           b: Number.parseInt(result[3], 16),
         }
-        : null;
+      : null;
   };
 
   const rgbToHex = (r: number, g: number, b: number) => {
@@ -165,9 +166,9 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
     if (!rgb) return hex;
 
     return rgbToHex(
-        Math.max(0, Math.floor(rgb.r * (1 - amount))),
-        Math.max(0, Math.floor(rgb.g * (1 - amount))),
-        Math.max(0, Math.floor(rgb.b * (1 - amount))),
+      Math.max(0, Math.floor(rgb.r * (1 - amount))),
+      Math.max(0, Math.floor(rgb.g * (1 - amount))),
+      Math.max(0, Math.floor(rgb.b * (1 - amount))),
     );
   };
 
@@ -176,9 +177,9 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
     if (!rgb) return hex;
 
     return rgbToHex(
-        Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * amount)),
-        Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * amount)),
-        Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * amount)),
+      Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * amount)),
+      Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * amount)),
+      Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * amount)),
     );
   };
 
@@ -223,6 +224,8 @@ interface ThemeState {
   toggleBackgroundAnimation: () => void;
   hasAcceptedTermsOfService: boolean;
   acceptTermsOfService: () => void;
+  hasAcceptedCapeGuidelines: boolean;
+  acceptCapeGuidelines: () => void;
   borderRadius: number;
   setBorderRadius: (radius: number) => void;
   applyBorderRadiusToDOM: () => void;
@@ -250,6 +253,9 @@ interface ThemeState {
   // Featured profile mode
   featureMode: boolean;
   setFeatureMode: (enabled: boolean) => void;
+  // Language
+  language: SupportedLanguage;
+  setLanguage: (lang: SupportedLanguage) => void;
   // Analytics consent state
   analyticsConsent: {
     hasSeenBanner: boolean;
@@ -265,292 +271,301 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>()(
-    persist(
-        (set, get) => ({
-          accentColor: ACCENT_COLORS.blue,
-          isBackgroundAnimationEnabled: false,
-          isDetailViewSidebarOnLeft: true,
-          profileGroupingCriterion: "group",
-          staticBackground: true,
-          hasAcceptedTermsOfService: false,
-          customColorHistory: [],
-          borderRadius: DEFAULT_BORDER_RADIUS,
-          collapsedProfileGroups: [],
-          // ProfilesTabV2 persistent filters - defaults
-          profilesTabActiveGroup: "all",
-          profilesTabSortBy: "last_played",
-          profilesTabVersionFilter: "all",
-          profilesTabLayoutMode: "list",
-          // Global context menu management - defaults
-          openContextMenuId: null,
-          // Mod source selection - defaults
-          modSource: ModPlatform.Modrinth,
-          // News section width - defaults
-          newsSectionWidth: 375,
-          // Featured profile mode - defaults
-          featureMode: false,
-          // Analytics consent state - defaults
+  persist(
+    (set, get) => ({
+      accentColor: ACCENT_COLORS.blue,
+      isBackgroundAnimationEnabled: false,
+      isDetailViewSidebarOnLeft: true,
+      profileGroupingCriterion: "group",
+      staticBackground: true,
+      hasAcceptedTermsOfService: false,
+      hasAcceptedCapeGuidelines: false,
+      customColorHistory: [],
+      borderRadius: DEFAULT_BORDER_RADIUS,
+      collapsedProfileGroups: [],
+      // ProfilesTabV2 persistent filters - defaults
+      profilesTabActiveGroup: "all",
+      profilesTabSortBy: "last_played",
+      profilesTabVersionFilter: "all",
+      profilesTabLayoutMode: "list",
+      // Global context menu management - defaults
+      openContextMenuId: null,
+      // Mod source selection - defaults
+      modSource: ModPlatform.Modrinth,
+      // News section width - defaults
+      newsSectionWidth: 375,
+      // Featured profile mode - defaults
+      featureMode: false,
+      // Language - defaults
+      language: "en" as SupportedLanguage,
+      // Analytics consent state - defaults
+      analyticsConsent: {
+        hasSeenBanner: false,
+        hasMadeDecision: false,
+        decision: null,
+        lastShown: null,
+        reminderCount: 0,
+        launchCount: 0,
+      },
+
+      setAccentColor: async (color: AccentColor) => {
+        set({ accentColor: color });
+        get().applyAccentColorToDOM();
+
+        const { trackEvent } = await import('../services/analytics-service');
+        const name = color.name?.trim() || 'Custom';
+        trackEvent('color_changed', { color: name, color_name: name }).catch(console.error);
+      },
+
+      setBorderRadius: (radius: number) => {
+        const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
+        set({ borderRadius: clampedRadius });
+        get().applyBorderRadiusToDOM();
+
+        if (borderRadiusAnalyticsDebounceId !== null) {
+          clearTimeout(borderRadiusAnalyticsDebounceId);
+        }
+        borderRadiusAnalyticsDebounceId = setTimeout(() => {
+          borderRadiusAnalyticsDebounceId = null;
+          void import("../services/analytics-service").then(({ trackEvent }) => {
+            trackEvent('border_radius_changed', { radius: clampedRadius, radius_px: clampedRadius }).catch(console.error);
+          });
+        }, 1000);
+      },
+
+      setCustomAccentColor: (hexColor: string) => {
+        const colorVariants = calculateColorVariants(hexColor);
+        const customColor: AccentColor = {
+          name: "Custom",
+          ...colorVariants,
+        } as AccentColor;
+
+        set({ accentColor: customColor });
+        get().applyAccentColorToDOM();
+        get().addToCustomColorHistory(hexColor);
+      },
+
+      addToCustomColorHistory: (hexColor: string) => {
+        set((state) => {
+          const newHistory = [...state.customColorHistory];
+          
+          const existingIndex = newHistory.indexOf(hexColor);
+          if (existingIndex > -1) {
+            newHistory.splice(existingIndex, 1);
+          }
+          
+          newHistory.unshift(hexColor);
+          
+          if (newHistory.length > 10) {
+            newHistory.pop();
+          }
+          
+          return { customColorHistory: newHistory };
+        });
+      },
+
+      clearCustomColorHistory: () => {
+        set({ customColorHistory: [] });
+      },
+
+      toggleBackgroundAnimation: () => {
+        set((state) => ({
+          isBackgroundAnimationEnabled: !state.isBackgroundAnimationEnabled,
+        }));
+      },
+
+      toggleDetailViewSidebarPosition: () => {
+        set((state) => ({
+          isDetailViewSidebarOnLeft: !state.isDetailViewSidebarOnLeft,
+        }));
+      },
+
+      setProfileGroupingCriterion: async (criterion: string) => {
+        try {
+          await setProfileGroupingPreference(criterion);
+          set({ profileGroupingCriterion: criterion });
+        } catch (error) {
+          console.error("Failed to save grouping preference:", error);
+          set({ profileGroupingCriterion: criterion });
+          throw error;
+        }
+      },
+
+      toggleStaticBackground: () => {
+        set((state) => ({ staticBackground: !state.staticBackground }));
+      },      acceptTermsOfService: () => {
+        set({ hasAcceptedTermsOfService: true });
+      },
+      acceptCapeGuidelines: () => {
+        set({ hasAcceptedCapeGuidelines: true });
+      },      applyAccentColorToDOM: () => {
+        const { accentColor } = get();
+
+        const hexToRgb = (hex: string) => {
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+          return result
+            ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
+            : null;
+        };
+
+        document.documentElement.style.setProperty(
+          "--accent",
+          accentColor.value,
+        );
+        document.documentElement.style.setProperty(
+          "--accent-hover",
+          accentColor.hoverValue,
+        );
+        document.documentElement.style.setProperty(
+          "--accent-shadow",
+          accentColor.shadowValue,
+        );
+        document.documentElement.style.setProperty(
+          "--accent-light",
+          accentColor.light,
+        );
+        document.documentElement.style.setProperty(
+          "--accent-dark",
+          accentColor.dark,
+        );
+
+        const rgbValue = hexToRgb(accentColor.value);
+        if (rgbValue) {
+          document.documentElement.style.setProperty("--accent-rgb", rgbValue);
+        }
+      },      applyBorderRadiusToDOM: () => {
+        const { borderRadius } = get();
+        
+        document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
+        
+        document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
+        if (borderRadius === 0) {
+          document.documentElement.classList.add("radius-flat");
+        } else {
+          document.documentElement.classList.remove("radius-flat");
+        }
+      },
+
+      setCollapsedProfileGroups: (groups: string[]) => {
+        set({ collapsedProfileGroups: [...groups] });
+      },
+
+      toggleCollapsedProfileGroup: (groupKey: string) => {
+        set((state) => {
+          const isCollapsed = state.collapsedProfileGroups.includes(groupKey);
+          const next = isCollapsed
+            ? state.collapsedProfileGroups.filter((g) => g !== groupKey)
+            : [...state.collapsedProfileGroups, groupKey];
+          return { collapsedProfileGroups: next };
+        });
+      },
+
+      // ProfilesTabV2 persistent filters setters
+      setProfilesTabActiveGroup: (group: string) => {
+        set({ profilesTabActiveGroup: group });
+      },
+
+      setProfilesTabSortBy: (sortBy: string) => {
+        set({ profilesTabSortBy: sortBy });
+      },
+
+      setProfilesTabVersionFilter: (filter: string) => {
+        set({ profilesTabVersionFilter: filter });
+      },
+
+      setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
+        set({ profilesTabLayoutMode: mode });
+      },
+
+      // Global context menu management
+      setOpenContextMenuId: (id: string | null) => {
+        set({ openContextMenuId: id });
+      },
+
+      // Mod source selection
+      setModSource: (source: ModPlatform) => {
+        set({ modSource: source });
+      },
+
+      // News section width
+      setNewsSectionWidth: (width: number) => {
+        set({ newsSectionWidth: width });
+      },
+
+      // Featured profile mode
+      setFeatureMode: (enabled: boolean) => {
+        set({ featureMode: enabled });
+      },
+
+      // Language
+      setLanguage: (lang: SupportedLanguage) => {
+        set({ language: lang });
+        import("../i18n/i18n").then((mod) => mod.default.changeLanguage(lang));
+      },
+
+      // Analytics consent functions
+      setAnalyticsConsent: (consentUpdate) => {
+        set((state) => ({
+          analyticsConsent: { ...state.analyticsConsent, ...consentUpdate }
+        }));
+      },
+
+      incrementLaunchCount: () => {
+        set((state) => ({
           analyticsConsent: {
-            hasSeenBanner: false,
-            hasMadeDecision: false,
-            decision: null,
-            lastShown: null,
-            reminderCount: 0,
-            launchCount: 0,
-          },
+            ...state.analyticsConsent,
+            launchCount: state.analyticsConsent.launchCount + 1
+          }
+        }));
+      },
 
-          setAccentColor: async (color: AccentColor) => {
-            set({ accentColor: color });
-            get().applyAccentColorToDOM();
+      shouldShowAnalyticsBanner: () => {
+        const state = get();
+        const consent = state.analyticsConsent;
 
-            const { trackEvent } = await import('../services/analytics-service');
-            const name = color.name?.trim() || 'Custom';
-            trackEvent('color_changed', { color: name, color_name: name }).catch(console.error);
-          },
+        if (consent.hasMadeDecision) return false;
+        if (consent.launchCount < 6) return false;
+        if (consent.reminderCount >= 3) return false;
+        if (consent.lastShown) {
+          const lastShown = new Date(consent.lastShown);
+          const daysSinceLastShown = (Date.now() - lastShown.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceLastShown < 30) return false;
+        }
+        return true;
+      },
+    }),    {
+      name: "norisk-theme-storage",
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Migration: Replace old "none" grouping criterion with "group"
+          if (state.profileGroupingCriterion === "none") {
+            state.profileGroupingCriterion = "group";
+          }
+          
+          state.applyAccentColorToDOM();
+          state.applyBorderRadiusToDOM();
+          // Apply language on rehydrate
+          if (state.language) {
+            import("../i18n/i18n").then((mod) => mod.default.changeLanguage(state.language));
+          }
+          // Ensure collapsedProfileGroups exists after rehydrate
+          if (!Array.isArray(state.collapsedProfileGroups)) {
+            state.collapsedProfileGroups = [];
+          }
 
-          setBorderRadius: (radius: number) => {
-            const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
-            set({ borderRadius: clampedRadius });
-            get().applyBorderRadiusToDOM();
-
-            if (borderRadiusAnalyticsDebounceId !== null) {
-              clearTimeout(borderRadiusAnalyticsDebounceId);
-            }
-            borderRadiusAnalyticsDebounceId = setTimeout(() => {
-              borderRadiusAnalyticsDebounceId = null;
-              void import("../services/analytics-service").then(({ trackEvent }) => {
-                trackEvent('border_radius_changed', { radius: clampedRadius, radius_px: clampedRadius }).catch(console.error);
-              });
-            }, 1000);
-          },
-
-          setCustomAccentColor: (hexColor: string) => {
-            const colorVariants = calculateColorVariants(hexColor);
-            const customColor: AccentColor = {
-              name: "Custom",
-              ...colorVariants,
-            } as AccentColor;
-
-            set({ accentColor: customColor });
-            get().applyAccentColorToDOM();
-            get().addToCustomColorHistory(hexColor);
-          },
-
-          addToCustomColorHistory: (hexColor: string) => {
-            set((state) => {
-              const newHistory = [...state.customColorHistory];
-
-              const existingIndex = newHistory.indexOf(hexColor);
-              if (existingIndex > -1) {
-                newHistory.splice(existingIndex, 1);
-              }
-
-              newHistory.unshift(hexColor);
-
-              if (newHistory.length > 10) {
-                newHistory.pop();
-              }
-
-              return { customColorHistory: newHistory };
-            });
-          },
-
-          clearCustomColorHistory: () => {
-            set({ customColorHistory: [] });
-          },
-
-          toggleBackgroundAnimation: () => {
-            set((state) => ({
-              isBackgroundAnimationEnabled: !state.isBackgroundAnimationEnabled,
-            }));
-          },
-
-          toggleDetailViewSidebarPosition: () => {
-            set((state) => ({
-              isDetailViewSidebarOnLeft: !state.isDetailViewSidebarOnLeft,
-            }));
-          },
-
-          setProfileGroupingCriterion: async (criterion: string) => {
-            try {
-              await setProfileGroupingPreference(criterion);
-              set({ profileGroupingCriterion: criterion });
-            } catch (error) {
-              console.error("Failed to save grouping preference:", error);
-              set({ profileGroupingCriterion: criterion });
-              throw error;
-            }
-          },
-
-          toggleStaticBackground: () => {
-            set((state) => ({ staticBackground: !state.staticBackground }));
-          },      acceptTermsOfService: () => {
-            set({ hasAcceptedTermsOfService: true });      },      applyAccentColorToDOM: () => {
-            const { accentColor } = get();
-
-            const hexToRgb = (hex: string) => {
-              const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-              return result
-                  ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
-                  : null;
+          // Ensure analytics consent state exists for existing users
+          if (!state.analyticsConsent) {
+            state.analyticsConsent = {
+              hasSeenBanner: false,
+              hasMadeDecision: false,
+              decision: null,
+              lastShown: null,
+              reminderCount: 0,
+              launchCount: 0,
             };
-
-            document.documentElement.style.setProperty(
-                "--accent",
-                accentColor.value,
-            );
-            document.documentElement.style.setProperty(
-                "--accent-hover",
-                accentColor.hoverValue,
-            );
-            document.documentElement.style.setProperty(
-                "--accent-shadow",
-                accentColor.shadowValue,
-            );
-            document.documentElement.style.setProperty(
-                "--accent-light",
-                accentColor.light,
-            );
-            document.documentElement.style.setProperty(
-                "--accent-dark",
-                accentColor.dark,
-            );
-
-            const rgbValue = hexToRgb(accentColor.value);
-            if (rgbValue) {
-              document.documentElement.style.setProperty("--accent-rgb", rgbValue);
-            }
-          },      applyBorderRadiusToDOM: () => {
-            const { borderRadius } = get();
-
-            document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
-
-            document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
-            if (borderRadius === 0) {
-              document.documentElement.classList.add("radius-flat");
-            } else {
-              document.documentElement.classList.remove("radius-flat");
-            }
-          },
-
-          setCollapsedProfileGroups: (groups: string[]) => {
-            set({ collapsedProfileGroups: [...groups] });
-          },
-
-          toggleCollapsedProfileGroup: (groupKey: string) => {
-            set((state) => {
-              const isCollapsed = state.collapsedProfileGroups.includes(groupKey);
-              const next = isCollapsed
-                  ? state.collapsedProfileGroups.filter((g) => g !== groupKey)
-                  : [...state.collapsedProfileGroups, groupKey];
-              return { collapsedProfileGroups: next };
-            });
-          },
-
-          // ProfilesTabV2 persistent filters setters
-          setProfilesTabActiveGroup: (group: string) => {
-            set({ profilesTabActiveGroup: group });
-          },
-
-          setProfilesTabSortBy: (sortBy: string) => {
-            set({ profilesTabSortBy: sortBy });
-          },
-
-          setProfilesTabVersionFilter: (filter: string) => {
-            set({ profilesTabVersionFilter: filter });
-          },
-
-          setProfilesTabLayoutMode: (mode: "list" | "grid" | "compact") => {
-            set({ profilesTabLayoutMode: mode });
-          },
-
-          // Global context menu management
-          setOpenContextMenuId: (id: string | null) => {
-            set({ openContextMenuId: id });
-          },
-
-          // Mod source selection
-          setModSource: (source: ModPlatform) => {
-            set({ modSource: source });
-          },
-
-          // News section width
-          setNewsSectionWidth: (width: number) => {
-            set({ newsSectionWidth: width });
-          },
-
-          // Featured profile mode
-          setFeatureMode: (enabled: boolean) => {
-            set({ featureMode: enabled });
-          },
-
-          // Analytics consent functions
-          setAnalyticsConsent: (consentUpdate) => {
-            set((state) => ({
-              analyticsConsent: { ...state.analyticsConsent, ...consentUpdate }
-            }));
-          },
-
-          incrementLaunchCount: () => {
-            set((state) => ({
-              analyticsConsent: {
-                ...state.analyticsConsent,
-                launchCount: state.analyticsConsent.launchCount + 1
-              }
-            }));
-          },
-
-          shouldShowAnalyticsBanner: () => {
-            const state = get();
-            const consent = state.analyticsConsent;
-
-            // Don't show if user already made a decision
-            if (consent.hasMadeDecision) return false;
-
-            // Don't show before 6 launches
-            if (consent.launchCount < 6) return false;
-
-            // Don't show more than 3 times total
-            if (consent.reminderCount >= 3) return false;
-
-            // Don't show if shown within last 30 days
-            if (consent.lastShown) {
-              const lastShown = new Date(consent.lastShown);
-              const daysSinceLastShown = (Date.now() - lastShown.getTime()) / (1000 * 60 * 60 * 24);
-              if (daysSinceLastShown < 30) return false;
-            }
-
-            return true;
-          },
-        }),    {
-          name: "norisk-theme-storage",
-          onRehydrateStorage: () => (state) => {
-            if (state) {
-              // Migration: Replace old "none" grouping criterion with "group"
-              if (state.profileGroupingCriterion === "none") {
-                state.profileGroupingCriterion = "group";
-              }
-
-              state.applyAccentColorToDOM();
-              state.applyBorderRadiusToDOM();
-              // Ensure collapsedProfileGroups exists after rehydrate
-              if (!Array.isArray(state.collapsedProfileGroups)) {
-                state.collapsedProfileGroups = [];
-              }
-
-              // Ensure analytics consent state exists for existing users
-              if (!state.analyticsConsent) {
-                state.analyticsConsent = {
-                  hasSeenBanner: false,
-                  hasMadeDecision: false,
-                  decision: null,
-                  lastShown: null,
-                  reminderCount: 0,
-                  launchCount: 0,
-                };
-              }
-            }
-          },
-        },
-    ),
+          }
+        }
+      },
+    },
+  ),
 );

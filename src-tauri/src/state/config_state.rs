@@ -22,6 +22,22 @@ pub struct Hooks {
     pub post_exit: Option<String>,
 }
 
+/// Referral tracking state - keeps code even after redemption for tracing
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+pub struct ReferralState {
+    /// The download UUID from the installer filename
+    pub code: String,
+    /// Whether the code has been successfully reported to backend
+    #[serde(default)]
+    pub redeemed: bool,
+    /// Timestamp when the code was redeemed
+    #[serde(default)]
+    pub redeemed_at: Option<i64>,
+    /// Account UUID that redeemed the code
+    #[serde(default)]
+    pub redeemed_by_account: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherConfig {
     #[serde(default = "default_config_version")]
@@ -52,9 +68,18 @@ pub struct LauncherConfig {
     #[serde(default = "default_global_memory_settings")]
     pub global_memory_settings: MemorySettings,
     #[serde(default)]
+    pub global_custom_jvm_args: Option<String>,
+    #[serde(default)]
     pub custom_game_directory: Option<PathBuf>,
     #[serde(default = "default_enable_analytics")]
     pub enable_analytics: bool,
+    #[serde(default = "default_use_browser_based_login")]
+    pub use_browser_based_login: bool,
+    #[serde(default = "default_cache_natives_extraction")]
+    pub cache_natives_extraction: bool,
+    /// Referral tracking state - code stays even after redemption
+    #[serde(default)]
+    pub referral_state: Option<ReferralState>,
 }
 
 fn default_config_version() -> u32 {
@@ -96,6 +121,14 @@ fn default_enable_analytics() -> bool {
     false
 }
 
+fn default_use_browser_based_login() -> bool {
+    false
+}
+
+fn default_cache_natives_extraction() -> bool {
+    true
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -112,8 +145,12 @@ impl Default for LauncherConfig {
             hooks: Hooks::default(),
             hide_on_process_start: default_hide_on_process_start(),
             global_memory_settings: default_global_memory_settings(),
+            global_custom_jvm_args: None,
             custom_game_directory: None,
             enable_analytics: default_enable_analytics(),
+            use_browser_based_login: default_use_browser_based_login(),
+            cache_natives_extraction: default_cache_natives_extraction(),
+            referral_state: None,
         }
     }
 }
@@ -209,6 +246,13 @@ impl ConfigManager {
                             if let Some(analytics) = obj.get("enable_analytics").and_then(|v| v.as_bool()) {
                                 migrated_config.enable_analytics = analytics;
                             }
+                            if let Some(browser_login) = obj.get("use_browser_based_login").and_then(|v| v.as_bool()) {
+                                migrated_config.use_browser_based_login = browser_login;
+                            }
+                            if let Some(cache_natives) = obj.get("cache_natives_extraction").and_then(|v| v.as_bool()) {
+                                migrated_config.cache_natives_extraction = cache_natives;
+                            }
+
 
                             // Migrate numeric fields
                             if let Some(downloads) = obj.get("concurrent_downloads").and_then(|v| v.as_u64()) {
@@ -337,8 +381,12 @@ impl ConfigManager {
                 && current.hide_on_process_start == new_config.hide_on_process_start
                 && current.global_memory_settings.min == new_config.global_memory_settings.min
                 && current.global_memory_settings.max == new_config.global_memory_settings.max
+                && current.global_custom_jvm_args == new_config.global_custom_jvm_args
                 && current.custom_game_directory == new_config.custom_game_directory
                 && current.enable_analytics == new_config.enable_analytics
+                && current.use_browser_based_login == new_config.use_browser_based_login
+                && current.cache_natives_extraction == new_config.cache_natives_extraction
+                && current.referral_state == new_config.referral_state
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -425,6 +473,12 @@ impl ConfigManager {
                         new_config.global_memory_settings.min, new_config.global_memory_settings.max
                     );
                 }
+                if current.global_custom_jvm_args != new_config.global_custom_jvm_args {
+                    info!(
+                        "Changing global custom JVM args: {:?} -> {:?}",
+                        current.global_custom_jvm_args, new_config.global_custom_jvm_args
+                    );
+                }
                 if current.custom_game_directory != new_config.custom_game_directory {
                     info!(
                         "Changing custom game directory: {:?} -> {:?}",
@@ -435,6 +489,12 @@ impl ConfigManager {
                     info!(
                         "Changing analytics: {} -> {}",
                         current.enable_analytics, new_config.enable_analytics
+                    );
+                }
+                if current.use_browser_based_login != new_config.use_browser_based_login {
+                    info!(
+                        "Changing use browser based login: {} -> {}",
+                        current.use_browser_based_login, new_config.use_browser_based_login
                     );
                 }
 
@@ -453,8 +513,12 @@ impl ConfigManager {
                     hooks: new_config.hooks,
                     hide_on_process_start: new_config.hide_on_process_start,
                     global_memory_settings: new_config.global_memory_settings,
+                    global_custom_jvm_args: new_config.global_custom_jvm_args.clone(),
                     custom_game_directory: new_config.custom_game_directory.clone(),
                     enable_analytics: new_config.enable_analytics,
+                    use_browser_based_login: new_config.use_browser_based_login,
+                    cache_natives_extraction: new_config.cache_natives_extraction,
+                    referral_state: new_config.referral_state.clone(),
                 };
 
                 true

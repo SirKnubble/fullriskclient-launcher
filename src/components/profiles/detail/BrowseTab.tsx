@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import type { Profile } from "../../../types/profile";
 import { useThemeStore } from "../../../store/useThemeStore";
+import { setDiscordState } from "../../../utils/discordRpc";
 import { useDisplayContextStore } from "../../../store/useDisplayContextStore";
 import { Icon } from "@iconify/react";
 import { Card } from "../../ui/Card";
@@ -26,6 +28,7 @@ export function BrowseTab({
   onRefresh,
   parentTransitionActive,
 }: BrowseTabProps) {
+  const { t } = useTranslation();
   const { profileId, contentType: contentTypeFromUrl } = useParams<{ profileId: string; contentType: string }>();
   const navigate = useNavigate();
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -37,6 +40,16 @@ export function BrowseTab({
   const [error, setError] = useState<string | null>(null);
 
   const activeContentType = contentTypeFromUrl || initialContentTypeFromProp;
+
+  useEffect(() => {
+    const discordMap: Record<string, string> = {
+      mods: "Browsing Mods",
+      resourcepacks: "Browsing Resource Packs",
+      shaderpacks: "Browsing Shaders",
+      datapacks: "Browsing Data Packs",
+    };
+    setDiscordState(discordMap[activeContentType] || "Browsing Mods");
+  }, [activeContentType]);
 
   useEffect(() => {
     setDisplayContext("detail");
@@ -119,9 +132,9 @@ export function BrowseTab({
   const actionButtons: ActionButton[] = [
     {
       id: "back",
-      label: "BACK",
+      label: t('common.back'),
       icon: "solar:arrow-left-bold",
-      tooltip: "Back to profile",
+      tooltip: t('profiles.back_to_profile'),
       onClick: handleBack,
     },
   ];
@@ -130,7 +143,7 @@ export function BrowseTab({
     return (
       <div className="h-full flex flex-col items-center justify-center p-4 gap-6">
         <Icon icon="eos-icons:loading" className="w-16 h-16 text-[var(--accent)]" />
-        <p className="text-white/70 font-minecraft text-lg">Loading profile data...</p>
+        <p className="text-white/70 font-minecraft text-lg">{t('profiles.loading_profile_data')}</p>
       </div>
     );
   }
@@ -141,7 +154,7 @@ export function BrowseTab({
         <Card variant="flat" className="p-4 border-red-500 bg-red-900/30">
           <div className="flex items-center gap-2">
             <Icon icon="solar:danger-triangle-bold" className="w-6 h-6 text-red-400" />
-            <span className="text-white font-minecraft text-lg">Error</span>
+            <span className="text-white font-minecraft text-lg">{t('common.error')}</span>
           </div>
           <p className="text-red-300 font-minecraft mt-2 text-sm">{error}</p>
         </Card>
@@ -156,11 +169,11 @@ export function BrowseTab({
           <div className="flex items-center gap-2">
             <Icon icon="solar:question-circle-bold" className="w-6 h-6 text-orange-400" />
             <span className="text-white font-minecraft text-lg">
-              Profile Not Found
+              {t('mod_detail.project_not_found')}
             </span>
           </div>
            <p className="text-orange-300 font-minecraft mt-2 text-sm">
-            The requested profile (ID: {profileId || 'N/A'}) could not be loaded or does not exist.
+            {t('profiles.errors.profile_not_found', { id: profileId || t('common.not_available') })}
           </p>
         </Card>
       </div>
