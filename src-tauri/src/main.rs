@@ -529,6 +529,7 @@ async fn main() {
             get_vanilla_cape_info,
             refresh_vanilla_cape_data,
             track_analytics_event,
+            commands::analytics_command::get_system_os_info,
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,

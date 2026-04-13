@@ -13,7 +13,7 @@ use crate::state::profile_state::{
 };
 use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
-use crate::commands::analytics_command::track_minecraft_started_event;
+use crate::commands::analytics_command::track_event as track_analytics;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
 use crate::utils::path_utils::find_unique_profile_segment;
@@ -168,14 +168,11 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
 
     let id = state.profile_manager.create_profile(profile.clone()).await?;
 
-    // Track profile created event
-    if let Err(e) = crate::commands::analytics_command::track_profile_created_event(
-        profile.name.clone(),
-        profile.game_version.clone(),
-        format!("{:?}", profile.loader).to_lowercase(),
-    ).await {
-        warn!("Failed to track profile created event: {}", e);
-    }
+    let mut props = std::collections::HashMap::new();
+    props.insert("profile_name".to_string(), serde_json::Value::String(profile.name.clone()));
+    props.insert("version".to_string(), serde_json::Value::String(profile.game_version.clone()));
+    props.insert("loader".to_string(), serde_json::Value::String(format!("{:?}", profile.loader).to_lowercase()));
+    track_analytics("profile_created", props);
 
     Ok(id)
 }
@@ -397,15 +394,11 @@ pub async fn launch_profile(
                         "Successfully installed/launched Minecraft version {} for profile {}",
                         version, profile_id
                     );
-                    if let Err(e) = track_minecraft_started_event(
-                        profile_id.to_string(),
-                        version.clone(),
-                        modloader.as_str().to_string(),
-                    )
-                    .await
-                    {
-                        warn!("Failed to track minecraft_started analytics event: {}", e);
-                    }
+                    let mut props = std::collections::HashMap::new();
+                    props.insert("profile_id".to_string(), serde_json::Value::String(profile_id.to_string()));
+                    props.insert("version".to_string(), serde_json::Value::String(version.clone()));
+                    props.insert("loader".to_string(), serde_json::Value::String(modloader.as_str().to_string()));
+                    track_analytics("minecraft_started", props);
                     // Emit the new LaunchSuccessful event
                     let success_payload = EventPayload {
                         event_id: uuid::Uuid::new_v4(),
@@ -1353,13 +1346,10 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
     // Get state to emit event
     let state = State::get().await?;
 
-    // Track profile imported event
     if let Ok(profile) = state.profile_manager.get_profile(new_profile_id).await {
-        if let Err(e) = crate::commands::analytics_command::track_profile_imported_event(
-            profile.name.clone(),
-        ).await {
-            warn!("Failed to track profile imported event: {}", e);
-        }
+        let mut props = std::collections::HashMap::new();
+        props.insert("profile_name".to_string(), serde_json::Value::String(profile.name.clone()));
+        track_analytics("profile_imported", props);
     }
 
     // Emit event to trigger UI update for the newly created profile
