@@ -303,9 +303,9 @@ export const useThemeStore = create<ThemeState>()(
             set({ accentColor: color });
             get().applyAccentColorToDOM();
 
-            // Track color changed
-            const { trackColorChanged } = await import('../services/analytics-service');
-            trackColorChanged(color.name).catch(console.error);
+            const { trackEvent } = await import('../services/analytics-service');
+            const name = color.name?.trim() || 'Custom';
+            trackEvent('color_changed', { color: name, color_name: name }).catch(console.error);
           },
 
           setBorderRadius: (radius: number) => {
@@ -318,8 +318,8 @@ export const useThemeStore = create<ThemeState>()(
             }
             borderRadiusAnalyticsDebounceId = setTimeout(() => {
               borderRadiusAnalyticsDebounceId = null;
-              void import("../services/analytics-service").then(({ trackBorderRadiusChanged }) => {
-                trackBorderRadiusChanged(clampedRadius).catch(console.error);
+              void import("../services/analytics-service").then(({ trackEvent }) => {
+                trackEvent('border_radius_changed', { radius: clampedRadius, radius_px: clampedRadius }).catch(console.error);
               });
             }, 1000);
           },

@@ -1,7 +1,7 @@
 use crate::error::{AppError, CommandError};
 use crate::minecraft::api::vanilla_cape_api::{VanillaCape, VanillaCapeApi, VanillaCapeInfo};
 use crate::state::state_manager::State;
-use log::{debug, warn};
+use log::debug;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -102,15 +102,12 @@ pub async fn equip_vanilla_cape(cape_id: Option<String>) -> Result<(), CommandEr
     if result.is_ok() {
         debug!("Command completed: equip_vanilla_cape");
 
-        // Track cape selected event
         let cape_hash = cape_id.unwrap_or_else(|| "unequipped".to_string());
-        if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
-            cape_hash.clone(),
-            "vanilla".to_string(),
-            cape_hash,
-        ).await {
-            warn!("Failed to track cape selected event: {}", e);
-        }
+        let mut props = std::collections::HashMap::new();
+        props.insert("cape_hash".to_string(), serde_json::Value::String(cape_hash.clone()));
+        props.insert("cape_source".to_string(), serde_json::Value::String("vanilla".to_string()));
+        props.insert("cape_name".to_string(), serde_json::Value::String(cape_hash));
+        crate::commands::analytics_command::track_event("cape_selected", props);
     } else {
         debug!("Command failed: equip_vanilla_cape");
     }

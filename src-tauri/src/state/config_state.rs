@@ -377,12 +377,9 @@ impl ConfigManager {
                         current.check_beta_channel, new_config.check_beta_channel
                     );
 
-                    // Track beta updates toggled event
-                    if let Err(e) = crate::commands::analytics_command::track_beta_updates_toggled_event(
-                        new_config.check_beta_channel,
-                    ).await {
-                        warn!("Failed to track beta updates toggled event: {}", e);
-                    }
+                    let mut props = std::collections::HashMap::new();
+                    props.insert("enabled".to_string(), serde_json::Value::Bool(new_config.check_beta_channel));
+                    crate::commands::analytics_command::track_event("beta_update_toggled", props);
                 }
                 if current.profile_grouping_criterion != new_config.profile_grouping_criterion {
                     info!(

@@ -14,7 +14,7 @@ use crate::minecraft::dto::VersionManifest;
 use crate::state::skin_state::MinecraftSkin;
 use crate::state::state_manager::State;
 use crate::utils::mc_utils;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri_plugin_dialog::DialogExt;
@@ -320,14 +320,11 @@ pub async fn upload_skin<R: tauri::Runtime>(
         }
     }
 
-    if let Err(e) = crate::commands::analytics_command::track_skin_selected_event(
-        track_name,
-        track_variant,
-    )
-    .await
-    {
-        warn!("Failed to track skin selected event (upload_skin): {}", e);
-    }
+    let mut props = std::collections::HashMap::new();
+    props.insert("skin_name".to_string(), serde_json::Value::String(track_name));
+    props.insert("skin_variant".to_string(), serde_json::Value::String(track_variant.clone()));
+    props.insert("skin_type".to_string(), serde_json::Value::String(track_variant));
+    crate::commands::analytics_command::track_event("skin_selected", props);
 
     debug!("Command completed: upload_skin");
     Ok(())
@@ -478,12 +475,9 @@ pub async fn remove_skin(id: String) -> Result<bool, CommandError> {
             if r {
                 debug!("Successfully removed skin with ID: {}", id);
 
-                // Track skin deleted event
-                if let Err(e) = crate::commands::analytics_command::track_skin_deleted_event(
-                    skin_name,
-                ).await {
-                    warn!("Failed to track skin deleted event: {}", e);
-                }
+                let mut props = std::collections::HashMap::new();
+                props.insert("skin_name".to_string(), serde_json::Value::String(skin_name));
+                crate::commands::analytics_command::track_event("skin_deleted", props);
             } else {
                 debug!("No skin found with ID: {}", id);
             }
@@ -534,15 +528,11 @@ pub async fn apply_skin_from_base64(
         Ok(_) => {
             debug!("Successfully applied skin from base64 data");
 
-            // Track skin selected/applied event
-            if let Err(e) = crate::commands::analytics_command::track_skin_selected_event(
-                skin_name,
-                skin_variant.clone(),
-            )
-            .await
-            {
-                warn!("Failed to track skin selected event: {}", e);
-            }
+            let mut props = std::collections::HashMap::new();
+            props.insert("skin_name".to_string(), serde_json::Value::String(skin_name));
+            props.insert("skin_variant".to_string(), serde_json::Value::String(skin_variant.clone()));
+            props.insert("skin_type".to_string(), serde_json::Value::String(skin_variant.clone()));
+            crate::commands::analytics_command::track_event("skin_selected", props);
         }
         Err(e) => {
             debug!("Failed to apply skin from base64 data: {:?}", e);
@@ -592,13 +582,12 @@ pub async fn update_skin_properties(
             if let Some(s) = &skin {
                 debug!("Successfully updated skin properties for ID: {}", id);
 
-                // Track skin edited event
-                if let Err(e) = crate::commands::analytics_command::track_skin_edited_event(
-                    s.name.clone(),
-                    variant_clone,
-                ).await {
-                    warn!("Failed to track skin edited event: {}", e);
-                }
+                let mut props = std::collections::HashMap::new();
+                props.insert("skin_name".to_string(), serde_json::Value::String(s.name.clone()));
+                props.insert("skin_variant".to_string(), serde_json::Value::String(variant_clone.clone()));
+                props.insert("skin_type".to_string(), serde_json::Value::String(variant_clone));
+                props.insert("edit_type".to_string(), serde_json::Value::String("properties_updated".to_string()));
+                crate::commands::analytics_command::track_event("skin_edited", props);
             } else {
                 debug!("No skin found with ID: {}", id);
             }
@@ -749,17 +738,14 @@ pub async fn add_skin_locally(
         }
     }
 
-    // Track the event (ignore errors)
-    if let Err(e) = crate::commands::analytics_command::track_skin_added_event(
-        skin_to_add.name.clone(),
-        skin_to_add.variant.clone(),
-        source_type.to_string(),
-        source_value,
-    )
-    .await
-    {
-        warn!("Failed to track skin added event: {}", e);
-    }
+    let mut props = std::collections::HashMap::new();
+    props.insert("skin_name".to_string(), serde_json::Value::String(skin_to_add.name.clone()));
+    props.insert("skin_variant".to_string(), serde_json::Value::String(skin_to_add.variant.clone()));
+    props.insert("skin_type".to_string(), serde_json::Value::String(skin_to_add.variant.clone()));
+    props.insert("source".to_string(), serde_json::Value::String(source_type.to_string()));
+    props.insert("source_type".to_string(), serde_json::Value::String(source_type.to_string()));
+    props.insert("source_value".to_string(), serde_json::Value::String(source_value));
+    crate::commands::analytics_command::track_event("skin_added", props);
 
     Ok(skin_to_add)
 }

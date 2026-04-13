@@ -2,7 +2,7 @@ use crate::error::{AppError, CommandError};
 use crate::minecraft::api::cape_api::{CapeApi, CapeUploadResponse, CapesBrowseResponse, CosmeticCape};
 use crate::minecraft::api::mc_api::MinecraftApiService;
 use crate::state::state_manager::State;
-use log::{debug, error, warn};
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
@@ -333,14 +333,11 @@ pub async fn equip_cape(
     if result.is_ok() {
         debug!("Command completed: equip_cape");
 
-        // Track cape selected event
-        if let Err(e) = crate::commands::analytics_command::track_cape_selected_event(
-            cape_hash.clone(),
-            "custom".to_string(),
-            cape_hash,
-        ).await {
-            warn!("Failed to track cape selected event: {}", e);
-        }
+        let mut props = std::collections::HashMap::new();
+        props.insert("cape_hash".to_string(), serde_json::Value::String(cape_hash.clone()));
+        props.insert("cape_source".to_string(), serde_json::Value::String("custom".to_string()));
+        props.insert("cape_name".to_string(), serde_json::Value::String(cape_hash));
+        crate::commands::analytics_command::track_event("cape_selected", props);
     } else {
         debug!("Command failed: equip_cape");
     }

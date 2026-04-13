@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Outlet,
   useLocation,
@@ -31,7 +32,9 @@ import {
 import * as ConfigService from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
 import { loadIcons } from '@iconify/react';
-import { trackLauncherStart, trackTabClicked } from "./services/analytics-service";
+import { trackEvent } from "./services/analytics-service";
+
+let launcherStartTracked = false;
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
@@ -155,22 +158,28 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const initAnalytics = async () => {
-      // Only initialize analytics if user has accepted them
-      if (analyticsConsent.decision === 'accepted') {
-        console.log('[App] Starting analytics initialization...');
-        try {
-          await trackLauncherStart();
-          console.log('[App] trackLauncherStart completed successfully');
-        } catch (error) {
-          console.error('[App] trackLauncherStart failed:', error);
-        }
-      } else {
-        console.log('[App] Analytics disabled, skipping initialization');
-      }
-    };
+    if (analyticsConsent.decision !== 'accepted' || launcherStartTracked) return;
+    launcherStartTracked = true;
 
-    initAnalytics();
+    (async () => {
+      try {
+        const launcherVersion = await invoke<string>('get_app_version').catch(() => 'unknown');
+        const javaInfo: any = await invoke('get_java_info_command').catch(() => null);
+        const osInfo = await invoke<{ os: string; os_version: string; arch: string }>(
+          'get_system_os_info',
+        ).catch(() => ({ os: 'unknown', os_version: 'unknown', arch: 'unknown' }));
+        await trackEvent('launcher_started', {
+          launcher_version: launcherVersion,
+          java_version: javaInfo?.version ?? 'unknown',
+          os: osInfo.os,
+          os_version: osInfo.os_version,
+          arch: osInfo.arch,
+        });
+      } catch (error) {
+        launcherStartTracked = false;
+        console.error('[App] launcher_started tracking failed:', error);
+      }
+    })();
   }, [analyticsConsent.decision]);
 
   // Icons beim App-Start vorladen
@@ -352,7 +361,7 @@ export function App() {
 
     // Track tab clicked only if analytics are enabled
     if (analyticsConsent.decision === 'accepted') {
-      trackTabClicked(tabId).catch(console.error);
+      trackEvent('sidebar_tab_clicked', { tab_name: tabId }).catch(console.error);
     }
   };
 
