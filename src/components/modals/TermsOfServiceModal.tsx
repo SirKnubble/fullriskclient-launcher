@@ -7,6 +7,84 @@ import { useThemeStore } from '../../store/useThemeStore';
 import { openExternalUrl } from '../../services/tauri-service';
 import { toast } from 'react-hot-toast';
 
+// Analytics Consent Banner Component
+interface AnalyticsConsentBannerProps {
+  onAccept: () => void;
+  onDecline: () => void;
+  onDismiss: () => void;
+}
+
+export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: AnalyticsConsentBannerProps) {
+  const { t } = useTranslation();
+  const { accentColor } = useThemeStore();
+  return (
+    <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)]">
+      <div
+        className="bg-black/20 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-2xl rounded-lg p-4 relative transition-all duration-200 cursor-default"
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.2)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderBottom: `2px solid ${accentColor.value}80`,
+          boxShadow: `
+            0 4px 0 rgba(0,0,0,0.3),
+            0 6px 12px rgba(0,0,0,0.35),
+            inset 0 1px 0 ${accentColor.value}1A
+          `
+        }}
+      >
+        <button
+          onClick={onDismiss}
+          className="absolute top-3 right-3 p-1 text-gray-400 hover:text-white transition-colors"
+          title={t('analytics.banner.dismiss')}
+        >
+          <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
+        </button>
+
+        <div className="flex items-start gap-3 pr-8">
+          <Icon icon="solar:chart-square-bold" className="w-6 h-6 text-accent flex-shrink-0 mt-1" />
+
+          <div className="flex-1 min-w-0">
+            <h3 className="text-2xl font-minecraft text-white mb-2">
+              {t('analytics.banner.title')}
+            </h3>
+
+            <p className="text-sm text-gray-300 font-minecraft-ten leading-relaxed mb-4">
+              {t('analytics.banner.description')}{' '}
+              <button
+                onClick={() => openExternalUrl('https://blog.norisk.gg/en/privacy-policy/')}
+                className="text-accent hover:text-accent-hover underline underline-offset-2 transition-colors text-sm"
+              >
+                {t('analytics.banner.learn_more')}
+              </button>
+            </p>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                onClick={onDecline}
+                variant="ghost"
+                size="sm"
+                className="px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 font-minecraft text-lg lowercase"
+              >
+                {t('analytics.banner.decline')}
+              </Button>
+              <Button
+                onClick={onAccept}
+                variant="default"
+                size="sm"
+                className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-black font-minecraft text-lg lowercase"
+              >
+                {t('analytics.banner.accept')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TermsOfServiceModalProps {
   isOpen: boolean;
 }

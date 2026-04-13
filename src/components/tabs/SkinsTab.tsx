@@ -614,6 +614,7 @@ export function SkinsTab() {
         activeAccount.access_token,
         skin.base64_data,
         skin.variant,
+        skin.name,
       );
 
       toast.success(

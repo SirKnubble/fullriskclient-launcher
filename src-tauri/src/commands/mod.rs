@@ -18,3 +18,4 @@ pub mod path_commands;
 pub mod process_command;
 pub mod profile_command;
 pub mod vanilla_cape_command;
+pub mod analytics_command;

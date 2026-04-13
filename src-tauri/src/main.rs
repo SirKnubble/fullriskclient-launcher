@@ -26,6 +26,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use utils::debug_utils;
 use utils::updater_utils;
 
+use crate::commands::analytics_command::track_analytics_event;
 use crate::commands::process_command::{
     fetch_crash_report, focus_main_window, get_full_log, get_process, get_processes,
     get_processes_by_profile, open_minecraft_log_window, open_single_log_window,
@@ -337,7 +338,7 @@ async fn main() {
                     }
                 };
 
-                // --- State Initialization --- 
+                // --- State Initialization ---
                 info!("Initiating state initialization...");
                 if let Err(e) = state::state_manager::State::init(Arc::new(state_init_app_handle.clone())).await {
                     error!("CRITICAL: Failed to initialize state: {}. Update check and main window might not proceed correctly.", e);
@@ -383,7 +384,7 @@ async fn main() {
                     }
                     Err(e) => {
                         error!("Failed to get global state for update check: {}.", e);
-                        if let Some(win) = updater_window { 
+                        if let Some(win) = updater_window {
                             updater_utils::emit_status(&state_init_app_handle, "close", "Closing due to state fetch error.".to_string(), None);
                             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             if let Err(close_err) = win.close() {
@@ -447,15 +448,15 @@ async fn main() {
                 //debug_utils::debug_unified_mod_versions().await;
             });
 
-            // --- Register Focus Event Listener for Discord RPC --- 
-            if let Some(main_window) = app.get_webview_window("main") { 
-                let focus_app_handle = app_handle.clone(); 
+            // --- Register Focus Event Listener for Discord RPC ---
+            if let Some(main_window) = app.get_webview_window("main") {
+                let focus_app_handle = app_handle.clone();
                 main_window.listen("tauri://focus", move |_event| {
-                    let listener_app_handle = focus_app_handle.clone(); 
+                    let listener_app_handle = focus_app_handle.clone();
                     tokio::spawn(async move {
                         debug!("Main window focus event received. Triggering DiscordManager handler.");
                         match state::state_manager::State::get().await {
-                            Ok(state_manager_instance) => { 
+                            Ok(state_manager_instance) => {
                                 if let Err(e) = state_manager_instance.discord_manager.handle_focus_event().await {
                                     error!("Error during DiscordManager focus handling: {}", e);
                                 }
@@ -543,7 +544,7 @@ async fn main() {
             delete_custom_mod,
             open_profile_folder,
             import_profile_from_file,
-            import_profile, 
+            import_profile,
             upload_log_to_mclogs_command,
             get_fabric_loader_versions,
             get_forge_versions,
@@ -666,6 +667,8 @@ async fn main() {
             equip_vanilla_cape,
             get_vanilla_cape_info,
             refresh_vanilla_cape_data,
+            track_analytics_event,
+            commands::analytics_command::get_system_os_info,
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,

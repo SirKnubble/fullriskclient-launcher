@@ -241,7 +241,7 @@ pub async fn get_player_capes(
         "[CMD get_player_capes] Request UUID for API call: {}",
         uuid_for_request
     );
-    debug!("[CMD get_player_capes] Calling cape_api.get_player_capes with player_uuid: {}, request_uuid: {}, is_experimental: {}", 
+    debug!("[CMD get_player_capes] Calling cape_api.get_player_capes with player_uuid: {}, request_uuid: {}, is_experimental: {}",
         player_uuid_to_use, uuid_for_request, is_experimental);
 
     cape_api
@@ -369,6 +369,12 @@ pub async fn equip_cape(
 
     if result.is_ok() {
         debug!("Command completed: equip_cape");
+
+        let mut props = std::collections::HashMap::new();
+        props.insert("cape_hash".to_string(), serde_json::Value::String(cape_hash.clone()));
+        props.insert("cape_source".to_string(), serde_json::Value::String("custom".to_string()));
+        props.insert("cape_name".to_string(), serde_json::Value::String(cape_hash));
+        crate::commands::analytics_command::track_event("cape_selected", props);
     } else {
         debug!("Command failed: equip_cape");
     }
