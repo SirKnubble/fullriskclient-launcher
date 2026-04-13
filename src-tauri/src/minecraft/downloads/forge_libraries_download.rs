@@ -11,6 +11,24 @@ use tokio::fs;
 const LIBRARIES_DIR: &str = "libraries";
 const DEFAULT_CONCURRENT_DOWNLOADS: usize = 10;
 
+/// Single forgeloader version used for all Forge + NeoForge MC versions.
+/// Artifact version is constructed as: {FORGELOADER_VERSION}+{loader}.{mc_version}
+const FORGELOADER_VERSION: &str = "26.1.5-launcher";
+const FORGELOADER_MAVEN_BASE: &str = "https://maven.norisk.gg/repository/norisk-production/gg/norisk/nrc-forgeloader";
+
+/// Known MC versions with published forgeloader artifacts, ordered ascending.
+/// If a requested version isn't in the list, we fall back to the latest entry for that loader.
+const FORGE_VERSIONS: &[&str] = &[
+    "1.7.10", "1.8.9", "1.12.2", "1.14.4", "1.15.2", "1.16.5",
+    "1.17.1", "1.18.2", "1.19.2", "1.19.4", "1.20.1",
+    "1.21.1", "1.21.3", "1.21.4", "1.21.5", "1.21.6", "1.21.7", "1.21.8",
+];
+const NEOFORGE_VERSIONS: &[&str] = &[
+    "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6",
+    "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5",
+    "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11",
+];
+
 pub struct ForgeLibrariesDownload {
     base_path: PathBuf,
     concurrent_downloads: usize,
@@ -310,5 +328,58 @@ impl ForgeLibrariesDownload {
 
         info!("\n✨ All legacy libraries processed successfully!");
         Ok(())
+    }
+
+    /// Resolves the nrc-forgeloader JAR for the given MC version and loader type.
+    /// If the exact MC version has no published artifact, falls back to the latest
+    /// known version for that loader (e.g. 1.21.13 → 1.21.11 for neoforge).
+    /// Downloads from Maven if not cached. Returns the JAR path for `-cp`.
+    pub async fn resolve_forgeloader(&self, minecraft_version: &str, loader: &str) -> Result<PathBuf> {
+        let known_versions = match loader {
+            "neoforge" => NEOFORGE_VERSIONS,
+            _ => FORGE_VERSIONS,
+        };
+
+        let resolved_version = if known_versions.contains(&minecraft_version) {
+            minecraft_version.to_string()
+        } else {
+            // Fall back to the latest known version for this loader
+            let fallback = known_versions.last().ok_or_else(|| {
+                AppError::Other(format!("No known forgeloader versions for {}", loader))
+            })?;
+            info!(
+                "MC version {} not in known {} versions, falling back to {}",
+                minecraft_version, loader, fallback
+            );
+            fallback.to_string()
+        };
+
+        let artifact_version = format!("{}+{}.{}", FORGELOADER_VERSION, loader, resolved_version);
+        let maven_path = format!(
+            "gg/norisk/nrc-forgeloader/{0}/nrc-forgeloader-{0}.jar",
+            artifact_version
+        );
+        let jar_path = self.base_path.join(&maven_path);
+
+        if !jar_path.exists() {
+            if let Some(parent) = jar_path.parent() {
+                fs::create_dir_all(parent).await?;
+            }
+            let encoded_version = artifact_version.replace("+", "%2B");
+            let url = format!(
+                "{}/{1}/nrc-forgeloader-{1}.jar",
+                FORGELOADER_MAVEN_BASE,
+                encoded_version
+            );
+            info!("Downloading forgeloader: {}", url);
+            DownloadUtils::download_file(
+                &url,
+                &jar_path,
+                DownloadConfig::new().with_streaming(true).with_retries(3),
+            ).await?;
+        }
+
+        info!("Forgeloader JAR: {:?}", jar_path);
+        Ok(jar_path)
     }
 }

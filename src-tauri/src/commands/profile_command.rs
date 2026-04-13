@@ -16,7 +16,7 @@ use crate::state::state_manager::State;
 use crate::commands::analytics_command::track_event as track_analytics;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
-use crate::utils::path_utils::find_unique_profile_segment;
+use crate::utils::path_utils::{find_unique_profile_segment, copy_dir_recursively, count_files_recursively};
 use crate::utils::profile_utils::{
     check_for_group_migration, CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
     GenericModrinthInfo, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
@@ -26,7 +26,8 @@ use crate::utils::resourcepack_utils::ResourcePackInfo;
 use crate::utils::shaderpack_utils::ShaderPackInfo;
 use crate::utils::world_utils;
 use crate::utils::{
-    datapack_utils, path_utils, profile_utils, repair_utils, resourcepack_utils, shaderpack_utils,
+    datapack_utils, disk_space_utils::DiskSpaceUtils, path_utils, profile_utils, referral_utils, repair_utils, resourcepack_utils,
+    shaderpack_utils,
 };
 use chrono::Utc;
 use log::{error, info, trace, warn};
@@ -76,6 +77,8 @@ pub struct CopyProfileParams {
     use_shared_minecraft_folder: Option<bool>,
     // Option um nur bestimmte Dateien zu kopieren
     include_files: Option<Vec<PathBuf>>,
+    // Option um alle Dateien zu kopieren (ignoriert include_files wenn true)
+    copy_all_files: Option<bool>,
 }
 
 // Export profile command parameters
@@ -324,6 +327,13 @@ pub async fn launch_profile(
         log::info!("[Command] No preferred account set. Using global active account.");
         get_active_account().await?
     };
+
+    // Fallback: Try to report pending referral code before launch (in case login report failed)
+    if let Some(ref creds) = credentials {
+        if let Err(e) = referral_utils::report_referral_after_login(creds.id).await {
+            log::debug!("[Command] Referral report before launch failed (may already be reported): {}", e);
+        }
+    }
 
     let profile_id = profile.id; // Store profile ID for later use
     let profile_clone = profile.clone();
@@ -1244,16 +1254,16 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
         let new_profile_id = match file_extension.as_deref() {
             Some("mrpack") => {
                 log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-                mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
+                mrpack::import_mrpack_as_profile(file_path_buf, None, None, None, 0.0, 1.0).await?
             }
             Some("noriskpack") => {
                 log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
-                crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf)
+                crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf, None)
                     .await?
             }
             Some("zip") => {
                 log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
-                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+                curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None, None, 0.0, 1.0).await?
             }
             _ => {
                 log::error!(
@@ -1291,7 +1301,7 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
 
 /// Imports a profile from a specified file path.
 #[tauri::command]
-pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError> {
+pub async fn import_profile(file_path_str: String, event_id: Option<String>) -> Result<Uuid, CommandError> {
     log::info!(
         "Executing import_profile command with file_path: {}",
         file_path_str
@@ -1307,6 +1317,28 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
         ))));
     }
 
+    // Check disk space before importing
+    let file_metadata = TokioFs::metadata(&file_path_buf).await.map_err(|e| {
+        log::error!("Failed to get file metadata for {:?}: {}", file_path_buf, e);
+        AppError::Io(e)
+    })?;
+    let file_size = file_metadata.len();
+    let estimated_required = file_size * 3; // 3x for extraction + mod downloads overhead
+
+    let profiles_dir = default_profile_path();
+
+    log::info!(
+        "Checking disk space: file size = {} bytes, estimated required = {} bytes",
+        file_size,
+        estimated_required
+    );
+    DiskSpaceUtils::ensure_space_for_download(&profiles_dir, estimated_required, 0.1).await?;
+
+    let state = State::get().await?;
+
+    // Parse event_id if provided
+    let event_id_uuid = event_id.and_then(|id| uuid::Uuid::parse_str(&id).ok());
+
     log::info!(
         "Processing modpack file: {:?}. Triggering processing...",
         file_path_buf
@@ -1321,15 +1353,15 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
     let new_profile_id = match file_extension.as_deref() {
         Some("mrpack") => {
             log::info!("File extension is .mrpack, proceeding with mrpack processing.");
-            mrpack::import_mrpack_as_profile(file_path_buf, None, None).await?
+            mrpack::import_mrpack_as_profile(file_path_buf, None, None, event_id_uuid, 0.0, 1.0).await?
         }
         Some("noriskpack") => {
             log::info!("File extension is .noriskpack, proceeding with noriskpack processing.");
-            crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf).await?
+            crate::integrations::norisk_packs::import_noriskpack_as_profile(file_path_buf, event_id_uuid).await?
         }
         Some("zip") => {
             log::info!("File extension is .zip, proceeding with CurseForge modpack processing.");
-            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None).await?
+            curseforge::import_curseforge_pack_as_profile(file_path_buf, None, None, event_id_uuid, 0.0, 1.0).await?
         }
         _ => {
             log::error!(
@@ -1343,16 +1375,13 @@ pub async fn import_profile(file_path_str: String) -> Result<Uuid, CommandError>
         }
     };
 
-    // Get state to emit event
-    let state = State::get().await?;
-
     if let Ok(profile) = state.profile_manager.get_profile(new_profile_id).await {
         let mut props = std::collections::HashMap::new();
         props.insert("profile_name".to_string(), serde_json::Value::String(profile.name.clone()));
         track_analytics("profile_imported", props);
     }
 
-    // Emit event to trigger UI update for the newly created profile
+    // Emit event to trigger UI update for the newly created profile (reusing state from disk space check)
     if let Err(e) = state
         .event_state
         .trigger_profile_update(new_profile_id)
@@ -1628,7 +1657,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
     // 8. Kopiere die Dateien basierend auf den Parametern
     let files_copied = if let Some(include_files) = &params.include_files {
         if !include_files.is_empty() {
-            // Wenn eine nicht-leere Include-Liste angegeben wurde, verwende die neue Funktion
+            // Wenn eine nicht-leere Include-Liste angegeben wurde, kopiere nur diese Dateien
             info!(
                 "Copying only specified files ({} paths) to new profile {}",
                 include_files.len(),
@@ -1650,12 +1679,33 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
             );
             0
         }
-    } else {
+    } else if params.copy_all_files == Some(false) {
+        // Explizit auf false gesetzt bedeutet: kopiere nichts
         info!(
-            "No include_files specified, copying no files to new profile {}",
+            "copy_all_files explicitly set to false, not copying any files to new profile {}",
             new_profile.id
         );
         0
+    } else {
+        // Default: kopiere alle Dateien (copy_all_files ist true oder nicht angegeben)
+        info!(
+            "Copying all files recursively from {} to {} for new profile {}",
+            source_full_path.display(),
+            new_profile_path.display(),
+            new_profile.id
+        );
+
+        let io_semaphore = state.io_semaphore.clone();
+        copy_dir_recursively(&source_full_path, &new_profile_path, io_semaphore).await?;
+        
+        // Zähle die kopierten Dateien für die Log-Ausgabe
+        let files_count = count_files_recursively(&new_profile_path).await.unwrap_or(0);
+        info!(
+            "Successfully copied all files ({} files) to new profile {}",
+            files_count,
+            new_profile.id
+        );
+        files_count as u64
     };
 
     info!(

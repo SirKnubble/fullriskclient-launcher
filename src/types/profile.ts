@@ -164,6 +164,11 @@ export interface Mod {
 
   /// True if automatic updates are enabled for this mod (default: true)
   updates_enabled: boolean;
+
+  /// MC versions the user has explicitly forced this mod to load on,
+  /// even if they are not listed in `game_versions`. Populated at install/update
+  /// time when the profile's MC version is missing from the upstream metadata.
+  force_include_versions: string[];
 }
 
 export interface NoriskModIdentifier {
@@ -266,6 +271,7 @@ export interface CopyProfileParams {
   new_profile_name: string;
   use_shared_minecraft_folder?: boolean;
   include_files?: string[];
+  copy_all_files?: boolean;
 }
 
 export interface ExportProfileParams {

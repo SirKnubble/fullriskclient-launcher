@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import {
   Outlet,
   useLocation,
@@ -13,6 +12,7 @@ import { ThemeInitializer } from "./components/ThemeInitializer";
 import { ScrollbarProvider } from "./components/ui/ScrollbarProvider";
 import { GlobalToaster } from "./components/ui/GlobalToaster";
 import { type Event as TauriEvent, listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { toast } from "react-hot-toast";
 import {
   type EventPayload as FrontendEventPayload,
@@ -24,6 +24,8 @@ import { TermsOfServiceModal, AnalyticsConsentBanner } from "./components/modals
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
+import { useGlobalModal } from "./hooks/useGlobalModal";
+import { Modal } from "./components/ui/Modal";
 import { refreshNrcDataOnMount } from "./services/nrc-service";
 import {
   getLauncherConfig,
@@ -38,6 +40,15 @@ let launcherStartTracked = false;
 
 import flagsmith from 'flagsmith';
 import { FlagsmithProvider } from 'flagsmith/react';
+import { Button } from "./components/ui/buttons/Button";
+import { openExternalUrl } from "./services/tauri-service";
+import { ExternalLink } from "lucide-react";
+import { MinecraftAuthService } from "./services/minecraft-auth-service";
+import ChildProtectionModal from "./components/modals/ChildProtectionModal";
+import { NotificationModal } from "./components/modals/NotificationModal";
+import { useNotificationStore } from "./store/notification-store";
+import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
+import { useTranslation } from "react-i18next";
 
 export type ProfilesTabContext = {
   currentGroupingCriterion: string;
@@ -45,6 +56,7 @@ export type ProfilesTabContext = {
 };
 
 export function App() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
@@ -53,11 +65,13 @@ export function App() {
     analyticsConsent,
     setAnalyticsConsent,
     shouldShowAnalyticsBanner,
-    incrementLaunchCount
+    incrementLaunchCount,
   } = useThemeStore();
+  const { showModal, hideModal } = useGlobalModal();
+  const { activeAccount } = useMinecraftAuthStore();
+  const { fetchNotifications } = useNotificationStore();
 
   const activeTab = location.pathname.substring(1) || "play";
-
 
 
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
@@ -142,7 +156,7 @@ export function App() {
                   "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
                   e,
               );
-              toast.error("Could not globally process Minecraft process status.");
+              toast.error(t('app.errors.process_status'));
             }
           }
         },
@@ -152,6 +166,102 @@ export function App() {
       unlisten.then((f) => f());
     };
   }, [openCrashModal]);
+
+  // Listen for navigation events from other windows (e.g., log window)
+  useEffect(() => {
+    const unlisten = listen<{ profileId: string }>(
+      "navigate-to-profile",
+      (event) => {
+        const { profileId } = event.payload;
+        console.log("[App.tsx] Navigate to profile:", profileId);
+        navigate(`/profilesv2/${profileId}`);
+      },
+    );
+
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [navigate]);
+
+  // Listen for deep link auth bridge requests
+  useEffect(() => {
+    const unlisten = listen<{ session_id: string; username: string }>(
+      "deep-link-auth-request",
+      (event) => {
+        const { session_id, username } = event.payload;
+        console.log("[App.tsx] Deep link auth request for:", username);
+
+        showModal(
+          "deep-link-auth",
+          <Modal
+            title={t("deep_link.auth.title")}
+            onClose={() => hideModal("deep-link-auth")}
+            width="sm"
+            footer={
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => hideModal("deep-link-auth")}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={async () => {
+                    hideModal("deep-link-auth");
+                    try {
+                      const result = await invoke<{
+                        success: boolean;
+                        message: string;
+                      }>("confirm_auth_bridge", {
+                        sessionId: session_id,
+                      });
+                      if (result.success) {
+                        toast.success(t("deep_link.auth.success"));
+                      } else {
+                        console.error("[App.tsx] Auth bridge confirm failed:", result.message);
+                        toast.error(t("deep_link.auth.error"));
+                      }
+                    } catch (e) {
+                      console.error("[App.tsx] Auth bridge confirm failed:", e);
+                      toast.error(t("deep_link.auth.error"));
+                    }
+                  }}
+                >
+                  {t("deep_link.auth.confirm")}
+                </Button>
+              </div>
+            }
+          >
+            <div className="p-6 text-white/80 font-minecraft-ten">
+              <p>{t("deep_link.auth.description", { username })}</p>
+            </div>
+          </Modal>,
+        );
+      },
+    );
+
+    // Also listen for auth results when no confirmation is needed (e.g., errors)
+    const unlistenResult = listen<{ success: boolean; message: string }>(
+      "deep-link-auth-result",
+      (event) => {
+        const { success, message } = event.payload;
+        if (!success) {
+          if (message === "not_logged_in") {
+            toast.error(t("deep_link.auth.not_logged_in"));
+          } else {
+            console.error("[App.tsx] Auth bridge confirm failed:", message);
+            toast.error(t("deep_link.auth.error"));
+          }
+        }
+      },
+    );
+
+    return () => {
+      unlisten.then((f) => f());
+      unlistenResult.then((f) => f());
+    };
+  }, [showModal, hideModal, t]);
 
   useEffect(() => {
     refreshNrcDataOnMount();
@@ -181,6 +291,15 @@ export function App() {
       }
     })();
   }, [analyticsConsent.decision]);
+
+  // Fetch notifications when user is logged in
+  useEffect(() => {
+    if (activeAccount) {
+      fetchNotifications().catch((error) => {
+        console.error("[App.tsx] Failed to fetch notifications:", error);
+      });
+    }
+  }, [activeAccount, fetchNotifications]);
 
   // Icons beim App-Start vorladen
   useEffect(() => {
@@ -255,7 +374,7 @@ export function App() {
       console.log("[App.tsx] Grouping preference saved successfully.");
     } catch (error) {
       console.error("[App.tsx] Failed to save grouping preference:", error);
-      toast.error("Failed to save grouping preference.");
+      toast.error(t('app.errors.save_grouping'));
     }
   };
 
@@ -373,32 +492,34 @@ export function App() {
   useGlobalDragAndDrop();
 
   return (
-      <FlagsmithProvider
-          options={{
-            environmentID: FLAGSMITH_ENVIRONMENT_ID,
-            api: 'https://flagsmith-staging.norisk.gg/api/v1/',
-          }}
-          flagsmith={flagsmith}
-      >
-        <div className="flex flex-col h-screen w-screen overflow-hidden">
-          <ThemeInitializer />
-          <ScrollbarProvider />
-          <GlobalToaster />
-          <GlobalCrashReportModal />
-          <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
-          <GlobalModalPortal />
-          <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
-            <Outlet context={profilesTabContext} />
-          </AppLayout>
-          {shouldShowAnalyticsBanner() && (
-            <AnalyticsConsentBanner
-              onAccept={handleAnalyticsAccept}
-              onDecline={handleAnalyticsDecline}
-              onDismiss={handleAnalyticsDismiss}
-            />
-          )}
-        </div>
-      </FlagsmithProvider>
+    <FlagsmithProvider
+      options={{
+        environmentID: FLAGSMITH_ENVIRONMENT_ID,
+        api: 'https://flagsmith-staging.norisk.gg/api/v1/',
+      }}
+      flagsmith={flagsmith}
+    >
+      <div className="flex flex-col h-screen w-screen overflow-hidden">
+        <ThemeInitializer />
+        <ScrollbarProvider />
+        <GlobalToaster />
+        <GlobalCrashReportModal />
+        <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
+        <GlobalModalPortal />
+        <ChildProtectionModal />
+        <NotificationModal />
+        <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
+          <Outlet context={profilesTabContext} />
+        </AppLayout>
+        {shouldShowAnalyticsBanner() && (
+          <AnalyticsConsentBanner
+            onAccept={handleAnalyticsAccept}
+            onDecline={handleAnalyticsDecline}
+            onDismiss={handleAnalyticsDismiss}
+          />
+        )}
+      </div>
+    </FlagsmithProvider>
   );
 }
 

@@ -5,7 +5,7 @@ use crate::minecraft::minecraft_auth::Credentials;
 use crate::minecraft::ClasspathBuilder;
 use crate::minecraft::GameArguments;
 use crate::minecraft::JvmArguments;
-use crate::state::profile_state::{Profile, WindowSize};
+use crate::state::profile_state::{ImageSource, Profile, ProfileBanner, WindowSize};
 use crate::state::state_manager::State;
 use log::{debug, error, info, warn};
 use serde_json::Value;
@@ -109,6 +109,53 @@ impl MinecraftLaunchParameters {
     pub fn with_quick_play_multiplayer(mut self, server_address: String) -> Self {
         self.quick_play_multiplayer = Some(server_address);
         self
+    }
+}
+
+/// Resolves a profile banner to an absolute file path or URL string.
+/// Returns None if the banner is None or cannot be resolved.
+fn resolve_profile_banner_path(
+    banner: &Option<ProfileBanner>,
+    profile_id: Uuid,
+    profile_path: &Path,
+) -> Option<String> {
+    let banner = banner.as_ref()?;
+
+    match &banner.source {
+        ImageSource::Url { url } => Some(url.clone()),
+        ImageSource::Base64 { data, mime_type } => {
+            let mime = mime_type.clone().unwrap_or_else(|| "image/png".to_string());
+            let clean_data = data.replace("\n", "").replace("\r", "").replace(" ", "");
+            Some(format!("data:{};base64,{}", mime, clean_data))
+        }
+        ImageSource::AbsolutePath { path } => {
+            let path_buf = PathBuf::from(path);
+            if path_buf.exists() {
+                Some(path_buf.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner absolute path does not exist: {:?}", path_buf);
+                None
+            }
+        }
+        ImageSource::RelativePath { path } => {
+            let launcher_dir = LAUNCHER_DIRECTORY.root_dir();
+            let full_path = launcher_dir.join(path);
+            if full_path.exists() {
+                Some(full_path.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner relative path does not exist: {:?}", full_path);
+                None
+            }
+        }
+        ImageSource::RelativeProfile { path } => {
+            let full_path = profile_path.join(path);
+            if full_path.exists() {
+                Some(full_path.to_string_lossy().to_string())
+            } else {
+                warn!("Profile banner profile-relative path does not exist: {:?}", full_path);
+                None
+            }
+        }
     }
 }
 
@@ -281,14 +328,31 @@ impl MinecraftLauncher {
         info!("Adding RAM JVM argument: -Xmx{}M", params.memory_max_mb);
         command.arg(format!("-Xmx{}M", params.memory_max_mb));
 
-        // Add recommended GC flags
-        command.arg("-XX:+UnlockExperimentalVMOptions");
-        command.arg("-XX:+UseG1GC");
-        // Add additional G1GC optimization flags like vanilla launcher
-        command.arg("-XX:G1NewSizePercent=20");
-        command.arg("-XX:G1ReservePercent=20");
-        command.arg("-XX:MaxGCPauseMillis=50");
-        command.arg("-XX:G1HeapRegionSize=32M");
+        // Check if custom JVM args contain a custom GC setting
+        //fix for https://github.com/NoRiskClient/issues/issues/2357
+        let custom_gc_patterns = [
+            "-XX:+UseZGC",
+            "-XX:+UseG1GC",
+            "-XX:+UseShenandoahGC",
+            "-XX:+UseParallelGC",
+            "-XX:+UseSerialGC",
+        ];
+        let has_custom_gc = params.additional_jvm_args.iter().any(|arg| {
+            custom_gc_patterns.iter().any(|pattern| arg.contains(pattern))
+        });
+
+        // Add recommended GC flags only if no custom GC is specified
+        if has_custom_gc {
+            info!("Custom GC detected in JVM arguments, skipping default G1GC flags");
+        } else {
+            command.arg("-XX:+UnlockExperimentalVMOptions");
+            command.arg("-XX:+UseG1GC");
+            // Add additional G1GC optimization flags like vanilla launcher
+            command.arg("-XX:G1NewSizePercent=20");
+            command.arg("-XX:G1ReservePercent=20");
+            command.arg("-XX:MaxGCPauseMillis=50");
+            command.arg("-XX:G1HeapRegionSize=32M");
+        }
 
         // Add NoRisk client specific parameters
         // Only add token if we have credentials AND a NoRisk pack is selected in the profile
@@ -298,6 +362,9 @@ impl MinecraftLauncher {
         if let Some(p) = &profile {
             command.arg(format!("-Dnorisk.profile.name={}", p.name));
         }
+
+        // Pass meta dir to game client for shared Discord state file
+        command.arg(format!("-Dnorisk.meta.dir={}", crate::config::LAUNCHER_DIRECTORY.meta_dir().display()));
 
         if let Some(creds) = &self.credentials {
             if has_norisk_pack {
@@ -453,20 +520,39 @@ impl MinecraftLauncher {
         };
 
         // Extract optional profile information for process metadata
-        let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name) =
+        let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name, profile_image_url) =
             match profile {
-                Some(p) => (
-                    Some(p.loader.as_str().to_string()),
-                    p.loader_version,
-                    p.selected_norisk_pack_id,
-                    Some(p.name),
-                ),
-                None => (None, None, None, None),
+                Some(p) => {
+                    // Resolve profile banner image path
+                    let image_url = resolve_profile_banner_path(
+                        &p.banner,
+                        params.profile_id,
+                        &self.game_directory,
+                    );
+                    (
+                        Some(p.loader.as_str().to_string()),
+                        p.loader_version,
+                        p.selected_norisk_pack_id,
+                        Some(p.name),
+                        image_url,
+                    )
+                }
+                None => (None, None, None, None, None),
             };
 
         // Get post-exit hook from config at launch time (not at exit time)
         let launcher_config = state.config_manager.get_config().await;
         let post_exit_hook = launcher_config.hooks.post_exit.clone();
+
+        // Clear latest.log before launch to avoid mixing logs from previous sessions
+        let latest_log = self.game_directory.join("logs").join("latest.log");
+        if latest_log.exists() {
+            if let Err(e) = std::fs::remove_file(&latest_log) {
+                log::warn!("Failed to clear latest.log before launch: {}", e);
+            } else {
+                log::info!("Cleared previous latest.log before launch");
+            }
+        }
 
         // Start the process using ProcessManager with additional metadata
         process_manager
@@ -480,7 +566,9 @@ impl MinecraftLauncher {
                 profile_loader_version,
                 profile_norisk_pack,
                 profile_name,
+                profile_image_url,
                 post_exit_hook,
+                params.memory_max_mb,
             )
             .await?;
 
