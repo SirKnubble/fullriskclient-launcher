@@ -15,6 +15,7 @@ interface AnalyticsConsentBannerProps {
 }
 
 export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: AnalyticsConsentBannerProps) {
+  const { t } = useTranslation();
   const { accentColor } = useThemeStore();
   return (
     <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)]">
@@ -33,11 +34,10 @@ export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: Analy
           `
         }}
       >
-        {/* Dismiss Button oben rechts */}
         <button
           onClick={onDismiss}
           className="absolute top-3 right-3 p-1 text-gray-400 hover:text-white transition-colors"
-          title="Remind me later"
+          title={t('analytics.banner.dismiss')}
         >
           <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
         </button>
@@ -47,16 +47,16 @@ export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: Analy
 
           <div className="flex-1 min-w-0">
             <h3 className="text-2xl font-minecraft text-white mb-2">
-              Help Improve NoRisk Client
+              {t('analytics.banner.title')}
             </h3>
 
             <p className="text-sm text-gray-300 font-minecraft-ten leading-relaxed mb-4">
-              Send anonymous usage data to help us improve the launcher. Includes game versions, UI interactions, and operating system type.{' '}
+              {t('analytics.banner.description')}{' '}
               <button
                 onClick={() => openExternalUrl('https://blog.norisk.gg/en/privacy-policy/')}
                 className="text-accent hover:text-accent-hover underline underline-offset-2 transition-colors text-sm"
               >
-                Learn more →
+                {t('analytics.banner.learn_more')}
               </button>
             </p>
 
@@ -67,7 +67,7 @@ export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: Analy
                 size="sm"
                 className="px-3 py-1.5 text-gray-300 hover:text-white hover:bg-white/10 font-minecraft text-lg lowercase"
               >
-                no thanks
+                {t('analytics.banner.decline')}
               </Button>
               <Button
                 onClick={onAccept}
@@ -75,7 +75,7 @@ export function AnalyticsConsentBanner({ onAccept, onDecline, onDismiss }: Analy
                 size="sm"
                 className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-black font-minecraft text-lg lowercase"
               >
-                enable analytics
+                {t('analytics.banner.accept')}
               </Button>
             </div>
           </div>

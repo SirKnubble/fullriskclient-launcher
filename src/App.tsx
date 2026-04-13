@@ -400,10 +400,10 @@ export function App() {
       const { invalidateAnalyticsCache } = await import('./services/analytics-service');
       invalidateAnalyticsCache();
 
-      toast.success("Analytics enabled! Thank you for helping improve NoRisk Client.");
+      toast.success(t('analytics.toast.enabled'));
     } catch (error) {
       console.error("Failed to enable analytics:", error);
-      toast.error("Failed to enable analytics. Please try again.");
+      toast.error(t('analytics.toast.enable_failed'));
     }
   };
 
@@ -428,10 +428,10 @@ export function App() {
       const { invalidateAnalyticsCache } = await import('./services/analytics-service');
       invalidateAnalyticsCache();
 
-      toast.success("Analytics disabled. You can change this anytime in Settings.");
+      toast.success(t('analytics.toast.disabled'));
     } catch (error) {
       console.error("Failed to disable analytics:", error);
-      toast.error("Failed to disable analytics. Please try again.");
+      toast.error(t('analytics.toast.disable_failed'));
     }
   };
 
@@ -442,7 +442,7 @@ export function App() {
       lastShown: new Date().toISOString(),
       reminderCount: newReminderCount,
     });
-    toast("We'll ask again later. You can also enable analytics in Settings.");
+    toast(t('analytics.toast.dismissed'));
   };
 
   // Sync analytics state with config on app start
