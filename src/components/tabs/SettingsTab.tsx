@@ -462,8 +462,8 @@ export function SettingsTab() {
           },
           {
             id: "analytics",
-            label: "Analytics",
-            tooltip: "Help improve the launcher by sending anonymous usage data. Examples: launcher version, game versions like 1.21.10 or 1.8.9, modloader types, UI interactions, and system information. No personal information, usernames, or file paths are collected.",
+            label: t('analytics.settings.label'),
+            tooltip: t('analytics.settings.tooltip'),
             type: "toggle",
             value: tempConfig?.enable_analytics || false,
             onChange: (checked) => {
