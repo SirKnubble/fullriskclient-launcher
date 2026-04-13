@@ -13,6 +13,7 @@ use crate::state::profile_state::{
 };
 use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
+use crate::commands::analytics_command::track_event as track_analytics;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
 use crate::utils::path_utils::{find_unique_profile_segment, copy_dir_recursively, count_files_recursively};
@@ -168,7 +169,14 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         preferred_account_id: None,
     };
 
-    let id = state.profile_manager.create_profile(profile).await?;
+    let id = state.profile_manager.create_profile(profile.clone()).await?;
+
+    let mut props = std::collections::HashMap::new();
+    props.insert("profile_name".to_string(), serde_json::Value::String(profile.name.clone()));
+    props.insert("version".to_string(), serde_json::Value::String(profile.game_version.clone()));
+    props.insert("loader".to_string(), serde_json::Value::String(format!("{:?}", profile.loader).to_lowercase()));
+    track_analytics("profile_created", props);
+
     Ok(id)
 }
 
@@ -383,7 +391,7 @@ pub async fn launch_profile(
             quick_play_mp_clone,
             migration_info_clone,
         )
-        .await;
+            .await;
 
         // Get state again within the spawn context
         if let Ok(state) = State::get().await {
@@ -396,6 +404,11 @@ pub async fn launch_profile(
                         "Successfully installed/launched Minecraft version {} for profile {}",
                         version, profile_id
                     );
+                    let mut props = std::collections::HashMap::new();
+                    props.insert("profile_id".to_string(), serde_json::Value::String(profile_id.to_string()));
+                    props.insert("version".to_string(), serde_json::Value::String(version.clone()));
+                    props.insert("loader".to_string(), serde_json::Value::String(modloader.as_str().to_string()));
+                    track_analytics("minecraft_started", props);
                     // Emit the new LaunchSuccessful event
                     let success_payload = EventPayload {
                         event_id: uuid::Uuid::new_v4(),
@@ -439,8 +452,8 @@ pub async fn launch_profile(
             }
         } else {
             error!(
-                "Failed to get state within spawned task for profile_id: {}. Install error (if any): {:?}", 
-                profile_id, 
+                "Failed to get state within spawned task for profile_id: {}. Install error (if any): {:?}",
+                profile_id,
                 install_result.err().map(|e| e.to_string())
             );
         }
@@ -541,12 +554,12 @@ pub async fn update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
 
 /// Checks if mods directory migration is needed based on profile changes
 fn needs_mods_migration(
-    original_profile: &Profile, 
-    updated_profile: &Profile, 
+    original_profile: &Profile,
+    updated_profile: &Profile,
     params: &UpdateProfileParams
 ) -> Result<bool, CommandError> {
     // Only check for actual path-affecting changes for regular user profiles
-    
+
     // Check if group actually changed (affects shared path)
     let group_changed = if params.clear_group == Some(true) {
         // Clearing group: changed if profile had a group before
@@ -558,23 +571,23 @@ fn needs_mods_migration(
         // No group change requested
         false
     };
-    
-    // Check if use_shared_minecraft_folder setting changed 
+
+    // Check if use_shared_minecraft_folder setting changed
     let shared_setting_changed = params.use_shared_minecraft_folder.is_some();
-    
+
     // Only migrate if we actually changed something that affects the mods path
     let migration_needed = if group_changed || shared_setting_changed {
         // Recalculate if shared folder usage would change
         let original_uses_shared = original_profile.should_use_shared_minecraft_folder();
         let updated_uses_shared = updated_profile.should_use_shared_minecraft_folder();
-        
+
         // Migration needed if shared folder usage actually changed
         original_uses_shared != updated_uses_shared
     } else {
         // No path-affecting changes, no migration needed
         false
     };
-    
+
     info!(
         "Migration check for profile {}: group_changed={}, shared_setting_changed={} -> migration_needed={}",
         original_profile.id,
@@ -582,28 +595,28 @@ fn needs_mods_migration(
         shared_setting_changed,
         migration_needed
     );
-    
+
     Ok(migration_needed)
 }
 
 /// Migrates mods directory from old path to new path
 async fn migrate_mods_directory(old_path: &std::path::Path, new_path: &std::path::Path) -> Result<(), CommandError> {
     use tokio::fs;
-    
+
     // Skip if paths are the same
     if old_path == new_path {
         info!("Mods paths are identical, skipping migration");
         return Ok(());
     }
-    
+
     // Check if old directory exists
     if !old_path.exists() {
         info!("Old mods directory {:?} doesn't exist, nothing to migrate", old_path);
         return Ok(());
     }
-    
+
     info!("Starting mods migration from {:?} to {:?}", old_path, new_path);
-    
+
     // Remove new directory if it already exists to ensure clean migration
     if new_path.exists() {
         info!("Removing existing new mods directory: {:?}", new_path);
@@ -611,21 +624,21 @@ async fn migrate_mods_directory(old_path: &std::path::Path, new_path: &std::path
             CommandError::from(AppError::Io(e))
         })?;
     }
-    
+
     // Get state to access semaphore
     let state = State::get().await?;
     let io_semaphore = state.io_semaphore.clone();
-    
+
     // Use the existing copy_dir_recursively function from path_utils
     path_utils::copy_dir_recursively(old_path, new_path, io_semaphore).await.map_err(|e| {
         CommandError::from(AppError::Other(format!("Failed to copy mods directory: {}", e)))
     })?;
-    
+
     // Remove old directory after successful copy
     fs::remove_dir_all(old_path).await.map_err(|e| {
         CommandError::from(AppError::Io(e))
     })?;
-    
+
     info!("Successfully migrated mods from {:?} to {:?}", old_path, new_path);
     Ok(())
 }
@@ -638,7 +651,7 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
     );
     let state = State::get().await?;
     let mut profile = state.profile_manager.get_profile(id).await?;
-    
+
     // Get original profile for migration check and clone params for later use
     let original_profile = state.profile_manager.get_profile(id).await?;
     let params_for_migration = params.clone();
@@ -745,30 +758,30 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
 
     // Check if mods directory location needs to change (using the params copy from above)
     let mods_migration_needed = needs_mods_migration(&original_profile, &profile, &params_for_migration)?;
-    
+
     if mods_migration_needed {
         info!("Mods directory migration needed for profile {}", id);
-        
+
         // Get old and new mods paths
         let old_mods_path = if original_profile.is_standard_version || !original_profile.should_use_shared_minecraft_folder() {
             state.profile_manager.get_profile_mods_path_single(&original_profile)?
         } else {
             state.profile_manager.get_profile_mods_path_shared(&original_profile)?
         };
-        
+
         let new_mods_path = if profile.is_standard_version || !profile.should_use_shared_minecraft_folder() {
             state.profile_manager.get_profile_mods_path_single(&profile)?
         } else {
             state.profile_manager.get_profile_mods_path_shared(&profile)?
         };
-        
+
         // Only migrate if paths are actually different
         if old_mods_path != new_mods_path {
             info!(
                 "Migrating mods from {:?} to {:?} for profile {}",
                 old_mods_path, new_mods_path, id
             );
-            
+
             // Perform the migration
             migrate_mods_directory(&old_mods_path, &new_mods_path).await?;
         } else {
@@ -791,10 +804,10 @@ pub async fn delete_profile(id: Uuid) -> Result<(), CommandError> {
 #[tauri::command]
 pub async fn repair_profile(id: Uuid) -> Result<(), CommandError> {
     info!("Executing repair_profile command for profile {}", id);
-    
+
     // Call the actual repair function from repair_utils
     repair_utils::repair_profile(id).await?;
-    
+
     Ok(())
 }
 
@@ -807,17 +820,17 @@ pub async fn resolve_loader_version(
         "Executing resolve_loader_version command for profile {} with MC version {}",
         profile_id, minecraft_version
     );
-    
+
     let state = State::get().await?;
     let profile = state.profile_manager.get_profile(profile_id).await?;
     let norisk_pack_config = state.norisk_pack_manager.get_config().await;
-    
+
     let resolved = ModloaderFactory::resolve_loader_version(
         &profile,
         &minecraft_version,
         Some(&norisk_pack_config),
     ).await;
-    
+
     Ok(resolved)
 }
 
@@ -1154,8 +1167,8 @@ pub async fn import_local_mods(
             .set_title("Select Mod Jars to Import")
             .blocking_pick_files() // Use the blocking version inside spawn_blocking
     })
-    .await
-    .map_err(|e| CommandError::from(AppError::Other(format!("Dialog task failed: {}", e))))?;
+        .await
+        .map_err(|e| CommandError::from(AppError::Other(format!("Dialog task failed: {}", e))))?;
     // The first ? handles JoinError
 
     if let Some(paths_enums) = dialog_result_outer {
@@ -1212,8 +1225,8 @@ pub async fn import_profile_from_file(app_handle: tauri::AppHandle) -> Result<()
             .set_title("Select Modpack File (.mrpack, .noriskpack, or .zip)")
             .blocking_pick_file() // Use the blocking version for single file selection
     })
-    .await
-    .map_err(|e| CommandError::from(AppError::Other(format!("Dialog task failed: {}", e))))?;
+        .await
+        .map_err(|e| CommandError::from(AppError::Other(format!("Dialog task failed: {}", e))))?;
 
     if let Some(file_path_obj) = dialog_result {
         // Convert FilePath to PathBuf
@@ -1362,6 +1375,12 @@ pub async fn import_profile(file_path_str: String, event_id: Option<String>) -> 
         }
     };
 
+    if let Ok(profile) = state.profile_manager.get_profile(new_profile_id).await {
+        let mut props = std::collections::HashMap::new();
+        props.insert("profile_name".to_string(), serde_json::Value::String(profile.name.clone()));
+        track_analytics("profile_imported", props);
+    }
+
     // Emit event to trigger UI update for the newly created profile (reusing state from disk space check)
     if let Err(e) = state
         .event_state
@@ -1400,8 +1419,8 @@ pub async fn get_local_resourcepacks(
         calculate_hashes,
         fetch_modrinth_data,
     )
-    .await
-    .map_err(|e| CommandError::from(e))?;
+        .await
+        .map_err(|e| CommandError::from(e))?;
 
     Ok(resourcepacks)
 }
@@ -1469,8 +1488,8 @@ pub async fn add_modrinth_content_to_profile(
         version_number,
         content_type,
     )
-    .await
-    .map_err(CommandError::from)
+        .await
+        .map_err(CommandError::from)
 }
 
 /// Command to get the directory structure of a profile
@@ -1651,7 +1670,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
                 &new_profile_path,
                 include_files,
             )
-            .await?
+                .await?
         } else {
             // Leere include_files bedeutet: kopiere nichts
             info!(
@@ -1752,7 +1771,7 @@ pub async fn export_profile(
         Some(export_path.clone()),
         params.include_files,
     )
-    .await?;
+        .await?;
 
     // Open the export directory if requested
     if params.open_folder {
@@ -1854,7 +1873,7 @@ pub async fn update_resourcepack_from_modrinth(
         &resourcepack,
         &new_version_details,
     )
-    .await?;
+        .await?;
 
     Ok(())
 }
@@ -1881,7 +1900,7 @@ pub async fn update_shaderpack_from_modrinth(
         &shaderpack,
         &new_version_details,
     )
-    .await?;
+        .await?;
 
     Ok(())
 }
@@ -1929,7 +1948,7 @@ pub async fn update_datapack_from_modrinth(
         &datapack,
         &new_version_details,
     )
-    .await?;
+        .await?;
 
     Ok(())
 }
@@ -2062,7 +2081,7 @@ pub async fn copy_world(params: CopyWorldParams) -> Result<String, CommandError>
         params.target_profile_id,
         &params.target_world_name,
     )
-    .await?;
+        .await?;
 
     // Optional: Trigger UI updates for the target profile if different from source
     if params.source_profile_id != params.target_profile_id {
@@ -2177,7 +2196,7 @@ pub async fn check_world_lock_status(
             profile_id,
             world_folder,
         }
-        .into());
+            .into());
     }
 
     // Call the utility function
