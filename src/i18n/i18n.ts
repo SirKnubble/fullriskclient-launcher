@@ -10,8 +10,9 @@ import tr from "./translations/tr.json";
 import pt from "./translations/pt.json";
 import es from "./translations/es.json";
 import ru from "./translations/ru.json";
+import hi from "./translations/hi.json";
 
-export const SUPPORTED_LANGUAGES = ["en", "de", "pl", "fr", "it", "tr", "pt", "es", "ru"] as const;
+export const SUPPORTED_LANGUAGES = ["en", "de", "pl", "fr", "it", "tr", "pt", "es", "ru", "hi"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_OPTIONS: {
@@ -28,6 +29,7 @@ export const LANGUAGE_OPTIONS: {
   { value: "pt", label: "Português", flag: "circle-flags:pt" },
   { value: "es", label: "Español", flag: "circle-flags:es" },
   { value: "ru", label: "Русский", flag: "circle-flags:ru" },
+  { value: "hi", label: "हिन्दी", flag: "circle-flags:in" },
 ];
 
 /**
@@ -83,6 +85,7 @@ i18n.use(initReactI18next).init({
     pt: { translation: pt },
     es: { translation: es },
     ru: { translation: ru },
+    hi: { translation: hi },
   },
   lng: getStoredLanguage(),
   fallbackLng: "en",
