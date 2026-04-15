@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
 import type { Profile } from "../../types/profile";
+import { useResolvedLoaderVersion } from "../../hooks/useResolvedLoaderVersion";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { useThemeStore } from "../../store/useThemeStore";
 import { setDiscordState } from "../../utils/discordRpc";
@@ -56,6 +57,7 @@ export function ProfileDetailViewV2({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
+  const resolvedLoaderVersion = useResolvedLoaderVersion(profile);
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>("content");
   const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -522,9 +524,9 @@ export function ProfileDetailViewV2({
                             }}
                           />
                           <span className="capitalize">{profile.loader}</span>
-                          {profile.loader_version && (
+                          {(resolvedLoaderVersion?.version || profile.loader_version) && (
                             <span className="text-white/50">
-                              {profile.loader_version}
+                              {resolvedLoaderVersion?.version || profile.loader_version}
                             </span>
                           )}
                         </div>

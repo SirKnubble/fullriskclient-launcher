@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import type { Profile } from "../../../types/profile";
+import { useResolvedLoaderVersion } from "../../../hooks/useResolvedLoaderVersion";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { setDiscordState } from "../../../utils/discordRpc";
 import { useDisplayContextStore } from "../../../store/useDisplayContextStore";
@@ -38,6 +39,7 @@ export function BrowseTab({
   const [currentProfile, setCurrentProfile] = useState<Profile | undefined | null>(initialProfile);
   const [isLoading, setIsLoading] = useState<boolean>(!initialProfile && !!profileId);
   const [error, setError] = useState<string | null>(null);
+  const resolvedLoaderVersion = useResolvedLoaderVersion(currentProfile);
 
   const activeContentType = contentTypeFromUrl || initialContentTypeFromProp;
 
@@ -228,9 +230,9 @@ export function BrowseTab({
                         }}
                       />
                       <span className="capitalize">{currentProfile.loader}</span>
-                      {currentProfile.loader_version && (
+                      {(resolvedLoaderVersion?.version || currentProfile.loader_version) && (
                         <span className="text-white/50">
-                          {currentProfile.loader_version}
+                          {resolvedLoaderVersion?.version || currentProfile.loader_version}
                         </span>
                       )}
                     </div>
