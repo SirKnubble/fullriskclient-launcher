@@ -720,7 +720,7 @@
   "profiles.settings.platform": "Platform",
   "profiles.settings.notCompatible": "Uyumlu değil",
   "profiles.settings.loaderVersion": "Loader Sürümü",
-  "profiles.settings.currentLoaderVersion": "Mevcut: {{version}}",
+  "profiles.settings.currentLoaderVersion": "Mevcut:",
   "profiles.settings.notSet": "Ayarlanmadı",
   "profiles.settings.loadingLoaderVersions": "Loader sürümleri yükleniyor...",
   "profiles.settings.useCustomLoaderVersion": "Özel loader sürümü kullan",

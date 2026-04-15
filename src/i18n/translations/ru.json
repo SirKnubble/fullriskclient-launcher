@@ -720,7 +720,7 @@
   "profiles.settings.platform": "Платформа",
   "profiles.settings.notCompatible": "Несовместимо",
   "profiles.settings.loaderVersion": "Версия загрузчика",
-  "profiles.settings.currentLoaderVersion": "Текущая: {{version}}",
+  "profiles.settings.currentLoaderVersion": "Текущая:",
   "profiles.settings.notSet": "Не установлено",
   "profiles.settings.loadingLoaderVersions": "Загрузка версий загрузчика...",
   "profiles.settings.useCustomLoaderVersion": "Использовать пользовательскую версию загрузчика",

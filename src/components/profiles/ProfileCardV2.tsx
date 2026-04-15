@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { Profile, ResolvedLoaderVersion } from "../../types/profile";
+import type { Profile } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import { ProfileActionButtons, type ProfileActionButton } from "../ui/ProfileActionButtons";
@@ -24,6 +24,7 @@ import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 import { parseMotdToHtml } from "../../utils/motd-utils";
 import { useTranslation } from "react-i18next";
 import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
+import { useResolvedLoaderVersion } from "../../hooks/useResolvedLoaderVersion";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -95,8 +96,7 @@ export function ProfileCardV2({
   // Global modal system
   const { showModal, hideModal } = useGlobalModal();
 
-  // Resolved loader version state
-  const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
+  const resolvedLoaderVersion = useResolvedLoaderVersion(profile);
 
   // Get accounts from Minecraft Auth Store
   const accounts = useMinecraftAuthStore((state) => state.accounts);
@@ -254,29 +254,6 @@ export function ProfileCardV2({
     }
   }, [profile.modpack_info?.source]);
 
-
-
-
-
-  // Fetch resolved loader version
-  useEffect(() => {
-    async function fetchResolvedLoaderVersion() {
-      if (!profile.game_version || profile.loader === "vanilla") {
-        setResolvedLoaderVersion(null);
-        return;
-      }
-
-      try {
-        // TODO: Implement loader version resolution
-        setResolvedLoaderVersion(null);
-      } catch (err) {
-        console.error("Failed to resolve loader version:", err);
-        setResolvedLoaderVersion(null);
-      }
-    }
-
-    fetchResolvedLoaderVersion();
-  }, [profile.id, profile.game_version, profile.loader, profile.loader_version]);
 
 
 

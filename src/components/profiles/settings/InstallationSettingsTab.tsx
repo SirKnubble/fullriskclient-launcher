@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
-import type { ModLoader, Profile, ResolvedLoaderVersion } from "../../../types/profile";
+import type { ModLoader, Profile } from "../../../types/profile";
+import { useResolvedLoaderVersion } from "../../../hooks/useResolvedLoaderVersion";
 import type { MinecraftVersion } from "../../../types/minecraft";
 import { invoke } from "@tauri-apps/api/core";
 import { StatusMessage } from "../../ui/StatusMessage";
@@ -44,7 +45,7 @@ export function InstallationSettingsTab({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [resolvedLoaderVersion, setResolvedLoaderVersion] = useState<ResolvedLoaderVersion | null>(null);
+  const resolvedLoaderVersion = useResolvedLoaderVersion(editedProfile, refreshTrigger);
   const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
@@ -220,54 +221,6 @@ export function InstallationSettingsTab({
     fetchLoaderVersions();
   }, [editedProfile.game_version, editedProfile.loader]);
 
-  useEffect(() => {
-    async function fetchResolvedLoaderVersion() {
-      if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
-        setResolvedLoaderVersion(null);
-        return;
-      }
-
-      try {
-        const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
-          profileId: editedProfile.id,
-          minecraftVersion: editedProfile.game_version,
-        });
-        setResolvedLoaderVersion(resolved);
-      } catch (err) {
-        console.error("Failed to resolve loader version:", err);
-        setResolvedLoaderVersion(null);
-      }
-    }
-
-    fetchResolvedLoaderVersion();
-  }, [editedProfile.id, editedProfile.game_version, editedProfile.loader, editedProfile.loader_version, editedProfile.settings.use_overwrite_loader_version, editedProfile.settings.overwrite_loader_version, editedProfile.selected_norisk_pack_id]);
-
-  // Separate function that can be called externally
-  const fetchResolvedLoaderVersion = async () => {
-    if (!editedProfile.game_version || editedProfile.loader === "vanilla") {
-      setResolvedLoaderVersion(null);
-      return;
-    }
-
-    try {
-      const resolved = await invoke<ResolvedLoaderVersion>("resolve_loader_version", {
-        profileId: editedProfile.id,
-        minecraftVersion: editedProfile.game_version,
-      });
-      setResolvedLoaderVersion(resolved);
-    } catch (err) {
-      console.error("Failed to resolve loader version:", err);
-      setResolvedLoaderVersion(null);
-    }
-  };
-
-  // Effect to refresh when parent signals a save occurred
-  useEffect(() => {
-    if (refreshTrigger) {
-      fetchResolvedLoaderVersion();
-    }
-  }, [refreshTrigger]);
-
   function isModLoaderCompatible(
     loader: string,
     minecraftVersion: string,
@@ -435,7 +388,7 @@ export function InstallationSettingsTab({
                   <span>
                     {editedProfile.loader === "vanilla"
                       ? "Vanilla"
-                      : `${editedProfile.loader} ${editedProfile.loader_version || ""}`.trim()}
+                      : `${editedProfile.loader} ${resolvedLoaderVersion?.version || editedProfile.loader_version || ""}`.trim()}
                   </span>
                 </div>
               </div>

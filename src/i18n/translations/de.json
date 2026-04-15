@@ -733,7 +733,7 @@
   "profiles.settings.platform": "Plattform",
   "profiles.settings.notCompatible": "Nicht kompatibel",
   "profiles.settings.loaderVersion": "Loader-Version",
-  "profiles.settings.currentLoaderVersion": "Aktuell: {{version}}",
+  "profiles.settings.currentLoaderVersion": "Aktuell:",
   "profiles.settings.notSet": "Nicht gesetzt",
   "profiles.settings.loadingLoaderVersions": "Loader-Versionen werden geladen...",
   "profiles.settings.useCustomLoaderVersion": "Benutzerdefinierte Loader-Version verwenden",
