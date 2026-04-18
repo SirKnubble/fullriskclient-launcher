@@ -1665,5 +1665,16 @@
   "profiles.v3.servers.offline": "Sunucu çevrimdışı",
   "profiles.v3.servers.pinging": "Ping atılıyor…",
   "profiles.v3.servers.reping": "Tekrar pingle",
-  "profiles.v3.servers.copyAddress": "Adresi kopyala"
+  "profiles.v3.servers.copyAddress": "Adresi kopyala",
+  "profiles.v3.screenshots.sort.newest": "Önce yeni",
+  "profiles.v3.screenshots.sort.oldest": "Önce eski",
+  "profiles.v3.screenshots.empty": "Henüz ekran görüntüsü yok",
+  "profiles.v3.screenshots.emptyHint": "Oyun içinde F2'ye basarak ekran görüntüsü al.",
+  "profiles.v3.screenshots.count_one": "{{count}} görüntü",
+  "profiles.v3.screenshots.count_other": "{{count}} görüntü",
+  "profiles.v3.screenshots.count": "{{count}} görüntü",
+  "profiles.v3.screenshots.batchDeleteTitle": "Ekran görüntülerini sil",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} görüntü",
+  "profiles.v3.screenshots.batchDeleteConfirm": "Seçili {{count}} ekran görüntüsü silinsin mi? Bu geri alınamaz.",
+  "profiles.v3.screenshots.batchDeleteSuccess": "{{count}} görüntü silindi."
 }

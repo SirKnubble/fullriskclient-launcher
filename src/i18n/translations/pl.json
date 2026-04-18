@@ -1665,5 +1665,16 @@
   "profiles.v3.servers.offline": "Serwer offline",
   "profiles.v3.servers.pinging": "Pingowanie…",
   "profiles.v3.servers.reping": "Ponów ping",
-  "profiles.v3.servers.copyAddress": "Skopiuj adres"
+  "profiles.v3.servers.copyAddress": "Skopiuj adres",
+  "profiles.v3.screenshots.sort.newest": "Najnowsze",
+  "profiles.v3.screenshots.sort.oldest": "Najstarsze",
+  "profiles.v3.screenshots.empty": "Brak zrzutów ekranu",
+  "profiles.v3.screenshots.emptyHint": "Naciśnij F2 w grze, aby zrobić zrzut ekranu.",
+  "profiles.v3.screenshots.count_one": "{{count}} zrzut",
+  "profiles.v3.screenshots.count_other": "{{count}} zrzutów",
+  "profiles.v3.screenshots.count": "{{count}} zrzutów",
+  "profiles.v3.screenshots.batchDeleteTitle": "Usuń zrzuty ekranu",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} zrzutów",
+  "profiles.v3.screenshots.batchDeleteConfirm": "Usunąć {{count}} zaznaczonych zrzutów? Tego nie można cofnąć.",
+  "profiles.v3.screenshots.batchDeleteSuccess": "Usunięto {{count}} zrzutów."
 }
