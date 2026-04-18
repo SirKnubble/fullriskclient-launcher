@@ -222,6 +222,7 @@ pub async fn process_mrpack(pack_path: PathBuf) -> Result<(Profile, ModrinthInde
         background: None,
         modpack_info: None,
         preferred_account_id: None,
+        playtime_seconds: 0,
     };
 
     info!("Prepared potential profile object for '{}'", profile.name);

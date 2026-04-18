@@ -1305,6 +1305,7 @@ pub async fn process_curseforge_pack_from_zip(pack_path: &Path) -> Result<(Profi
         background: None,
         modpack_info: None,
         preferred_account_id: None,
+        playtime_seconds: 0,
     };
 
     info!("Prepared potential profile object for '{}'", profile.name);

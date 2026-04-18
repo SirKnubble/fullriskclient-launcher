@@ -167,6 +167,7 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         norisk_information: None,
         modpack_info: None,
         preferred_account_id: None,
+        playtime_seconds: 0,
     };
 
     let id = state.profile_manager.create_profile(profile.clone()).await?;
@@ -1640,6 +1641,7 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         background: source_profile.background.clone(),
         modpack_info: source_profile.modpack_info.clone(),
         preferred_account_id: source_profile.preferred_account_id,
+        playtime_seconds: 0,
     };
 
     // 6. Erstelle das neue Profilverzeichnis
@@ -2575,6 +2577,20 @@ pub async fn get_profile_instance_path(profile_id: Uuid) -> Result<String, Comma
 pub async fn get_default_profile_path() -> Result<String, CommandError> {
     let path = default_profile_path();
     Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn get_profile_disk_size(profile_id: Uuid) -> Result<u64, CommandError> {
+    let state = State::get().await?;
+    let path = state
+        .profile_manager
+        .get_profile_instance_path(profile_id)
+        .await?;
+    if !path.exists() {
+        return Ok(0);
+    }
+    let size = path_utils::calculate_dir_size_recursively(&path).await?;
+    Ok(size)
 }
 
 #[tauri::command]

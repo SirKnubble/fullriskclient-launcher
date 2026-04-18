@@ -219,6 +219,7 @@ export interface Profile {
   norisk_information: NoriskInformation | null;
   modpack_info?: ModPackInfo | null;
   preferred_account_id: string | null;
+  playtime_seconds?: number;
 }
 
 export interface ProfileGroup {
