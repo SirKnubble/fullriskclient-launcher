@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 
 export interface FABActionConfig {
   icon: string;
@@ -27,6 +28,7 @@ export function FloatingActionBar({
   visible, count, totalCount, accent, allSelected,
   onSelectAll, onClear, actions, batchProgress,
 }: FloatingActionBarProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={`absolute left-1/2 -translate-x-1/2 bottom-5 z-30 transition-all duration-200 ease-out ${
@@ -61,7 +63,7 @@ export function FloatingActionBar({
                   onClick={onSelectAll}
                   className="h-7 px-2 rounded-md text-[10px] font-minecraft-ten uppercase tracking-wider text-white/55 hover:text-white hover:bg-white/10 transition-colors"
                 >
-                  All
+                  {t("profiles.v3.fab.all")}
                 </button>
               )}
             </>
@@ -79,7 +81,7 @@ export function FloatingActionBar({
         <button
           onClick={onClear}
           className="h-11 w-11 hover:bg-white/5 text-white/55 hover:text-white flex items-center justify-center transition-colors"
-          title="Clear selection (Esc)"
+          title={t("profiles.v3.fab.clearSelection")}
         >
           <Icon icon="solar:close-circle-linear" className="w-4 h-4" />
         </button>

@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../../../../store/useThemeStore";
 import type { LocalContentItem } from "../../../../../hooks/useLocalContentManager";
 import type { UnifiedVersion } from "../../../../../types/unified";
@@ -75,6 +76,7 @@ export function ContentTile({
   isQuickUpdating,
   noRiskStatus,
 }: ContentTileProps) {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((s) => s.accentColor);
   const enabled = !item.is_disabled;
   const versionText =
@@ -105,7 +107,7 @@ export function ContentTile({
       <button
         onClick={(e) => { e.stopPropagation(); onToggleSelection(); }}
         className={`flex-shrink-0 transition-opacity ${selectMode || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-        title={isSelected ? "Deselect" : "Select"}
+        title={isSelected ? t("profiles.v3.tile.deselect") : t("profiles.v3.tile.select")}
       >
         <div
           style={isSelected ? { backgroundColor: accentColor.value, borderColor: accentColor.value } : undefined}
@@ -128,14 +130,14 @@ export function ContentTile({
         </div>
         {noRiskStatus === "blocked" && (
           <div className="absolute top-0.5 left-0.5 z-10">
-            <Tooltip content="Blocked by NoRisk — incompatible, may cause issues or a ban.">
+            <Tooltip content={t("profiles.v3.tile.noriskBlocked")}>
               <Icon icon="solar:danger-triangle-bold" className="w-4 h-4 text-red-500 drop-shadow-lg" />
             </Tooltip>
           </div>
         )}
         {noRiskStatus === "warning" && (
           <div className="absolute top-0.5 left-0.5 z-10">
-            <Tooltip content="May have compatibility issues with NoRisk.">
+            <Tooltip content={t("profiles.v3.tile.noriskWarning")}>
               <Icon icon="solar:danger-triangle-bold" className="w-4 h-4 text-yellow-500 drop-shadow-lg" />
             </Tooltip>
           </div>
@@ -162,12 +164,12 @@ export function ContentTile({
             </div>
           )}
           {item.updates_enabled === false && (
-            <Tooltip content="Update checks paused — resume in the three-dots menu">
+            <Tooltip content={t("profiles.v3.tile.updateChecksPaused")}>
               <Icon icon="solar:volume-cross-bold" className="w-3 h-3 text-white/30 flex-shrink-0" />
             </Tooltip>
           )}
           {item.modpack_origin && (
-            <Tooltip content={`From modpack · ${item.modpack_origin.split(":")[0]}`}>
+            <Tooltip content={t("profiles.v3.tile.fromModpackTooltip", { source: item.modpack_origin.split(":")[0] })}>
               <Icon
                 icon="solar:box-bold"
                 className="w-3 h-3 text-violet-300/70 flex-shrink-0"
@@ -211,7 +213,7 @@ export function ContentTile({
                   />
                 );
               })()}
-              <span className="truncate">{isSwitchingVersion ? "Switching…" : (versionText || "—")}</span>
+              <span className="truncate">{isSwitchingVersion ? t("profiles.v3.tile.switching") : (versionText || "—")}</span>
               {isSwitchable && !isSwitchingVersion && <Icon icon="solar:alt-arrow-down-linear" className="w-3 h-3 flex-shrink-0 opacity-60" />}
             </button>
 
@@ -222,18 +224,18 @@ export function ContentTile({
               align="left"
               scrollable
             >
-              <ThemedDropdownHeader>Select version</ThemedDropdownHeader>
+              <ThemedDropdownHeader>{t("profiles.v3.versions.selectVersion")}</ThemedDropdownHeader>
               {isLoadingVersions && (
                 <div className="flex items-center justify-center py-6 text-white/50 text-xs font-minecraft-ten gap-2">
                   <Icon icon="solar:refresh-bold" className="w-3.5 h-3.5 animate-spin" />
-                  Loading versions…
+                  {t("profiles.v3.versions.loading")}
                 </div>
               )}
               {!isLoadingVersions && versionError && (
                 <div className="px-3 py-4 text-xs text-rose-300 font-minecraft-ten">{versionError}</div>
               )}
               {!isLoadingVersions && !versionError && availableVersions && availableVersions.length === 0 && (
-                <div className="px-3 py-4 text-xs text-white/40 font-minecraft-ten">No matching versions available.</div>
+                <div className="px-3 py-4 text-xs text-white/40 font-minecraft-ten">{t("profiles.v3.versions.none")}</div>
               )}
               {!isLoadingVersions && !versionError && availableVersions && availableVersions.map((v) => {
                 const isCurrent = v.id === currentVersionId;
@@ -280,7 +282,7 @@ export function ContentTile({
 
       {/* Quick-Update */}
       {onQuickUpdate && (
-        <Tooltip content={isQuickUpdating ? "Updating…" : (quickUpdateTooltip ?? "Update to latest")}>
+        <Tooltip content={isQuickUpdating ? t("profiles.v3.tile.updating") : (quickUpdateTooltip ?? t("profiles.v3.tile.updateToLatest"))}>
           <button
             onClick={(e) => { e.stopPropagation(); if (!quickUpdateDisabled && !isQuickUpdating) onQuickUpdate(); }}
             disabled={quickUpdateDisabled || isQuickUpdating}
@@ -305,7 +307,7 @@ export function ContentTile({
         onClick={onToggle}
         disabled={busy}
         className="flex-shrink-0 disabled:opacity-40"
-        title={enabled ? "Disable" : "Enable"}
+        title={enabled ? t("profiles.v3.tile.disable") : t("profiles.v3.tile.enable")}
       >
         <div className={`relative w-9 h-5 rounded-full transition-colors ${enabled ? "bg-emerald-500/70" : "bg-white/10"}`}>
           <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : ""}`} />
@@ -325,7 +327,7 @@ export function ContentTile({
             icon="solar:folder-linear"
             onClick={() => { onOpenFolder(); onMenuToggle(false); }}
           >
-            Open folder
+            {t("profiles.v3.tile.openFolder")}
           </ThemedDropdownItem>
           {onToggleUpdateChecks && (
             <>
@@ -334,7 +336,7 @@ export function ContentTile({
                 icon={(item.updates_enabled ?? true) ? "solar:volume-cross-linear" : "solar:volume-loud-linear"}
                 onClick={() => { onToggleUpdateChecks(); onMenuToggle(false); }}
               >
-                {(item.updates_enabled ?? true) ? "Pause update checks" : "Resume update checks"}
+                {(item.updates_enabled ?? true) ? t("profiles.v3.tile.pauseUpdates") : t("profiles.v3.tile.resumeUpdates")}
               </ThemedDropdownItem>
             </>
           )}
@@ -346,7 +348,7 @@ export function ContentTile({
                 tone="danger"
                 onClick={() => { onDelete(); onMenuToggle(false); }}
               >
-                Delete
+                {t("profiles.v3.tile.delete")}
               </ThemedDropdownItem>
             </>
           )}
