@@ -180,7 +180,10 @@ export function ContentTile({
             <button
               onClick={(e) => { e.stopPropagation(); if (isSwitchable && !isSwitchingVersion) onVersionClick(); }}
               disabled={!isSwitchable || isSwitchingVersion}
-              className={`inline-flex items-center gap-1 max-w-full truncate px-1.5 py-0.5 rounded transition-colors ${
+              /* Fixed h-5 verhindert dass die Chip 1-2px hoeher wird sobald ein
+                 Update-Dot/Switch-Spinner reinkommt (inline-block Baseline-Quirk
+                 vom Tooltip-Wrapper). Sonst shifted Identity vertikal. */
+              className={`inline-flex items-center gap-1 h-5 max-w-full truncate px-1.5 rounded transition-colors ${
                 isSwitchingVersion
                   ? "text-amber-200 bg-amber-400/10 cursor-wait"
                   : isSwitchable
@@ -196,26 +199,16 @@ export function ContentTile({
                 const active = isFromModPack
                   ? item.updates_enabled === true
                   : item.updates_enabled !== false;
+                // Kein Tooltip-Wrapper hier: der Quick-Update-Button rechts
+                // zeigt ohnehin die ModUpdateText-Tooltip beim Hovern. Der Dot
+                // bleibt rein visueller Indicator — vermeidet den inline-block
+                // Baseline-Jitter der sonst die Chip 1px verschiebt.
                 return (
-                  <Tooltip
-                    content={
-                      <div className="max-w-xs text-left">
-                        <ModUpdateText
-                          isFromModPack={isFromModPack}
-                          updateVersion={updateAvailable}
-                          currentVersion={(item.modrinth_info as any)?.version_number || (item.curseforge_info as any)?.version_number}
-                          modpackOrigin={item.modpack_origin}
-                          updatesEnabled={item.updates_enabled}
-                        />
-                      </div>
-                    }
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        active ? "bg-amber-400 animate-pulse" : "bg-white/30"
-                      }`}
-                    />
-                  </Tooltip>
+                  <span
+                    className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                      active ? "bg-amber-400 animate-pulse" : "bg-white/30"
+                    }`}
+                  />
                 );
               })()}
               <span className="truncate">{isSwitchingVersion ? "Switching…" : (versionText || "—")}</span>
