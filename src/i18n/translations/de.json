@@ -1832,5 +1832,13 @@
   "deep_link.auth.confirm": "Bestätigen",
   "deep_link.auth.success": "Website-Authentifizierung erfolgreich!",
   "deep_link.auth.error": "Website-Authentifizierung fehlgeschlagen.",
-  "deep_link.auth.not_logged_in": "Du musst eingeloggt sein, um die Website-Authentifizierung zu nutzen."
+  "deep_link.auth.not_logged_in": "Du musst eingeloggt sein, um die Website-Authentifizierung zu nutzen.",
+
+  "errorBoundary.title": "Etwas ist schiefgelaufen",
+  "errorBoundary.titleRoute": "Fehler {{status}}",
+  "errorBoundary.unknown": "Beim Rendern dieser Seite ist ein unbekannter Fehler aufgetreten.",
+  "errorBoundary.goHome": "Startseite",
+  "errorBoundary.reload": "Neu laden",
+  "errorBoundary.back": "Zurück",
+  "errorBoundary.details": "Technische Details"
 }

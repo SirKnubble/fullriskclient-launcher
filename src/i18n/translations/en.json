@@ -1850,5 +1850,13 @@
   "deep_link.auth.confirm": "Confirm",
   "deep_link.auth.success": "Website authentication successful!",
   "deep_link.auth.error": "Website authentication failed.",
-  "deep_link.auth.not_logged_in": "You must be logged in to use website authentication."
+  "deep_link.auth.not_logged_in": "You must be logged in to use website authentication.",
+
+  "errorBoundary.title": "Something went wrong",
+  "errorBoundary.titleRoute": "Error {{status}}",
+  "errorBoundary.unknown": "An unknown error occurred while rendering this page.",
+  "errorBoundary.goHome": "Home",
+  "errorBoundary.reload": "Reload",
+  "errorBoundary.back": "Back",
+  "errorBoundary.details": "Technical details"
 }
