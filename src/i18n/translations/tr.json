@@ -5,26 +5,21 @@
   "nav.skins": "Skinler",
   "nav.capes": "Pelerinler",
   "nav.settings": "Ayarlar",
-
   "news.title": "Haberler",
   "news.no_news_available": "Şu anda mevcut haber yok.",
   "news.item": "Haber",
-
   "settings.tabs.general": "Genel",
   "settings.tabs.appearance": "Arka Plan",
   "settings.tabs.advanced": "Gelişmiş",
   "settings.tabs.debug": "Hata Ayıklama",
-
   "settings.language": "Dil",
   "settings.language.description": "Başlatıcı için görüntüleme dilini seçin",
-
   "settings.accent_color.title": "Vurgu Rengi",
   "settings.accent_color.description": "Başlatıcı için tercih ettiğiniz vurgu rengini seçin",
   "settings.accent_color.disabled_theme": "(Tema etkinken devre dışı)",
   "settings.accent_color.custom": "Özel",
   "settings.accent_color.custom_tooltip_disabled": "Tema etkinken devre dışı",
   "settings.accent_color.custom_tooltip": "Gelişmiş renk seçiciyi açmak için tıklayın",
-
   "settings.auto_updates": "Otomatik Güncellemeler",
   "settings.auto_updates.tooltip": "Başlatıcı güncellemelerini otomatik olarak kontrol edin ve indirin.",
   "settings.discord_presence": "Discord Durumu",
@@ -43,16 +38,13 @@
   "settings.concurrent_io.tooltip": "Aynı anda diske yazılan maksimum dosya sayısı. Düşük değerler disk stresini ve G/Ç hatalarını azaltır.",
   "settings.border_radius": "Kenar Yuvarlaklığı",
   "settings.border_radius.tooltip": "Tüm arayüz öğelerinin köşe yuvarlaklığını ayarlayın. 0px kare (Minecraft tarzı), daha yüksek değerler köşeleri daha yuvarlak yapar.",
-
   "settings.theme.title": "Tema",
   "settings.theme.description": "Başlatıcınızın görünümünü özelleştirmek için bir tema seçin",
-
   "settings.background.title": "Arka Plan Efekti",
   "settings.background.description": "Başlatıcı için bir arka plan efekti seçin",
   "settings.background.animations": "Animasyonlar",
   "settings.background.quality_low": "Düşük",
   "settings.background.quality_high": "Yüksek",
-
   "settings.background.matrix_rain": "Matrix Yağmuru",
   "settings.background.enchantment_table": "Büyü Masası",
   "settings.background.nebula_waves": "Bulutsu Dalgaları",
@@ -63,28 +55,23 @@
   "settings.background.liquid_chrome": "Sıvı Krom",
   "settings.background.retro_grid": "Retro Izgara",
   "settings.background.plain_color": "Düz Renk",
-
   "settings.quality.low": "Düşük",
   "settings.quality.medium": "Orta",
   "settings.quality.high": "Yüksek",
-
   "settings.browser_login": "Tarayıcı Tabanlı Giriş",
   "settings.browser_login.tooltip": "Microsoft girişi için gömülü pencere yerine harici tarayıcı kullanın. Flatpak için veya giriş penceresiyle sorun yaşıyorsanız önerilir.",
-
   "settings.game_data_dir.title": "Oyun Veri Dizini",
   "settings.game_data_dir.description": "Oyun verilerini (dünyalar, modlar, kütüphaneler vb.) depolamak için özel bir konum seçin",
   "settings.game_data_dir.tooltip": "Bu ayar, oyun verilerini farklı bir sürücüde veya konumda depolamanıza olanak tanır. Ana sürücünüzde yer azalıyorsa kullanışlıdır. Başlatıcı, yeni indirmeler ve kurulumlar için konum değişikliğini otomatik olarak yönetir.",
   "settings.game_data_dir.placeholder": "Varsayılan konum kullanılacak",
   "settings.game_data_dir.reset_tooltip": "Varsayılan konuma sıfırla",
   "settings.game_data_dir.select_tooltip": "Özel dizin seç",
-
   "settings.hooks.title": "Oyun Kancaları",
   "settings.hooks.description": "Oyun başlatmadan önce, sırasında ve sonrasında çalıştırılacak özel komutları yapılandırın",
   "settings.hooks.show": "Yapılandırmayı göster",
   "settings.hooks.hide": "Yapılandırmayı gizle",
   "settings.hooks.enable_editing": "Düzenlemeyi etkinleştir",
   "settings.hooks.disable_editing": "Düzenlemeyi devre dışı bırak",
-
   "settings.hooks.pre_launch.title": "Başlatma Öncesi Kancası",
   "settings.hooks.pre_launch.confirm_title": "başlatma öncesi düzenlemeyi etkinleştir",
   "settings.hooks.pre_launch.confirm_message": "Başlatma Öncesi kancasını düzenlemek, yanlış yapılandırılırsa oyunun başlamasını engelleyebilir. Yalnızca ne yaptığınızı biliyorsanız devam edin.",
@@ -92,7 +79,6 @@
   "settings.hooks.pre_launch.description": "Minecraft başlamadan önce çalıştırılacak komut. Bu komut başarısız olursa başlatma iptal edilir.",
   "settings.hooks.pre_launch.placeholder": "Örnek: echo \"Minecraft başlatılıyor...\"",
   "settings.hooks.pre_launch.disabled_tooltip": "Bu alanı değiştirmek için düzenlemeyi etkinleştirin",
-
   "settings.hooks.wrapper.title": "Sarmalayıcı Kancası",
   "settings.hooks.wrapper.confirm_title": "sarmalayıcı düzenlemeyi etkinleştir",
   "settings.hooks.wrapper.confirm_message": "Sarmalayıcı kancasını değiştirmek Java'nın nasıl çalıştırıldığını etkiler. Yanlış yapılandırma başlatmayı engelleyebilir.",
@@ -100,7 +86,6 @@
   "settings.hooks.wrapper.description": "Java'yı çalıştırmak için sarmalayıcı komutu (ör. sandboxing araçları). Java yolu argüman olarak geçirilir.",
   "settings.hooks.wrapper.placeholder": "Örnek: firejail veya gamemoderun",
   "settings.hooks.wrapper.disabled_tooltip": "Bu alanı değiştirmek için düzenlemeyi etkinleştirin",
-
   "settings.hooks.post_exit.title": "Çıkış Sonrası Kancası",
   "settings.hooks.post_exit.confirm_title": "çıkış sonrası düzenlemeyi etkinleştir",
   "settings.hooks.post_exit.confirm_message": "Çıkış Sonrası kancası, oyun kapandıktan sonra sistem komutlarını çalıştırır. Yalnızca komuta güveniyorsanız devam edin.",
@@ -108,7 +93,6 @@
   "settings.hooks.post_exit.description": "Minecraft başarıyla çıktıktan sonra çalıştırılacak komut. Engellemeden arka planda çalışır.",
   "settings.hooks.post_exit.placeholder": "Örnek: echo \"Minecraft kapandı\"",
   "settings.hooks.post_exit.disabled_tooltip": "Bu alanı değiştirmek için düzenlemeyi etkinleştirin",
-
   "settings.hooks.warning.title": "Uyarı",
   "settings.hooks.warning.description": "Bu kancalar tam izinlerle sistem komutlarını çalıştırır. Yalnızca güvendiğiniz ve anladığınız komutları kullanın. Geçersiz komutlar Minecraft'ın başlamasını engelleyebilir veya güvenlik sorunlarına neden olabilir.",
   "settings.hooks.examples.title": "Örnekler",
@@ -116,25 +100,20 @@
   "settings.hooks.examples.wrapper": "firejail",
   "settings.hooks.examples.wrapper_alt": "gamemoderun",
   "settings.hooks.examples.post_exit": "notify-send \"Oyun bitti\"",
-
   "settings.licenses.title": "Üçüncü Taraf Lisansları",
   "settings.licenses.description": "Üçüncü taraf kod ve bileşenlerinin lisanslarını görüntüleyin",
   "settings.licenses.view": "Lisansları Görüntüle",
-
   "settings.open_directory": "DİZİNİ AÇ",
   "settings.open_directory.tooltip": "Başlatıcı Dizinini Aç",
   "settings.open_directory.error": "Başlatıcı dizini açılamadı: {{error}}",
-
   "settings.loading": "Ayarlar Yükleniyor...",
   "settings.error.title": "Ayarlar Yüklenirken Hata",
   "settings.error.no_config": "Yapılandırma yüklenemedi.",
-
   "settings.toast.auto_saved": "Ayarlar otomatik kaydedildi!",
   "settings.toast.auto_save_failed": "Otomatik kaydetme başarısız: {{error}}",
   "settings.toast.custom_color_applied": "Özel renk uygulandı!",
   "settings.toast.invalid_hex": "Lütfen geçerli bir 6 haneli hex rengi girin (ör. #FF5733)",
   "settings.toast.reset": "Ayarlar kaydedilen değerlere sıfırlandı",
-
   "common.save": "Kaydet",
   "common.confirm": "Onayla",
   "common.cancel": "İptal",
@@ -152,25 +131,20 @@
   "common.error": "Hata",
   "common.vanilla": "Vanilla",
   "common.unknown": "Bilinmiyor",
-
   "launcher.select_version": "Sürüm seç",
-
   "header.update.downloading": "Güncelleme indiriliyor ve kuruluyor...",
   "header.update.success": "Güncelleme başarıyla kuruldu! Uygulama yeniden başlatılacak.",
   "header.update.failed": "Güncelleme başarısız: {{error}}",
   "header.update.tooltip_updating": "Güncelleme indiriliyor...",
   "header.update.tooltip_available": "Güncellemek için tıklayın: {{version}}",
-
   "window.minimize": "Simge Durumuna Küçült",
   "window.maximize": "Ekranı Kapla",
   "window.close": "Kapat",
-
   "updater.title": "Güncelleyici",
   "updater.initializing": "Başlatılıyor...",
   "updater.downloading": "İndiriliyor... {{progress}}%",
   "updater.complete": "Güncelleme Tamamlandı",
   "updater.loading_theme": "Tema yükleniyor...",
-
   "launch.button": "OYUNU BAŞLAT",
   "launch.cancel": "İPTAL",
   "launch.launching": "Başlatılıyor...",
@@ -183,17 +157,14 @@
   "launch.failed": "Başlatma başlatılamadı: {{error}}",
   "launch.cancel_failed": "Başlatma iptal edilemedi",
   "launch.polling_error": "Yoklama hatası: {{error}}",
-
   "launch.starting": "BAŞLATILIYOR!",
   "launch.minecraft_started": "✓ Minecraft başarıyla başlatıldı!",
   "launch.error": "✗ Hata: {{error}}",
   "launch.stopping": "Durduruluyor...",
   "launch.stopped": "Başlatma işlemi durduruldu.",
   "launch.stop_failed": "Durdurma başarısız: {{message}}",
-
   "launch.status.idle": "Boşta",
   "launch.status.abort": "Başlatmayı İptal Et",
-
   "crash_modal.title": "Minecraft Çökme Raporu",
   "crash_modal.description": "Beklenmeyen bir hata oluştu ve oyun çöktü. Rahatsızlık için özür dileriz.",
   "crash_modal.exit_code": "çıkış kodu",
@@ -216,7 +187,6 @@
   "crash_modal.toast.discord_opened": "NoRisk Discord tarayıcıda açıldı!",
   "crash_modal.toast.discord_failed": "Discord açılamadı. Manuel olarak discord.norisk.gg adresine gidin.",
   "crash_modal.error.no_log_content": "Yüklenecek günlük içeriği bulunamadı.",
-
   "tos.title": "Hizmet Şartları",
   "tos.welcome": "NoRisk Launcher'a Hoş Geldiniz!",
   "tos.read_accept": "Başlatıcıyı kullanmaya başlamadan önce lütfen Hizmet Şartlarımızı okuyun ve kabul edin.",
@@ -237,7 +207,6 @@
   "tos.toast.privacy_failed": "Gizlilik Politikası açılamadı. Manuel olarak www.norisk.gg/privacy adresini ziyaret edin.",
   "tos.toast.terms_opened": "Hizmet Şartları tarayıcıda açıldı!",
   "tos.toast.terms_failed": "Şartlar açılamadı. Manuel olarak www.norisk.gg/tos adresini ziyaret edin.",
-
   "analytics.banner.title": "NoRisk Client'ı geliştirmeye yardım et",
   "analytics.banner.description": "Launcher'ı geliştirmemize yardımcı olmak için anonim kullanım verileri gönderin. Oyun sürümleri, UI etkileşimleri ve işletim sistemi türünü içerir.",
   "analytics.banner.learn_more": "Daha fazla bilgi →",
@@ -251,18 +220,15 @@
   "analytics.toast.dismissed": "Daha sonra tekrar soracağız. Analytics'i Ayarlar'dan da etkinleştirebilirsin.",
   "analytics.settings.label": "Analytics",
   "analytics.settings.tooltip": "Anonim kullanım verileri göndererek launcher'ı geliştirmeye yardımcı ol. Örnekler: launcher sürümü, 1.21.10 veya 1.8.9 gibi oyun sürümleri, modloader türleri, UI etkileşimleri ve sistem bilgileri. Kişisel bilgi, kullanıcı adı veya dosya yolu toplanmaz.",
-
   "child_protection.title": "Microsoft Hesap Kısıtlaması",
   "child_protection.description": "Microsoft hesabınızda çok oyunculu özellikleri kısıtlayan bir çocuk koruması veya gizlilik modu etkin görünüyor. Bu nedenle başlatıcı girişi tamamlayamıyor.",
   "child_protection.review_settings": "Microsoft / Xbox hesabınızın ebeveyn denetimi veya aile ayarlarını inceleyin ve çok oyunculu erişimin izinli olduğundan emin olun, ardından tekrar giriş yapmayı deneyin.",
   "child_protection.setting_location": "Aradığınız ayar Xbox web sitesinde \"Gizlilik ve çevrimiçi güvenlik\" → \"Çevrimiçi güvenlik\" → \"Çok oyunculu oyunlara katılabilir\" → \"İzin Ver\" altında bulunur.",
   "child_protection.button.ignore": "Yoksay",
   "child_protection.button.open_settings": "Microsoft Hesap Ayarlarını Aç",
-
   "notification_modal.title": "Bildirimler",
   "notification_modal.mark_all_read": "Tümünü okundu olarak işaretle",
   "notification_modal.no_notifications": "Bildirim yok",
-
   "copy_world.title": "'{{name}}' Dünyasını Kopyala",
   "copy_world.copy_to_profile": "Profile kopyala",
   "copy_world.loading_profiles": "Profiller yükleniyor...",
@@ -273,13 +239,11 @@
   "copy_world.error.enter_name": "Dünya için yeni bir ad girin.",
   "copy_world.button.copying": "Kopyalanıyor...",
   "copy_world.button.copy": "Dünyayı Kopyala",
-
   "confirm_delete.title": "'{{name}}' silinsin mi?",
   "confirm_delete.message": "{{name}} kalıcı olarak silmek istediğinizden emin misiniz?",
   "confirm_delete.cannot_undo": "Bu işlem geri alınamaz.",
   "confirm_delete.button.deleting": "Siliniyor...",
   "confirm_delete.button.delete": "Sil",
-
   "add_skin.toast.preview_failed": "Skin önizlemesi yüklenemedi: {{error}}",
   "add_skin.toast.file_selected": "Dosya seçildi: {{name}}",
   "add_skin.toast.updating": "Skin güncelleniyor...",
@@ -302,7 +266,6 @@
   "add_skin.saving": "Kaydediliyor...",
   "add_skin.save_changes": "Değişiklikleri Kaydet",
   "add_skin.save_skin": "Skini Kaydet",
-
   "skins.skinSourceEmpty": "Skin kaynağı boş olamaz.",
   "skins.previewLoadedSuccess": "Skin önizlemesi yüklendi!",
   "skins.failedToLoadPreview": "Skin önizlemesi yüklenemedi: {{error}}",
@@ -330,23 +293,19 @@
   "skins.skin": "Skin",
   "skins.skinInputPlaceholder": "Kullanıcı adı, UUID'den kopyala veya URL'den indir",
   "skins.uploadSkinFromFile": "Dosyadan skin yükle",
-
   "credits_modal.title": "Katkıda Bulunanlar",
   "credits_modal.ui_frontend": "Arayüz ve Frontend",
   "credits_modal.backend_core": "Backend ve Çekirdek",
   "credits_modal.view_licenses": "Lisansları Görüntüle",
-
   "group_migration.title": "grup güncellemesi algılandı",
   "group_migration.description": "grubunuzda bir şeyler değişmiş görünüyor. eski dosyalarınızı kopyalamak ister misiniz?",
   "group_migration.button.copy_files": "dosyaları kopyala",
   "group_migration.button.skip_launch": "atla ve başlat",
-
   "color_picker.title": "Renk Seçici",
   "color_picker.selected_color": "Seçilen renk",
   "color_picker.button.apply": "Uygula",
   "color_picker.toast.applied": "Renk uygulandı!",
   "color_picker.toast.invalid_hex": "Geçerli bir hex rengi girin",
-
   "profile_duplicate.title": "profili çoğalt",
   "profile_duplicate.description": "\"{{name}}\" profilini çoğalt",
   "profile_duplicate.copy_notice": "Bu, dünyalar, yapılandırmalar, modlar ve ayarlar dahil profilin bir kopyasını oluşturacaktır.",
@@ -357,7 +316,6 @@
   "profile_duplicate.toast.failed": "Profil çoğaltılamadı: {{error}}",
   "profile_duplicate.button.duplicating": "çoğaltılıyor...",
   "profile_duplicate.button.duplicate": "çoğalt",
-
   "modpack_versions.title": "{{name}} - Sürümler",
   "modpack_versions.current": "Mevcut",
   "modpack_versions.changelog": "Değişiklik Günlüğü",
@@ -373,7 +331,6 @@
   "modpack_versions.toast.switching": "{{name}} {{version}} sürümüne değiştiriliyor...",
   "modpack_versions.toast.switch_success": "{{name}} başarıyla {{version}} sürümüne değiştirildi!",
   "modpack_versions.toast.switch_failed": "Modpack sürümü değiştirilemedi: {{error}}",
-
   "socials.title": "Sosyal Hesaplar",
   "socials.referral_text": "Arkadaşlarınızı davet edin, 3 gün NRC+ kazanın ve",
   "socials.referral_more": "daha fazlası...",
@@ -398,10 +355,8 @@
   "socials.qr_confirm.title": "QR Kodunu Göster",
   "socials.qr_confirm.message": "Bu QR kodu norisk tokeninizi içerir. Hesap güvenliğinizi tehlikeye atabileceğinden yayında veya başkalarıyla paylaşmayın.",
   "socials.qr_confirm.confirm": "QR Kodunu Göster",
-
   "common.unknown_error": "Bilinmeyen hata",
   "common.unknownError": "Bilinmeyen bir hata oluştu.",
-
   "auth.addAccount": "Hesap Ekle",
   "auth.unknown": "Bilinmiyor",
   "auth.errors.load_accounts": "Hesaplar yüklenemedi: {{error}}",
@@ -434,7 +389,6 @@
   "auth.browserLoginDescription": "Microsoft hesabınızla giriş yapmanız için bir tarayıcı penceresi açılacak.",
   "auth.loginError": "Giriş Hatası",
   "auth.cancelLogin": "Girişi İptal Et",
-
   "skins.editProperties": "Özellikleri Düzenle",
   "skins.deleteSkin": "Skini Sil",
   "skins.applying": "Uygulanıyor...",
@@ -458,7 +412,6 @@
   "skins.loadingSkins": "Skinler yükleniyor...",
   "skins.noSkinsMatchSearch": "Aramanızla eşleşen skin yok",
   "skins.skinImage": "Skin Resmi",
-
   "capes.noCape": "Pelerin Yok",
   "capes.removeEquippedCape": "Kuşanılmış pelerini kaldır",
   "capes.mostUsed": "En Çok Kullanılan",
@@ -533,7 +486,6 @@
   "capes.confirmDeleteMessagePrefix": "Silmek istediğinizden emin misiniz",
   "capes.confirmDeleteMessageSuffix": "? Bu işlem geri alınamaz.",
   "capes.deleting": "Siliniyor...",
-
   "capes.errors.inappropriate_content": "Pelerininiz uygunsuz içerik nedeniyle reddedildi.",
   "capes.errors.copyright": "Pelerininiz telif hakkı ihlali nedeniyle reddedildi.",
   "capes.errors.incomplete": "Pelerininiz tasarım eksik olduğu için reddedildi.",
@@ -551,7 +503,6 @@
   "capes.no_image_url": "Pelerin görüntü URL'si sağlanmadı",
   "capes.texture_load_failed": "Doku yüklenemedi: {{filename}}",
   "capes.loading_3d": "3D yükleniyor...",
-
   "profiles.card.standardVersionInfo": "Standart profil – sürüm NoRisk tarafından yönetilir",
   "profiles.card.tip": "İpucu",
   "profiles.card.createOwnProfiles": "Özel ayarlarla kendi profillerinizi oluşturun!",
@@ -781,7 +732,6 @@
   "profiles.wizard.snapshot": "Anlık Görüntü",
   "profiles.wizard.noVersionsFound": "Sürüm bulunamadı",
   "profiles.wizard.step1Title": "Profil Detayları",
-
   "common.refreshing": "Yenileniyor...",
   "common.selected": "seçili",
   "common.select_all": "Tümünü Seç",
@@ -794,13 +744,11 @@
   "common.disable": "Devre Dışı Bırak",
   "common.field_required": "Bu alan gereklidir",
   "common.clear_all": "Tümünü Temizle",
-
   "server.pinging": "Ping atılıyor...",
   "server.players": "Oyuncular",
   "server.stop": "Durdur",
   "server.join": "Katıl",
   "server.mods": "Modlar",
-
   "radius.title": "Kenar Yuvarlaklığı",
   "radius.square": "Kare",
   "radius.minimal": "Minimal",
@@ -810,14 +758,11 @@
   "radius.extra_large": "Çok Büyük",
   "radius.maximum": "Maksimum",
   "radius.round": "Yuvarlak",
-
   "color_picker.hex": "Hex",
   "color_picker.r": "R",
   "color_picker.g": "G",
   "color_picker.b": "B",
-
   "content.table_summary": "Tablo özeti",
-
   "content.norisk.profile_unavailable": "Profil verileri mevcut değil. NoRisk modları görüntülenemiyor.",
   "content.norisk.search_placeholder": "NoRisk modlarında ara...",
   "content.norisk.refresh_packs": "NoRisk Paket Listesini Yenile",
@@ -839,7 +784,6 @@
   "content.norisk.toast.mod_not_found_batch": "Toplu işlem sırasında {{id}} modu bulunamadı.",
   "content.norisk.toast.toggle_failed": "{{name}} değiştirilemedi: {{error}}",
   "content.norisk.toast.switch_pack_failed": "NoRisk paketi değiştirilemedi: {{error}}",
-
   "content.actions.toggle_selected": "{{count}} seçili öğeyi etkinleştir/devre dışı bırak",
   "content.actions.toggling": "DEĞİŞTİRİLİYOR...",
   "content.actions.toggle": "DEĞİŞTİR",
@@ -865,7 +809,6 @@
   "content.actions.refresh_list": "Listeyi Yenile",
   "content.actions.deselect_all": "Tüm görünenlerin seçimini kaldır",
   "content.actions.select_all": "Tüm görünenleri seç",
-
   "content.no_pack_selected": "NoRisk Paketi Seçilmedi",
   "content.no_pack_selected_option": "- Paket Seçilmedi -",
   "content.select_pack_placeholder": "Paket Seç...",
@@ -876,7 +819,6 @@
   "content.platforms.modrinth": "Modrinth",
   "content.platforms.maven": "Maven",
   "content.platforms.url": "URL",
-
   "content.loading_versions": "Sürümler yükleniyor...",
   "content.loading_details": "Detaylar yükleniyor...",
   "content.available_versions_on": "{{platform}} üzerinde mevcut sürümler:",
@@ -885,15 +827,11 @@
   "content.version_load_failed": "{{platform}} üzerinden sürümler yüklenemedi.",
   "content.version_load_failed_details": "{{platform}} üzerinden sürümler yüklenemedi: {{error}}",
   "content.item_not_found": "Öğe bulunamadı.",
-
   "content.badge.crashes_with_nrc": "NRC İLE ÇÖKME",
-
   "content.update_check_error": "Güncelleme Kontrol Hatası: {{error}}",
-
   "content.profile_unavailable": "Profil verileri mevcut değil. {{itemType}} görüntülenemiyor.",
   "content.standard_readonly": "Standart profiller salt okunurdur.",
   "content.clone_to_edit": "Değişiklik yapmak ve içeriği yönetmek için klonlayın.",
-
   "content.loading_items": "{{itemType}} yükleniyor...",
   "content.manage_items": "{{itemType}} yönetin",
   "content.select_pack_description": "Modlarını yönetmek için açılır menüden bir NoRisk Modpack seçin.",
@@ -902,10 +840,8 @@
   "content.empty_description": "{{itemType}} eklemek için buraya sürükleyip bırakın veya çevrimiçi içerik keşfetmek ve yüklemek için Gözat'a tıklayın.",
   "content.no_search_results": "Farklı bir arama terimi deneyin veya arama filtresini temizleyin.",
   "content.select_to_manage": "Toplu işlemler yapmak veya tek tek yönetmek için {{itemType}} seçin.",
-
   "content.delete_item_title": "{{name}} silinsin mi?",
   "content.delete_selected_title": "Seçili {{itemType}} silinsin mi?",
-
   "content.toast.pack_list_refreshed": "NoRisk Paket listesi yenilendi.",
   "content.toast.pack_list_refresh_failed": "NoRisk paket listesi yenilenemedi.",
   "content.toast.profile_unavailable": "İçerik eklemek için profil verileri mevcut değil.",
@@ -918,14 +854,11 @@
   "content.toast.clone_success": "'{{name}}' profili başarıyla klonlandı!",
   "content.toast.clone_failed": "Profil klonlanamadı: {{error}}",
   "content.toast.clone_init_failed": "Klonlama işlemi başlatılamadı.",
-
   "content.filter.java_archives": "Java Arşivleri",
   "content.filter.resource_pack_archives": "Kaynak Paketi Arşivleri",
   "content.filter.shader_pack_archives": "Gölgelendirici Paketi Arşivleri",
   "content.filter.data_pack_archives": "Veri Paketi Arşivleri",
-
   "content.dialog.select_to_import": "{{profileName}} profili için içe aktarılacak {{itemType}} seçin",
-
   "content.open_containing_folder": "İçeren klasörü aç",
   "content.unknown_file": "Bilinmeyen dosya",
   "content.unknown_pack": "Bilinmeyen paket",
@@ -933,16 +866,13 @@
   "content.confirm_deletion": "Silmeyi onaylamak için tekrar tıklayın",
   "content.delete_pack": "Paketi sil",
   "content.view_version_options": "Sürüm seçeneklerini görüntüle",
-
   "profiles.clone": "Profili Klonla",
   "profiles.new_name": "Yeni profil adı",
   "profiles.clone_name_placeholder": "Klonlanan profil için bir ad girin",
   "profiles.clone_button": "KLONLA",
   "profiles.clone_profile": "PROFİLİ KLONLA",
-
   "common.refresh": "YENİLE",
   "common.delete": "SİL",
-
   "content.header.name": "ad",
   "content.header.version": "sürüm",
   "content.header.status": "durum",
@@ -955,7 +885,6 @@
   "content.filters.server": "Sunucu",
   "content.search_modrinth": "Modrinth'te Ara",
   "content.search_curseforge": "CurseForge'da Ara",
-
   "content.search.error": "Hata: {{error}}",
   "content.search.no_results": "Sonuç bulunamadı. Filtreleri veya arama terimini ayarlamayı deneyin.",
   "content.search.load_more": "Daha Fazla Yükle ({{remaining}} kalan)",
@@ -966,7 +895,6 @@
   "content.search.sort.follows": "Takipler",
   "content.search.sort.newest": "En Yeni",
   "content.search.sort.updated": "Güncellenen",
-
   "content.install.missing_info": "Gerekli kurulum bilgisi eksik",
   "content.install.no_file": "Seçilen sürüm için indirme dosyası mevcut değil.",
   "content.install.modpack_as_profile": "Modpack'ler yeni profil olarak kurulmalıdır.",
@@ -993,7 +921,6 @@
   "content.install.no_primary_file_delete": "Sürüm için birincil dosya bulunamadı. Silme için detaylar belirlenemiyor.",
   "content.install.sha1_missing": "Bu sürüm için SHA1 hash eksik. Silme işlemi yapılamıyor.",
   "content.install.toggle_missing_hash": "Sürüm etkinleştirilemez/devre dışı bırakılamaz: dosya hash eksik",
-
   "friends.status.online": "ÇEVRİMİÇİ",
   "friends.status.afk": "AFK",
   "friends.status.busy": "MEŞGUL",
@@ -1036,26 +963,22 @@
   "friends.settings.allow_requests_desc": "Oyuncular istek gönderebilir",
   "friends.settings.server_invites": "Sunucu Davetleri",
   "friends.settings.server_invites_desc": "Arkadaşlar sizi davet edebilir",
-
   "friends.notifications.online": "{{username}} şimdi çevrimiçi",
   "friends.notifications.offline": "{{username}} çevrimdışı oldu",
   "friends.notifications.playing_on": "{{name}} şimdi {{server}} sunucusunda oynuyor",
   "friends.notifications.friend_request": "{{name}} size arkadaşlık isteği gönderdi",
   "friends.notifications.chat_preview": "{{name}}: {{message}}",
-
   "chat.today": "Bugün",
   "chat.yesterday": "Dün",
   "chat.no_messages_title": "Henüz Mesaj Yok",
   "chat.no_messages_desc": "merhaba de!",
   "chat.start_of_conversation": "— sohbetin başlangıcı —",
   "chat.type_message": "Mesaj yazın...",
-
   "common.accept": "Kabul Et",
   "common.deny": "Reddet",
   "common.settings": "Ayarlar",
   "common.instance_one": "Örnek",
   "common.instance_other": "Örnekler",
-
   "logs.loading": "Günlükler yükleniyor...",
   "logs.no_content_title": "Günlük içeriği mevcut değil",
   "logs.no_content_desc": "Görüntülemek için bir günlük dosyası seçin",
@@ -1079,7 +1002,6 @@
   "logs.waiting_for_output": "Günlük çıktısı bekleniyor...",
   "logs.select_instance": "BİR ÖRNEK SEÇİN",
   "logs.select_instance_hint": "Günlükleri görüntülemek için kenar çubuğundan bir örnek seçin",
-
   "screenshots.copy_image": "Resmi Kopyala",
   "screenshots.open_location": "Ekran Görüntüsü Konumunu Aç",
   "screenshots.delete_screenshot": "Ekran Görüntüsünü Sil",
@@ -1089,7 +1011,6 @@
   "screenshots.deleting": "{{name}} siliniyor...",
   "screenshots.deleted": "\"{{name}}\" ekran görüntüsü silindi.",
   "screenshots.delete_failed": "Silinemedi: {{error}}",
-
   "dragdrop.already_importing": "Bu dosya zaten içe aktarılıyor.",
   "dragdrop.importing": "{{fileName}} içe aktarılıyor",
   "dragdrop.import_success": "{{fileName}} için profil içe aktarımı başlatıldı. Profil açılıyor...",
@@ -1106,7 +1027,6 @@
   "dragdrop.drop_hint": "İçe aktarmak için dosyaları aktif profil içerik alanına bırakın veya profil içe aktarmak için .noriskpack/.mrpack/.zip dosyasını herhangi bir yere bırakın.",
   "dragdrop.not_configured": "İçerik türü için sürükle bırak yapılandırılmadı: {{type}}",
   "dragdrop.listener_init_failed": "Sürükle bırak dinleyicisi başlatılamadı.",
-
   "content_manager.errors.profile_missing_toggle": "Değiştirme için profil eksik.",
   "content_manager.errors.profile_missing_delete": "Profil verileri eksik, silme işlemi tamamlanamıyor.",
   "content_manager.errors.profile_missing_update": "Profil eksik, güncelleme yapılamıyor.",
@@ -1139,7 +1059,6 @@
   "content_manager.errors.selected_items_not_found": "Seçili öğeler bulunamadı.",
   "content_manager.errors.no_valid_ids_toggle_updates": "Güncelleme kontrolleri değiştirilemiyor: Seçili öğelerin geçerli kimlikleri yok",
   "content_manager.errors.toggle_update_checks_failed": "Güncelleme kontrolleri değiştirilemedi: {{error}}",
-
   "content_manager.success.deleted": "{{name}} silindi.",
   "content_manager.success.batch_deleted": "{{count}} öğe başarıyla silindi.",
   "content_manager.success.batch_toggled": "{{count}} öğe başarıyla değiştirildi.",
@@ -1150,7 +1069,6 @@
   "content_manager.success.toggle_updates_disabled": "{{name}} için güncelleme kontrolleri devre dışı bırakıldı.",
   "content_manager.success.batch_toggle_updates_enabled": "{{count}} {{itemLabel}} için güncelleme kontrolleri etkinleştirildi.",
   "content_manager.success.batch_toggle_updates_disabled": "{{count}} {{itemLabel}} için güncelleme kontrolleri devre dışı bırakıldı.",
-
   "content_manager.loading.updating": "{{name}} {{version}} sürümüne güncelleniyor...",
   "content_manager.loading.updating_progress": "{{current}}/{{total}} {{type}} güncelleniyor...",
   "content_manager.loading.switching": "{{version}} sürümüne değiştiriliyor...",
@@ -1158,11 +1076,9 @@
   "content_manager.loading.disabling_update_checks": "{{name}} için güncelleme kontrolleri devre dışı bırakılıyor...",
   "content_manager.loading.enabling_update_checks_batch": "{{count}} {{itemLabel}} için güncelleme kontrolleri etkinleştiriliyor...",
   "content_manager.loading.disabling_update_checks_batch": "{{count}} {{itemLabel}} için güncelleme kontrolleri devre dışı bırakılıyor...",
-
   "content_manager.update_result.finished_partial": "Tamamlandı: {{succeeded}} başarılı, {{failed}} başarısız.",
   "content_manager.update_result.item": "öğe",
   "content_manager.update_result.items": "öğe",
-
   "modrinth_installer.errors.profile_not_found": "{{profileId}} kimlikli profil bulunamadı. Lütfen farklı bir profil seçin.",
   "modrinth_installer.errors.install_failed": "Kurulum başarısız: {{error}}",
   "modrinth_installer.errors.missing_search_hit": "Arama sonucu bağlamı eksik",
@@ -1170,11 +1086,9 @@
   "modrinth_installer.errors.installation_error": "Kurulum hatası: {{error}}",
   "modrinth_installer.installing": "{{fileName}} kuruluyor",
   "modrinth_installer.success": "{{fileName}} başarıyla kuruldu!",
-
   "content.errors.load_custom_mods": "Özel modlar yüklenemedi",
   "content.errors.load_resource_packs": "Kaynak paketleri yüklenemedi",
   "content.errors.load_shader_packs": "Gölgelendirici paketleri yüklenemedi",
-
   "profiles.errors.load_failed": "Profil verileri yüklenemedi",
   "profiles.errors.profile_not_found": "'{{id}}' kimlikli profil bulunamadı.",
   "profiles.errors.no_profile_selected": "Profil seçilmedi. Lütfen önce bir profil seçin.",
@@ -1187,7 +1101,6 @@
   "profiles.errors.image_dialog_failed": "Resim seçimi penceresi açılamadı.",
   "profiles.errors.already_importing": "Bu dosya zaten içe aktarılıyor.",
   "profiles.errors.file_path_failed": "Seçilen dosya yolu alınamadı. Lütfen tekrar deneyin.",
-
   "time.never": "hiçbir zaman",
   "time.seconds_ago": "{{count}}sn önce",
   "time.minutes_ago": "{{count}}dk önce",
@@ -1196,7 +1109,6 @@
   "time.weeks_ago": "{{count}}hf önce",
   "time.months_ago": "{{count}}ay önce",
   "time.years_ago": "{{count}}yıl önce",
-
   "iris.skip_shader_mod": "Gölgelendirici Modunu Atla",
   "iris.install_iris": "Iris'i Kur",
   "iris.shader_pack_setup": "Gölgelendirici Paketi Kurulumu",
@@ -1209,10 +1121,8 @@
   "iris.installation_error": "Kurulum başarısız. Detaylar için konsolu kontrol edin.",
   "iris.installed_optimal": "Iris gölgelendirici modu kurulu - gölgelendirici paketleri optimal çalışacak",
   "iris.required_optimal": "Optimal gölgelendirici paketi performansı için Iris gölgelendirici modu gerekli",
-
   "app.errors.process_status": "Minecraft işlem durumu global olarak işlenemedi.",
   "app.errors.save_grouping": "Gruplama tercihi kaydedilemedi.",
-
   "java.no_installations_found": "Sisteminizde Java kurulumu bulunamadı. Özel Java kurulumu kullanıyorsanız yolu manuel olarak belirtmeniz gerekebilir.",
   "java.detect_failed": "Java algılanamadı: {{error}}",
   "java.load_memory_failed": "Global bellek ayarları yüklenemedi",
@@ -1225,9 +1135,7 @@
   "java.path_invalid": "Geçersiz Java Yolu. Yolu kontrol edin veya uyumlu bir Java sürümü olduğundan emin olun.",
   "java.path_not_exist": "Seçilen Java yolu mevcut değil.",
   "java.validation_error": "Java doğrulama hatası: {{error}}",
-
   "common.open_link_failed": "Bağlantı tarayıcıda açılamadı.",
-
   "mod_detail.invalid_url_params": "Geçersiz URL parametreleri",
   "mod_detail.project_not_found": "Proje bulunamadı",
   "mod_detail.loading_project": "Proje detayları yükleniyor...",
@@ -1279,7 +1187,6 @@
   "mod_detail.versions.all_game_versions": "Tüm Oyun Sürümleri",
   "mod_detail.versions.all_loaders": "Tüm Loader'lar",
   "common.more": "daha fazla",
-
   "modrinth.filters": "Filtreler",
   "modrinth.categories": "Kategoriler",
   "modrinth.loading_categories": "Kategoriler yükleniyor...",
@@ -1307,7 +1214,6 @@
   "modrinth.error_creating_or_installing": "Profil oluşturma veya içerik kurulumu sırasında bir hata oluştu.",
   "modrinth.errors.missing_data": "Profil oluşturulamıyor: Proje veya sürüm verileri eksik.",
   "modrinth.errors.no_suitable_version": "Profil oluşturulamıyor: Uygun sürüm bulunamadı.",
-
   "symlink.configure": "Sembolik Bağlantıyı Yapılandır",
   "symlink.create": "Sembolik Bağlantı Oluştur",
   "symlink.external_file": "Harici Dosya",
@@ -1318,10 +1224,8 @@
   "symlink.open_in_profile": "Profilde aç",
   "symlink.remove_symlink": "Sembolik bağlantıyı kaldır",
   "symlink.add_new": "yeni sembolik bağlantı ekle",
-
   "files.loading_structure": "Dosya yapısı yükleniyor...",
   "files.no_structure_available": "Dosya yapısı mevcut değil.",
-
   "worlds.path_not_available": "Dünya yolu mevcut değil.",
   "worlds.launching_world": "🚀 Dünya başlatılıyor: {{name}}",
   "worlds.joining_server": "🌐 Sunucuya katılınıyor: {{name}}",
@@ -1368,16 +1272,12 @@
   "worlds.rename_placeholder": "Yeni dünya adı girin...",
   "worlds.rename_button": "Yeniden Adlandır",
   "worlds.size": "{{size}} MB",
-
   "datapacks.search_placeholder": "Veri paketlerinde ara...",
   "datapacks.loading": "Veri paketleri yükleniyor...",
-
   "resourcepacks.search_placeholder": "Kaynak paketlerinde ara...",
   "resourcepacks.loading": "Kaynak paketleri yükleniyor...",
-
   "screenshots.loading": "Ekran görüntüleri yükleniyor...",
   "screenshots.search_placeholder": "Ekran görüntülerinde ara...",
-
   "symlinks.load_failed": "Sembolik bağlantılar yüklenemedi",
   "symlinks.folder_picker_failed": "Klasör seçici açılamadı",
   "symlinks.file_picker_failed": "Dosya seçici açılamadı",
@@ -1406,23 +1306,18 @@
   "symlinks.step_2": "profilinizde nerede görüneceğini yapılandırın",
   "symlinks.step_3": "içerik bağlandı - değişiklikler anında senkronize olur",
   "symlinks.perfect_for": "profiller veya bulut depolama arasında ekran görüntüleri, yapılandırma dosyaları, kayıtlar veya kaynak paketlerini senkronize etmek için mükemmel.",
-
   "debug.uploaded_copied": "Yüklendi ve panoya kopyalandı!",
   "debug.upload_failed": "Yükleme başarısız: {{error}}",
   "debug.copied": "Panoya kopyalandı!",
   "debug.copy_failed": "Kopyalama başarısız: {{error}}",
   "debug.copy_content": "İçeriği kopyala",
   "debug.upload_mclogs": "mclo.gs'ye yükle",
-
   "logs.no_logs_to_upload": "Yüklenecek günlük yok",
   "logs.uploaded_url_copied": "Yüklendi! URL panoya kopyalandı",
-
   "settings.disable_experimental": "Lütfen Ayarlar'dan deneysel modu devre dışı bırakın.",
   "capes.data_refreshed": "Pelerin verileri yenilendi!",
-
   "content.errors.load_norisk_packs": "NoRisk paket listesi yüklenemedi.",
   "advent.load_failed": "Advent takvimi yüklenemedi",
-
   "instances.fetch_failed": "Çalışan örnekler yüklenemedi",
   "instances.loading": "Yükleniyor...",
   "instances.no_instances": "Örnek Yok",
@@ -1443,21 +1338,17 @@
   "instances.count_running": "{{count}} örnek çalışıyor",
   "instances.count_running_other": "{{count}} örnek çalışıyor",
   "instances.none": "örnek yok",
-
   "header.toggle_friends": "Arkadaşları Aç/Kapat",
   "header.open_socials": "Sosyal Hesapları Aç",
   "header.notifications": "Bildirimler",
-
   "export.enter_filename": "Lütfen dışa aktarma için bir dosya adı girin.",
   "profiles.repair_success": "Profil onarımı başarıyla tamamlandı!",
   "profiles.repair_failed": "Profil onarılamadı: {{error}}",
-
   "profiles.toast.opening_folder": "📁 {{name}} için klasör açılıyor!",
   "profiles.toast.delete_fallback": "🗑️ {{name}} siliniyor!",
   "profiles.toast.managing_mods": "📦 {{name}} için modlar yönetiliyor!",
   "profiles.toast.launching_world": "🚀 Dünya başlatılıyor: {{name}}",
   "profiles.toast.joining_server": "🌐 Sunucuya katılınıyor: {{name}}",
-
   "shaderpacks.toggle_success": "Gölgelendirici paketi \"{{name}}\" {{status}}.",
   "shaderpacks.toggle_failed": "\"{{name}}\" değiştirilemedi: {{error}}",
   "shaderpacks.loading": "gölgelendirici paketleri yükleniyor...",
@@ -1474,7 +1365,6 @@
   "shaderpacks.no_match_search": "aramanızla eşleşen gölgelendirici paketi yok",
   "shaderpacks.none_installed": "kurulu gölgelendirici paketi yok",
   "shaderpacks.drag_drop_hint": "Kurmak için gölgelendirici paketi dosyalarını buraya sürükleyip bırakın",
-
   "mods.profile_unavailable": "Profil verileri mevcut değil. Modlar görüntülenemiyor.",
   "mods.version_label": "Sürüm: {{version}}",
   "mods.enabled": "Etkin",
@@ -1512,20 +1402,17 @@
   "mods.errors.update_failed": "{{name}} güncellenemedi: {{error}}",
   "mods.errors.delete_failed": "{{name}} silinemedi: {{error}}",
   "mods.errors.refresh_failed": "Modlar yenilenemedi: {{error}}",
-
   "empty_states.try_adjusting_search": "Aramanızı veya filtrelerinizi ayarlamayı deneyin.",
   "empty_states.try_adjusting_sort": "Sıralama seçeneklerinizi ayarlamayı deneyin.",
   "empty_states.no_content_found": "İçerik bulunamadı. Farklı bir arama deneyin.",
   "empty_states.error_loading_data": "Veri yüklenirken hata",
   "empty_states.no_results_for": "\"{{query}}\" için sonuç bulunamadı",
   "empty_states.browse_popular": "Popüler içeriklere göz at",
-
   "screenshots.no_match_filter": "Filtreyle Eşleşen Ekran Görüntüsü Yok",
   "screenshots.no_screenshots_yet": "henüz ekran görüntüsü yok",
   "screenshots.take_some": "burada görmek için oyun içinde birkaç tane çekin!",
   "screenshots.preview_error": "Önizleme Hatası",
   "screenshots.no_preview": "Önizleme Yok",
-
   "placeholders.search_logs": "Günlüklerde ara...",
   "placeholders.search_profiles": "Profillerde ara...",
   "placeholders.search_modrinth": "Mod, modpack, kaynak paketi ara...",
@@ -1535,9 +1422,7 @@
   "placeholders.java_path": "Java çalıştırılabilir dosyası yolu (ör. .../bin/javaw.exe)",
   "placeholders.profile_name_awesome": "Harika Profilim",
   "placeholders.group_name": "ör. modpack'ler, vanilla+",
-
   "referral.loading": "Referans yükleniyor...",
-
   "modrinth.project_types.mods": "Modlar",
   "modrinth.project_types.modpacks": "Modpack'ler",
   "modrinth.project_types.resource_packs": "Kaynak Paketleri",
@@ -1587,7 +1472,6 @@
   "profiles.errors.not_found": "Profil bulunamadı",
   "profiles.loading_details": "Profil detayları yükleniyor...",
   "profiles.new_profile": "Yeni Profil",
-
   "profiles.v3.stats.modpack": "Modpack",
   "profiles.v3.stats.playtime": "Oyun süresi",
   "profiles.v3.stats.disk": "Disk",
@@ -1665,7 +1549,6 @@
   "profiles.v3.time.yearsAgo": "{{count}} yıl önce",
   "profiles.v3.time.placeholder": "—",
   "profiles.v3.time.lessThanMinute": "< 1d",
-
   "export.open_folder_after": "Dışa aktardıktan sonra klasörü aç",
   "export.exporting": "Dışa aktarılıyor...",
   "export.export_profile": "Profili Dışa Aktar",
@@ -1682,11 +1565,9 @@
   "export.title": "Profili Dışa Aktar",
   "export.description": "Profilinizi başkalarıyla paylaşmak veya yedek olarak dışa aktarın. Hangi dosyaların dahil edileceğini özelleştirebilirsiniz.",
   "export.export_failed": "Profil dışa aktarılamadı: {{error}}",
-
   "designer.asset_management": "Varlık Yönetimi",
   "designer.keep_local_assets": "Yerel Varlıkları Koru",
   "designer.keep_local_assets_description": "İşaretlenirse, düzenlenen varlıklar (kanatlar, norisk.json'lar vb.) yeniden başlatmada üzerine yazılmaz.",
-
   "nrc.incompatible_warning": "NoRiskClient şu anda bu loader veya sürümle uyumlu değil! Yine de oluşturabilirsiniz, ancak özelliklere sahip olmayacaksınız. Bu gelecekte değişebilir.",
   "nrc.no_features_warning": "Bu seçimle hiçbir NoRiskClient özelliğine sahip olmayacaksınız.",
   "nrc.info_title": "bilgi",
@@ -1699,7 +1580,6 @@
   "nrc.repair_description": "Eksik veya bozuk dosyaları yeniden indirerek profil kurulumunu onarır.",
   "nrc.repairing": "onarılıyor...",
   "nrc.repair": "onar",
-
   "modrinth.back_to_profiles": "Profillere Dön",
   "modrinth.creating": "Oluşturuluyor...",
   "modrinth.create_and_install": "Oluştur ve Kur",
@@ -1745,12 +1625,10 @@
   "modrinth.uninstalling": "Kaldırılıyor...",
   "modrinth.installed": "Kurulu",
   "common.uninstall": "Kaldır",
-
   "lightbox.counter": "{{current}} / {{total}}",
   "lightbox.press_space_zoom": "Yakınlaştırmak için Boşluk'a basın",
   "lightbox.arrow_keys_navigate": "Gezinmek için ok tuşları",
   "lightbox.esc_close": "Kapatmak için Esc",
-
   "advent.coins_amount": "{{amount}} Jeton",
   "advent.added_to_account": "Hesabınıza eklendi",
   "advent.loading_model": "Model yükleniyor...",
@@ -1759,5 +1637,33 @@
   "advent.no_reward_available": "Mevcut ödül yok",
   "advent.model_error": "Model Hatası",
   "advent.reward_claimed": "Gün {{day}} ödülü alındı!",
-  "advent.claim_failed": "Ödül alınamadı"
+  "advent.claim_failed": "Ödül alınamadı",
+  "worlds.sort.last_played": "Son oynanan",
+  "worlds.sort.name": "Ad",
+  "worlds.play_this_world": "Bu dünyada oyna",
+  "worlds.none_found": "Henüz dünya yok",
+  "worlds.create_in_minecraft": "Minecraft'ta yeni bir dünya oluştur veya bir .mcworld dosyasını içe aktar.",
+  "worlds.import_world": "Dünya içe aktar",
+  "worlds.import_title": "İçe aktarılacak dünya klasörünü seç",
+  "worlds.importing": "{{name}} içe aktarılıyor…",
+  "worlds.import_success": "\"{{name}}\" dünyası başarıyla içe aktarıldı!",
+  "worlds.import_failed": "Dünya içe aktarılamadı: {{error}}",
+  "worlds.copy": "Dünyayı kopyala",
+  "worlds.copying": "{{name}} kopyalanıyor…",
+  "worlds.delete_title": "Dünyayı sil",
+  "worlds.delete_confirm": "\"{{name}}\" dünyası silinsin mi? Bu geri alınamaz.",
+  "worlds.deleting": "{{name}} siliniyor…",
+  "worlds.batch_delete_title": "Dünyaları sil",
+  "worlds.batch_delete_item_name": "{{count}} dünya",
+  "worlds.batch_delete_confirm": "Seçili {{count}} dünya silinsin mi? Bu geri alınamaz.",
+  "worlds.batch_delete_success": "{{count}} dünya silindi.",
+  "worlds.difficulty_locked": "Zorluk kilitli",
+  "worlds.open_folder_failed": "Klasör açılamadı: {{error}}",
+  "profiles.v3.servers.title": "Sunucular",
+  "profiles.v3.servers.join": "Bu sunucuya katıl",
+  "profiles.v3.servers.joinShort": "Katıl",
+  "profiles.v3.servers.offline": "Sunucu çevrimdışı",
+  "profiles.v3.servers.pinging": "Ping atılıyor…",
+  "profiles.v3.servers.reping": "Tekrar pingle",
+  "profiles.v3.servers.copyAddress": "Adresi kopyala"
 }

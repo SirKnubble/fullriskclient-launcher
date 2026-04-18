@@ -5,26 +5,21 @@
   "nav.skins": "Skin",
   "nav.capes": "Mantelli",
   "nav.settings": "Impostazioni",
-
   "news.title": "Notizie",
   "news.no_news_available": "Nessuna notizia disponibile al momento.",
   "news.item": "Notizia",
-
   "settings.tabs.general": "Generale",
   "settings.tabs.appearance": "Sfondo",
   "settings.tabs.advanced": "Avanzate",
   "settings.tabs.debug": "Debug",
-
   "settings.language": "Lingua",
   "settings.language.description": "Scegli la lingua di visualizzazione del launcher",
-
   "settings.accent_color.title": "Colore accento",
   "settings.accent_color.description": "Scegli il colore accento preferito per il launcher",
   "settings.accent_color.disabled_theme": "(Disabilitato mentre un tema è attivo)",
   "settings.accent_color.custom": "Personalizzato",
   "settings.accent_color.custom_tooltip_disabled": "Disabilitato mentre un tema è attivo",
   "settings.accent_color.custom_tooltip": "Clicca per aprire il selettore colore avanzato",
-
   "settings.auto_updates": "Aggiornamenti automatici",
   "settings.auto_updates.tooltip": "Controlla e scarica automaticamente gli aggiornamenti del launcher quando disponibili.",
   "settings.discord_presence": "Presenza Discord",
@@ -43,16 +38,13 @@
   "settings.concurrent_io.tooltip": "Numero massimo di file scritti su disco contemporaneamente. Valori più bassi riducono lo stress del disco e gli errori I/O.",
   "settings.border_radius": "Raggio bordi",
   "settings.border_radius.tooltip": "Regola l'arrotondamento degli angoli di tutti gli elementi UI. 0px è quadrato (stile Minecraft), valori più alti rendono gli angoli più arrotondati.",
-
   "settings.theme.title": "Tema",
   "settings.theme.description": "Seleziona un tema per personalizzare l'aspetto del launcher",
-
   "settings.background.title": "Effetto sfondo",
   "settings.background.description": "Scegli un effetto di sfondo per il launcher",
   "settings.background.animations": "Animazioni",
   "settings.background.quality_low": "Bassa",
   "settings.background.quality_high": "Alta",
-
   "settings.background.matrix_rain": "Pioggia Matrix",
   "settings.background.enchantment_table": "Tavolo incantesimi",
   "settings.background.nebula_waves": "Onde nebulosa",
@@ -63,28 +55,23 @@
   "settings.background.liquid_chrome": "Cromo liquido",
   "settings.background.retro_grid": "Griglia retro",
   "settings.background.plain_color": "Colore uniforme",
-
   "settings.quality.low": "Bassa",
   "settings.quality.medium": "Media",
   "settings.quality.high": "Alta",
-
   "settings.browser_login": "Login tramite browser",
   "settings.browser_login.tooltip": "Usa un browser esterno per il login Microsoft invece della finestra integrata. Consigliato per Flatpak o se riscontri problemi con la finestra di login.",
-
   "settings.game_data_dir.title": "Cartella dati di gioco",
   "settings.game_data_dir.description": "Scegli una posizione personalizzata per i dati di gioco (mondi, mod, librerie, ecc.)",
   "settings.game_data_dir.tooltip": "Questa impostazione ti permette di salvare i dati di gioco su un'unità o posizione diversa. Utile se lo spazio sul disco principale sta esaurendosi. Il launcher gestirà automaticamente il cambio di posizione per i nuovi download e installazioni.",
   "settings.game_data_dir.placeholder": "Verrà usata la posizione predefinita",
   "settings.game_data_dir.reset_tooltip": "Ripristina posizione predefinita",
   "settings.game_data_dir.select_tooltip": "Seleziona cartella personalizzata",
-
   "settings.hooks.title": "Hook di gioco",
   "settings.hooks.description": "Configura comandi personalizzati da eseguire prima, durante e dopo l'avvio del gioco",
   "settings.hooks.show": "Mostra configurazione",
   "settings.hooks.hide": "Nascondi configurazione",
   "settings.hooks.enable_editing": "Abilita modifica",
   "settings.hooks.disable_editing": "Disabilita modifica",
-
   "settings.hooks.pre_launch.title": "Hook pre-avvio",
   "settings.hooks.pre_launch.confirm_title": "abilitare la modifica pre-avvio",
   "settings.hooks.pre_launch.confirm_message": "Modificare l'hook pre-avvio può impedire l'avvio del gioco se configurato male. Procedi solo se sai cosa stai facendo.",
@@ -92,7 +79,6 @@
   "settings.hooks.pre_launch.description": "Comando da eseguire prima dell'avvio di Minecraft. Se questo comando fallisce, l'avvio verrà annullato.",
   "settings.hooks.pre_launch.placeholder": "Esempio: echo \"Avvio Minecraft...\"",
   "settings.hooks.pre_launch.disabled_tooltip": "Abilita la modifica per modificare questo campo",
-
   "settings.hooks.wrapper.title": "Hook wrapper",
   "settings.hooks.wrapper.confirm_title": "abilitare la modifica wrapper",
   "settings.hooks.wrapper.confirm_message": "Cambiare l'hook wrapper influisce su come viene eseguito Java. Una configurazione errata potrebbe impedire l'avvio.",
@@ -100,7 +86,6 @@
   "settings.hooks.wrapper.description": "Comando wrapper per eseguire Java (es. strumenti di sandboxing). Il percorso Java verrà passato come argomento.",
   "settings.hooks.wrapper.placeholder": "Esempio: firejail o gamemoderun",
   "settings.hooks.wrapper.disabled_tooltip": "Abilita la modifica per modificare questo campo",
-
   "settings.hooks.post_exit.title": "Hook post-uscita",
   "settings.hooks.post_exit.confirm_title": "abilitare la modifica post-uscita",
   "settings.hooks.post_exit.confirm_message": "L'hook post-uscita esegue comandi di sistema dopo la chiusura del gioco. Procedi solo se ti fidi del comando.",
@@ -108,7 +93,6 @@
   "settings.hooks.post_exit.description": "Comando da eseguire dopo la chiusura di Minecraft. Viene eseguito in background senza bloccare.",
   "settings.hooks.post_exit.placeholder": "Esempio: echo \"Minecraft chiuso\"",
   "settings.hooks.post_exit.disabled_tooltip": "Abilita la modifica per modificare questo campo",
-
   "settings.hooks.warning.title": "Avviso",
   "settings.hooks.warning.description": "Questi hook eseguono comandi di sistema con permessi completi. Usa solo comandi di cui ti fidi e che comprendi. Comandi non validi potrebbero impedire l'avvio di Minecraft o causare problemi di sicurezza.",
   "settings.hooks.examples.title": "Esempi",
@@ -116,25 +100,20 @@
   "settings.hooks.examples.wrapper": "firejail",
   "settings.hooks.examples.wrapper_alt": "gamemoderun",
   "settings.hooks.examples.post_exit": "notify-send \"Gioco terminato\"",
-
   "settings.licenses.title": "Licenze di terze parti",
   "settings.licenses.description": "Visualizza le licenze per codice e componenti di terze parti",
   "settings.licenses.view": "Visualizza licenze",
-
   "settings.open_directory": "APRI CARTELLA",
   "settings.open_directory.tooltip": "Apri cartella del launcher",
   "settings.open_directory.error": "Impossibile aprire la cartella del launcher: {{error}}",
-
   "settings.loading": "Caricamento impostazioni...",
   "settings.error.title": "Errore caricamento impostazioni",
   "settings.error.no_config": "Impossibile caricare la configurazione.",
-
   "settings.toast.auto_saved": "Impostazioni salvate automaticamente!",
   "settings.toast.auto_save_failed": "Salvataggio automatico fallito: {{error}}",
   "settings.toast.custom_color_applied": "Colore personalizzato applicato!",
   "settings.toast.invalid_hex": "Inserisci un colore hex valido a 6 cifre (es. #FF5733)",
   "settings.toast.reset": "Impostazioni ripristinate ai valori salvati",
-
   "common.save": "Salva",
   "common.confirm": "Conferma",
   "common.cancel": "Annulla",
@@ -152,25 +131,20 @@
   "common.error": "Errore",
   "common.vanilla": "Vanilla",
   "common.unknown": "Sconosciuto",
-
   "launcher.select_version": "Seleziona versione",
-
   "header.update.downloading": "Download e installazione aggiornamento...",
   "header.update.success": "Aggiornamento installato con successo! L'applicazione si riavvierà.",
   "header.update.failed": "Aggiornamento fallito: {{error}}",
   "header.update.tooltip_updating": "Download aggiornamento...",
   "header.update.tooltip_available": "Clicca per aggiornare: {{version}}",
-
   "window.minimize": "Minimizza",
   "window.maximize": "Massimizza",
   "window.close": "Chiudi",
-
   "updater.title": "Aggiornatore",
   "updater.initializing": "Inizializzazione...",
   "updater.downloading": "Download... {{progress}}%",
   "updater.complete": "Aggiornamento completato",
   "updater.loading_theme": "Caricamento tema...",
-
   "launch.button": "AVVIA GIOCO",
   "launch.cancel": "ANNULLA",
   "launch.launching": "Avvio...",
@@ -183,17 +157,14 @@
   "launch.failed": "Inizializzazione avvio fallita: {{error}}",
   "launch.cancel_failed": "Impossibile annullare l'avvio",
   "launch.polling_error": "Errore di polling: {{error}}",
-
   "launch.starting": "AVVIO!",
   "launch.minecraft_started": "✓ Minecraft avviato con successo!",
   "launch.error": "✗ Errore: {{error}}",
   "launch.stopping": "Arresto...",
   "launch.stopped": "Processo di avvio fermato.",
   "launch.stop_failed": "Arresto fallito: {{message}}",
-
   "launch.status.idle": "Inattivo",
   "launch.status.abort": "Interrompi avvio",
-
   "crash_modal.title": "Report crash Minecraft",
   "crash_modal.description": "Si è verificato un errore imprevisto e il gioco si è bloccato. Ci scusiamo per l'inconveniente.",
   "crash_modal.exit_code": "codice di uscita",
@@ -216,7 +187,6 @@
   "crash_modal.toast.discord_opened": "Discord NoRisk aperto nel browser!",
   "crash_modal.toast.discord_failed": "Impossibile aprire Discord. Vai manualmente su discord.norisk.gg.",
   "crash_modal.error.no_log_content": "Nessun contenuto log trovato da caricare.",
-
   "tos.title": "Termini di servizio",
   "tos.welcome": "Benvenuto in NoRisk Launcher!",
   "tos.read_accept": "Prima di iniziare a usare il launcher, leggi e accetta i nostri Termini di servizio.",
@@ -237,7 +207,6 @@
   "tos.toast.privacy_failed": "Impossibile aprire Privacy Policy. Visita manualmente www.norisk.gg/privacy.",
   "tos.toast.terms_opened": "Termini di servizio aperti nel browser!",
   "tos.toast.terms_failed": "Impossibile aprire i Termini. Visita manualmente www.norisk.gg/tos.",
-
   "analytics.banner.title": "Aiuta a migliorare NoRisk Client",
   "analytics.banner.description": "Invia dati di utilizzo anonimi per aiutarci a migliorare il launcher. Include versioni del gioco, interazioni UI e tipo di sistema operativo.",
   "analytics.banner.learn_more": "Scopri di più →",
@@ -251,18 +220,15 @@
   "analytics.toast.dismissed": "Te lo chiederemo più tardi. Puoi anche abilitare analytics nelle Impostazioni.",
   "analytics.settings.label": "Analytics",
   "analytics.settings.tooltip": "Aiuta a migliorare il launcher inviando dati di utilizzo anonimi. Esempi: versione del launcher, versioni del gioco come 1.21.10 o 1.8.9, tipi di modloader, interazioni UI e informazioni di sistema. Non vengono raccolte informazioni personali, nomi utente o percorsi file.",
-
   "child_protection.title": "Restrizione account Microsoft",
   "child_protection.description": "Sembra che il tuo account Microsoft abbia una protezione bambini o modalità privacy abilitata che limita le funzionalità multigiocatore. Per questo motivo il launcher non può completare il login.",
   "child_protection.review_settings": "Controlla le impostazioni di controllo parentale o famiglia del tuo account Microsoft / Xbox e assicurati che l'accesso multigiocatore sia consentito, poi riprova ad accedere.",
   "child_protection.setting_location": "L'impostazione che stai cercando si trova sul sito Xbox in \"Privacy e sicurezza online\" → \"Sicurezza online\" → \"Puoi partecipare a giochi multigiocatore\" → \"Consenti\".",
   "child_protection.button.ignore": "Ignora",
   "child_protection.button.open_settings": "Apri impostazioni account Microsoft",
-
   "notification_modal.title": "Notifiche",
   "notification_modal.mark_all_read": "Segna tutte come lette",
   "notification_modal.no_notifications": "Nessuna notifica",
-
   "copy_world.title": "Copia mondo '{{name}}'",
   "copy_world.copy_to_profile": "Copia nel profilo",
   "copy_world.loading_profiles": "Caricamento profili...",
@@ -273,13 +239,11 @@
   "copy_world.error.enter_name": "Inserisci un nuovo nome per il mondo.",
   "copy_world.button.copying": "Copia in corso...",
   "copy_world.button.copy": "Copia mondo",
-
   "confirm_delete.title": "Eliminare '{{name}}'?",
   "confirm_delete.message": "Sei sicuro di voler eliminare definitivamente {{name}}?",
   "confirm_delete.cannot_undo": "Questa azione non può essere annullata.",
   "confirm_delete.button.deleting": "Eliminazione...",
   "confirm_delete.button.delete": "Elimina",
-
   "add_skin.toast.preview_failed": "Impossibile caricare anteprima skin: {{error}}",
   "add_skin.toast.file_selected": "File selezionato: {{name}}",
   "add_skin.toast.updating": "Aggiornamento skin...",
@@ -302,7 +266,6 @@
   "add_skin.saving": "Salvataggio...",
   "add_skin.save_changes": "Salva modifiche",
   "add_skin.save_skin": "Salva skin",
-
   "skins.skinSourceEmpty": "La fonte della skin non può essere vuota.",
   "skins.previewLoadedSuccess": "Anteprima skin caricata!",
   "skins.failedToLoadPreview": "Impossibile caricare anteprima skin: {{error}}",
@@ -330,23 +293,19 @@
   "skins.skin": "Skin",
   "skins.skinInputPlaceholder": "Copia da nome utente, UUID o scarica da URL",
   "skins.uploadSkinFromFile": "Carica skin da file",
-
   "credits_modal.title": "Crediti",
   "credits_modal.ui_frontend": "UI e Frontend",
   "credits_modal.backend_core": "Backend e Core",
   "credits_modal.view_licenses": "Visualizza licenze",
-
   "group_migration.title": "aggiornamento gruppo rilevato",
   "group_migration.description": "sembra che qualcosa sia cambiato nel tuo gruppo. vuoi copiare i tuoi vecchi file?",
   "group_migration.button.copy_files": "copia file",
   "group_migration.button.skip_launch": "salta e avvia",
-
   "color_picker.title": "Selettore colore",
   "color_picker.selected_color": "Colore selezionato",
   "color_picker.button.apply": "Applica",
   "color_picker.toast.applied": "Colore applicato!",
   "color_picker.toast.invalid_hex": "Inserisci un colore hex valido",
-
   "profile_duplicate.title": "duplica profilo",
   "profile_duplicate.description": "duplica profilo \"{{name}}\"",
   "profile_duplicate.copy_notice": "Questo creerà una copia del profilo inclusi mondi, configurazioni, mod e impostazioni.",
@@ -357,7 +316,6 @@
   "profile_duplicate.toast.failed": "Impossibile duplicare profilo: {{error}}",
   "profile_duplicate.button.duplicating": "duplicazione...",
   "profile_duplicate.button.duplicate": "duplica",
-
   "modpack_versions.title": "{{name}} - Versioni",
   "modpack_versions.current": "Attuale",
   "modpack_versions.changelog": "Changelog",
@@ -373,7 +331,6 @@
   "modpack_versions.toast.switching": "Cambio {{name}} alla versione {{version}}...",
   "modpack_versions.toast.switch_success": "{{name}} cambiato con successo alla versione {{version}}!",
   "modpack_versions.toast.switch_failed": "Impossibile cambiare versione modpack: {{error}}",
-
   "socials.title": "Account social",
   "socials.referral_text": "Invita i tuoi amici, ottieni 3 giorni di NRC+ e",
   "socials.referral_more": "altro...",
@@ -398,10 +355,8 @@
   "socials.qr_confirm.title": "Mostra codice QR",
   "socials.qr_confirm.message": "Questo codice QR contiene il tuo token norisk. Non condividerlo in streaming o con altri perché potrebbe compromettere la sicurezza del tuo account.",
   "socials.qr_confirm.confirm": "Mostra codice QR",
-
   "common.unknown_error": "Errore sconosciuto",
   "common.unknownError": "Si è verificato un errore sconosciuto.",
-
   "auth.addAccount": "Aggiungi account",
   "auth.unknown": "Sconosciuto",
   "auth.errors.load_accounts": "Impossibile caricare account: {{error}}",
@@ -434,7 +389,6 @@
   "auth.browserLoginDescription": "Si aprirà una finestra del browser per accedere con il tuo account Microsoft.",
   "auth.loginError": "Errore login",
   "auth.cancelLogin": "Annulla login",
-
   "skins.editProperties": "Modifica proprietà",
   "skins.deleteSkin": "Elimina skin",
   "skins.applying": "Applicazione...",
@@ -458,7 +412,6 @@
   "skins.loadingSkins": "Caricamento skin...",
   "skins.noSkinsMatchSearch": "Nessuna skin corrisponde alla ricerca",
   "skins.skinImage": "Immagine skin",
-
   "capes.noCape": "Nessun mantello",
   "capes.removeEquippedCape": "Rimuovi mantello equipaggiato",
   "capes.mostUsed": "Più usati",
@@ -533,7 +486,6 @@
   "capes.confirmDeleteMessagePrefix": "Sei sicuro di voler eliminare",
   "capes.confirmDeleteMessageSuffix": "? Questa azione non può essere annullata.",
   "capes.deleting": "Eliminazione...",
-
   "capes.errors.inappropriate_content": "Il tuo mantello è stato rifiutato perché contiene contenuti inappropriati.",
   "capes.errors.copyright": "Il tuo mantello è stato rifiutato per violazione del copyright.",
   "capes.errors.incomplete": "Il tuo mantello è stato rifiutato perché il design è incompleto.",
@@ -551,7 +503,6 @@
   "capes.no_image_url": "Nessun URL immagine mantello fornito",
   "capes.texture_load_failed": "Impossibile caricare texture: {{filename}}",
   "capes.loading_3d": "Caricamento 3D...",
-
   "profiles.card.standardVersionInfo": "Profilo standard – versione gestita da NoRisk",
   "profiles.card.tip": "Suggerimento",
   "profiles.card.createOwnProfiles": "Crea i tuoi profili con impostazioni personalizzate!",
@@ -781,7 +732,6 @@
   "profiles.wizard.snapshot": "Snapshot",
   "profiles.wizard.noVersionsFound": "Nessuna versione trovata",
   "profiles.wizard.step1Title": "Dettagli profilo",
-
   "common.refreshing": "Aggiornamento...",
   "common.selected": "selezionato",
   "common.select_all": "Seleziona tutto",
@@ -794,13 +744,11 @@
   "common.disable": "Disabilita",
   "common.field_required": "Questo campo è obbligatorio",
   "common.clear_all": "Cancella tutto",
-
   "server.pinging": "Ping...",
   "server.players": "Giocatori",
   "server.stop": "Ferma",
   "server.join": "Unisciti",
   "server.mods": "Mod",
-
   "radius.title": "Raggio bordi",
   "radius.square": "Quadrato",
   "radius.minimal": "Minimo",
@@ -810,14 +758,11 @@
   "radius.extra_large": "Extra grande",
   "radius.maximum": "Massimo",
   "radius.round": "Rotondo",
-
   "color_picker.hex": "Hex",
   "color_picker.r": "R",
   "color_picker.g": "G",
   "color_picker.b": "B",
-
   "content.table_summary": "Riepilogo tabella",
-
   "content.norisk.profile_unavailable": "I dati del profilo non sono disponibili. Impossibile visualizzare le mod NoRisk.",
   "content.norisk.search_placeholder": "Cerca mod NoRisk...",
   "content.norisk.refresh_packs": "Aggiorna lista pack NoRisk",
@@ -839,7 +784,6 @@
   "content.norisk.toast.mod_not_found_batch": "Mod {{id}} non trovata durante l'operazione batch.",
   "content.norisk.toast.toggle_failed": "Impossibile attivare/disattivare {{name}}: {{error}}",
   "content.norisk.toast.switch_pack_failed": "Impossibile cambiare pack NoRisk: {{error}}",
-
   "content.actions.toggle_selected": "Attiva/disattiva {{count}} elementi selezionati",
   "content.actions.toggling": "CAMBIO IN CORSO...",
   "content.actions.toggle": "ATTIVA/DISATTIVA",
@@ -865,7 +809,6 @@
   "content.actions.refresh_list": "Aggiorna lista",
   "content.actions.deselect_all": "Deseleziona tutti visibili",
   "content.actions.select_all": "Seleziona tutti visibili",
-
   "content.no_pack_selected": "Nessun pack NoRisk selezionato",
   "content.no_pack_selected_option": "- Nessun pack selezionato -",
   "content.select_pack_placeholder": "Seleziona pack...",
@@ -876,7 +819,6 @@
   "content.platforms.modrinth": "Modrinth",
   "content.platforms.maven": "Maven",
   "content.platforms.url": "URL",
-
   "content.loading_versions": "Caricamento versioni...",
   "content.loading_details": "Caricamento dettagli...",
   "content.available_versions_on": "Versioni disponibili su {{platform}}:",
@@ -885,15 +827,11 @@
   "content.version_load_failed": "Impossibile caricare versioni da {{platform}}.",
   "content.version_load_failed_details": "Impossibile caricare versioni da {{platform}}: {{error}}",
   "content.item_not_found": "Elemento non trovato.",
-
   "content.badge.crashes_with_nrc": "CRASH CON NRC",
-
   "content.update_check_error": "Errore controllo aggiornamenti: {{error}}",
-
   "content.profile_unavailable": "I dati del profilo non sono disponibili. Impossibile visualizzare {{itemType}}.",
   "content.standard_readonly": "I profili standard sono di sola lettura.",
   "content.clone_to_edit": "Clona per apportare modifiche e gestire il contenuto.",
-
   "content.loading_items": "Caricamento {{itemType}}...",
   "content.manage_items": "Gestisci i tuoi {{itemType}}",
   "content.select_pack_description": "Seleziona un modpack NoRisk dal menu per gestire le sue mod.",
@@ -902,10 +840,8 @@
   "content.empty_description": "Trascina e rilascia {{itemType}} qui per aggiungerli, o clicca Sfoglia per scoprire e installare contenuti online.",
   "content.no_search_results": "Prova un termine di ricerca diverso o cancella il filtro.",
   "content.select_to_manage": "Seleziona {{itemType}} per eseguire azioni batch o gestirli individualmente.",
-
   "content.delete_item_title": "Eliminare {{name}}?",
   "content.delete_selected_title": "Eliminare {{itemType}} selezionati?",
-
   "content.toast.pack_list_refreshed": "Lista pack NoRisk aggiornata.",
   "content.toast.pack_list_refresh_failed": "Impossibile aggiornare lista pack NoRisk.",
   "content.toast.profile_unavailable": "I dati del profilo non sono disponibili per aggiungere contenuto.",
@@ -918,14 +854,11 @@
   "content.toast.clone_success": "Profilo '{{name}}' clonato con successo!",
   "content.toast.clone_failed": "Impossibile clonare profilo: {{error}}",
   "content.toast.clone_init_failed": "Impossibile avviare il processo di clonazione.",
-
   "content.filter.java_archives": "Archivi Java",
   "content.filter.resource_pack_archives": "Archivi resource pack",
   "content.filter.shader_pack_archives": "Archivi shader pack",
   "content.filter.data_pack_archives": "Archivi data pack",
-
   "content.dialog.select_to_import": "Seleziona {{itemType}} da importare per profilo: {{profileName}}",
-
   "content.open_containing_folder": "Apri cartella contenente",
   "content.unknown_file": "File sconosciuto",
   "content.unknown_pack": "Pack sconosciuto",
@@ -933,16 +866,13 @@
   "content.confirm_deletion": "Clicca di nuovo per confermare eliminazione",
   "content.delete_pack": "Elimina pack",
   "content.view_version_options": "Visualizza opzioni versione",
-
   "profiles.clone": "Clona profilo",
   "profiles.new_name": "Nuovo nome profilo",
   "profiles.clone_name_placeholder": "Inserisci nome per il profilo clonato",
   "profiles.clone_button": "CLONA",
   "profiles.clone_profile": "CLONA PROFILO",
-
   "common.refresh": "AGGIORNA",
   "common.delete": "ELIMINA",
-
   "content.header.name": "nome",
   "content.header.version": "versione",
   "content.header.status": "stato",
@@ -955,7 +885,6 @@
   "content.filters.server": "Server",
   "content.search_modrinth": "Cerca su Modrinth",
   "content.search_curseforge": "Cerca su CurseForge",
-
   "content.search.error": "Errore: {{error}}",
   "content.search.no_results": "Nessun risultato trovato. Prova a modificare i filtri o il termine di ricerca.",
   "content.search.load_more": "Carica altri ({{remaining}} rimanenti)",
@@ -966,7 +895,6 @@
   "content.search.sort.follows": "Seguiti",
   "content.search.sort.newest": "Più recenti",
   "content.search.sort.updated": "Aggiornati",
-
   "content.install.missing_info": "Informazioni di installazione mancanti",
   "content.install.no_file": "Nessun file di download disponibile per la versione selezionata.",
   "content.install.modpack_as_profile": "I modpack devono essere installati come nuovi profili.",
@@ -993,7 +921,6 @@
   "content.install.no_primary_file_delete": "Nessun file principale trovato per la versione. Impossibile determinare dettagli per eliminazione.",
   "content.install.sha1_missing": "Hash SHA1 mancante per questa versione. Impossibile procedere con eliminazione.",
   "content.install.toggle_missing_hash": "Impossibile abilitare/disabilitare versione: hash file mancante",
-
   "friends.status.online": "ONLINE",
   "friends.status.afk": "AFK",
   "friends.status.busy": "OCCUPATO",
@@ -1036,26 +963,22 @@
   "friends.settings.allow_requests_desc": "I giocatori possono inviare richieste",
   "friends.settings.server_invites": "Inviti server",
   "friends.settings.server_invites_desc": "Gli amici possono invitarti",
-
   "friends.notifications.online": "{{username}} è ora online",
   "friends.notifications.offline": "{{username}} è andato offline",
   "friends.notifications.playing_on": "{{name}} sta giocando su {{server}}",
   "friends.notifications.friend_request": "{{name}} ti ha inviato una richiesta di amicizia",
   "friends.notifications.chat_preview": "{{name}}: {{message}}",
-
   "chat.today": "Oggi",
   "chat.yesterday": "Ieri",
   "chat.no_messages_title": "Nessun messaggio ancora",
   "chat.no_messages_desc": "saluta!",
   "chat.start_of_conversation": "— inizio della conversazione —",
   "chat.type_message": "Scrivi un messaggio...",
-
   "common.accept": "Accetta",
   "common.deny": "Rifiuta",
   "common.settings": "Impostazioni",
   "common.instance_one": "Istanza",
   "common.instance_other": "Istanze",
-
   "logs.loading": "Caricamento log...",
   "logs.no_content_title": "Nessun contenuto log disponibile",
   "logs.no_content_desc": "Seleziona un file di log da visualizzare",
@@ -1063,7 +986,7 @@
   "logs.filter_placeholder": "Filtra righe...",
   "logs.upload_success_copied": "Link copiato! Clicca per aprire.",
   "logs.upload_success_no_copy": "Log caricato (copia fallita)! Clicca per aprire.",
-  "logs.upload_failed": "Caricamento fallito: {{error}}",
+  "logs.upload_failed": "Impossibile caricare log",
   "logs.autoscroll": "Scorrimento automatico",
   "logs.select_log": "-- Seleziona log --",
   "logs.lines_matching": "{{shown}} di {{total}} righe corrispondenti ai filtri",
@@ -1079,7 +1002,6 @@
   "logs.waiting_for_output": "In attesa di output log...",
   "logs.select_instance": "SELEZIONA UN'ISTANZA",
   "logs.select_instance_hint": "Scegli un'istanza dalla barra laterale per visualizzare i log",
-
   "screenshots.copy_image": "Copia immagine",
   "screenshots.open_location": "Apri posizione screenshot",
   "screenshots.delete_screenshot": "Elimina screenshot",
@@ -1089,7 +1011,6 @@
   "screenshots.deleting": "Eliminazione {{name}}...",
   "screenshots.deleted": "Screenshot \"{{name}}\" eliminato.",
   "screenshots.delete_failed": "Impossibile eliminare: {{error}}",
-
   "dragdrop.already_importing": "Questo file è già in fase di importazione.",
   "dragdrop.importing": "Importazione {{fileName}}",
   "dragdrop.import_success": "Importazione profilo avviata per {{fileName}}. Apertura profilo...",
@@ -1106,7 +1027,6 @@
   "dragdrop.drop_hint": "Rilascia file su un'area contenuto profilo attiva per importarli, o rilascia un file .noriskpack/.mrpack/.zip ovunque per importare un profilo.",
   "dragdrop.not_configured": "Drag and drop non configurato per tipo di contenuto: {{type}}",
   "dragdrop.listener_init_failed": "Impossibile inizializzare listener drag & drop.",
-
   "content_manager.errors.profile_missing_toggle": "Profilo mancante per attivazione/disattivazione.",
   "content_manager.errors.profile_missing_delete": "Dati profilo mancanti, impossibile completare eliminazione.",
   "content_manager.errors.profile_missing_update": "Profilo mancante, impossibile aggiornare.",
@@ -1139,7 +1059,6 @@
   "content_manager.errors.selected_items_not_found": "Elementi selezionati non trovati.",
   "content_manager.errors.no_valid_ids_toggle_updates": "Impossibile attivare/disattivare controllo aggiornamenti: Gli elementi selezionati non hanno ID validi",
   "content_manager.errors.toggle_update_checks_failed": "Impossibile attivare/disattivare controllo aggiornamenti: {{error}}",
-
   "content_manager.success.deleted": "{{name}} eliminato.",
   "content_manager.success.batch_deleted": "{{count}} elemento/i eliminato/i con successo.",
   "content_manager.success.batch_toggled": "{{count}} elemento/i attivato/i/disattivato/i con successo.",
@@ -1150,7 +1069,6 @@
   "content_manager.success.toggle_updates_disabled": "Controllo aggiornamenti disabilitato per {{name}}.",
   "content_manager.success.batch_toggle_updates_enabled": "Controllo aggiornamenti abilitato per {{count}} {{itemLabel}}.",
   "content_manager.success.batch_toggle_updates_disabled": "Controllo aggiornamenti disabilitato per {{count}} {{itemLabel}}.",
-
   "content_manager.loading.updating": "Aggiornamento {{name}} a {{version}}...",
   "content_manager.loading.updating_progress": "Aggiornamento {{current}}/{{total}} {{type}}...",
   "content_manager.loading.switching": "Cambio a {{version}}...",
@@ -1158,11 +1076,9 @@
   "content_manager.loading.disabling_update_checks": "Disabilitazione controllo aggiornamenti per {{name}}...",
   "content_manager.loading.enabling_update_checks_batch": "Abilitazione controllo aggiornamenti per {{count}} {{itemLabel}}...",
   "content_manager.loading.disabling_update_checks_batch": "Disabilitazione controllo aggiornamenti per {{count}} {{itemLabel}}...",
-
   "content_manager.update_result.finished_partial": "Completato: {{succeeded}} riusciti, {{failed}} falliti.",
   "content_manager.update_result.item": "elemento",
   "content_manager.update_result.items": "elementi",
-
   "modrinth_installer.errors.profile_not_found": "Profilo con ID {{profileId}} non trovato. Seleziona un profilo diverso.",
   "modrinth_installer.errors.install_failed": "Installazione fallita: {{error}}",
   "modrinth_installer.errors.missing_search_hit": "Contesto risultato ricerca mancante",
@@ -1170,11 +1086,9 @@
   "modrinth_installer.errors.installation_error": "Errore installazione: {{error}}",
   "modrinth_installer.installing": "Installazione {{fileName}}",
   "modrinth_installer.success": "{{fileName}} installato con successo!",
-
   "content.errors.load_custom_mods": "Impossibile caricare mod personalizzate",
   "content.errors.load_resource_packs": "Impossibile caricare resource pack",
   "content.errors.load_shader_packs": "Impossibile caricare shader pack",
-
   "profiles.errors.load_failed": "Impossibile caricare dati profili",
   "profiles.errors.profile_not_found": "Profilo con ID '{{id}}' non trovato.",
   "profiles.errors.no_profile_selected": "Nessun profilo selezionato. Seleziona prima un profilo.",
@@ -1187,7 +1101,6 @@
   "profiles.errors.image_dialog_failed": "Impossibile aprire finestra immagine.",
   "profiles.errors.already_importing": "Questo file è già in fase di importazione.",
   "profiles.errors.file_path_failed": "Impossibile ottenere percorso file selezionato. Riprova.",
-
   "time.never": "mai",
   "time.seconds_ago": "{{count}}s fa",
   "time.minutes_ago": "{{count}}m fa",
@@ -1196,7 +1109,6 @@
   "time.weeks_ago": "{{count}}sett fa",
   "time.months_ago": "{{count}}mesi fa",
   "time.years_ago": "{{count}}a fa",
-
   "iris.skip_shader_mod": "Salta mod shader",
   "iris.install_iris": "Installa Iris",
   "iris.shader_pack_setup": "Configurazione shader pack",
@@ -1209,10 +1121,8 @@
   "iris.installation_error": "Installazione fallita. Controlla console per dettagli.",
   "iris.installed_optimal": "Mod shader Iris installata - gli shader pack funzioneranno in modo ottimale",
   "iris.required_optimal": "Mod shader Iris necessaria per prestazioni ottimali degli shader pack",
-
   "app.errors.process_status": "Impossibile elaborare globalmente stato processo Minecraft.",
   "app.errors.save_grouping": "Impossibile salvare preferenza raggruppamento.",
-
   "java.no_installations_found": "Nessuna installazione Java trovata sul sistema. Potrebbe essere necessario specificare il percorso manualmente se usi una configurazione Java personalizzata.",
   "java.detect_failed": "Impossibile rilevare Java: {{error}}",
   "java.load_memory_failed": "Impossibile caricare impostazioni memoria globali",
@@ -1225,9 +1135,7 @@
   "java.path_invalid": "Percorso Java non valido. Controlla il percorso o assicurati che sia una versione Java compatibile.",
   "java.path_not_exist": "Il percorso Java selezionato non esiste.",
   "java.validation_error": "Errore validazione Java: {{error}}",
-
   "common.open_link_failed": "Impossibile aprire link nel browser.",
-
   "mod_detail.invalid_url_params": "Parametri URL non validi",
   "mod_detail.project_not_found": "Progetto non trovato",
   "mod_detail.loading_project": "Caricamento dettagli progetto...",
@@ -1279,7 +1187,6 @@
   "mod_detail.versions.all_game_versions": "Tutte le versioni di gioco",
   "mod_detail.versions.all_loaders": "Tutti i loader",
   "common.more": "altro",
-
   "modrinth.filters": "Filtri",
   "modrinth.categories": "Categorie",
   "modrinth.loading_categories": "Caricamento categorie...",
@@ -1307,7 +1214,6 @@
   "modrinth.error_creating_or_installing": "Si è verificato un errore durante la creazione del profilo o l'installazione del contenuto.",
   "modrinth.errors.missing_data": "Impossibile creare profilo: Dati progetto o versione mancanti.",
   "modrinth.errors.no_suitable_version": "Impossibile creare profilo: Nessuna versione adatta trovata.",
-
   "symlink.configure": "Configura symlink",
   "symlink.create": "Crea symlink",
   "symlink.external_file": "File esterno",
@@ -1318,10 +1224,8 @@
   "symlink.open_in_profile": "Apri nel profilo",
   "symlink.remove_symlink": "Rimuovi symlink",
   "symlink.add_new": "aggiungi nuovo symlink",
-
   "files.loading_structure": "Caricamento struttura file...",
   "files.no_structure_available": "Nessuna struttura file disponibile.",
-
   "worlds.path_not_available": "Percorso mondo non disponibile.",
   "worlds.launching_world": "🚀 Avvio mondo: {{name}}",
   "worlds.joining_server": "🌐 Connessione al server: {{name}}",
@@ -1368,16 +1272,12 @@
   "worlds.rename_placeholder": "Inserisci nuovo nome mondo...",
   "worlds.rename_button": "Rinomina",
   "worlds.size": "{{size}} MB",
-
   "datapacks.search_placeholder": "Cerca data pack...",
   "datapacks.loading": "Caricamento data pack...",
-
   "resourcepacks.search_placeholder": "Cerca resource pack...",
   "resourcepacks.loading": "Caricamento resource pack...",
-
   "screenshots.loading": "Caricamento screenshot...",
   "screenshots.search_placeholder": "Cerca screenshot...",
-
   "symlinks.load_failed": "Impossibile caricare symlink",
   "symlinks.folder_picker_failed": "Impossibile aprire selettore cartella",
   "symlinks.file_picker_failed": "Impossibile aprire selettore file",
@@ -1406,24 +1306,18 @@
   "symlinks.step_2": "configura dove appare nel tuo profilo",
   "symlinks.step_3": "il contenuto è collegato - le modifiche si sincronizzano istantaneamente",
   "symlinks.perfect_for": "perfetto per sincronizzare screenshot, file di configurazione, salvataggi o resource pack tra profili o cloud storage.",
-
   "debug.uploaded_copied": "Caricato e copiato negli appunti!",
   "debug.upload_failed": "Caricamento fallito: {{error}}",
   "debug.copied": "Copiato negli appunti!",
   "debug.copy_failed": "Copia fallita: {{error}}",
   "debug.copy_content": "Copia contenuto",
   "debug.upload_mclogs": "Carica su mclo.gs",
-
   "logs.no_logs_to_upload": "Nessun log da caricare",
   "logs.uploaded_url_copied": "Caricato! URL copiato negli appunti",
-  "logs.upload_failed": "Impossibile caricare log",
-
   "settings.disable_experimental": "Disabilita la modalità sperimentale nelle Impostazioni.",
   "capes.data_refreshed": "Dati mantelli aggiornati!",
-
   "content.errors.load_norisk_packs": "Impossibile caricare lista pack NoRisk.",
   "advent.load_failed": "Impossibile caricare calendario dell'avvento",
-
   "instances.fetch_failed": "Impossibile caricare istanze in esecuzione",
   "instances.loading": "Caricamento...",
   "instances.no_instances": "Nessuna istanza",
@@ -1444,21 +1338,17 @@
   "instances.count_running": "{{count}} istanza in esecuzione",
   "instances.count_running_other": "{{count}} istanze in esecuzione",
   "instances.none": "nessuna istanza",
-
   "header.toggle_friends": "Mostra/nascondi amici",
   "header.open_socials": "Apri account social",
   "header.notifications": "Notifiche",
-
   "export.enter_filename": "Inserisci un nome file per l'esportazione.",
   "profiles.repair_success": "Riparazione profilo completata con successo!",
   "profiles.repair_failed": "Impossibile riparare profilo: {{error}}",
-
   "profiles.toast.opening_folder": "📁 Apertura cartella per {{name}}!",
   "profiles.toast.delete_fallback": "🗑️ Eliminazione {{name}}!",
   "profiles.toast.managing_mods": "📦 Gestione mod per {{name}}!",
   "profiles.toast.launching_world": "🚀 Avvio mondo: {{name}}",
   "profiles.toast.joining_server": "🌐 Connessione al server: {{name}}",
-
   "shaderpacks.toggle_success": "Shader pack \"{{name}}\" {{status}}.",
   "shaderpacks.toggle_failed": "Impossibile attivare/disattivare \"{{name}}\": {{error}}",
   "shaderpacks.loading": "caricamento shader pack...",
@@ -1475,7 +1365,6 @@
   "shaderpacks.no_match_search": "nessuno shader pack corrisponde alla ricerca",
   "shaderpacks.none_installed": "nessuno shader pack installato",
   "shaderpacks.drag_drop_hint": "Trascina e rilascia file shader pack qui per installarli",
-
   "mods.profile_unavailable": "I dati del profilo non sono disponibili. Impossibile visualizzare mod.",
   "mods.version_label": "Versione: {{version}}",
   "mods.enabled": "Abilitata",
@@ -1513,20 +1402,17 @@
   "mods.errors.update_failed": "Impossibile aggiornare {{name}}: {{error}}",
   "mods.errors.delete_failed": "Impossibile eliminare {{name}}: {{error}}",
   "mods.errors.refresh_failed": "Impossibile aggiornare mod: {{error}}",
-
   "empty_states.try_adjusting_search": "Prova a modificare ricerca o filtri.",
   "empty_states.try_adjusting_sort": "Prova a modificare le opzioni di ordinamento.",
   "empty_states.no_content_found": "Nessun contenuto trovato. Prova una ricerca diversa.",
   "empty_states.error_loading_data": "Errore caricamento dati",
   "empty_states.no_results_for": "Nessun risultato trovato per \"{{query}}\"",
   "empty_states.browse_popular": "Sfoglia contenuti popolari",
-
   "screenshots.no_match_filter": "Nessuno screenshot corrisponde al filtro",
   "screenshots.no_screenshots_yet": "nessuno screenshot ancora",
   "screenshots.take_some": "fanne qualcuno in gioco per vederli qui!",
   "screenshots.preview_error": "Errore anteprima",
   "screenshots.no_preview": "Nessuna anteprima",
-
   "placeholders.search_logs": "Cerca log...",
   "placeholders.search_profiles": "Cerca profili...",
   "placeholders.search_modrinth": "Cerca mod, modpack, resource pack...",
@@ -1536,9 +1422,7 @@
   "placeholders.java_path": "Percorso eseguibile Java (es. .../bin/javaw.exe)",
   "placeholders.profile_name_awesome": "Il mio profilo fantastico",
   "placeholders.group_name": "es. modpack, vanilla+",
-
   "referral.loading": "Caricamento referral...",
-
   "modrinth.project_types.mods": "Mod",
   "modrinth.project_types.modpacks": "Modpack",
   "modrinth.project_types.resource_packs": "Resource pack",
@@ -1562,8 +1446,6 @@
   "modrinth.show_all_versions": "Mostra tutte le versioni",
   "tabs.news": "Notizie",
   "news.coming_soon": "Notizie in arrivo",
-  "profiles.loadingProfiles": "Caricamento profili...",
-  "common.not_available": "N/D",
   "symlink.select_folder_inside_profile": "Seleziona una cartella all'interno della cartella istanza del profilo.",
   "modrinth.select_profile": "Seleziona profilo",
   "modrinth.choose_profile_to_install": "Scegli un profilo in cui installare questo contenuto:",
@@ -1590,7 +1472,6 @@
   "profiles.errors.not_found": "Profilo non trovato",
   "profiles.loading_details": "Caricamento dettagli profilo...",
   "profiles.new_profile": "Nuovo profilo",
-
   "profiles.v3.stats.modpack": "Modpack",
   "profiles.v3.stats.playtime": "Tempo di gioco",
   "profiles.v3.stats.disk": "Disco",
@@ -1668,7 +1549,6 @@
   "profiles.v3.time.yearsAgo": "{{count}} anni fa",
   "profiles.v3.time.placeholder": "—",
   "profiles.v3.time.lessThanMinute": "< 1m",
-
   "export.open_folder_after": "Apri cartella dopo l'esportazione",
   "export.exporting": "Esportazione...",
   "export.export_profile": "Esporta profilo",
@@ -1685,11 +1565,9 @@
   "export.title": "Esporta profilo",
   "export.description": "Esporta il tuo profilo per condividerlo con altri o come backup. Puoi personalizzare quali file includere.",
   "export.export_failed": "Impossibile esportare profilo: {{error}}",
-
   "designer.asset_management": "Gestione asset",
   "designer.keep_local_assets": "Mantieni asset locali",
   "designer.keep_local_assets_description": "Se selezionato, gli asset modificati (ali, norisk.json, ecc.) non verranno sovrascritti al riavvio.",
-
   "nrc.incompatible_warning": "NoRiskClient non è attualmente compatibile con questo loader o versione! Puoi comunque crearlo, ma non avrai le funzionalità. Questo potrebbe cambiare in futuro.",
   "nrc.no_features_warning": "Non avrai nessuna funzionalità NoRiskClient con questa selezione.",
   "nrc.info_title": "info",
@@ -1702,7 +1580,6 @@
   "nrc.repair_description": "Ripara l'installazione del profilo riscaricando file mancanti o corrotti.",
   "nrc.repairing": "riparazione...",
   "nrc.repair": "ripara",
-
   "modrinth.back_to_profiles": "Torna ai profili",
   "modrinth.creating": "Creazione...",
   "modrinth.create_and_install": "Crea e installa",
@@ -1748,12 +1625,10 @@
   "modrinth.uninstalling": "Disinstallazione...",
   "modrinth.installed": "Installato",
   "common.uninstall": "Disinstalla",
-
   "lightbox.counter": "{{current}} di {{total}}",
   "lightbox.press_space_zoom": "Premi Spazio per zoom",
   "lightbox.arrow_keys_navigate": "Frecce per navigare",
   "lightbox.esc_close": "Esc per chiudere",
-
   "advent.coins_amount": "{{amount}} monete",
   "advent.added_to_account": "Aggiunte al tuo account",
   "advent.loading_model": "Caricamento modello...",
@@ -1762,5 +1637,33 @@
   "advent.no_reward_available": "Nessun premio disponibile",
   "advent.model_error": "Errore modello",
   "advent.reward_claimed": "Premio giorno {{day}} riscattato!",
-  "advent.claim_failed": "Impossibile riscattare premio"
+  "advent.claim_failed": "Impossibile riscattare premio",
+  "worlds.sort.last_played": "Ultima partita",
+  "worlds.sort.name": "Nome",
+  "worlds.play_this_world": "Gioca questo mondo",
+  "worlds.none_found": "Ancora nessun mondo",
+  "worlds.create_in_minecraft": "Crea un nuovo mondo in Minecraft o importa un file .mcworld.",
+  "worlds.import_world": "Importa mondo",
+  "worlds.import_title": "Seleziona la cartella del mondo da importare",
+  "worlds.importing": "Importazione {{name}}…",
+  "worlds.import_success": "Mondo \"{{name}}\" importato con successo!",
+  "worlds.import_failed": "Importazione mondo fallita: {{error}}",
+  "worlds.copy": "Copia mondo",
+  "worlds.copying": "Copia di {{name}}…",
+  "worlds.delete_title": "Elimina mondo",
+  "worlds.delete_confirm": "Eliminare il mondo \"{{name}}\"? Questa azione non può essere annullata.",
+  "worlds.deleting": "Eliminazione {{name}}…",
+  "worlds.batch_delete_title": "Elimina mondi",
+  "worlds.batch_delete_item_name": "{{count}} mondi",
+  "worlds.batch_delete_confirm": "Eliminare {{count}} mondi selezionati? Questa azione non può essere annullata.",
+  "worlds.batch_delete_success": "{{count}} mondi eliminati.",
+  "worlds.difficulty_locked": "Difficoltà bloccata",
+  "worlds.open_folder_failed": "Impossibile aprire la cartella: {{error}}",
+  "profiles.v3.servers.title": "Server",
+  "profiles.v3.servers.join": "Entra in questo server",
+  "profiles.v3.servers.joinShort": "Entra",
+  "profiles.v3.servers.offline": "Server offline",
+  "profiles.v3.servers.pinging": "Ping in corso…",
+  "profiles.v3.servers.reping": "Re-ping",
+  "profiles.v3.servers.copyAddress": "Copia indirizzo"
 }

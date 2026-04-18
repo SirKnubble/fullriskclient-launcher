@@ -5,26 +5,21 @@
   "nav.skins": "Skins",
   "nav.capes": "केप",
   "nav.settings": "सेटिंग्स",
-
   "news.title": "समाचार",
   "news.no_news_available": "फिलहाल कोई समाचार उपलब्ध नहीं है।",
   "news.item": "समाचार आइटम",
-
   "settings.tabs.general": "सामान्य",
   "settings.tabs.appearance": "पृष्ठभूमि",
   "settings.tabs.advanced": "उन्नत",
   "settings.tabs.debug": "डीबग",
-
   "settings.language": "भाषा",
   "settings.language.description": "लॉन्चर के लिए प्रदर्शन भाषा चुनें",
-
   "settings.accent_color.title": "एक्सेंट रंग",
   "settings.accent_color.description": "लॉन्चर के लिए अपना पसंदीदा एक्सेंट रंग चुनें",
   "settings.accent_color.disabled_theme": "(थीम सक्रिय रहने पर अक्षम)",
   "settings.accent_color.custom": "कस्टम",
   "settings.accent_color.custom_tooltip_disabled": "थीम सक्रिय रहने पर अक्षम",
   "settings.accent_color.custom_tooltip": "उन्नत रंग चयनकर्ता खोलने के लिए क्लिक करें",
-
   "settings.auto_updates": "स्वचालित अपडेट",
   "settings.auto_updates.tooltip": "उपलब्ध होने पर लॉन्चर अपडेट की जांच और डाउनलोड स्वचालित रूप से करें।",
   "settings.discord_presence": "Discord प्रेज़ेंस",
@@ -43,16 +38,13 @@
   "settings.concurrent_io.tooltip": "एक साथ डिस्क पर लिखी जाने वाली फ़ाइलों की अधिकतम संख्या। कम मान डिस्क तनाव और I/O त्रुटियां कम करते हैं।",
   "settings.border_radius": "बॉर्डर रेडियस",
   "settings.border_radius.tooltip": "सभी UI तत्वों की कोने की गोलाई समायोजित करें। 0px वर्गाकार (Minecraft शैली) है, उच्च मान कोनों को अधिक गोल बनाते हैं।",
-
   "settings.theme.title": "थीम",
   "settings.theme.description": "अपने लॉन्चर की उपस्थिति अनुकूलित करने के लिए एक थीम चुनें",
-
   "settings.background.title": "पृष्ठभूमि प्रभाव",
   "settings.background.description": "लॉन्चर के लिए एक पृष्ठभूमि प्रभाव चुनें",
   "settings.background.animations": "एनिमेशन",
   "settings.background.quality_low": "निम्न",
   "settings.background.quality_high": "उच्च",
-
   "settings.background.matrix_rain": "Matrix Rain",
   "settings.background.enchantment_table": "Enchantment Table",
   "settings.background.nebula_waves": "Nebula Waves",
@@ -63,31 +55,25 @@
   "settings.background.liquid_chrome": "Liquid Chrome",
   "settings.background.retro_grid": "Retro Grid",
   "settings.background.plain_color": "Plain Color",
-
   "settings.quality.low": "निम्न",
   "settings.quality.medium": "मध्यम",
   "settings.quality.high": "उच्च",
-
   "settings.browser_login": "ब्राउज़र-आधारित लॉगिन",
   "settings.browser_login.tooltip": "Microsoft लॉगिन के लिए एम्बेडेड विंडो के बजाय बाहरी ब्राउज़र का उपयोग करें। Flatpak के लिए या लॉगिन विंडो में समस्या होने पर अनुशंसित।",
-
   "settings.cache_natives": "नेटिव लाइब्रेरी कैश करें",
   "settings.cache_natives.tooltip": "यदि कुछ नहीं बदला है तो नेटिव लाइब्रेरी एक्सट्रैक्शन छोड़ें। लॉन्च को ~600ms तक तेज़ करता है। नेटिव लाइब्रेरी के साथ समस्या होने पर अक्षम करें।",
-
   "settings.game_data_dir.title": "गेम डेटा डायरेक्टरी",
   "settings.game_data_dir.description": "गेम डेटा (वर्ल्ड, mods, लाइब्रेरी, आदि) संग्रहीत करने के लिए एक कस्टम स्थान चुनें",
   "settings.game_data_dir.tooltip": "यह सेटिंग आपको गेम डेटा को एक अलग ड्राइव या स्थान पर संग्रहीत करने की अनुमति देती है। यदि आपकी मुख्य ड्राइव में जगह कम हो रही है तो उपयोगी। लॉन्चर नए डाउनलोड और इंस्टॉलेशन के लिए स्थान परिवर्तन को स्वचालित रूप से संभालेगा।",
   "settings.game_data_dir.placeholder": "डिफ़ॉल्ट स्थान का उपयोग किया जाएगा",
   "settings.game_data_dir.reset_tooltip": "डिफ़ॉल्ट स्थान पर रीसेट करें",
   "settings.game_data_dir.select_tooltip": "कस्टम डायरेक्टरी चुनें",
-
   "settings.hooks.title": "गेम हुक्स",
   "settings.hooks.description": "गेम लॉन्च से पहले, दौरान और बाद में चलाने के लिए कस्टम कमांड कॉन्फ़िगर करें",
   "settings.hooks.show": "कॉन्फ़िगरेशन दिखाएं",
   "settings.hooks.hide": "कॉन्फ़िगरेशन छिपाएं",
   "settings.hooks.enable_editing": "संपादन सक्षम करें",
   "settings.hooks.disable_editing": "संपादन अक्षम करें",
-
   "settings.hooks.pre_launch.title": "प्री-लॉन्च हुक",
   "settings.hooks.pre_launch.confirm_title": "प्री-लॉन्च संपादन सक्षम करें",
   "settings.hooks.pre_launch.confirm_message": "प्री-लॉन्च हुक को संपादित करना गलत कॉन्फ़िगर होने पर गेम को शुरू होने से रोक सकता है। केवल तभी आगे बढ़ें जब आप जानते हों कि आप क्या कर रहे हैं।",
@@ -95,7 +81,6 @@
   "settings.hooks.pre_launch.description": "Minecraft शुरू होने से पहले चलाने के लिए कमांड। यदि यह कमांड विफल हो जाता है, तो लॉन्च रद्द कर दिया जाएगा।",
   "settings.hooks.pre_launch.placeholder": "उदाहरण: echo \"Starting Minecraft...\"",
   "settings.hooks.pre_launch.disabled_tooltip": "इस फ़ील्ड को संशोधित करने के लिए संपादन सक्षम करें",
-
   "settings.hooks.wrapper.title": "रैपर हुक",
   "settings.hooks.wrapper.confirm_title": "रैपर संपादन सक्षम करें",
   "settings.hooks.wrapper.confirm_message": "रैपर हुक बदलने से Java के निष्पादित होने का तरीका प्रभावित होता है। गलत कॉन्फ़िगरेशन लॉन्च को रोक सकता है।",
@@ -103,7 +88,6 @@
   "settings.hooks.wrapper.description": "Java को किसके माध्यम से चलाना है (जैसे sandboxing टूल)। Java पथ को एक तर्क के रूप में पास किया जाएगा।",
   "settings.hooks.wrapper.placeholder": "उदाहरण: firejail या gamemoderun",
   "settings.hooks.wrapper.disabled_tooltip": "इस फ़ील्ड को संशोधित करने के लिए संपादन सक्षम करें",
-
   "settings.hooks.post_exit.title": "पोस्ट-एक्ज़िट हुक",
   "settings.hooks.post_exit.confirm_title": "पोस्ट-एक्ज़िट संपादन सक्षम करें",
   "settings.hooks.post_exit.confirm_message": "पोस्ट-एक्ज़िट हुक गेम बंद होने के बाद सिस्टम कमांड चलाता है। केवल तभी आगे बढ़ें जब आप कमांड पर भरोसा करते हों।",
@@ -111,7 +95,6 @@
   "settings.hooks.post_exit.description": "Minecraft सफलतापूर्वक बाहर निकलने के बाद चलाने के लिए कमांड। बिना ब्लॉक किए पृष्ठभूमि में चलता है।",
   "settings.hooks.post_exit.placeholder": "उदाहरण: echo \"Minecraft closed\"",
   "settings.hooks.post_exit.disabled_tooltip": "इस फ़ील्ड को संशोधित करने के लिए संपादन सक्षम करें",
-
   "settings.hooks.warning.title": "चेतावनी",
   "settings.hooks.warning.description": "ये हुक पूर्ण अनुमतियों के साथ सिस्टम कमांड निष्पादित करते हैं। केवल उन कमांड का उपयोग करें जिन पर आप भरोसा करते हैं और समझते हैं। अमान्य कमांड Minecraft के लॉन्च होने को रोक सकते हैं या सुरक्षा समस्याएं उत्पन्न कर सकते हैं।",
   "settings.hooks.examples.title": "उदाहरण",
@@ -119,25 +102,20 @@
   "settings.hooks.examples.wrapper": "firejail",
   "settings.hooks.examples.wrapper_alt": "gamemoderun",
   "settings.hooks.examples.post_exit": "notify-send \"Game finished\"",
-
   "settings.licenses.title": "तृतीय-पक्ष लाइसेंस",
   "settings.licenses.description": "तृतीय पक्षों से कोड और घटकों के लिए लाइसेंस देखें",
   "settings.licenses.view": "लाइसेंस देखें",
-
   "settings.open_directory": "डायरेक्टरी खोलें",
   "settings.open_directory.tooltip": "लॉन्चर डायरेक्टरी खोलें",
   "settings.open_directory.error": "लॉन्चर डायरेक्टरी खोलने में विफल: {{error}}",
-
   "settings.loading": "सेटिंग्स लोड हो रही हैं...",
   "settings.error.title": "सेटिंग्स लोड करने में त्रुटि",
   "settings.error.no_config": "कॉन्फ़िगरेशन लोड नहीं हो सका।",
-
   "settings.toast.auto_saved": "सेटिंग्स स्वचालित रूप से सहेजी गईं!",
   "settings.toast.auto_save_failed": "स्वचालित सहेजना विफल: {{error}}",
   "settings.toast.custom_color_applied": "कस्टम रंग लागू!",
   "settings.toast.invalid_hex": "कृपया एक वैध 6-अंकीय हेक्स रंग दर्ज करें (जैसे #FF5733)",
   "settings.toast.reset": "सेटिंग्स सहेजे गए मानों पर रीसेट",
-
   "common.save": "सहेजें",
   "common.confirm": "पुष्टि करें",
   "common.cancel": "रद्द करें",
@@ -155,25 +133,20 @@
   "common.error": "त्रुटि",
   "common.vanilla": "वेनिला",
   "common.unknown": "अज्ञात",
-
   "launcher.select_version": "संस्करण चुनें",
-
   "header.update.downloading": "अपडेट डाउनलोड और इंस्टॉल हो रहा है...",
   "header.update.success": "अपडेट सफलतापूर्वक इंस्टॉल हुआ! एप्लिकेशन पुनः प्रारंभ होगा।",
   "header.update.failed": "अपडेट विफल: {{error}}",
   "header.update.tooltip_updating": "अपडेट डाउनलोड हो रहा है...",
   "header.update.tooltip_available": "अपडेट करने के लिए क्लिक करें: {{version}}",
-
   "window.minimize": "न्यूनतम करें",
   "window.maximize": "अधिकतम करें",
   "window.close": "बंद करें",
-
   "updater.title": "अपडेटर",
   "updater.initializing": "आरंभ हो रहा है...",
   "updater.downloading": "डाउनलोड हो रहा है... {{progress}}%",
   "updater.complete": "अपडेट पूर्ण",
   "updater.loading_theme": "थीम लोड हो रही है...",
-
   "launch.button": "गेम लॉन्च करें",
   "launch.cancel": "रद्द करें",
   "launch.launching": "लॉन्च हो रहा है...",
@@ -186,17 +159,14 @@
   "launch.failed": "लॉन्च प्रारंभ विफल: {{error}}",
   "launch.cancel_failed": "लॉन्च रद्द करने में विफल",
   "launch.polling_error": "पोलिंग त्रुटि: {{error}}",
-
   "launch.starting": "शुरू हो रहा है!",
   "launch.minecraft_started": "✓ Minecraft सफलतापूर्वक शुरू हुआ!",
   "launch.error": "✗ त्रुटि: {{error}}",
   "launch.stopping": "रोक रहा है...",
   "launch.stopped": "लॉन्च प्रक्रिया रुक गई।",
   "launch.stop_failed": "रोकना विफल: {{message}}",
-
   "launch.status.idle": "निष्क्रिय",
   "launch.status.abort": "लॉन्च रद्द करें",
-
   "crash_modal.title": "Minecraft क्रैश रिपोर्ट",
   "crash_modal.description": "एक अप्रत्याशित त्रुटि हुई और गेम क्रैश हो गया। असुविधा के लिए हमें खेद है।",
   "crash_modal.exit_code": "एग्ज़िट कोड",
@@ -219,7 +189,6 @@
   "crash_modal.toast.discord_opened": "आपके ब्राउज़र में NoRisk Discord खोला गया!",
   "crash_modal.toast.discord_failed": "Discord नहीं खोल सका। कृपया manually discord.norisk.gg पर जाएं।",
   "crash_modal.error.no_log_content": "अपलोड करने के लिए कोई लॉग सामग्री नहीं मिली।",
-
   "tos.title": "सेवा की शर्तें",
   "tos.welcome": "NoRisk Launcher में आपका स्वागत है!",
   "tos.read_accept": "हमारे लॉन्चर का उपयोग शुरू करने से पहले, कृपया हमारी सेवा की शर्तें पढ़ें और स्वीकार करें।",
@@ -240,7 +209,6 @@
   "tos.toast.privacy_failed": "गोपनीयता नीति नहीं खोल सके। कृपया www.norisk.gg/privacy पर manually जाएं।",
   "tos.toast.terms_opened": "सेवा की शर्तें आपके ब्राउज़र में खोली गईं!",
   "tos.toast.terms_failed": "शर्तें नहीं खोल सके। कृपया www.norisk.gg/tos पर manually जाएं।",
-
   "analytics.banner.title": "NoRisk Client को बेहतर बनाने में सहायता करें",
   "analytics.banner.description": "लॉन्चर को बेहतर बनाने में हमारी सहायता के लिए अनाम उपयोग डेटा भेजें। इसमें गेम संस्करण, UI इंटरैक्शन और ऑपरेटिंग सिस्टम प्रकार शामिल हैं।",
   "analytics.banner.learn_more": "अधिक जानें →",
@@ -254,18 +222,15 @@
   "analytics.toast.dismissed": "हम बाद में पुनः पूछेंगे। आप सेटिंग्स में एनालिटिक्स सक्षम भी कर सकते हैं।",
   "analytics.settings.label": "एनालिटिक्स",
   "analytics.settings.tooltip": "अनाम उपयोग डेटा भेजकर लॉन्चर को बेहतर बनाने में सहायता करें। उदाहरण: लॉन्चर संस्करण, 1.21.10 या 1.8.9 जैसे गेम संस्करण, मॉडलोडर प्रकार, UI इंटरैक्शन और सिस्टम जानकारी। कोई व्यक्तिगत जानकारी, उपयोगकर्ता नाम या फ़ाइल पथ एकत्र नहीं किए जाते हैं।",
-
   "child_protection.title": "Microsoft खाता प्रतिबंध",
   "child_protection.description": "ऐसा लगता है कि आपके Microsoft खाते में बाल सुरक्षा या गोपनीयता मोड सक्षम है जो मल्टीप्लेयर कार्यक्षमता को प्रतिबंधित करता है। इस वजह से लॉन्चर लॉगिन चरण पूरा नहीं कर सकता।",
   "child_protection.review_settings": "कृपया अपने Microsoft / Xbox खाते के पैरेंटल कंट्रोल या परिवार सेटिंग्स की समीक्षा करें और सुनिश्चित करें कि मल्टीप्लेयर एक्सेस की अनुमति है, फिर पुनः लॉगिन करने का प्रयास करें।",
   "child_protection.setting_location": "जिस सेटिंग की आप तलाश कर रहे हैं वह Xbox वेबसाइट पर \"Privacy & Online Safety\" → \"Online Safety\" → \"You can join multiplayer games\" → \"Allow\" के अंतर्गत मिल सकती है।",
   "child_protection.button.ignore": "अनदेखा करें",
   "child_protection.button.open_settings": "Microsoft खाता सेटिंग्स खोलें",
-
   "notification_modal.title": "सूचनाएं",
   "notification_modal.mark_all_read": "सभी को पढ़ा हुआ चिह्नित करें",
   "notification_modal.no_notifications": "कोई सूचना नहीं",
-
   "copy_world.title": "वर्ल्ड कॉपी करें '{{name}}'",
   "copy_world.copy_to_profile": "प्रोफ़ाइल में कॉपी करें",
   "copy_world.loading_profiles": "प्रोफ़ाइल लोड हो रही हैं...",
@@ -276,13 +241,11 @@
   "copy_world.error.enter_name": "कृपया एक नया वर्ल्ड नाम दर्ज करें।",
   "copy_world.button.copying": "कॉपी हो रहा है...",
   "copy_world.button.copy": "वर्ल्ड कॉपी करें",
-
   "confirm_delete.title": "'{{name}}' हटाएं?",
   "confirm_delete.message": "क्या आप वाकई {{name}} को स्थायी रूप से हटाना चाहते हैं?",
   "confirm_delete.cannot_undo": "यह क्रिया पूर्ववत नहीं की जा सकती।",
   "confirm_delete.button.deleting": "हटाया जा रहा है...",
   "confirm_delete.button.delete": "हटाएं",
-
   "add_skin.toast.preview_failed": "Skin पूर्वावलोकन लोड करने में विफल: {{error}}",
   "add_skin.toast.file_selected": "फ़ाइल चुनी गई: {{name}}",
   "add_skin.toast.updating": "Skin अपडेट हो रही है...",
@@ -305,7 +268,6 @@
   "add_skin.saving": "सहेजा जा रहा है...",
   "add_skin.save_changes": "परिवर्तन सहेजें",
   "add_skin.save_skin": "Skin सहेजें",
-
   "skins.skinSourceEmpty": "Skin स्रोत खाली नहीं हो सकता।",
   "skins.previewLoadedSuccess": "Skin पूर्वावलोकन लोड हुआ!",
   "skins.failedToLoadPreview": "Skin पूर्वावलोकन लोड करने में विफल: {{error}}",
@@ -333,23 +295,19 @@
   "skins.skin": "Skin",
   "skins.skinInputPlaceholder": "उपयोगकर्ता नाम, UUID से कॉपी करें या URL से डाउनलोड करें",
   "skins.uploadSkinFromFile": "फ़ाइल से Skin अपलोड करें",
-
   "credits_modal.title": "क्रेडिट्स",
   "credits_modal.ui_frontend": "UI और फ्रंटएंड",
   "credits_modal.backend_core": "बैकएंड और कोर",
   "credits_modal.view_licenses": "लाइसेंस देखें",
-
   "group_migration.title": "समूह अपडेट का पता चला",
   "group_migration.description": "ओह, ऐसा लगता है कि आपके समूह में कुछ बदल गया है। क्या आप अपनी पुरानी फ़ाइलों को कॉपी करना चाहेंगे?",
   "group_migration.button.copy_files": "फ़ाइलें कॉपी करें",
   "group_migration.button.skip_launch": "छोड़ें और लॉन्च करें",
-
   "color_picker.title": "रंग चयनकर्ता",
   "color_picker.selected_color": "चयनित रंग",
   "color_picker.button.apply": "लागू करें",
   "color_picker.toast.applied": "रंग लागू हुआ!",
   "color_picker.toast.invalid_hex": "कृपया एक वैध हेक्स रंग दर्ज करें",
-
   "profile_duplicate.title": "प्रोफ़ाइल डुप्लिकेट करें",
   "profile_duplicate.description": "प्रोफ़ाइल \"{{name}}\" डुप्लिकेट करें",
   "profile_duplicate.copy_notice": "यह वर्ल्ड, configs, mods और सेटिंग्स सहित प्रोफ़ाइल की एक कॉपी बनाएगा।",
@@ -360,7 +318,6 @@
   "profile_duplicate.toast.failed": "प्रोफ़ाइल डुप्लिकेट करने में विफल: {{error}}",
   "profile_duplicate.button.duplicating": "डुप्लिकेट हो रहा है...",
   "profile_duplicate.button.duplicate": "डुप्लिकेट",
-
   "modpack_versions.title": "{{name}} - संस्करण",
   "modpack_versions.current": "वर्तमान",
   "modpack_versions.changelog": "चेंजलॉग",
@@ -376,7 +333,6 @@
   "modpack_versions.toast.switching": "{{name}} को संस्करण {{version}} पर स्विच किया जा रहा है...",
   "modpack_versions.toast.switch_success": "{{name}} को सफलतापूर्वक संस्करण {{version}} पर स्विच किया गया!",
   "modpack_versions.toast.switch_failed": "Modpack संस्करण स्विच करने में विफल: {{error}}",
-
   "socials.title": "सोशल खाते",
   "socials.referral_text": "अपने दोस्तों को रेफर करें, NRC+ के 3 दिन पाएं और",
   "socials.referral_more": "अधिक...",
@@ -401,11 +357,8 @@
   "socials.qr_confirm.title": "QR कोड दिखाएं",
   "socials.qr_confirm.message": "इस QR कोड में आपका norisk टोकन है। इसे स्ट्रीम पर या दूसरों के साथ साझा न करें क्योंकि यह आपके खाते की सुरक्षा से समझौता कर सकता है।",
   "socials.qr_confirm.confirm": "QR कोड दिखाएं",
-
   "common.unknown_error": "अज्ञात त्रुटि",
   "common.unknownError": "एक अज्ञात त्रुटि हुई।",
-  "common.unknown": "अज्ञात",
-
   "auth.addAccount": "खाता जोड़ें",
   "auth.unknown": "अज्ञात",
   "auth.errors.load_accounts": "खाते लोड करने में विफल: {{error}}",
@@ -440,7 +393,6 @@
   "auth.browserLoginDescription": "आपके Microsoft खाते से साइन इन करने के लिए एक ब्राउज़र विंडो खुलेगी।",
   "auth.loginError": "लॉगिन त्रुटि",
   "auth.cancelLogin": "लॉगिन रद्द करें",
-
   "skins.editProperties": "गुण संपादित करें",
   "skins.deleteSkin": "Skin हटाएं",
   "skins.applying": "लागू हो रहा है...",
@@ -464,7 +416,6 @@
   "skins.loadingSkins": "Skins लोड हो रही हैं...",
   "skins.noSkinsMatchSearch": "आपकी खोज से मेल खाती कोई Skin नहीं",
   "skins.skinImage": "Skin छवि",
-
   "capes.noCape": "कोई केप नहीं",
   "capes.removeEquippedCape": "पहनी हुई केप हटाएं",
   "capes.mostUsed": "सबसे अधिक उपयोग",
@@ -544,7 +495,6 @@
   "capes.moderatorDeleteTitle": "केप हटाएं (मॉडरेटर)",
   "capes.moderatorDelete": "केप हटाएं (स्टाफ़)",
   "capes.deleteReasonPlaceholder": "हटाने का कारण...",
-
   "capes.errors.inappropriate_content": "आपकी केप को अस्वीकार कर दिया गया क्योंकि इसमें अनुचित सामग्री है।",
   "capes.errors.copyright": "कॉपीराइट उल्लंघन के कारण आपकी केप अस्वीकार कर दी गई।",
   "capes.errors.incomplete": "डिज़ाइन अधूरा होने के कारण आपकी केप अस्वीकार कर दी गई।",
@@ -562,7 +512,6 @@
   "capes.no_image_url": "कोई केप छवि URL प्रदान नहीं किया गया",
   "capes.texture_load_failed": "बनावट लोड करने में विफल: {{filename}}",
   "capes.loading_3d": "3D लोड हो रहा है...",
-
   "profiles.card.standardVersionInfo": "मानक प्रोफ़ाइल – संस्करण NoRisk द्वारा प्रबंधित",
   "profiles.card.tip": "सुझाव",
   "profiles.card.createOwnProfiles": "कस्टम सेटिंग्स के साथ अपनी प्रोफ़ाइल बनाएं!",
@@ -792,7 +741,6 @@
   "profiles.wizard.snapshot": "स्नैपशॉट",
   "profiles.wizard.noVersionsFound": "कोई संस्करण नहीं मिला",
   "profiles.wizard.step1Title": "प्रोफ़ाइल विवरण",
-
   "common.refreshing": "रिफ़्रेश हो रहा है...",
   "common.selected": "चयनित",
   "common.select_all": "सभी चुनें",
@@ -805,13 +753,11 @@
   "common.disable": "अक्षम करें",
   "common.field_required": "यह फ़ील्ड आवश्यक है",
   "common.clear_all": "सभी साफ़ करें",
-
   "server.pinging": "पिंग हो रहा है...",
   "server.players": "खिलाड़ी",
   "server.stop": "रोकें",
   "server.join": "जुड़ें",
   "server.mods": "Mods",
-
   "radius.title": "बॉर्डर रेडियस",
   "radius.square": "वर्गाकार",
   "radius.minimal": "न्यूनतम",
@@ -821,14 +767,11 @@
   "radius.extra_large": "बहुत बड़ा",
   "radius.maximum": "अधिकतम",
   "radius.round": "गोल",
-
   "color_picker.hex": "हेक्स",
   "color_picker.r": "R",
   "color_picker.g": "G",
   "color_picker.b": "B",
-
   "content.table_summary": "तालिका सारांश",
-
   "content.norisk.profile_unavailable": "प्रोफ़ाइल डेटा उपलब्ध नहीं है। NoRisk mods प्रदर्शित नहीं कर सकते।",
   "content.norisk.search_placeholder": "NoRisk mods खोजें...",
   "content.norisk.refresh_packs": "NoRisk Packs सूची रिफ़्रेश करें",
@@ -850,7 +793,6 @@
   "content.norisk.toast.mod_not_found_batch": "बैच ऑपरेशन के दौरान Mod {{id}} नहीं मिला।",
   "content.norisk.toast.toggle_failed": "{{name}} को टॉगल करने में विफल: {{error}}",
   "content.norisk.toast.switch_pack_failed": "NoRisk pack स्विच करने में विफल: {{error}}",
-
   "content.actions.toggle_selected": "{{count}} चयनित आइटम के लिए सक्षम/अक्षम टॉगल करें",
   "content.actions.toggling": "टॉगल हो रहा है...",
   "content.actions.toggle": "टॉगल",
@@ -876,7 +818,6 @@
   "content.actions.refresh_list": "सूची रिफ़्रेश करें",
   "content.actions.deselect_all": "सभी दृश्यमान अचयनित करें",
   "content.actions.select_all": "सभी दृश्यमान चुनें",
-
   "content.no_pack_selected": "कोई NoRisk Pack चयनित नहीं",
   "content.no_pack_selected_option": "- कोई Pack चयनित नहीं -",
   "content.select_pack_placeholder": "Pack चुनें...",
@@ -887,7 +828,6 @@
   "content.platforms.modrinth": "Modrinth",
   "content.platforms.maven": "Maven",
   "content.platforms.url": "URL",
-
   "content.loading_versions": "संस्करण लोड हो रहे हैं...",
   "content.loading_details": "विवरण लोड हो रहे हैं...",
   "content.available_versions_on": "{{platform}} पर उपलब्ध संस्करण:",
@@ -896,15 +836,11 @@
   "content.version_load_failed": "{{platform}} से संस्करण लोड करने में विफल।",
   "content.version_load_failed_details": "{{platform}} से संस्करण लोड करने में विफल: {{error}}",
   "content.item_not_found": "आइटम नहीं मिला।",
-
   "content.badge.crashes_with_nrc": "NRC के साथ क्रैश होता है",
-
   "content.update_check_error": "अपडेट जांच त्रुटि: {{error}}",
-
   "content.profile_unavailable": "प्रोफ़ाइल डेटा उपलब्ध नहीं है। {{itemType}} प्रदर्शित नहीं कर सकते।",
   "content.standard_readonly": "मानक प्रोफ़ाइल केवल-पठनीय हैं।",
   "content.clone_to_edit": "परिवर्तन करने और सामग्री प्रबंधित करने के लिए क्लोन करें।",
-
   "content.loading_items": "{{itemType}} लोड हो रहे हैं...",
   "content.manage_items": "अपने {{itemType}} प्रबंधित करें",
   "content.select_pack_description": "इसके mods प्रबंधित करने के लिए ड्रॉपडाउन से एक NoRisk Modpack चुनें।",
@@ -913,10 +849,8 @@
   "content.empty_description": "{{itemType}} जोड़ने के लिए यहां खींचें और छोड़ें, या सामग्री ऑनलाइन खोजने और इंस्टॉल करने के लिए Browse पर क्लिक करें।",
   "content.no_search_results": "कोई अलग खोज शब्द आज़माएं या खोज फ़िल्टर साफ़ करें।",
   "content.select_to_manage": "बैच क्रियाएं करने या उन्हें अलग-अलग प्रबंधित करने के लिए {{itemType}} चुनें।",
-
   "content.delete_item_title": "{{name}} हटाएं?",
   "content.delete_selected_title": "चयनित {{itemType}} हटाएं?",
-
   "content.toast.pack_list_refreshed": "NoRisk Pack सूची रिफ़्रेश हुई।",
   "content.toast.pack_list_refresh_failed": "NoRisk pack सूची रिफ़्रेश करने में विफल।",
   "content.toast.profile_unavailable": "सामग्री जोड़ने के लिए प्रोफ़ाइल डेटा उपलब्ध नहीं है।",
@@ -929,14 +863,11 @@
   "content.toast.clone_success": "प्रोफ़ाइल '{{name}}' सफलतापूर्वक क्लोन हुई!",
   "content.toast.clone_failed": "प्रोफ़ाइल क्लोन करने में विफल: {{error}}",
   "content.toast.clone_init_failed": "क्लोनिंग प्रक्रिया शुरू नहीं कर सके।",
-
   "content.filter.java_archives": "Java Archives",
   "content.filter.resource_pack_archives": "Resource Pack Archives",
   "content.filter.shader_pack_archives": "Shader Pack Archives",
   "content.filter.data_pack_archives": "Data Pack Archives",
-
   "content.dialog.select_to_import": "प्रोफ़ाइल के लिए आयात करने हेतु {{itemType}} चुनें: {{profileName}}",
-
   "content.open_containing_folder": "युक्त फ़ोल्डर खोलें",
   "content.unknown_file": "अज्ञात फ़ाइल",
   "content.unknown_pack": "अज्ञात pack",
@@ -944,16 +875,13 @@
   "content.confirm_deletion": "हटाने की पुष्टि के लिए पुनः क्लिक करें",
   "content.delete_pack": "pack हटाएं",
   "content.view_version_options": "संस्करण विकल्प देखें",
-
   "profiles.clone": "प्रोफ़ाइल क्लोन करें",
   "profiles.new_name": "नया प्रोफ़ाइल नाम",
   "profiles.clone_name_placeholder": "क्लोन की गई प्रोफ़ाइल के लिए नाम दर्ज करें",
   "profiles.clone_button": "क्लोन",
   "profiles.clone_profile": "प्रोफ़ाइल क्लोन करें",
-
   "common.refresh": "रिफ़्रेश",
   "common.delete": "हटाएं",
-
   "content.header.name": "नाम",
   "content.header.version": "संस्करण",
   "content.header.status": "स्थिति",
@@ -966,7 +894,6 @@
   "content.filters.server": "Server",
   "content.search_modrinth": "Modrinth खोजें",
   "content.search_curseforge": "CurseForge खोजें",
-
   "content.search.error": "त्रुटि: {{error}}",
   "content.search.no_results": "कोई परिणाम नहीं मिला। फ़िल्टर या खोज शब्द समायोजित करके देखें।",
   "content.search.load_more": "और लोड करें ({{remaining}} शेष)",
@@ -977,7 +904,6 @@
   "content.search.sort.follows": "फ़ॉलो",
   "content.search.sort.newest": "नवीनतम",
   "content.search.sort.updated": "अपडेट किया गया",
-
   "content.install.missing_info": "आवश्यक इंस्टॉलेशन जानकारी गुम",
   "content.install.no_file": "चयनित संस्करण के लिए कोई डाउनलोड फ़ाइल उपलब्ध नहीं।",
   "content.install.modpack_as_profile": "Modpacks को नई प्रोफ़ाइल के रूप में इंस्टॉल किया जाना चाहिए।",
@@ -1004,7 +930,6 @@
   "content.install.no_primary_file_delete": "संस्करण के लिए कोई प्राथमिक फ़ाइल नहीं मिली। हटाने के लिए विवरण निर्धारित नहीं कर सकते।",
   "content.install.sha1_missing": "इस संस्करण के लिए SHA1 हैश गुम है। हटाने के साथ आगे नहीं बढ़ सकते।",
   "content.install.toggle_missing_hash": "संस्करण सक्षम/अक्षम नहीं कर सकते: फ़ाइल हैश गुम",
-
   "friends.status.online": "ऑनलाइन",
   "friends.status.afk": "AFK",
   "friends.status.busy": "व्यस्त",
@@ -1047,26 +972,22 @@
   "friends.settings.allow_requests_desc": "खिलाड़ी अनुरोध भेज सकते हैं",
   "friends.settings.server_invites": "Server आमंत्रण",
   "friends.settings.server_invites_desc": "मित्र आपको आमंत्रित कर सकते हैं",
-
   "friends.notifications.online": "{{username}} अब ऑनलाइन है",
   "friends.notifications.offline": "{{username}} ऑफ़लाइन हो गया",
   "friends.notifications.playing_on": "{{name}} अब {{server}} पर खेल रहा है",
   "friends.notifications.friend_request": "{{name}} ने आपको मित्र अनुरोध भेजा",
   "friends.notifications.chat_preview": "{{name}}: {{message}}",
-
   "chat.today": "आज",
   "chat.yesterday": "कल",
   "chat.no_messages_title": "अभी तक कोई संदेश नहीं",
   "chat.no_messages_desc": "नमस्ते कहें!",
   "chat.start_of_conversation": "— बातचीत की शुरुआत —",
   "chat.type_message": "एक संदेश लिखें...",
-
   "common.accept": "स्वीकार करें",
   "common.deny": "अस्वीकार करें",
   "common.settings": "सेटिंग्स",
   "common.instance_one": "Instance",
   "common.instance_other": "Instances",
-
   "logs.loading": "लॉग लोड हो रहे हैं...",
   "logs.no_content_title": "कोई लॉग सामग्री उपलब्ध नहीं",
   "logs.no_content_desc": "देखने के लिए एक लॉग फ़ाइल चुनें",
@@ -1074,7 +995,7 @@
   "logs.filter_placeholder": "लाइनें फ़िल्टर करें...",
   "logs.upload_success_copied": "लिंक कॉपी हुआ! खोलने के लिए क्लिक करें।",
   "logs.upload_success_no_copy": "लॉग अपलोड हुआ (कॉपी विफल)! खोलने के लिए क्लिक करें।",
-  "logs.upload_failed": "अपलोड विफल: {{error}}",
+  "logs.upload_failed": "लॉग अपलोड करने में विफल",
   "logs.autoscroll": "ऑटोस्क्रॉल",
   "logs.select_log": "-- लॉग चुनें --",
   "logs.lines_matching": "{{shown}} / {{total}} लाइनें फ़िल्टर से मेल खाती हैं",
@@ -1090,7 +1011,6 @@
   "logs.waiting_for_output": "लॉग आउटपुट की प्रतीक्षा हो रही है...",
   "logs.select_instance": "एक Instance चुनें",
   "logs.select_instance_hint": "लॉग देखने के लिए साइडबार से एक instance चुनें",
-
   "screenshots.copy_image": "छवि कॉपी करें",
   "screenshots.open_location": "स्क्रीनशॉट स्थान खोलें",
   "screenshots.delete_screenshot": "स्क्रीनशॉट हटाएं",
@@ -1100,7 +1020,6 @@
   "screenshots.deleting": "{{name}} हटाया जा रहा है...",
   "screenshots.deleted": "स्क्रीनशॉट \"{{name}}\" हटाया गया।",
   "screenshots.delete_failed": "हटाने में विफल: {{error}}",
-
   "dragdrop.already_importing": "यह फ़ाइल पहले से आयात की जा रही है।",
   "dragdrop.importing": "{{fileName}} आयात हो रहा है",
   "dragdrop.import_success": "{{fileName}} के लिए प्रोफ़ाइल आयात शुरू हुआ। प्रोफ़ाइल खुल रही है...",
@@ -1117,7 +1036,6 @@
   "dragdrop.drop_hint": "आयात करने के लिए सक्रिय प्रोफ़ाइल सामग्री क्षेत्र पर फ़ाइलें छोड़ें, या प्रोफ़ाइल आयात करने के लिए कहीं भी .noriskpack/.mrpack/.zip फ़ाइल छोड़ें।",
   "dragdrop.not_configured": "सामग्री प्रकार के लिए ड्रैग और ड्रॉप कॉन्फ़िगर नहीं है: {{type}}",
   "dragdrop.listener_init_failed": "ड्रैग और ड्रॉप लिसनर प्रारंभ नहीं कर सके।",
-
   "content_manager.errors.profile_missing_toggle": "टॉगल के लिए प्रोफ़ाइल गुम।",
   "content_manager.errors.profile_missing_delete": "प्रोफ़ाइल डेटा गुम, हटाना पूरा नहीं कर सकते।",
   "content_manager.errors.profile_missing_update": "प्रोफ़ाइल गुम, अपडेट नहीं कर सकते।",
@@ -1150,7 +1068,6 @@
   "content_manager.errors.selected_items_not_found": "चयनित आइटम नहीं मिले।",
   "content_manager.errors.no_valid_ids_toggle_updates": "अपडेट चेक टॉगल नहीं कर सकते: चयनित आइटमों के पास वैध ID नहीं हैं",
   "content_manager.errors.toggle_update_checks_failed": "अपडेट चेक टॉगल करने में विफल: {{error}}",
-
   "content_manager.success.deleted": "{{name}} हटाया गया।",
   "content_manager.success.batch_deleted": "{{count}} आइटम सफलतापूर्वक हटाए गए।",
   "content_manager.success.batch_toggled": "{{count}} आइटम सफलतापूर्वक टॉगल किए गए।",
@@ -1161,7 +1078,6 @@
   "content_manager.success.toggle_updates_disabled": "{{name}} के लिए अपडेट चेक अक्षम।",
   "content_manager.success.batch_toggle_updates_enabled": "{{count}} {{itemLabel}} के लिए अपडेट चेक सक्षम।",
   "content_manager.success.batch_toggle_updates_disabled": "{{count}} {{itemLabel}} के लिए अपडेट चेक अक्षम।",
-
   "content_manager.loading.updating": "{{name}} को {{version}} पर अपडेट हो रहा है...",
   "content_manager.loading.updating_progress": "{{current}}/{{total}} {{type}} अपडेट हो रहे हैं...",
   "content_manager.loading.switching": "{{version}} पर स्विच हो रहा है...",
@@ -1169,11 +1085,9 @@
   "content_manager.loading.disabling_update_checks": "{{name}} के लिए अपडेट चेक अक्षम हो रहा है...",
   "content_manager.loading.enabling_update_checks_batch": "{{count}} {{itemLabel}} के लिए अपडेट चेक सक्षम हो रहा है...",
   "content_manager.loading.disabling_update_checks_batch": "{{count}} {{itemLabel}} के लिए अपडेट चेक अक्षम हो रहा है...",
-
   "content_manager.update_result.finished_partial": "समाप्त: {{succeeded}} सफल, {{failed}} विफल।",
   "content_manager.update_result.item": "आइटम",
   "content_manager.update_result.items": "आइटम",
-
   "modrinth_installer.errors.profile_not_found": "ID {{profileId}} वाली प्रोफ़ाइल नहीं मिली। कृपया एक अलग प्रोफ़ाइल चुनें।",
   "modrinth_installer.errors.install_failed": "इंस्टॉल करने में विफल: {{error}}",
   "modrinth_installer.errors.missing_search_hit": "खोज हिट संदर्भ गुम",
@@ -1181,11 +1095,9 @@
   "modrinth_installer.errors.installation_error": "इंस्टॉलेशन त्रुटि: {{error}}",
   "modrinth_installer.installing": "{{fileName}} इंस्टॉल हो रहा है",
   "modrinth_installer.success": "{{fileName}} सफलतापूर्वक इंस्टॉल हुआ!",
-
   "content.errors.load_custom_mods": "कस्टम mods लोड करने में विफल",
   "content.errors.load_resource_packs": "Resource packs लोड करने में विफल",
   "content.errors.load_shader_packs": "Shader packs लोड करने में विफल",
-
   "profiles.errors.load_failed": "प्रोफ़ाइल डेटा लोड करने में विफल",
   "profiles.errors.profile_not_found": "अनुरोधित प्रोफ़ाइल (ID: {{id}}) लोड नहीं हो सकी या मौजूद नहीं है।",
   "profiles.errors.no_profile_selected": "कोई प्रोफ़ाइल चयनित नहीं। कृपया पहले एक प्रोफ़ाइल चुनें।",
@@ -1198,7 +1110,6 @@
   "profiles.errors.image_dialog_failed": "छवि डायलॉग खोलने में विफल।",
   "profiles.errors.already_importing": "यह फ़ाइल पहले से आयात की जा रही है।",
   "profiles.errors.file_path_failed": "चयनित फ़ाइल पथ प्राप्त नहीं कर सके। कृपया पुनः प्रयास करें।",
-
   "time.never": "कभी नहीं",
   "time.seconds_ago": "{{count}}से पहले",
   "time.minutes_ago": "{{count}}मि पहले",
@@ -1207,7 +1118,6 @@
   "time.weeks_ago": "{{count}}सप्ताह पहले",
   "time.months_ago": "{{count}}मह पहले",
   "time.years_ago": "{{count}}व पहले",
-
   "iris.skip_shader_mod": "Shader Mod छोड़ें",
   "iris.install_iris": "Iris इंस्टॉल करें",
   "iris.shader_pack_setup": "Shader Pack सेटअप",
@@ -1220,10 +1130,8 @@
   "iris.installation_error": "इंस्टॉलेशन विफल। विवरण के लिए कंसोल देखें।",
   "iris.installed_optimal": "Iris shader mod इंस्टॉल है - shader packs बेहतर काम करेंगे",
   "iris.required_optimal": "बेहतर shader pack प्रदर्शन के लिए Iris shader mod आवश्यक है",
-
   "app.errors.process_status": "Minecraft प्रक्रिया स्थिति को विश्व स्तर पर संसाधित नहीं कर सकते।",
   "app.errors.save_grouping": "ग्रुपिंग प्राथमिकता सहेजने में विफल।",
-
   "java.no_installations_found": "आपके सिस्टम पर कोई Java इंस्टॉलेशन नहीं मिला। यदि आप कस्टम Java सेटअप का उपयोग करते हैं तो आपको पथ को manually निर्दिष्ट करने की आवश्यकता हो सकती है।",
   "java.detect_failed": "Java का पता लगाने में विफल: {{error}}",
   "java.load_memory_failed": "ग्लोबल मेमोरी सेटिंग्स लोड करने में विफल",
@@ -1236,9 +1144,7 @@
   "java.path_invalid": "अमान्य Java पथ। पथ जांचें या सुनिश्चित करें कि यह एक संगत Java संस्करण है।",
   "java.path_not_exist": "चयनित Java पथ मौजूद नहीं है।",
   "java.validation_error": "Java सत्यापन त्रुटि: {{error}}",
-
   "common.open_link_failed": "ब्राउज़र में लिंक नहीं खोल सके।",
-
   "mod_detail.invalid_url_params": "अमान्य URL पैरामीटर",
   "mod_detail.project_not_found": "प्रोजेक्ट नहीं मिला",
   "mod_detail.loading_project": "प्रोजेक्ट विवरण लोड हो रहे हैं...",
@@ -1290,7 +1196,6 @@
   "mod_detail.versions.all_game_versions": "सभी गेम संस्करण",
   "mod_detail.versions.all_loaders": "सभी लोडर",
   "common.more": "और",
-
   "modrinth.filters": "फ़िल्टर",
   "modrinth.categories": "श्रेणियां",
   "modrinth.loading_categories": "श्रेणियां लोड हो रही हैं...",
@@ -1318,7 +1223,6 @@
   "modrinth.error_creating_or_installing": "प्रोफ़ाइल बनाते या सामग्री इंस्टॉल करते समय एक त्रुटि हुई।",
   "modrinth.errors.missing_data": "प्रोफ़ाइल नहीं बना सकते: प्रोजेक्ट या संस्करण डेटा गुम है।",
   "modrinth.errors.no_suitable_version": "प्रोफ़ाइल नहीं बना सकते: कोई उपयुक्त संस्करण नहीं मिला।",
-
   "symlink.configure": "Symlink कॉन्फ़िगर करें",
   "symlink.create": "Symlink बनाएं",
   "symlink.external_file": "बाहरी फ़ाइल",
@@ -1329,10 +1233,8 @@
   "symlink.open_in_profile": "प्रोफ़ाइल में खोलें",
   "symlink.remove_symlink": "symlink हटाएं",
   "symlink.add_new": "नया symlink जोड़ें",
-
   "files.loading_structure": "फ़ाइल संरचना लोड हो रही है...",
   "files.no_structure_available": "कोई फ़ाइल संरचना उपलब्ध नहीं।",
-
   "worlds.path_not_available": "वर्ल्ड पथ उपलब्ध नहीं है।",
   "worlds.launching_world": "🚀 वर्ल्ड लॉन्च हो रहा है: {{name}}",
   "worlds.joining_server": "🌐 Server से जुड़ रहे हैं: {{name}}",
@@ -1379,16 +1281,12 @@
   "worlds.rename_placeholder": "नया वर्ल्ड नाम दर्ज करें...",
   "worlds.rename_button": "नाम बदलें",
   "worlds.size": "{{size}} MB",
-
   "datapacks.search_placeholder": "Data packs खोजें...",
   "datapacks.loading": "Data packs लोड हो रहे हैं...",
-
   "resourcepacks.search_placeholder": "Resource packs खोजें...",
   "resourcepacks.loading": "Resource packs लोड हो रहे हैं...",
-
   "screenshots.loading": "स्क्रीनशॉट लोड हो रहे हैं...",
   "screenshots.search_placeholder": "स्क्रीनशॉट खोजें...",
-
   "symlinks.load_failed": "Symlinks लोड करने में विफल",
   "symlinks.folder_picker_failed": "फ़ोल्डर पिकर खोलने में विफल",
   "symlinks.file_picker_failed": "फ़ाइल पिकर खोलने में विफल",
@@ -1417,24 +1315,18 @@
   "symlinks.step_2": "कॉन्फ़िगर करें कि यह आपकी प्रोफ़ाइल में कहां दिखाई देगा",
   "symlinks.step_3": "सामग्री लिंक है - परिवर्तन तुरंत सिंक होते हैं",
   "symlinks.perfect_for": "प्रोफ़ाइलों या क्लाउड स्टोरेज में स्क्रीनशॉट, कॉन्फ़िग फ़ाइलें, सेव्स या resource packs सिंक करने के लिए बिल्कुल सही।",
-
   "debug.uploaded_copied": "अपलोड हुआ और क्लिपबोर्ड पर कॉपी हुआ!",
   "debug.upload_failed": "अपलोड करने में विफल: {{error}}",
   "debug.copied": "क्लिपबोर्ड पर कॉपी हुआ!",
   "debug.copy_failed": "कॉपी करने में विफल: {{error}}",
   "debug.copy_content": "सामग्री कॉपी करें",
   "debug.upload_mclogs": "mclo.gs पर अपलोड करें",
-
   "logs.no_logs_to_upload": "अपलोड करने के लिए कोई लॉग नहीं",
   "logs.uploaded_url_copied": "अपलोड हुआ! URL क्लिपबोर्ड पर कॉपी हुआ",
-  "logs.upload_failed": "लॉग अपलोड करने में विफल",
-
   "settings.disable_experimental": "कृपया सेटिंग्स में प्रायोगिक मोड अक्षम करें।",
   "capes.data_refreshed": "केप डेटा रिफ़्रेश हुआ!",
-
   "content.errors.load_norisk_packs": "NoRisk pack सूची लोड करने में विफल।",
   "advent.load_failed": "एडवेंट कैलेंडर लोड करने में विफल",
-
   "instances.fetch_failed": "चल रहे instances लोड करने में विफल",
   "instances.loading": "लोड हो रहा है...",
   "instances.no_instances": "कोई Instances नहीं",
@@ -1455,21 +1347,17 @@
   "instances.count_running": "{{count}} instance चल रहा है",
   "instances.count_running_other": "{{count}} instances चल रहे हैं",
   "instances.none": "कोई instances नहीं",
-
   "header.toggle_friends": "मित्र टॉगल करें",
   "header.open_socials": "सोशल खाते खोलें",
   "header.notifications": "सूचनाएं",
-
   "export.enter_filename": "कृपया निर्यात के लिए एक फ़ाइल नाम दर्ज करें।",
   "profiles.repair_success": "प्रोफ़ाइल मरम्मत सफलतापूर्वक पूर्ण हुई!",
   "profiles.repair_failed": "प्रोफ़ाइल की मरम्मत करने में विफल: {{error}}",
-
   "profiles.toast.opening_folder": "📁 {{name}} के लिए फ़ोल्डर खुल रहा है!",
   "profiles.toast.delete_fallback": "🗑️ {{name}} हटाया जा रहा है!",
   "profiles.toast.managing_mods": "📦 {{name}} के लिए mods प्रबंधित कर रहे हैं!",
   "profiles.toast.launching_world": "🚀 वर्ल्ड लॉन्च हो रहा है: {{name}}",
   "profiles.toast.joining_server": "🌐 Server से जुड़ रहे हैं: {{name}}",
-
   "shaderpacks.toggle_success": "Shader pack \"{{name}}\" {{status}}।",
   "shaderpacks.toggle_failed": "\"{{name}}\" टॉगल करने में विफल: {{error}}",
   "shaderpacks.loading": "shader packs लोड हो रहे हैं...",
@@ -1486,7 +1374,6 @@
   "shaderpacks.no_match_search": "कोई shader packs आपकी खोज से मेल नहीं खाते",
   "shaderpacks.none_installed": "कोई shader packs इंस्टॉल नहीं",
   "shaderpacks.drag_drop_hint": "इंस्टॉल करने के लिए shader pack फ़ाइलें यहां खींचें और छोड़ें",
-
   "mods.profile_unavailable": "प्रोफ़ाइल डेटा उपलब्ध नहीं है। Mods प्रदर्शित नहीं कर सकते।",
   "mods.version_label": "संस्करण: {{version}}",
   "mods.enabled": "सक्षम",
@@ -1524,20 +1411,17 @@
   "mods.errors.update_failed": "{{name}} अपडेट करने में विफल: {{error}}",
   "mods.errors.delete_failed": "{{name}} हटाने में विफल: {{error}}",
   "mods.errors.refresh_failed": "Mods रिफ़्रेश करने में विफल: {{error}}",
-
   "empty_states.try_adjusting_search": "अपनी खोज या फ़िल्टर समायोजित करके देखें।",
   "empty_states.try_adjusting_sort": "अपने सॉर्ट विकल्पों को समायोजित करके देखें।",
   "empty_states.no_content_found": "कोई सामग्री नहीं मिली। कोई अलग खोज आज़माएं।",
   "empty_states.error_loading_data": "डेटा लोड करने में त्रुटि",
   "empty_states.no_results_for": "\"{{query}}\" के लिए कोई परिणाम नहीं मिला",
   "empty_states.browse_popular": "लोकप्रिय सामग्री ब्राउज़ करें",
-
   "screenshots.no_match_filter": "कोई स्क्रीनशॉट फ़िल्टर से मेल नहीं खाता",
   "screenshots.no_screenshots_yet": "अभी तक कोई स्क्रीनशॉट नहीं",
   "screenshots.take_some": "उन्हें यहां देखने के लिए गेम में कुछ लें!",
   "screenshots.preview_error": "पूर्वावलोकन त्रुटि",
   "screenshots.no_preview": "कोई पूर्वावलोकन नहीं",
-
   "placeholders.search_logs": "लॉग खोजें...",
   "placeholders.search_profiles": "प्रोफ़ाइल खोजें...",
   "placeholders.search_modrinth": "Mods, modpacks, resource packs खोजें...",
@@ -1547,9 +1431,7 @@
   "placeholders.java_path": "java निष्पादन योग्य का पथ (जैसे .../bin/javaw.exe)",
   "placeholders.profile_name_awesome": "मेरी शानदार प्रोफ़ाइल",
   "placeholders.group_name": "जैसे modpacks, vanilla+",
-
   "referral.loading": "रेफरल लोड हो रहा है...",
-
   "modrinth.project_types.mods": "Mods",
   "modrinth.project_types.modpacks": "Modpacks",
   "modrinth.project_types.resource_packs": "Resource Packs",
@@ -1563,7 +1445,6 @@
   "modrinth.loading_content": "सामग्री लोड हो रही है...",
   "modrinth.available_versions": "उपलब्ध संस्करण:",
   "modrinth.show_all": "सभी दिखाएं ({{count}})",
-  "modrinth.loading_versions": "संस्करण लोड हो रहे हैं...",
   "modrinth.end_of_results": "परिणामों का अंत",
   "modrinth.no_versions_match_filters": "कोई संस्करण चयनित फ़िल्टर से मेल नहीं खाते।",
   "modrinth.no_versions_criteria": "मानदंडों से मेल खाता कोई संस्करण नहीं मिला।",
@@ -1600,7 +1481,6 @@
   "profiles.errors.not_found": "प्रोफ़ाइल नहीं मिली",
   "profiles.loading_details": "प्रोफ़ाइल विवरण लोड हो रहे हैं...",
   "profiles.new_profile": "नई प्रोफ़ाइल",
-
   "profiles.v3.stats.modpack": "मॉडपैक",
   "profiles.v3.stats.playtime": "खेलने का समय",
   "profiles.v3.stats.disk": "डिस्क",
@@ -1678,7 +1558,6 @@
   "profiles.v3.time.yearsAgo": "{{count}} साल पहले",
   "profiles.v3.time.placeholder": "—",
   "profiles.v3.time.lessThanMinute": "< 1मि",
-
   "export.open_folder_after": "निर्यात के बाद फ़ोल्डर खोलें",
   "export.exporting": "निर्यात हो रहा है...",
   "export.export_profile": "प्रोफ़ाइल निर्यात करें",
@@ -1695,11 +1574,9 @@
   "export.title": "प्रोफ़ाइल निर्यात करें",
   "export.description": "दूसरों के साथ साझा करने या बैकअप के रूप में अपनी प्रोफ़ाइल निर्यात करें। आप यह अनुकूलित कर सकते हैं कि कौन सी फ़ाइलें शामिल हैं।",
   "export.export_failed": "प्रोफ़ाइल निर्यात करने में विफल: {{error}}",
-
   "designer.asset_management": "एसेट प्रबंधन",
   "designer.keep_local_assets": "स्थानीय एसेट रखें",
   "designer.keep_local_assets_description": "यदि चेक किया गया है, तो संपादित एसेट (wings, norisk.jsons, आदि) पुनः लॉन्च पर ओवरराइट नहीं होंगे।",
-
   "nrc.incompatible_warning": "NoRiskClient वर्तमान में इस लोडर या संस्करण के साथ संगत नहीं है! आप अभी भी इसे बना सकते हैं, लेकिन आपके पास सुविधाएं नहीं होंगी। यह भविष्य में बदल सकता है।",
   "nrc.no_features_warning": "इस चयन के साथ आपके पास कोई भी NoRiskClient सुविधाएं नहीं होंगी।",
   "nrc.info_title": "जानकारी",
@@ -1712,7 +1589,6 @@
   "nrc.repair_description": "गुम या दूषित फ़ाइलों को पुनः डाउनलोड करके प्रोफ़ाइल इंस्टॉलेशन की मरम्मत करता है।",
   "nrc.repairing": "मरम्मत हो रही है...",
   "nrc.repair": "मरम्मत",
-
   "modrinth.back_to_profiles": "प्रोफ़ाइल पर वापस जाएं",
   "modrinth.creating": "बनाया जा रहा है...",
   "modrinth.create_and_install": "बनाएं और इंस्टॉल करें",
@@ -1758,12 +1634,10 @@
   "modrinth.uninstalling": "अनइंस्टॉल हो रहा है...",
   "modrinth.installed": "इंस्टॉल किया गया",
   "common.uninstall": "अनइंस्टॉल करें",
-
   "lightbox.counter": "{{current}} / {{total}}",
   "lightbox.press_space_zoom": "ज़ूम करने के लिए Space दबाएं",
   "lightbox.arrow_keys_navigate": "नेविगेट करने के लिए तीर कुंजियां",
   "lightbox.esc_close": "बंद करने के लिए Esc",
-
   "advent.coins_amount": "{{amount}} Coins",
   "advent.added_to_account": "आपके खाते में जोड़ा गया",
   "advent.loading_model": "मॉडल लोड हो रहा है...",
@@ -1773,11 +1647,38 @@
   "advent.model_error": "मॉडल त्रुटि",
   "advent.reward_claimed": "दिन {{day}} का पुरस्कार क्लेम किया गया!",
   "advent.claim_failed": "पुरस्कार क्लेम करने में विफल",
-
   "deep_link.auth.title": "वेबसाइट प्रमाणीकरण",
   "deep_link.auth.description": "NoRisk वेबसाइट आपके खाते ({{username}}) से जुड़ना चाहती है। क्या आप इस कनेक्शन की पुष्टि करना चाहते हैं?",
   "deep_link.auth.confirm": "पुष्टि करें",
   "deep_link.auth.success": "वेबसाइट प्रमाणीकरण सफल!",
   "deep_link.auth.error": "वेबसाइट प्रमाणीकरण विफल।",
-  "deep_link.auth.not_logged_in": "वेबसाइट प्रमाणीकरण का उपयोग करने के लिए आपको लॉग इन होना चाहिए।"
+  "deep_link.auth.not_logged_in": "वेबसाइट प्रमाणीकरण का उपयोग करने के लिए आपको लॉग इन होना चाहिए।",
+  "worlds.sort.last_played": "अंतिम बार खेला",
+  "worlds.sort.name": "नाम",
+  "worlds.play_this_world": "इस दुनिया में खेलें",
+  "worlds.none_found": "अभी तक कोई दुनिया नहीं",
+  "worlds.create_in_minecraft": "Minecraft में एक नई दुनिया बनाएं या .mcworld फ़ाइल आयात करें।",
+  "worlds.import_world": "दुनिया आयात करें",
+  "worlds.import_title": "आयात करने के लिए दुनिया का फ़ोल्डर चुनें",
+  "worlds.importing": "{{name}} आयात हो रहा है…",
+  "worlds.import_success": "दुनिया \"{{name}}\" सफलतापूर्वक आयातित!",
+  "worlds.import_failed": "दुनिया आयात नहीं हो सकी: {{error}}",
+  "worlds.copy": "दुनिया कॉपी करें",
+  "worlds.copying": "{{name}} कॉपी हो रहा है…",
+  "worlds.delete_title": "दुनिया हटाएं",
+  "worlds.delete_confirm": "दुनिया \"{{name}}\" हटाएं? यह रद्द नहीं किया जा सकता।",
+  "worlds.deleting": "{{name}} हटा रहा है…",
+  "worlds.batch_delete_title": "दुनियाएं हटाएं",
+  "worlds.batch_delete_item_name": "{{count}} दुनियाएं",
+  "worlds.batch_delete_confirm": "{{count}} चयनित दुनियाएं हटाएं? यह रद्द नहीं किया जा सकता।",
+  "worlds.batch_delete_success": "{{count}} दुनियाएं हटा दी गईं।",
+  "worlds.difficulty_locked": "कठिनाई लॉक की गई",
+  "worlds.open_folder_failed": "फ़ोल्डर नहीं खुला: {{error}}",
+  "profiles.v3.servers.title": "सर्वर",
+  "profiles.v3.servers.join": "इस सर्वर से जुड़ें",
+  "profiles.v3.servers.joinShort": "जुड़ें",
+  "profiles.v3.servers.offline": "सर्वर ऑफ़लाइन",
+  "profiles.v3.servers.pinging": "पिंग हो रहा है…",
+  "profiles.v3.servers.reping": "फिर से पिंग",
+  "profiles.v3.servers.copyAddress": "पता कॉपी करें"
 }
