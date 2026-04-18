@@ -5,26 +5,21 @@
   "nav.skins": "Скины",
   "nav.capes": "Плащи",
   "nav.settings": "Настройки",
-
   "news.title": "Новости",
   "news.no_news_available": "Новостей пока нет.",
   "news.item": "Новость",
-
   "settings.tabs.general": "Общие",
   "settings.tabs.appearance": "Фон",
   "settings.tabs.advanced": "Расширенные",
   "settings.tabs.debug": "Отладка",
-
   "settings.language": "Язык",
   "settings.language.description": "Выберите язык отображения лаунчера",
-
   "settings.accent_color.title": "Цвет акцента",
   "settings.accent_color.description": "Выберите предпочитаемый цвет акцента для лаунчера",
   "settings.accent_color.disabled_theme": "(Отключено при активной теме)",
   "settings.accent_color.custom": "Пользовательский",
   "settings.accent_color.custom_tooltip_disabled": "Отключено при активной теме",
   "settings.accent_color.custom_tooltip": "Нажмите, чтобы открыть расширенный выбор цвета",
-
   "settings.auto_updates": "Автообновления",
   "settings.auto_updates.tooltip": "Автоматически проверять и загружать обновления лаунчера при их наличии.",
   "settings.discord_presence": "Статус Discord",
@@ -43,16 +38,13 @@
   "settings.concurrent_io.tooltip": "Максимальное количество файлов, записываемых на диск одновременно. Меньшие значения снижают нагрузку на диск и ошибки ввода-вывода.",
   "settings.border_radius": "Радиус скругления",
   "settings.border_radius.tooltip": "Настройте скругление углов всех элементов интерфейса. 0px — квадратные (стиль Minecraft), большие значения делают углы более округлыми.",
-
   "settings.theme.title": "Тема",
   "settings.theme.description": "Выберите тему для настройки внешнего вида лаунчера",
-
   "settings.background.title": "Эффект фона",
   "settings.background.description": "Выберите эффект фона для лаунчера",
   "settings.background.animations": "Анимации",
   "settings.background.quality_low": "Низкое",
   "settings.background.quality_high": "Высокое",
-
   "settings.background.matrix_rain": "Матричный дождь",
   "settings.background.enchantment_table": "Стол зачарований",
   "settings.background.nebula_waves": "Волны туманности",
@@ -63,28 +55,23 @@
   "settings.background.liquid_chrome": "Жидкий хром",
   "settings.background.retro_grid": "Ретро-сетка",
   "settings.background.plain_color": "Сплошной цвет",
-
   "settings.quality.low": "Низкое",
   "settings.quality.medium": "Среднее",
   "settings.quality.high": "Высокое",
-
   "settings.browser_login": "Вход через браузер",
   "settings.browser_login.tooltip": "Использовать внешний браузер для входа в Microsoft вместо встроенного окна. Рекомендуется для Flatpak или при проблемах с окном входа.",
-
   "settings.game_data_dir.title": "Каталог данных игры",
   "settings.game_data_dir.description": "Выберите пользовательское расположение для хранения данных игры (миры, моды, библиотеки и т.д.)",
   "settings.game_data_dir.tooltip": "Эта настройка позволяет хранить данные игры на другом диске или в другом месте. Полезно, если на основном диске заканчивается место. Лаунчер автоматически обработает изменение расположения для новых загрузок и установок.",
   "settings.game_data_dir.placeholder": "Будет использоваться расположение по умолчанию",
   "settings.game_data_dir.reset_tooltip": "Сбросить на расположение по умолчанию",
   "settings.game_data_dir.select_tooltip": "Выбрать пользовательский каталог",
-
   "settings.hooks.title": "Хуки игры",
   "settings.hooks.description": "Настройте пользовательские команды для выполнения до, во время и после запуска игры",
   "settings.hooks.show": "Показать настройки",
   "settings.hooks.hide": "Скрыть настройки",
   "settings.hooks.enable_editing": "Включить редактирование",
   "settings.hooks.disable_editing": "Отключить редактирование",
-
   "settings.hooks.pre_launch.title": "Хук перед запуском",
   "settings.hooks.pre_launch.confirm_title": "включить редактирование перед запуском",
   "settings.hooks.pre_launch.confirm_message": "Редактирование хука перед запуском может помешать запуску игры при неправильной настройке. Продолжайте, только если знаете, что делаете.",
@@ -92,7 +79,6 @@
   "settings.hooks.pre_launch.description": "Команда для выполнения перед запуском Minecraft. Если эта команда завершится с ошибкой, запуск будет прерван.",
   "settings.hooks.pre_launch.placeholder": "Пример: echo \"Запуск Minecraft...\"",
   "settings.hooks.pre_launch.disabled_tooltip": "Включите редактирование для изменения этого поля",
-
   "settings.hooks.wrapper.title": "Хук-обёртка",
   "settings.hooks.wrapper.confirm_title": "включить редактирование обёртки",
   "settings.hooks.wrapper.confirm_message": "Изменение хука-обёртки влияет на способ запуска Java. Неправильная настройка может помешать запуску.",
@@ -100,7 +86,6 @@
   "settings.hooks.wrapper.description": "Команда-обёртка для запуска Java (например, инструменты песочницы). Путь к Java будет передан как аргумент.",
   "settings.hooks.wrapper.placeholder": "Пример: firejail или gamemoderun",
   "settings.hooks.wrapper.disabled_tooltip": "Включите редактирование для изменения этого поля",
-
   "settings.hooks.post_exit.title": "Хук после выхода",
   "settings.hooks.post_exit.confirm_title": "включить редактирование после выхода",
   "settings.hooks.post_exit.confirm_message": "Хук после выхода выполняет системные команды после закрытия игры. Продолжайте, только если доверяете команде.",
@@ -108,7 +93,6 @@
   "settings.hooks.post_exit.description": "Команда для выполнения после успешного выхода из Minecraft. Выполняется в фоновом режиме без блокировки.",
   "settings.hooks.post_exit.placeholder": "Пример: echo \"Minecraft закрыт\"",
   "settings.hooks.post_exit.disabled_tooltip": "Включите редактирование для изменения этого поля",
-
   "settings.hooks.warning.title": "Предупреждение",
   "settings.hooks.warning.description": "Эти хуки выполняют системные команды с полными правами. Используйте только команды, которым доверяете и понимаете. Неправильные команды могут помешать запуску Minecraft или вызвать проблемы безопасности.",
   "settings.hooks.examples.title": "Примеры",
@@ -116,25 +100,20 @@
   "settings.hooks.examples.wrapper": "firejail",
   "settings.hooks.examples.wrapper_alt": "gamemoderun",
   "settings.hooks.examples.post_exit": "notify-send \"Игра завершена\"",
-
   "settings.licenses.title": "Лицензии сторонних компонентов",
   "settings.licenses.description": "Просмотр лицензий стороннего кода и компонентов",
   "settings.licenses.view": "Просмотр лицензий",
-
   "settings.open_directory": "ОТКРЫТЬ КАТАЛОГ",
   "settings.open_directory.tooltip": "Открыть каталог лаунчера",
   "settings.open_directory.error": "Не удалось открыть каталог лаунчера: {{error}}",
-
   "settings.loading": "Загрузка настроек...",
   "settings.error.title": "Ошибка загрузки настроек",
   "settings.error.no_config": "Не удалось загрузить конфигурацию.",
-
   "settings.toast.auto_saved": "Настройки автоматически сохранены!",
   "settings.toast.auto_save_failed": "Автосохранение не удалось: {{error}}",
   "settings.toast.custom_color_applied": "Пользовательский цвет применён!",
   "settings.toast.invalid_hex": "Введите корректный 6-значный HEX-цвет (например, #FF5733)",
   "settings.toast.reset": "Настройки сброшены к сохранённым значениям",
-
   "common.save": "Сохранить",
   "common.confirm": "Подтвердить",
   "common.cancel": "Отмена",
@@ -152,25 +131,20 @@
   "common.error": "Ошибка",
   "common.vanilla": "Ванильный",
   "common.unknown": "Неизвестно",
-
   "launcher.select_version": "Выберите версию",
-
   "header.update.downloading": "Загрузка и установка обновления...",
   "header.update.success": "Обновление успешно установлено! Приложение будет перезапущено.",
   "header.update.failed": "Обновление не удалось: {{error}}",
   "header.update.tooltip_updating": "Загрузка обновления...",
   "header.update.tooltip_available": "Нажмите для обновления: {{version}}",
-
   "window.minimize": "Свернуть",
   "window.maximize": "Развернуть",
   "window.close": "Закрыть",
-
   "updater.title": "Обновление",
   "updater.initializing": "Инициализация...",
   "updater.downloading": "Загрузка... {{progress}}%",
   "updater.complete": "Обновление завершено",
   "updater.loading_theme": "Загрузка темы...",
-
   "launch.button": "ЗАПУСТИТЬ ИГРУ",
   "launch.cancel": "ОТМЕНА",
   "launch.launching": "Запуск...",
@@ -183,17 +157,14 @@
   "launch.failed": "Ошибка запуска: {{error}}",
   "launch.cancel_failed": "Не удалось отменить запуск",
   "launch.polling_error": "Ошибка опроса: {{error}}",
-
   "launch.starting": "ЗАПУСК!",
   "launch.minecraft_started": "✓ Minecraft успешно запущен!",
   "launch.error": "✗ Ошибка: {{error}}",
   "launch.stopping": "Остановка...",
   "launch.stopped": "Процесс запуска остановлен.",
   "launch.stop_failed": "Не удалось остановить: {{message}}",
-
   "launch.status.idle": "Ожидание",
   "launch.status.abort": "Прервать запуск",
-
   "crash_modal.title": "Отчёт о сбое Minecraft",
   "crash_modal.description": "Произошла непредвиденная ошибка, и игра вылетела. Приносим извинения за неудобства.",
   "crash_modal.exit_code": "код выхода",
@@ -216,7 +187,6 @@
   "crash_modal.toast.discord_opened": "Discord NoRisk открыт в браузере!",
   "crash_modal.toast.discord_failed": "Не удалось открыть Discord. Перейдите вручную на discord.norisk.gg.",
   "crash_modal.error.no_log_content": "Нет содержимого лога для загрузки.",
-
   "tos.title": "Условия использования",
   "tos.welcome": "Добро пожаловать в NoRisk Launcher!",
   "tos.read_accept": "Пожалуйста, прочитайте и примите наши Условия использования перед началом работы с лаунчером.",
@@ -237,7 +207,6 @@
   "tos.toast.privacy_failed": "Не удалось открыть Политику конфиденциальности. Посетите вручную www.norisk.gg/privacy.",
   "tos.toast.terms_opened": "Условия использования открыты в браузере!",
   "tos.toast.terms_failed": "Не удалось открыть условия. Посетите вручную www.norisk.gg/tos.",
-
   "analytics.banner.title": "Помогите улучшить NoRisk Client",
   "analytics.banner.description": "Отправьте анонимные данные использования, чтобы помочь нам улучшить лаунчер. Включает версии игры, взаимодействия с UI и тип операционной системы.",
   "analytics.banner.learn_more": "Узнать больше →",
@@ -251,18 +220,15 @@
   "analytics.toast.dismissed": "Мы спросим позже. Вы также можете включить аналитику в Настройках.",
   "analytics.settings.label": "Аналитика",
   "analytics.settings.tooltip": "Помогите улучшить лаунчер, отправляя анонимные данные использования. Примеры: версия лаунчера, версии игры, такие как 1.21.10 или 1.8.9, типы модлоадеров, взаимодействия с UI и системная информация. Личная информация, имена пользователей или пути к файлам не собираются.",
-
   "child_protection.title": "Ограничение учётной записи Microsoft",
   "child_protection.description": "Похоже, что у вашей учётной записи Microsoft включена защита детей или режим конфиденциальности, который ограничивает многопользовательские функции. Из-за этого лаунчер не может завершить вход.",
   "child_protection.review_settings": "Пожалуйста, проверьте настройки родительского контроля или семейные настройки вашей учётной записи Microsoft / Xbox и убедитесь, что многопользовательский доступ разрешён, затем попробуйте войти снова.",
   "child_protection.setting_location": "Нужная настройка находится на сайте Xbox в разделе «Конфиденциальность и безопасность в сети» → «Безопасность в сети» → «Можно присоединяться к многопользовательским играм» → «Разрешить».",
   "child_protection.button.ignore": "Игнорировать",
   "child_protection.button.open_settings": "Открыть настройки учётной записи Microsoft",
-
   "notification_modal.title": "Уведомления",
   "notification_modal.mark_all_read": "Отметить все как прочитанные",
   "notification_modal.no_notifications": "Нет уведомлений",
-
   "copy_world.title": "Копировать мир '{{name}}'",
   "copy_world.copy_to_profile": "Копировать в профиль",
   "copy_world.loading_profiles": "Загрузка профилей...",
@@ -273,13 +239,11 @@
   "copy_world.error.enter_name": "Пожалуйста, введите название для нового мира.",
   "copy_world.button.copying": "Копирование...",
   "copy_world.button.copy": "Копировать мир",
-
   "confirm_delete.title": "Удалить '{{name}}'?",
   "confirm_delete.message": "Вы уверены, что хотите безвозвратно удалить {{name}}?",
   "confirm_delete.cannot_undo": "Это действие нельзя отменить.",
   "confirm_delete.button.deleting": "Удаление...",
   "confirm_delete.button.delete": "Удалить",
-
   "add_skin.toast.preview_failed": "Не удалось загрузить превью скина: {{error}}",
   "add_skin.toast.file_selected": "Выбран файл: {{name}}",
   "add_skin.toast.updating": "Обновление скина...",
@@ -302,7 +266,6 @@
   "add_skin.saving": "Сохранение...",
   "add_skin.save_changes": "Сохранить изменения",
   "add_skin.save_skin": "Сохранить скин",
-
   "skins.skinSourceEmpty": "Источник скина не может быть пустым.",
   "skins.previewLoadedSuccess": "Превью скина загружено!",
   "skins.failedToLoadPreview": "Не удалось загрузить превью скина: {{error}}",
@@ -330,23 +293,19 @@
   "skins.skin": "Скин",
   "skins.skinInputPlaceholder": "Скопировать по нику, UUID или скачать по URL",
   "skins.uploadSkinFromFile": "Загрузить скин из файла",
-
   "credits_modal.title": "Авторы",
   "credits_modal.ui_frontend": "Интерфейс и фронтенд",
   "credits_modal.backend_core": "Бэкенд и ядро",
   "credits_modal.view_licenses": "Просмотр лицензий",
-
   "group_migration.title": "обнаружено обновление группы",
   "group_migration.description": "похоже, что-то изменилось в вашей группе. хотите скопировать старые файлы?",
   "group_migration.button.copy_files": "копировать файлы",
   "group_migration.button.skip_launch": "пропустить и запустить",
-
   "color_picker.title": "Выбор цвета",
   "color_picker.selected_color": "Выбранный цвет",
   "color_picker.button.apply": "Применить",
   "color_picker.toast.applied": "Цвет применён!",
   "color_picker.toast.invalid_hex": "Введите корректный HEX-цвет",
-
   "profile_duplicate.title": "дублировать профиль",
   "profile_duplicate.description": "дублировать профиль \"{{name}}\"",
   "profile_duplicate.copy_notice": "Будет создана копия профиля, включая миры, настройки, моды и конфигурации.",
@@ -357,7 +316,6 @@
   "profile_duplicate.toast.failed": "Не удалось дублировать профиль: {{error}}",
   "profile_duplicate.button.duplicating": "дублирование...",
   "profile_duplicate.button.duplicate": "дублировать",
-
   "modpack_versions.title": "{{name}} — Версии",
   "modpack_versions.current": "Текущая",
   "modpack_versions.changelog": "Список изменений",
@@ -373,7 +331,6 @@
   "modpack_versions.toast.switching": "Переключение {{name}} на версию {{version}}...",
   "modpack_versions.toast.switch_success": "{{name}} успешно переключён на {{version}}!",
   "modpack_versions.toast.switch_failed": "Не удалось переключить версию модпака: {{error}}",
-
   "socials.title": "Социальные аккаунты",
   "socials.referral_text": "Приглашайте друзей, получите 3 дня NRC+ и",
   "socials.referral_more": "больше...",
@@ -398,10 +355,8 @@
   "socials.qr_confirm.title": "Показать QR-код",
   "socials.qr_confirm.message": "Этот QR-код содержит ваш токен norisk. Не показывайте его на стриме и не делитесь с другими, так как это может скомпрометировать безопасность вашего аккаунта.",
   "socials.qr_confirm.confirm": "Показать QR-код",
-
   "common.unknown_error": "Неизвестная ошибка",
   "common.unknownError": "Произошла неизвестная ошибка.",
-
   "auth.addAccount": "Добавить аккаунт",
   "auth.unknown": "Неизвестно",
   "auth.errors.load_accounts": "Не удалось загрузить аккаунты: {{error}}",
@@ -434,7 +389,6 @@
   "auth.browserLoginDescription": "Откроется окно браузера для входа в вашу учётную запись Microsoft.",
   "auth.loginError": "Ошибка входа",
   "auth.cancelLogin": "Отменить вход",
-
   "skins.editProperties": "Редактировать свойства",
   "skins.deleteSkin": "Удалить скин",
   "skins.applying": "Применение...",
@@ -458,7 +412,6 @@
   "skins.loadingSkins": "Загрузка скинов...",
   "skins.noSkinsMatchSearch": "Скины не соответствуют поиску",
   "skins.skinImage": "Изображение скина",
-
   "capes.noCape": "Без плаща",
   "capes.removeEquippedCape": "Снять надетый плащ",
   "capes.mostUsed": "Самые популярные",
@@ -533,7 +486,6 @@
   "capes.confirmDeleteMessagePrefix": "Вы уверены, что хотите удалить",
   "capes.confirmDeleteMessageSuffix": "? Это действие нельзя отменить.",
   "capes.deleting": "Удаление...",
-
   "capes.errors.inappropriate_content": "Ваш плащ отклонён из-за неподобающего содержимого.",
   "capes.errors.copyright": "Ваш плащ отклонён из-за нарушения авторских прав.",
   "capes.errors.incomplete": "Ваш плащ отклонён, так как дизайн не завершён.",
@@ -551,7 +503,6 @@
   "capes.no_image_url": "URL изображения плаща не указан",
   "capes.texture_load_failed": "Не удалось загрузить текстуру: {{filename}}",
   "capes.loading_3d": "Загрузка 3D...",
-
   "profiles.card.standardVersionInfo": "Стандартный профиль — версия управляется NoRisk",
   "profiles.card.tip": "Совет",
   "profiles.card.createOwnProfiles": "Создавайте собственные профили с пользовательскими настройками!",
@@ -781,13 +732,11 @@
   "profiles.wizard.snapshot": "Снапшот",
   "profiles.wizard.noVersionsFound": "Версии не найдены",
   "profiles.wizard.step1Title": "Данные профиля",
-
   "profiles.clone": "Клонировать профиль",
   "profiles.new_name": "Название нового профиля",
   "profiles.clone_name_placeholder": "Введите название для клонированного профиля",
   "profiles.clone_button": "КЛОНИРОВАТЬ",
   "profiles.clone_profile": "КЛОНИРОВАТЬ ПРОФИЛЬ",
-
   "profiles.errors.load_failed": "Не удалось загрузить данные профилей",
   "profiles.errors.profile_not_found": "Профиль с ID '{{id}}' не найден.",
   "profiles.errors.no_profile_selected": "Профиль не выбран. Пожалуйста, выберите профиль.",
@@ -800,26 +749,21 @@
   "profiles.errors.image_dialog_failed": "Не удалось открыть диалог выбора изображения.",
   "profiles.errors.already_importing": "Этот файл уже импортируется.",
   "profiles.errors.file_path_failed": "Не удалось получить путь к выбранному файлу. Попробуйте ещё раз.",
-
   "profiles.repair_success": "Восстановление профиля успешно завершено!",
   "profiles.repair_failed": "Не удалось восстановить профиль: {{error}}",
-
   "profiles.toast.opening_folder": "📁 Открытие папки {{name}}!",
   "profiles.toast.delete_fallback": "🗑️ Удаление {{name}}!",
   "profiles.toast.managing_mods": "📦 Управление модами {{name}}!",
   "profiles.toast.launching_world": "🚀 Запуск мира: {{name}}",
   "profiles.toast.joining_server": "🌐 Подключение к серверу: {{name}}",
-
   "profiles.import.modpack_files": "Файлы модпака",
   "profiles.import.select_modpack": "Выберите модпак для импорта",
-
   "profiles.loading_profile": "Загрузка профиля...",
   "profiles.errors.no_profile_id": "ID профиля не указан",
   "profiles.errors.not_found": "Профиль не найден",
   "profiles.loading_details": "Загрузка данных профиля...",
   "profiles.new_profile": "Новый профиль",
   "profiles.create_profile_first": "Сначала создайте профиль для установки контента",
-
   "profiles.v3.stats.modpack": "Модпак",
   "profiles.v3.stats.playtime": "Время игры",
   "profiles.v3.stats.disk": "Диск",
@@ -897,7 +841,6 @@
   "profiles.v3.time.yearsAgo": "{{count}} лет назад",
   "profiles.v3.time.placeholder": "—",
   "profiles.v3.time.lessThanMinute": "< 1м",
-
   "common.refreshing": "Обновление...",
   "common.selected": "выбрано",
   "common.select_all": "Выбрать все",
@@ -921,13 +864,11 @@
   "common.more": "ещё",
   "common.installed": "Установлено",
   "common.uninstall": "Удалить",
-
   "server.pinging": "Пингуем...",
   "server.players": "Игроки",
   "server.stop": "Стоп",
   "server.join": "Войти",
   "server.mods": "Моды",
-
   "radius.title": "Радиус скругления",
   "radius.square": "Квадратный",
   "radius.minimal": "Минимальный",
@@ -937,12 +878,10 @@
   "radius.extra_large": "Очень большой",
   "radius.maximum": "Максимальный",
   "radius.round": "Круглый",
-
   "color_picker.hex": "Hex",
   "color_picker.r": "R",
   "color_picker.g": "G",
   "color_picker.b": "B",
-
   "content.table_summary": "Сводка таблицы",
   "content.norisk.profile_unavailable": "Данные профиля недоступны. Невозможно отобразить моды NoRisk.",
   "content.norisk.search_placeholder": "Поиск модов NoRisk...",
@@ -965,7 +904,6 @@
   "content.norisk.toast.mod_not_found_batch": "Мод {{id}} не найден при пакетной операции.",
   "content.norisk.toast.toggle_failed": "Не удалось переключить {{name}}: {{error}}",
   "content.norisk.toast.switch_pack_failed": "Не удалось переключить пакет NoRisk: {{error}}",
-
   "content.actions.toggle_selected": "Переключить включение/отключение для {{count}} выбранных элементов",
   "content.actions.toggling": "ПЕРЕКЛЮЧЕНИЕ...",
   "content.actions.toggle": "ПЕРЕКЛЮЧИТЬ",
@@ -991,7 +929,6 @@
   "content.actions.refresh_list": "Обновить список",
   "content.actions.deselect_all": "Снять выделение со всех видимых",
   "content.actions.select_all": "Выбрать все видимые",
-
   "content.no_pack_selected": "Пакет NoRisk не выбран",
   "content.no_pack_selected_option": "- Пакет не выбран -",
   "content.select_pack_placeholder": "Выберите пакет...",
@@ -1002,7 +939,6 @@
   "content.platforms.modrinth": "Modrinth",
   "content.platforms.maven": "Maven",
   "content.platforms.url": "URL",
-
   "content.loading_versions": "Загрузка версий...",
   "content.loading_details": "Загрузка подробностей...",
   "content.available_versions_on": "Доступные версии на {{platform}}:",
@@ -1011,15 +947,11 @@
   "content.version_load_failed": "Не удалось загрузить версии с {{platform}}.",
   "content.version_load_failed_details": "Не удалось загрузить версии с {{platform}}: {{error}}",
   "content.item_not_found": "Элемент не найден.",
-
   "content.badge.crashes_with_nrc": "ВЫЛЕТАЕТ С NRC",
-
   "content.update_check_error": "Ошибка проверки обновлений: {{error}}",
-
   "content.profile_unavailable": "Данные профиля недоступны. Невозможно отобразить {{itemType}}.",
   "content.standard_readonly": "Стандартные профили только для чтения.",
   "content.clone_to_edit": "Клонируйте для внесения изменений и управления контентом.",
-
   "content.loading_items": "Загрузка {{itemType}}...",
   "content.manage_items": "Управляйте своими {{itemType}}",
   "content.select_pack_description": "Пожалуйста, выберите модпак NoRisk из меню для управления его модами.",
@@ -1028,10 +960,8 @@
   "content.empty_description": "Перетащите {{itemType}} сюда или нажмите Обзор, чтобы найти и установить контент онлайн.",
   "content.no_search_results": "Попробуйте другой поисковый запрос или очистите фильтр поиска.",
   "content.select_to_manage": "Выберите {{itemType}} для пакетных действий или индивидуального управления.",
-
   "content.delete_item_title": "Удалить {{name}}?",
   "content.delete_selected_title": "Удалить выбранные {{itemType}}?",
-
   "content.toast.pack_list_refreshed": "Список пакетов NoRisk обновлён.",
   "content.toast.pack_list_refresh_failed": "Не удалось обновить список пакетов NoRisk.",
   "content.toast.profile_unavailable": "Данные профиля недоступны для добавления контента.",
@@ -1044,14 +974,11 @@
   "content.toast.clone_success": "Профиль '{{name}}' успешно клонирован!",
   "content.toast.clone_failed": "Не удалось клонировать профиль: {{error}}",
   "content.toast.clone_init_failed": "Не удалось начать процесс клонирования.",
-
   "content.filter.java_archives": "Архивы Java",
   "content.filter.resource_pack_archives": "Архивы ресурспаков",
   "content.filter.shader_pack_archives": "Архивы шейдерпаков",
   "content.filter.data_pack_archives": "Архивы датапаков",
-
   "content.dialog.select_to_import": "Выберите {{itemType}} для импорта в профиль: {{profileName}}",
-
   "content.open_containing_folder": "Открыть содержащую папку",
   "content.unknown_file": "Неизвестный файл",
   "content.unknown_pack": "Неизвестный пакет",
@@ -1059,7 +986,6 @@
   "content.confirm_deletion": "Нажмите ещё раз для подтверждения удаления",
   "content.delete_pack": "Удалить пакет",
   "content.view_version_options": "Просмотреть опции версии",
-
   "content.header.name": "название",
   "content.header.version": "версия",
   "content.header.status": "статус",
@@ -1072,7 +998,6 @@
   "content.filters.server": "Сервер",
   "content.search_modrinth": "Искать на Modrinth",
   "content.search_curseforge": "Искать на CurseForge",
-
   "content.search.error": "Ошибка: {{error}}",
   "content.search.no_results": "Результаты не найдены. Попробуйте изменить фильтры или поисковый запрос.",
   "content.search.load_more": "Загрузить ещё (осталось {{remaining}})",
@@ -1083,7 +1008,6 @@
   "content.search.sort.follows": "Подписчики",
   "content.search.sort.newest": "Новейшие",
   "content.search.sort.updated": "Обновлённые",
-
   "content.install.missing_info": "Отсутствует необходимая информация для установки",
   "content.install.no_file": "Нет файла для загрузки выбранной версии.",
   "content.install.modpack_as_profile": "Модпаки должны устанавливаться как новые профили.",
@@ -1110,12 +1034,10 @@
   "content.install.no_primary_file_delete": "Основной файл не найден для версии. Невозможно определить детали для удаления.",
   "content.install.sha1_missing": "Отсутствует хеш SHA1 для этой версии. Невозможно продолжить удаление.",
   "content.install.toggle_missing_hash": "Невозможно включить/отключить версию: отсутствует хеш файла",
-
   "content.errors.load_custom_mods": "Не удалось загрузить пользовательские моды",
   "content.errors.load_resource_packs": "Не удалось загрузить ресурспаки",
   "content.errors.load_shader_packs": "Не удалось загрузить шейдерпаки",
   "content.errors.load_norisk_packs": "Не удалось загрузить список пакетов NoRisk.",
-
   "friends.status.online": "ОНЛАЙН",
   "friends.status.afk": "ОТОШЁЛ",
   "friends.status.busy": "ЗАНЯТ",
@@ -1158,20 +1080,17 @@
   "friends.settings.allow_requests_desc": "Игроки могут отправлять запросы",
   "friends.settings.server_invites": "Приглашения на сервер",
   "friends.settings.server_invites_desc": "Друзья могут приглашать вас",
-
   "friends.notifications.online": "{{username}} теперь онлайн",
   "friends.notifications.offline": "{{username}} вышел из сети",
   "friends.notifications.playing_on": "{{name}} теперь играет на {{server}}",
   "friends.notifications.friend_request": "{{name}} отправил вам запрос дружбы",
   "friends.notifications.chat_preview": "{{name}}: {{message}}",
-
   "chat.today": "Сегодня",
   "chat.yesterday": "Вчера",
   "chat.no_messages_title": "Сообщений пока нет",
   "chat.no_messages_desc": "скажите привет!",
   "chat.start_of_conversation": "— начало разговора —",
   "chat.type_message": "Введите сообщение...",
-
   "logs.loading": "Загрузка логов...",
   "logs.no_content_title": "Содержимое лога недоступно",
   "logs.no_content_desc": "Выберите файл лога для просмотра",
@@ -1197,7 +1116,6 @@
   "logs.select_instance_hint": "Выберите экземпляр в боковой панели для просмотра логов",
   "logs.no_logs_to_upload": "Нет логов для загрузки",
   "logs.uploaded_url_copied": "Загружено! URL скопирован в буфер обмена",
-
   "screenshots.copy_image": "Копировать изображение",
   "screenshots.open_location": "Открыть расположение скриншота",
   "screenshots.delete_screenshot": "Удалить скриншот",
@@ -1214,7 +1132,6 @@
   "screenshots.take_some": "сделайте несколько в игре, чтобы увидеть их здесь!",
   "screenshots.preview_error": "Ошибка превью",
   "screenshots.no_preview": "Нет превью",
-
   "dragdrop.already_importing": "Этот файл уже импортируется.",
   "dragdrop.importing": "Импорт {{fileName}}",
   "dragdrop.import_success": "Импорт профиля запущен для {{fileName}}. Открытие профиля...",
@@ -1231,7 +1148,6 @@
   "dragdrop.drop_hint": "Перетащите файлы в область контента активного профиля для импорта или перетащите файл .noriskpack/.mrpack/.zip куда угодно для импорта профиля.",
   "dragdrop.not_configured": "Перетаскивание не настроено для типа контента: {{type}}",
   "dragdrop.listener_init_failed": "Не удалось инициализировать слушатель перетаскивания.",
-
   "content_manager.errors.profile_missing_toggle": "Профиль отсутствует для переключения.",
   "content_manager.errors.profile_missing_delete": "Данные профиля отсутствуют, невозможно завершить удаление.",
   "content_manager.errors.profile_missing_update": "Профиль отсутствует, невозможно обновить.",
@@ -1264,7 +1180,6 @@
   "content_manager.errors.selected_items_not_found": "Выбранные элементы не найдены.",
   "content_manager.errors.no_valid_ids_toggle_updates": "Невозможно переключить проверку обновлений: выбранные элементы не имеют допустимых ID",
   "content_manager.errors.toggle_update_checks_failed": "Не удалось переключить проверку обновлений: {{error}}",
-
   "content_manager.success.deleted": "{{name}} удалён.",
   "content_manager.success.batch_deleted": "Успешно удалено {{count}} элемент(ов).",
   "content_manager.success.batch_toggled": "Успешно переключено {{count}} элемент(ов).",
@@ -1275,7 +1190,6 @@
   "content_manager.success.toggle_updates_disabled": "Проверка обновлений отключена для {{name}}.",
   "content_manager.success.batch_toggle_updates_enabled": "Проверка обновлений включена для {{count}} {{itemLabel}}.",
   "content_manager.success.batch_toggle_updates_disabled": "Проверка обновлений отключена для {{count}} {{itemLabel}}.",
-
   "content_manager.loading.updating": "Обновление {{name}} до {{version}}...",
   "content_manager.loading.updating_progress": "Обновление {{current}}/{{total}} {{type}}ов...",
   "content_manager.loading.switching": "Переключение на {{version}}...",
@@ -1283,11 +1197,9 @@
   "content_manager.loading.disabling_update_checks": "Отключение проверки обновлений для {{name}}...",
   "content_manager.loading.enabling_update_checks_batch": "Включение проверки обновлений для {{count}} {{itemLabel}}...",
   "content_manager.loading.disabling_update_checks_batch": "Отключение проверки обновлений для {{count}} {{itemLabel}}...",
-
   "content_manager.update_result.finished_partial": "Завершено: {{succeeded}} успешно, {{failed}} не удалось.",
   "content_manager.update_result.item": "элемент",
   "content_manager.update_result.items": "элементов",
-
   "modrinth_installer.errors.profile_not_found": "Профиль с ID {{profileId}} не найден. Пожалуйста, выберите другой профиль.",
   "modrinth_installer.errors.install_failed": "Не удалось установить: {{error}}",
   "modrinth_installer.errors.missing_search_hit": "Отсутствует контекст результата поиска",
@@ -1295,7 +1207,6 @@
   "modrinth_installer.errors.installation_error": "Ошибка установки: {{error}}",
   "modrinth_installer.installing": "Установка {{fileName}}",
   "modrinth_installer.success": "{{fileName}} успешно установлен!",
-
   "time.never": "никогда",
   "time.seconds_ago": "{{count}}с назад",
   "time.minutes_ago": "{{count}}м назад",
@@ -1304,7 +1215,6 @@
   "time.weeks_ago": "{{count}}н назад",
   "time.months_ago": "{{count}}мес назад",
   "time.years_ago": "{{count}}г назад",
-
   "iris.skip_shader_mod": "Пропустить мод шейдеров",
   "iris.install_iris": "Установить Iris",
   "iris.shader_pack_setup": "Настройка шейдерпака",
@@ -1317,10 +1227,8 @@
   "iris.installation_error": "Установка не удалась. Подробности в консоли.",
   "iris.installed_optimal": "Мод шейдеров Iris установлен — шейдерпаки будут работать оптимально",
   "iris.required_optimal": "Мод шейдеров Iris необходим для оптимальной работы шейдерпаков",
-
   "app.errors.process_status": "Не удалось глобально обработать статус процесса Minecraft.",
   "app.errors.save_grouping": "Не удалось сохранить настройку группировки.",
-
   "java.no_installations_found": "Установки Java не найдены в вашей системе. Возможно, потребуется указать путь вручную, если вы используете пользовательскую настройку Java.",
   "java.detect_failed": "Не удалось обнаружить Java: {{error}}",
   "java.load_memory_failed": "Не удалось загрузить глобальные настройки памяти",
@@ -1333,7 +1241,6 @@
   "java.path_invalid": "Некорректный путь к Java. Проверьте путь или убедитесь, что это совместимая версия Java.",
   "java.path_not_exist": "Выбранный путь к Java не существует.",
   "java.validation_error": "Ошибка валидации Java: {{error}}",
-
   "mod_detail.invalid_url_params": "Некорректные параметры URL",
   "mod_detail.project_not_found": "Проект не найден",
   "mod_detail.loading_project": "Загрузка данных проекта...",
@@ -1386,7 +1293,6 @@
   "mod_detail.versions.all_loaders": "Все загрузчики",
   "mod_detail.description": "Описание",
   "mod_detail.no_description": "Описание недоступно.",
-
   "modrinth.filters": "Фильтры",
   "modrinth.categories": "Категории",
   "modrinth.loading_categories": "Загрузка категорий...",
@@ -1414,7 +1320,6 @@
   "modrinth.error_creating_or_installing": "Произошла ошибка при создании профиля или установке контента.",
   "modrinth.errors.missing_data": "Невозможно создать профиль: данные проекта или версии отсутствуют.",
   "modrinth.errors.no_suitable_version": "Невозможно создать профиль: подходящая версия не найдена.",
-
   "modrinth.project_types.mods": "Моды",
   "modrinth.project_types.modpacks": "Модпаки",
   "modrinth.project_types.resource_packs": "Ресурспаки",
@@ -1484,7 +1389,6 @@
   "modrinth.adjust_search_filters": "Попробуйте изменить поиск или фильтры",
   "modrinth.uninstalling": "Удаление...",
   "modrinth.installed": "Установлено",
-
   "symlink.configure": "Настроить симлинк",
   "symlink.create": "Создать симлинк",
   "symlink.external_file": "Внешний файл",
@@ -1496,10 +1400,8 @@
   "symlink.remove_symlink": "Удалить симлинк",
   "symlink.add_new": "добавить новый симлинк",
   "symlink.select_folder_inside_profile": "Пожалуйста, выберите папку внутри папки экземпляра профиля.",
-
   "files.loading_structure": "Загрузка структуры файлов...",
   "files.no_structure_available": "Структура файлов недоступна.",
-
   "worlds.path_not_available": "Путь к миру недоступен.",
   "worlds.launching_world": "🚀 Запуск мира: {{name}}",
   "worlds.joining_server": "🌐 Подключение к серверу: {{name}}",
@@ -1546,13 +1448,10 @@
   "worlds.rename_placeholder": "Введите новое название мира...",
   "worlds.rename_button": "Переименовать",
   "worlds.size": "{{size}} МБ",
-
   "datapacks.search_placeholder": "Поиск датапаков...",
   "datapacks.loading": "Загрузка датапаков...",
-
   "resourcepacks.search_placeholder": "Поиск ресурспаков...",
   "resourcepacks.loading": "Загрузка ресурспаков...",
-
   "symlinks.load_failed": "Не удалось загрузить симлинки",
   "symlinks.folder_picker_failed": "Не удалось открыть выбор папки",
   "symlinks.file_picker_failed": "Не удалось открыть выбор файла",
@@ -1581,17 +1480,14 @@
   "symlinks.step_2": "настройте, где это появится в вашем профиле",
   "symlinks.step_3": "контент связан — изменения синхронизируются мгновенно",
   "symlinks.perfect_for": "идеально для синхронизации скриншотов, файлов конфигурации, сохранений или ресурспаков между профилями или облачным хранилищем.",
-
   "debug.uploaded_copied": "Загружено и скопировано в буфер обмена!",
   "debug.upload_failed": "Не удалось загрузить: {{error}}",
   "debug.copied": "Скопировано в буфер обмена!",
   "debug.copy_failed": "Не удалось скопировать: {{error}}",
   "debug.copy_content": "Копировать содержимое",
   "debug.upload_mclogs": "Загрузить на mclo.gs",
-
   "settings.disable_experimental": "Пожалуйста, отключите экспериментальный режим в Настройках.",
   "capes.data_refreshed": "Данные плащей обновлены!",
-
   "advent.load_failed": "Не удалось загрузить адвент-календарь",
   "advent.coins_amount": "{{amount}} монет",
   "advent.added_to_account": "Добавлено на ваш аккаунт",
@@ -1602,7 +1498,6 @@
   "advent.model_error": "Ошибка модели",
   "advent.reward_claimed": "Награда за день {{day}} получена!",
   "advent.claim_failed": "Не удалось получить награду",
-
   "instances.fetch_failed": "Не удалось загрузить запущенные экземпляры",
   "instances.loading": "Загрузка...",
   "instances.no_instances": "Нет экземпляров",
@@ -1623,11 +1518,9 @@
   "instances.count_running": "{{count}} экземпляр запущен",
   "instances.count_running_other": "{{count}} экземпляров запущено",
   "instances.none": "нет экземпляров",
-
   "header.toggle_friends": "Переключить друзей",
   "header.open_socials": "Открыть социальные аккаунты",
   "header.notifications": "Уведомления",
-
   "export.enter_filename": "Пожалуйста, введите имя файла для экспорта.",
   "export.open_folder_after": "Открыть папку после экспорта",
   "export.exporting": "Экспорт...",
@@ -1645,7 +1538,6 @@
   "export.title": "Экспорт профиля",
   "export.description": "Экспортируйте свой профиль, чтобы поделиться с другими или для резервного копирования. Вы можете настроить, какие файлы включать.",
   "export.export_failed": "Не удалось экспортировать профиль: {{error}}",
-
   "shaderpacks.toggle_success": "Шейдерпак \"{{name}}\" {{status}}.",
   "shaderpacks.toggle_failed": "Не удалось переключить \"{{name}}\": {{error}}",
   "shaderpacks.loading": "загрузка шейдерпаков...",
@@ -1662,7 +1554,6 @@
   "shaderpacks.no_match_search": "шейдерпаки не соответствуют поиску",
   "shaderpacks.none_installed": "шейдерпаки не установлены",
   "shaderpacks.drag_drop_hint": "Перетащите файлы шейдерпаков сюда для установки",
-
   "mods.profile_unavailable": "Данные профиля недоступны. Невозможно отобразить моды.",
   "mods.version_label": "Версия: {{version}}",
   "mods.enabled": "Включён",
@@ -1709,14 +1600,12 @@
   "mods.delete_count": "Удалить ({{count}})",
   "mods.updating_all": "Обновление всех...",
   "mods.update_all_count": "Обновить все ({{count}})",
-
   "empty_states.try_adjusting_search": "Попробуйте изменить поиск или фильтры.",
   "empty_states.try_adjusting_sort": "Попробуйте изменить параметры сортировки.",
   "empty_states.no_content_found": "Контент не найден. Попробуйте другой поиск.",
   "empty_states.error_loading_data": "Ошибка загрузки данных",
   "empty_states.no_results_for": "Результатов не найдено для \"{{query}}\"",
   "empty_states.browse_popular": "Просмотреть популярный контент",
-
   "placeholders.search_logs": "Поиск логов...",
   "placeholders.search_profiles": "Поиск профилей...",
   "placeholders.search_modrinth": "Поиск модов, модпаков, ресурспаков...",
@@ -1726,16 +1615,12 @@
   "placeholders.java_path": "Путь к исполняемому файлу Java (например, .../bin/javaw.exe)",
   "placeholders.profile_name_awesome": "Мой крутой профиль",
   "placeholders.group_name": "например, модпаки, ванилла+",
-
   "referral.loading": "Загрузка реферала...",
-
   "tabs.news": "Новости",
   "news.coming_soon": "Новости скоро",
-
   "designer.asset_management": "Управление ассетами",
   "designer.keep_local_assets": "Сохранять локальные ассеты",
   "designer.keep_local_assets_description": "Если отмечено, отредактированные ассеты (крылья, norisk.jsons и т.д.) не будут перезаписаны при перезапуске.",
-
   "nrc.incompatible_warning": "NoRiskClient в данный момент несовместим с этим загрузчиком или версией! Вы всё ещё можете создать его, но функции будут недоступны. Это может измениться в будущем.",
   "nrc.no_features_warning": "С этим выбором у вас не будет никаких функций NoRiskClient.",
   "nrc.info_title": "информация",
@@ -1748,11 +1633,37 @@
   "nrc.repair_description": "Восстанавливает установку профиля, повторно загружая отсутствующие или повреждённые файлы.",
   "nrc.repairing": "восстановление...",
   "nrc.repair": "восстановить",
-
   "settings.java.select_java_executable": "Выбрать исполняемый файл Java (javaw.exe, java) или каталог установки",
-
   "lightbox.counter": "{{current}} из {{total}}",
   "lightbox.press_space_zoom": "Нажмите Пробел для масштабирования",
   "lightbox.arrow_keys_navigate": "Стрелки для навигации",
-  "lightbox.esc_close": "Esc для закрытия"
+  "lightbox.esc_close": "Esc для закрытия",
+  "worlds.sort.last_played": "Последняя игра",
+  "worlds.sort.name": "Имя",
+  "worlds.play_this_world": "Играть в этот мир",
+  "worlds.none_found": "Пока нет миров",
+  "worlds.create_in_minecraft": "Создай новый мир в Minecraft или импортируй .mcworld файл.",
+  "worlds.import_world": "Импорт мира",
+  "worlds.import_title": "Выбери папку мира для импорта",
+  "worlds.importing": "Импорт {{name}}…",
+  "worlds.import_success": "Мир «{{name}}» успешно импортирован!",
+  "worlds.import_failed": "Не удалось импортировать мир: {{error}}",
+  "worlds.copy": "Копировать мир",
+  "worlds.copying": "Копирование {{name}}…",
+  "worlds.delete_title": "Удалить мир",
+  "worlds.delete_confirm": "Удалить мир «{{name}}»? Это действие нельзя отменить.",
+  "worlds.deleting": "Удаление {{name}}…",
+  "worlds.batch_delete_title": "Удалить миры",
+  "worlds.batch_delete_item_name": "{{count}} миров",
+  "worlds.batch_delete_confirm": "Удалить {{count}} выбранных миров? Это действие нельзя отменить.",
+  "worlds.batch_delete_success": "Удалено миров: {{count}}.",
+  "worlds.difficulty_locked": "Сложность заблокирована",
+  "worlds.open_folder_failed": "Не удалось открыть папку: {{error}}",
+  "profiles.v3.servers.title": "Серверы",
+  "profiles.v3.servers.join": "Присоединиться к серверу",
+  "profiles.v3.servers.joinShort": "Войти",
+  "profiles.v3.servers.offline": "Сервер недоступен",
+  "profiles.v3.servers.pinging": "Пингование…",
+  "profiles.v3.servers.reping": "Повторить ping",
+  "profiles.v3.servers.copyAddress": "Скопировать адрес"
 }
