@@ -45,7 +45,7 @@ import { Tooltip } from "../../ui/Tooltip";
 import { ProfileLeftRailV3, type NavKey, CONTENT_NAV_KEYS } from "./ProfileLeftRailV3";
 import { LocalContentTabV3 } from "./tabs/LocalContentTabV3";
 import { WorldsTabV3 } from "./tabs/WorldsTabV3";
-import { ScreenshotsTab } from "../detail/ScreenshotsTab";
+import { ScreenshotsTabV3 } from "./tabs/ScreenshotsTabV3";
 import { LogsTab } from "../detail/LogsTab";
 import type { LocalContentItem } from "../../../hooks/useLocalContentManager";
 
@@ -662,14 +662,7 @@ export function ProfileDetailViewV3({
           )}
 
           {activeNavItem === "screenshots" && (
-            <ScreenshotsTab
-              profile={currentProfile}
-              isActive={true}
-              onOpenScreenshotModal={() => {
-                // ScreenshotsTab V3 wird spaeter gebaut; die V2-Implementation
-                // nutzt onOpenScreenshotModal noch nicht in dieser Variante.
-              }}
-            />
+            <ScreenshotsTabV3 profile={currentProfile} isActive={true} />
           )}
 
           {activeNavItem === "logs" && (
