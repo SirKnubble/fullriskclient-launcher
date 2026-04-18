@@ -44,7 +44,7 @@ import { Tooltip } from "../../ui/Tooltip";
 
 import { ProfileLeftRailV3, type NavKey, CONTENT_NAV_KEYS } from "./ProfileLeftRailV3";
 import { LocalContentTabV3 } from "./tabs/LocalContentTabV3";
-import { WorldsTab } from "../detail/WorldsTab";
+import { WorldsTabV3 } from "./tabs/WorldsTabV3";
 import { ScreenshotsTab } from "../detail/ScreenshotsTab";
 import { LogsTab } from "../detail/LogsTab";
 import type { LocalContentItem } from "../../../hooks/useLocalContentManager";
@@ -129,20 +129,15 @@ export function ProfileDetailViewV3({
 
   const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } = useProfileLaunch({
     profileId: profile.id,
-    onLaunchSuccess: () => {
-      console.log("[V3] Profile launched successfully:", profile.name);
-    },
-    onLaunchError: (error) => {
-      console.error("[V3] Profile launch error:", error);
-    },
+    onLaunchSuccess: () => {},
+    onLaunchError: (error) => console.error("[V3] Profile launch error:", error),
   });
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const getGenericDisplayFileName = useCallback((item: LocalContentItem) => item.filename, []);
 
-  const handleRefresh = useCallback(() => {
-    console.log("[V3] Refresh requested");
-  }, []);
+  // Stub — tabs handle their own refresh; mirrors V2's handleRefresh noop.
+  const handleRefresh = useCallback(() => {}, []);
 
   const handleBrowseContent = useCallback((contentType: string) => {
     navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
@@ -511,14 +506,6 @@ export function ProfileDetailViewV3({
                 {isLaunching ? t('profiles.stop') : t('profiles.play')}
               </span>
             </button>
-            <Tooltip content={t('profiles.tabs.worlds')}>
-              <button
-                onClick={() => { setActiveNavItem("worlds"); handleQuickPlayLaunch(undefined, undefined); }}
-                className="h-14 w-10 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors"
-              >
-                <Icon icon="solar:alt-arrow-down-bold" className="w-4 h-4" />
-              </button>
-            </Tooltip>
             <Tooltip content={t('profiles.editProfile')}>
               <button
                 onClick={onEdit}
@@ -530,42 +517,52 @@ export function ProfileDetailViewV3({
           </div>
         </div>
 
-        {/* Stats strip */}
-        <div className="flex items-center gap-2 mt-5 flex-wrap">
-          <Stat
-            icon="solar:clock-circle-bold"
-            label={t('profiles.sort.lastPlayed')}
-            value={formatRelativeTime(currentProfile.last_played)}
-          />
-          <Stat
-            icon="solar:archive-bold"
-            label={t("profiles.v3.stats.modpack")}
-            value={hasModpack ? (modpackVersionNumber ? `${modpackLabel} ${modpackVersionNumber}` : modpackLabel) : "—"}
-            muted={!hasModpack}
-          />
-          <Stat
-            icon="solar:hourglass-bold"
-            label={t("profiles.v3.stats.playtime")}
-            value={formatPlaytime(currentProfile.playtime_seconds)}
-            muted={!currentProfile.playtime_seconds}
-          />
-          <Stat
-            icon="solar:hard-drive-bold"
-            label={t("profiles.v3.stats.disk")}
-            value={diskSize == null ? "…" : formatBytes(diskSize)}
-            muted={diskSize == null || diskSize === 0}
-          />
+        {/* Stats-Strip — waehrend Launch durch Status-Card ersetzt. IDENTISCHER
+            Wrapper (flex + gap-2 + flex-wrap) damit die Row-Hoehe stabil bleibt
+            auch wenn die Stats auf schmalen Viewports wrappen. Launch-Card
+            nutzt EXAKT das Stat-Padding/-Struktur (px-3 py-2 + gap-2.5 +
+            leading-tight) damit 1:1 gleiche Pixel. */}
+        <div className="flex items-center gap-2 flex-wrap mt-5">
+          {isLaunching && statusMessage ? (
+            <div className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-md bg-emerald-500/10 border border-emerald-400/25 min-w-[140px] animate-in fade-in duration-200">
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 text-emerald-300 animate-spin flex-shrink-0" />
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-[10px] uppercase tracking-wider text-emerald-300/70 font-minecraft-ten">
+                  {t("profiles.card.starting")}
+                </span>
+                <span className="text-sm text-emerald-100/95 font-minecraft-ten truncate" title={statusMessage}>
+                  {statusMessage}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <Stat
+                icon="solar:clock-circle-bold"
+                label={t('profiles.sort.lastPlayed')}
+                value={formatRelativeTime(currentProfile.last_played)}
+              />
+              <Stat
+                icon="solar:archive-bold"
+                label={t("profiles.v3.stats.modpack")}
+                value={hasModpack ? (modpackVersionNumber ? `${modpackLabel} ${modpackVersionNumber}` : modpackLabel) : "—"}
+                muted={!hasModpack}
+              />
+              <Stat
+                icon="solar:hourglass-bold"
+                label={t("profiles.v3.stats.playtime")}
+                value={formatPlaytime(currentProfile.playtime_seconds)}
+                muted={!currentProfile.playtime_seconds}
+              />
+              <Stat
+                icon="solar:hard-drive-bold"
+                label={t("profiles.v3.stats.disk")}
+                value={diskSize == null ? "…" : formatBytes(diskSize)}
+                muted={diskSize == null || diskSize === 0}
+              />
+            </>
+          )}
         </div>
-
-        {/* Launch-status stripe (conditional) */}
-        {isLaunching && statusMessage && (
-          <div className="mt-4 flex items-center gap-3 px-4 py-2.5 rounded-md bg-emerald-500/10 border border-emerald-400/20">
-            <Icon icon="solar:refresh-bold" className="w-4 h-4 text-emerald-300 animate-spin flex-shrink-0" />
-            <span className="text-sm text-emerald-100/90 font-minecraft-ten truncate" title={statusMessage}>
-              {statusMessage}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ── Body: Left-Rail + Main ──────────────────────────────────────── */}
@@ -656,10 +653,10 @@ export function ProfileDetailViewV3({
           )}
 
           {activeNavItem === "worlds" && (
-            <WorldsTab
+            <WorldsTabV3
               profile={currentProfile}
-              onRefresh={handleRefresh}
               isActive={true}
+              onRefresh={handleRefresh}
               onLaunchRequest={handleLaunchRequest}
             />
           )}
@@ -668,8 +665,9 @@ export function ProfileDetailViewV3({
             <ScreenshotsTab
               profile={currentProfile}
               isActive={true}
-              onOpenScreenshotModal={(screenshot) => {
-                console.log("[V3] Open screenshot modal:", screenshot);
+              onOpenScreenshotModal={() => {
+                // ScreenshotsTab V3 wird spaeter gebaut; die V2-Implementation
+                // nutzt onOpenScreenshotModal noch nicht in dieser Variante.
               }}
             />
           )}
