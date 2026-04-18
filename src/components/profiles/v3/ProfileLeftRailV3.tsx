@@ -66,7 +66,7 @@ export function ProfileLeftRailV3({ profile, activeNavItem, onNavChange }: Profi
       {groups.map((group, gi) => (
         <div key={gi} className="mb-4">
           <div className="px-4 mb-1.5 text-[10px] uppercase tracking-[0.15em] text-white/35 font-minecraft-ten">
-            {gi === 0 ? t("profiles.tabs.content") : "World"}
+            {gi === 0 ? t("profiles.tabs.content") : t("profiles.v3.leftRail.world")}
           </div>
           <div className="px-2 space-y-0.5">
             {group.items.map((item) => {

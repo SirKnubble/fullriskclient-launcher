@@ -61,7 +61,7 @@ export function NoriskPackSelector({ profile, onChanged }: NoriskPackSelectorPro
   const selectedPackId = profile.selected_norisk_pack_id ?? null;
   const selectedLabel = selectedPackId
     ? (options.find(o => o.id === selectedPackId)?.label ?? selectedPackId)
-    : "No pack selected";
+    : t("profiles.v3.pack.noSelection");
 
   const handleChange = useCallback(async (newPackId: string | null) => {
     if (newPackId === selectedPackId) return;
@@ -74,7 +74,7 @@ export function NoriskPackSelector({ profile, onChanged }: NoriskPackSelectorPro
       onChanged?.();
     } catch (err) {
       console.error("[V3] Failed to switch NoRisk pack:", err);
-      toast.error(t('content.errors.switch_pack') || "Failed to switch NoRisk pack");
+      toast.error(t("profiles.v3.pack.switchFailed"));
     }
   }, [profile.id, selectedPackId, fetchProfiles, onChanged, t]);
 
@@ -84,10 +84,10 @@ export function NoriskPackSelector({ profile, onChanged }: NoriskPackSelectorPro
       await ProfileService.refreshNoriskPacks();
       const c = await ProfileService.getNoriskPacksResolved();
       setConfig(c);
-      toast.success(t('content.toast.pack_list_refreshed') || "Pack list refreshed");
+      toast.success(t("profiles.v3.pack.listRefreshed"));
     } catch (err) {
       console.error("[V3] Failed to refresh NoRisk packs:", err);
-      toast.error(t('content.toast.pack_list_refresh_failed') || "Failed to refresh packs");
+      toast.error(t("profiles.v3.pack.listRefreshFailed"));
     } finally {
       setIsRefreshing(false);
     }
@@ -112,7 +112,7 @@ export function NoriskPackSelector({ profile, onChanged }: NoriskPackSelectorPro
           selected={!selectedPackId}
           onClick={() => { handleChange(null); setMenuOpen(false); }}
         >
-          No pack selected
+          {t("profiles.v3.pack.noSelection")}
         </ThemedDropdownItem>
         {options.length > 0 && <ThemedDropdownDivider />}
         {options.map(opt => (
@@ -131,7 +131,7 @@ export function NoriskPackSelector({ profile, onChanged }: NoriskPackSelectorPro
           disabled={isRefreshing}
           onClick={() => { handleRefreshList(); setMenuOpen(false); }}
         >
-          {isRefreshing ? "Refreshing…" : "Refresh pack list"}
+          {isRefreshing ? t("profiles.v3.pack.refreshing") : t("profiles.v3.pack.refreshList")}
         </ThemedDropdownItem>
       </ThemedDropdown>
     </div>

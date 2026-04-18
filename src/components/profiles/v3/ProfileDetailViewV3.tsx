@@ -371,8 +371,8 @@ export function ProfileDetailViewV3({
   const hasModpack = !!currentProfile.modpack_info;
   const isVanillaLoader = !currentProfile.loader || currentProfile.loader === "vanilla";
   const modpackLabel = modpackVersions?.installed_version
-    ? `${modpackVersions.installed_version.name ?? "Modpack"}`
-    : hasModpack ? "Modpack" : "—";
+    ? `${modpackVersions.installed_version.name ?? t("profiles.v3.stats.modpack")}`
+    : hasModpack ? t("profiles.v3.stats.modpack") : t("profiles.v3.time.placeholder");
   const modpackVersionNumber = modpackVersions?.installed_version?.version_number ?? null;
 
   return (
@@ -539,19 +539,19 @@ export function ProfileDetailViewV3({
           />
           <Stat
             icon="solar:archive-bold"
-            label="Modpack"
+            label={t("profiles.v3.stats.modpack")}
             value={hasModpack ? (modpackVersionNumber ? `${modpackLabel} ${modpackVersionNumber}` : modpackLabel) : "—"}
             muted={!hasModpack}
           />
           <Stat
             icon="solar:hourglass-bold"
-            label="Playtime"
+            label={t("profiles.v3.stats.playtime")}
             value={formatPlaytime(currentProfile.playtime_seconds)}
             muted={!currentProfile.playtime_seconds}
           />
           <Stat
             icon="solar:hard-drive-bold"
-            label="Disk"
+            label={t("profiles.v3.stats.disk")}
             value={diskSize == null ? "…" : formatBytes(diskSize)}
             muted={diskSize == null || diskSize === 0}
           />

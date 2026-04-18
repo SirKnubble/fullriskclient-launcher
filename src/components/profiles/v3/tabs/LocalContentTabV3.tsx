@@ -75,16 +75,16 @@ interface LocalContentTabV3Props<T extends LocalContentItem> {
   onBrowseContentRequest?: (browseContentType: string) => void;
 }
 
-const SORT_OPTIONS: { value: SortKey; label: string; icon: string }[] = [
-  { value: "name",    label: "Name",          icon: "solar:sort-from-top-to-bottom-bold" },
-  { value: "updates", label: "Updates first", icon: "solar:arrow-up-bold" },
-  { value: "size",    label: "Size",          icon: "solar:ruler-bold" },
-  { value: "type",    label: "Source",        icon: "solar:box-bold" },
+const SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
+  { value: "name",    labelKey: "profiles.v3.sort.name",          icon: "solar:sort-from-top-to-bottom-bold" },
+  { value: "updates", labelKey: "profiles.v3.sort.updatesFirst",  icon: "solar:arrow-up-bold" },
+  { value: "size",    labelKey: "profiles.v3.sort.size",          icon: "solar:ruler-bold" },
+  { value: "type",    labelKey: "profiles.v3.sort.source",        icon: "solar:box-bold" },
 ];
 
 interface FilterOption {
   value: FilterKey;
-  label: string;
+  labelKey: string;
   icon: string;
   /** Gruppen-Trennlinie VOR diesem Item einfuegen. */
   separator?: boolean;
@@ -93,14 +93,14 @@ interface FilterOption {
 }
 
 const FILTER_OPTIONS: FilterOption[] = [
-  { value: "all",           label: "All",            icon: "solar:list-bold" },
-  { value: "enabled",       label: "Enabled",        icon: "solar:check-circle-bold" },
-  { value: "disabled",      label: "Disabled",       icon: "solar:close-circle-bold" },
-  { value: "hasUpdate",     label: "Has updates",    icon: "solar:arrow-up-bold",        separator: true },
-  { value: "updatesPaused", label: "Updates paused", icon: "solar:volume-cross-bold" },
-  { value: "fromModpack",   label: "From modpack",   icon: "solar:box-bold",             separator: true },
-  { value: "manuallyAdded", label: "Manually added", icon: "solar:hand-stars-bold" },
-  { value: "noriskIssues",  label: "NoRisk issues",  icon: "solar:danger-triangle-bold", separator: true, nrcOnly: true },
+  { value: "all",           labelKey: "profiles.v3.filter.all",            icon: "solar:list-bold" },
+  { value: "enabled",       labelKey: "profiles.v3.filter.enabled",        icon: "solar:check-circle-bold" },
+  { value: "disabled",      labelKey: "profiles.v3.filter.disabled",       icon: "solar:close-circle-bold" },
+  { value: "hasUpdate",     labelKey: "profiles.v3.filter.hasUpdate",      icon: "solar:arrow-up-bold",        separator: true },
+  { value: "updatesPaused", labelKey: "profiles.v3.filter.updatesPaused",  icon: "solar:volume-cross-bold" },
+  { value: "fromModpack",   labelKey: "profiles.v3.filter.fromModpack",    icon: "solar:box-bold",             separator: true },
+  { value: "manuallyAdded", labelKey: "profiles.v3.filter.manuallyAdded",  icon: "solar:hand-stars-bold" },
+  { value: "noriskIssues",  labelKey: "profiles.v3.filter.noriskIssues",   icon: "solar:danger-triangle-bold", separator: true, nrcOnly: true },
 ];
 
 export function LocalContentTabV3<T extends LocalContentItem>({
@@ -191,7 +191,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
 
     const { platform, projectId } = getItemPlatformAndProjectId(item);
     if (!platform || !projectId) {
-      setVersionErrorFor(prev => ({ ...prev, [key]: "This item has no linked project — can't switch versions." }));
+      setVersionErrorFor(prev => ({ ...prev, [key]: t("profiles.v3.versions.noProject") }));
       return;
     }
     setLoadingVersionsFor(prev => ({ ...prev, [key]: true }));
@@ -206,7 +206,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
       setVersionCache(prev => ({ ...prev, [key]: response.versions }));
     } catch (err) {
       console.error("[V3] Failed to load versions:", err);
-      setVersionErrorFor(prev => ({ ...prev, [key]: "Failed to load versions" }));
+      setVersionErrorFor(prev => ({ ...prev, [key]: t("profiles.v3.versions.loadFailed") }));
     } finally {
       setLoadingVersionsFor(prev => ({ ...prev, [key]: false }));
     }
@@ -219,7 +219,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
       await manager.handleSwitchContentVersion(item as T, newVersion);
     } catch (err) {
       console.error("[V3] Failed to switch version:", err);
-      toast.error(t('content.version_switch_failed') || "Failed to switch version");
+      toast.error(t("profiles.v3.versions.switchFailed"));
     } finally {
       setSwitchingVersionFor(null);
     }
@@ -366,8 +366,8 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     onBrowseContentRequest?.(contentType);
   }, [onBrowseContentRequest, contentType]);
 
-  const activeSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? "Sort";
-  const activeFilterLabel = FILTER_OPTIONS.find(o => o.value === filter)?.label ?? "Filter";
+  const activeSortLabel = t(SORT_OPTIONS.find(o => o.value === sortBy)?.labelKey ?? "profiles.v3.sort.name");
+  const activeFilterLabel = t(FILTER_OPTIONS.find(o => o.value === filter)?.labelKey ?? "profiles.v3.filter.all");
 
   // Loading-Spinner erst nach 500ms zeigen: schnelle Loads (Cache-Hit etc.)
   // rendern dann direkt die Liste statt kurz "Loading…" zu flashen.
@@ -392,16 +392,16 @@ export function LocalContentTabV3<T extends LocalContentItem>({
   // FAB-Actions: Enable / Disable / (optional) Update-Check-Toggle / Delete.
   const batchBusy = manager.isBatchToggling || !!batchProgress;
   const fabActions: FABActionConfig[] = [
-    { icon: "solar:play-bold",  label: "Enable",  onClick: handleBatchEnable,  disabled: batchBusy },
-    { icon: "solar:pause-bold", label: "Disable", onClick: handleBatchDisable, disabled: batchBusy },
+    { icon: "solar:play-bold",  label: t("profiles.v3.fab.enable"),  onClick: handleBatchEnable,  disabled: batchBusy },
+    { icon: "solar:pause-bold", label: t("profiles.v3.fab.disable"), onClick: handleBatchDisable, disabled: batchBusy },
     ...(batchUpdateChecksConfig ? [{
       icon: batchUpdateChecksConfig.shouldEnable ? "solar:volume-loud-bold" : "solar:volume-cross-bold",
-      label: batchUpdateChecksConfig.shouldEnable ? "Resume checks" : "Mute checks",
+      label: t(batchUpdateChecksConfig.shouldEnable ? "profiles.v3.fab.resumeChecks" : "profiles.v3.fab.muteChecks"),
       onClick: handleBatchToggleUpdateChecks,
     } as FABActionConfig] : []),
     {
       icon: "solar:trash-bin-trash-bold",
-      label: manager.isBatchDeleting ? "…" : "Delete",
+      label: manager.isBatchDeleting ? "…" : t("profiles.v3.fab.delete"),
       tone: "danger",
       onClick: manager.handleBatchDeleteSelected,
       disabled: manager.isBatchDeleting,
@@ -420,7 +420,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
           <input
             value={manager.searchQuery}
             onChange={(e) => manager.setSearchQuery(e.target.value)}
-            placeholder={`Search ${itemTypeNamePlural.toLowerCase()}…`}
+            placeholder={t("profiles.v3.toolbar.searchPlaceholder", { type: itemTypeNamePlural.toLowerCase() })}
             className="w-full h-8 pl-8 pr-3 rounded-md bg-white/5 border border-white/10 focus:border-white/25 outline-none text-sm text-white placeholder:text-white/30 font-minecraft-ten"
           />
         </div>
@@ -449,7 +449,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
                   selected={filter === opt.value}
                   onClick={() => { setFilter(opt.value); setFilterMenuOpen(false); }}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </ThemedDropdownItem>
               </div>
             ))}
@@ -474,7 +474,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
                 selected={sortBy === opt.value}
                 onClick={() => { setSortBy(opt.value); setSortMenuOpen(false); }}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </ThemedDropdownItem>
             ))}
           </ThemedDropdown>
@@ -487,7 +487,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
           <Tooltip content={manager.contentUpdateError}>
             <div className="h-8 px-2.5 rounded-md bg-rose-500/10 border border-rose-400/30 text-rose-200 flex items-center gap-1.5 text-xs font-minecraft-ten">
               <Icon icon="solar:danger-triangle-bold" className="w-3.5 h-3.5" />
-              Check failed
+              {t("profiles.v3.toolbar.checkFailed")}
             </div>
           </Tooltip>
         )}
@@ -496,13 +496,13 @@ export function LocalContentTabV3<T extends LocalContentItem>({
             onClick={manager.handleUpdateAllAvailableContent}
             disabled={manager.isUpdatingAll}
             className="h-8 px-3 rounded-md bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-xs font-minecraft-ten text-amber-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-            title={`Update ${manager.updatableContentCount} mod${manager.updatableContentCount === 1 ? "" : "s"}`}
+            title={t("profiles.v3.toolbar.updateAllTitle", { count: manager.updatableContentCount })}
           >
             <Icon
               icon={manager.isUpdatingAll ? "solar:refresh-bold" : "solar:refresh-circle-bold"}
               className={`w-4 h-4 ${manager.isUpdatingAll || manager.isCheckingUpdates ? "animate-spin" : ""}`}
             />
-            Update all
+            {t("profiles.v3.toolbar.updateAll")}
             <span className="px-1.5 rounded bg-amber-400/30 text-amber-50 text-[10px] tabular-nums">{manager.updatableContentCount}</span>
           </button>
         )}
@@ -512,7 +512,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
           onClick={() => manager.fetchData(false)}
           disabled={manager.isAnyTaskRunning}
           className="h-8 px-2.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white disabled:opacity-50 flex items-center transition-colors"
-          title="Refresh"
+          title={t("profiles.v3.toolbar.refresh")}
         >
           <Icon
             icon="solar:refresh-bold"
@@ -542,23 +542,23 @@ export function LocalContentTabV3<T extends LocalContentItem>({
             <button
               onClick={() => manager.fetchData(true)}
               className="flex-shrink-0 h-7 px-2 rounded-md text-[10px] font-minecraft-ten uppercase tracking-wider text-rose-100 hover:bg-rose-500/20 transition-colors"
-              title="Retry"
+              title={t("profiles.v3.content.retry")}
             >
-              Retry
+              {t("profiles.v3.content.retry")}
             </button>
           </div>
         )}
         {isNrc && !selectedPackId ? (
           <EmptyStateV3
             icon="solar:shield-check-bold-duotone"
-            title="No NoRisk pack selected"
-            hint="Choose a pack from the selector above to see its mods."
+            title={t("profiles.v3.content.noPackTitle")}
+            hint={t("profiles.v3.content.noPackHint")}
           />
         ) : manager.isLoading && visibleItems.length === 0 ? (
           shouldShowLoadingSpinner ? (
             <div className="flex items-center justify-center h-40 text-white/40 font-minecraft-ten text-sm animate-in fade-in duration-300">
               <Icon icon="solar:refresh-bold" className="w-4 h-4 mr-2 animate-spin" />
-              Loading…
+              {t("profiles.v3.content.loading")}
             </div>
           ) : (
             <div className="h-40" />
@@ -566,8 +566,12 @@ export function LocalContentTabV3<T extends LocalContentItem>({
         ) : visibleItems.length === 0 ? (
           <EmptyStateV3
             icon={emptyStateIconOverride ?? "solar:widget-bold-duotone"}
-            title={manager.searchQuery ? `No ${itemTypeNamePlural.toLowerCase()} match "${manager.searchQuery}"` : `No ${itemTypeNamePlural.toLowerCase()} yet`}
-            hint={onBrowseContentRequest ? `Click "${addContentButtonText}" to add ${itemTypeNamePlural.toLowerCase()}.` : undefined}
+            title={manager.searchQuery
+              ? t("profiles.v3.content.noMatch", { type: itemTypeNamePlural.toLowerCase(), query: manager.searchQuery })
+              : t("profiles.v3.content.noItems", { type: itemTypeNamePlural.toLowerCase() })}
+            hint={onBrowseContentRequest
+              ? t("profiles.v3.content.emptyHint", { cta: addContentButtonText, type: itemTypeNamePlural.toLowerCase() })
+              : undefined}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
