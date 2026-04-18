@@ -343,7 +343,10 @@ export function useLocalContentManager<T extends LocalContentItem>({
     setError(null);
     setModrinthIcons({});
     setLocalArchiveIcons({});
-    setContentUpdates({});
+    // Note: contentUpdates wird hier NICHT geleert (stale-while-revalidate).
+    // Der Check nach Phase 3 ersetzt sie natuerlich mit frischen Daten. Bei
+    // manuellem Refresh oder Tab-Switch flackert sonst die Update-Info kurz
+    // weg. Hard-Reset passiert weiter via fetchData(initialFetch=true).
     setContentUpdateError(null);
     setHashesToFetchModrinthDetailsFor(null); // Reset this here
 
