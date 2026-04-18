@@ -1665,5 +1665,16 @@
   "profiles.v3.servers.offline": "Сервер недоступен",
   "profiles.v3.servers.pinging": "Пингование…",
   "profiles.v3.servers.reping": "Повторить ping",
-  "profiles.v3.servers.copyAddress": "Скопировать адрес"
+  "profiles.v3.servers.copyAddress": "Скопировать адрес",
+  "profiles.v3.screenshots.sort.newest": "Сначала новые",
+  "profiles.v3.screenshots.sort.oldest": "Сначала старые",
+  "profiles.v3.screenshots.empty": "Пока нет скриншотов",
+  "profiles.v3.screenshots.emptyHint": "Нажми F2 в игре чтобы сделать скриншот.",
+  "profiles.v3.screenshots.count_one": "{{count}} скриншот",
+  "profiles.v3.screenshots.count_other": "{{count}} скриншотов",
+  "profiles.v3.screenshots.count": "{{count}} скриншотов",
+  "profiles.v3.screenshots.batchDeleteTitle": "Удалить скриншоты",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} скриншотов",
+  "profiles.v3.screenshots.batchDeleteConfirm": "Удалить {{count}} выбранных скриншотов? Это действие нельзя отменить.",
+  "profiles.v3.screenshots.batchDeleteSuccess": "Удалено скриншотов: {{count}}."
 }

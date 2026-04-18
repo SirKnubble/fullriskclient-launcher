@@ -1665,5 +1665,16 @@
   "profiles.v3.servers.offline": "Servidor sin conexión",
   "profiles.v3.servers.pinging": "Haciendo ping…",
   "profiles.v3.servers.reping": "Re-ping",
-  "profiles.v3.servers.copyAddress": "Copiar dirección"
+  "profiles.v3.servers.copyAddress": "Copiar dirección",
+  "profiles.v3.screenshots.sort.newest": "Más recientes primero",
+  "profiles.v3.screenshots.sort.oldest": "Más antiguos primero",
+  "profiles.v3.screenshots.empty": "Aún no hay capturas",
+  "profiles.v3.screenshots.emptyHint": "Presiona F2 en el juego para tomar una captura.",
+  "profiles.v3.screenshots.count_one": "{{count}} captura",
+  "profiles.v3.screenshots.count_other": "{{count}} capturas",
+  "profiles.v3.screenshots.count": "{{count}} capturas",
+  "profiles.v3.screenshots.batchDeleteTitle": "Eliminar capturas",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} capturas",
+  "profiles.v3.screenshots.batchDeleteConfirm": "¿Eliminar {{count}} capturas seleccionadas? Esto no se puede deshacer.",
+  "profiles.v3.screenshots.batchDeleteSuccess": "{{count}} capturas eliminadas."
 }

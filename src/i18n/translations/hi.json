@@ -1680,5 +1680,16 @@
   "profiles.v3.servers.offline": "सर्वर ऑफ़लाइन",
   "profiles.v3.servers.pinging": "पिंग हो रहा है…",
   "profiles.v3.servers.reping": "फिर से पिंग",
-  "profiles.v3.servers.copyAddress": "पता कॉपी करें"
+  "profiles.v3.servers.copyAddress": "पता कॉपी करें",
+  "profiles.v3.screenshots.sort.newest": "नवीनतम पहले",
+  "profiles.v3.screenshots.sort.oldest": "पुराने पहले",
+  "profiles.v3.screenshots.empty": "अभी तक कोई स्क्रीनशॉट नहीं",
+  "profiles.v3.screenshots.emptyHint": "खेल में F2 दबाकर स्क्रीनशॉट लें।",
+  "profiles.v3.screenshots.count_one": "{{count}} स्क्रीनशॉट",
+  "profiles.v3.screenshots.count_other": "{{count}} स्क्रीनशॉट",
+  "profiles.v3.screenshots.count": "{{count}} स्क्रीनशॉट",
+  "profiles.v3.screenshots.batchDeleteTitle": "स्क्रीनशॉट हटाएं",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} स्क्रीनशॉट",
+  "profiles.v3.screenshots.batchDeleteConfirm": "{{count}} चयनित स्क्रीनशॉट हटाएं? यह रद्द नहीं किया जा सकता।",
+  "profiles.v3.screenshots.batchDeleteSuccess": "{{count}} स्क्रीनशॉट हटा दिए गए।"
 }

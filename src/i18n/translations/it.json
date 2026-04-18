@@ -1665,5 +1665,16 @@
   "profiles.v3.servers.offline": "Server offline",
   "profiles.v3.servers.pinging": "Ping in corso…",
   "profiles.v3.servers.reping": "Re-ping",
-  "profiles.v3.servers.copyAddress": "Copia indirizzo"
+  "profiles.v3.servers.copyAddress": "Copia indirizzo",
+  "profiles.v3.screenshots.sort.newest": "Più recenti prima",
+  "profiles.v3.screenshots.sort.oldest": "Più vecchi prima",
+  "profiles.v3.screenshots.empty": "Ancora nessuno screenshot",
+  "profiles.v3.screenshots.emptyHint": "Premi F2 in gioco per catturare uno screenshot.",
+  "profiles.v3.screenshots.count_one": "{{count}} screenshot",
+  "profiles.v3.screenshots.count_other": "{{count}} screenshot",
+  "profiles.v3.screenshots.count": "{{count}} screenshot",
+  "profiles.v3.screenshots.batchDeleteTitle": "Elimina screenshot",
+  "profiles.v3.screenshots.batchDeleteItemName": "{{count}} screenshot",
+  "profiles.v3.screenshots.batchDeleteConfirm": "Eliminare {{count}} screenshot selezionati? Questa azione non può essere annullata.",
+  "profiles.v3.screenshots.batchDeleteSuccess": "{{count}} screenshot eliminati."
 }
