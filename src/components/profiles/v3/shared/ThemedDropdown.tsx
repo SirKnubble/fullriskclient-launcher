@@ -34,24 +34,41 @@ interface ThemedDropdownProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
-  /** Tailwind width class, z.B. "w-40", "w-60", "w-72". Default: "w-48". */
+  /**
+   * Tailwind **min-width** class, z.B. "w-40", "w-60", "w-72". Das Panel
+   * waechst mit dem Inhalt ueber diese Untergrenze hinaus (bis `max-w-*`
+   * cap), damit lokalisierte Texte nicht abgeschnitten werden.
+   * Default: "w-48".
+   */
   width?: string;
   /** "left" | "right" — Ausrichtung relativ zum Trigger. Default: "right". */
   align?: "left" | "right";
   /** Max-height + Scroll fuer lange Listen. Default: false. */
   scrollable?: boolean;
+  /**
+   * Upper bound damit das Panel auch bei extrem langen Inhalten nicht
+   * absurd breit wird. Default: "max-w-xs" (320px).
+   */
+  maxWidth?: string;
   /** Extra Klassen fuer den Panel-Container. */
   className?: string;
 }
 
 export function ThemedDropdown({
   open, onClose, children,
-  width = "w-48", align = "right", scrollable = false, className = "",
+  width = "w-48", align = "right", scrollable = false,
+  maxWidth = "max-w-xs", className = "",
 }: ThemedDropdownProps) {
   const accent = useThemeStore((s) => s.accentColor.value);
   if (!open) return null;
   const alignClass = align === "right" ? "right-0" : "left-0";
   const scrollClass = scrollable ? "max-h-80 overflow-y-auto" : "";
+  // `w-XX` wird zur Untergrenze (statt fixer Breite). Das Panel waechst mit
+  // dem Inhalt (`w-max`), bis `max-w-*` cap erreicht. Verhindert dass lange
+  // Texte in lokalisierten Labels den Panel-Rand ueberschreiten. Der
+  // min-width wird als Inline-Style gesetzt damit Tailwind JIT mit
+  // unterschiedlichen `w-*` Werten vom Caller klarkommt.
+  const minWidthPx = WIDTH_TO_PX[width] ?? 192; // 192px = w-48 default
   return (
     <>
       <div className="fixed inset-0 z-10" onClick={onClose} />
@@ -61,14 +78,28 @@ export function ThemedDropdown({
           borderColor: `${accent}66`,
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
+          minWidth: `${minWidthPx}px`,
         }}
-        className={`absolute top-full ${alignClass} mt-1 ${width} rounded-md border shadow-2xl z-20 py-1 ${scrollClass} ${className}`}
+        className={`absolute top-full ${alignClass} mt-1 w-max ${maxWidth} rounded-md border shadow-2xl z-20 py-1 ${scrollClass} ${className}`}
       >
         {children}
       </div>
     </>
   );
 }
+
+// Mapping Tailwind `w-*` -> Pixel fuer inline min-width (JIT-safe, keine
+// dynamische Klassenerzeugung). Erweiterbar falls neue Dropdown-Groessen.
+const WIDTH_TO_PX: Record<string, number> = {
+  "w-40": 160,
+  "w-44": 176,
+  "w-48": 192,
+  "w-52": 208,
+  "w-56": 224,
+  "w-60": 240,
+  "w-64": 256,
+  "w-72": 288,
+};
 
 // ────────────────────────────────────────────────────────────────────────────
 
