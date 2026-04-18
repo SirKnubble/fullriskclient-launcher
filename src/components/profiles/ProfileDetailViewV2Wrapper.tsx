@@ -7,7 +7,11 @@ import { useProfileStore } from "../../store/profile-store";
 import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
 import { ProfileDetailViewV2 } from "./ProfileDetailViewV2";
+import { ProfileDetailViewV3 } from "./v3/ProfileDetailViewV3";
 import type { Profile } from "../../types/profile";
+
+// Toggle zwischen altem (V2) und neuem (V3) Redesign. Auf false setzen fuer Rollback.
+const USE_V3 = true;
 import { useProfileSettingsStore } from "../../store/profile-settings-store";
 
 export function ProfileDetailViewV2Wrapper() {
@@ -65,8 +69,9 @@ export function ProfileDetailViewV2Wrapper() {
     );
   }
 
+  const Component = USE_V3 ? ProfileDetailViewV3 : ProfileDetailViewV2;
   return (
-    <ProfileDetailViewV2
+    <Component
       profile={profile}
       onClose={handleClose}
       onEdit={handleEdit}
