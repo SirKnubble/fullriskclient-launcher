@@ -46,7 +46,7 @@ import { ProfileLeftRailV3, type NavKey, CONTENT_NAV_KEYS } from "./ProfileLeftR
 import { LocalContentTabV3 } from "./tabs/LocalContentTabV3";
 import { WorldsTabV3 } from "./tabs/WorldsTabV3";
 import { ScreenshotsTabV3 } from "./tabs/ScreenshotsTabV3";
-import { LogsTab } from "../detail/LogsTab";
+import { LogsTabV3 } from "./tabs/LogsTabV3";
 import type { LocalContentItem } from "../../../hooks/useLocalContentManager";
 
 const mainTabFor = (k: NavKey): string =>
@@ -666,11 +666,7 @@ export function ProfileDetailViewV3({
           )}
 
           {activeNavItem === "logs" && (
-            <LogsTab
-              profile={currentProfile}
-              isActive={true}
-              onRefresh={handleRefresh}
-            />
+            <LogsTabV3 profile={currentProfile} isActive={true} onRefresh={handleRefresh} />
           )}
         </main>
       </div>
