@@ -164,6 +164,10 @@ pub struct Profile {
     /// If set, this account will be used instead of the global active account
     #[serde(default)]
     pub preferred_account_id: Option<Uuid>,
+    /// Accumulated Minecraft playtime for this profile, in seconds.
+    /// Incremented on process-exit via `ProcessManager` using `start_time - exit_time`.
+    #[serde(default)]
+    pub playtime_seconds: u64,
 }
 
 fn default_true() -> bool {

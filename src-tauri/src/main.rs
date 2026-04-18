@@ -674,6 +674,7 @@ async fn main() {
             commands::profile_command::get_profile_symlinks,
             commands::profile_command::get_profile_instance_path,
             commands::profile_command::get_default_profile_path,
+            commands::profile_command::get_profile_disk_size,
             get_or_download_asset_model,
             get_friends,
             get_pending_requests,
