@@ -35,6 +35,7 @@ import { ContentType as BackendContentType } from "../../../../types/content";
 import { Tooltip } from "../../../ui/Tooltip";
 import { ModUpdateText } from "../../../ui/ModUpdateText";
 import { preloadIcons } from "../../../../lib/icon-utils";
+import { useDelayedTrue } from "../../../../hooks/useDelayedTrue";
 import { EmptyStateV3 } from "../shared/EmptyStateV3";
 import { FloatingActionBar, type FABActionConfig } from "../shared/FloatingActionBar";
 import { ThemedDropdown, ThemedDropdownItem, ThemedDropdownDivider } from "../shared/ThemedDropdown";
@@ -368,6 +369,13 @@ export function LocalContentTabV3<T extends LocalContentItem>({
   const activeSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? "Sort";
   const activeFilterLabel = FILTER_OPTIONS.find(o => o.value === filter)?.label ?? "Filter";
 
+  // Loading-Spinner erst nach 500ms zeigen: schnelle Loads (Cache-Hit etc.)
+  // rendern dann direkt die Liste statt kurz "Loading…" zu flashen.
+  const shouldShowLoadingSpinner = useDelayedTrue(
+    manager.isLoading && visibleItems.length === 0,
+    500,
+  );
+
   // Esc-Key clear'd Selection — `manager` nicht in Deps (neu per Render).
   const selectAllToggleRef = useRef(manager.handleSelectAllToggle);
   selectAllToggleRef.current = manager.handleSelectAllToggle;
@@ -404,7 +412,10 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     <div className="flex flex-col min-h-0 flex-1 relative">
       {/* ── Sticky Toolbar ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 px-5 h-12 border-b border-white/5 flex-shrink-0 bg-black/20 sticky top-0 z-10">
-        <div className="relative flex-1 max-w-sm">
+        {/* Fixed width: search darf NICHT mit dem Spacer (<div className="flex-1"/>)
+            konkurrieren — sonst schrumpfen beide, wenn Status-Chips reinkommen,
+            und das Layout wackelt beim Update-Check. */}
+        <div className="relative w-64 flex-shrink-0">
           <Icon icon="solar:magnifer-linear" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
           <input
             value={manager.searchQuery}
@@ -471,15 +482,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
 
         <div className="flex-1" />
 
-        {/* Update-Check-Status + Update-all */}
-        {manager.isCheckingUpdates && manager.updatableContentCount === 0 && (
-          <Tooltip content="Checking for updates…">
-            <div className="h-8 px-2.5 rounded-md bg-white/5 border border-white/10 text-white/55 flex items-center gap-1.5 text-xs font-minecraft-ten">
-              <Icon icon="solar:refresh-bold" className="w-3.5 h-3.5 animate-spin" />
-              Checking
-            </div>
-          </Tooltip>
-        )}
+        {/* Update-Check-Error: auffaellig weil kritisch (Netzwerk/API-Problem). */}
         {manager.contentUpdateError && (
           <Tooltip content={manager.contentUpdateError}>
             <div className="h-8 px-2.5 rounded-md bg-rose-500/10 border border-rose-400/30 text-rose-200 flex items-center gap-1.5 text-xs font-minecraft-ten">
@@ -504,13 +507,17 @@ export function LocalContentTabV3<T extends LocalContentItem>({
           </button>
         )}
 
+        {/* Refresh: spinnt waehrend *irgendeine* Pipeline-Phase laeuft. */}
         <button
           onClick={() => manager.fetchData(false)}
           disabled={manager.isAnyTaskRunning}
           className="h-8 px-2.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white disabled:opacity-50 flex items-center transition-colors"
           title="Refresh"
         >
-          <Icon icon="solar:refresh-bold" className={`w-4 h-4 ${manager.isLoading ? "animate-spin" : ""}`} />
+          <Icon
+            icon="solar:refresh-bold"
+            className={`w-4 h-4 ${manager.isAnyTaskRunning ? "animate-spin" : ""}`}
+          />
         </button>
 
         {onBrowseContentRequest && (
@@ -548,10 +555,14 @@ export function LocalContentTabV3<T extends LocalContentItem>({
             hint="Choose a pack from the selector above to see its mods."
           />
         ) : manager.isLoading && visibleItems.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-white/40 font-minecraft-ten text-sm">
-            <Icon icon="solar:refresh-bold" className="w-4 h-4 mr-2 animate-spin" />
-            Loading…
-          </div>
+          shouldShowLoadingSpinner ? (
+            <div className="flex items-center justify-center h-40 text-white/40 font-minecraft-ten text-sm animate-in fade-in duration-300">
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 mr-2 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <div className="h-40" />
+          )
         ) : visibleItems.length === 0 ? (
           <EmptyStateV3
             icon={emptyStateIconOverride ?? "solar:widget-bold-duotone"}
