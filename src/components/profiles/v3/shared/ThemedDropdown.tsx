@@ -27,6 +27,8 @@
  */
 
 import type React from "react";
+import { useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../../../store/useThemeStore";
 
@@ -52,16 +54,42 @@ interface ThemedDropdownProps {
   maxWidth?: string;
   /** Extra Klassen fuer den Panel-Container. */
   className?: string;
+  /**
+   * When provided, the panel is portaled into `document.body` and positioned
+   * via fixed coordinates relative to this element. Use this to escape a
+   * parent `opacity` (which cascades into children) or `overflow:hidden` that
+   * would otherwise fade or clip the dropdown. Without it the legacy absolute
+   * positioning is used — still the default everywhere else.
+   */
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function ThemedDropdown({
   open, onClose, children,
   width = "w-48", align = "right", scrollable = false,
   maxWidth = "max-w-xs", className = "",
+  triggerRef,
 }: ThemedDropdownProps) {
   const accent = useThemeStore((s) => s.accentColor.value);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Only compute position when portaling. Layout-effect so it fires before
+  // paint and the panel doesn't flash at (0,0) for a frame.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef?.current) {
+      setPos(null);
+      return;
+    }
+    const r = triggerRef.current.getBoundingClientRect();
+    const minW = WIDTH_TO_PX[width] ?? 192;
+    setPos({
+      top: r.bottom + 4,
+      left: align === "right" ? r.right - minW : r.left,
+    });
+  }, [open, triggerRef, width, align]);
+
   if (!open) return null;
-  const alignClass = align === "right" ? "right-0" : "left-0";
+
   const scrollClass = scrollable ? "max-h-80 overflow-y-auto" : "";
   // `w-XX` wird zur Untergrenze (statt fixer Breite). Das Panel waechst mit
   // dem Inhalt (`w-max`), bis `max-w-*` cap erreicht. Verhindert dass lange
@@ -69,17 +97,38 @@ export function ThemedDropdown({
   // min-width wird als Inline-Style gesetzt damit Tailwind JIT mit
   // unterschiedlichen `w-*` Werten vom Caller klarkommt.
   const minWidthPx = WIDTH_TO_PX[width] ?? 192; // 192px = w-48 default
+  const panelStyle: React.CSSProperties = {
+    backgroundColor: `${accent}1f`,
+    borderColor: `${accent}66`,
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    minWidth: `${minWidthPx}px`,
+  };
+
+  // Portal mode: escape parent `opacity` / `overflow` by rendering into body.
+  if (triggerRef) {
+    if (!pos) return null;
+    return createPortal(
+      <>
+        <div className="fixed inset-0 z-[1000]" onClick={onClose} />
+        <div
+          style={{ ...panelStyle, position: "fixed", top: pos.top, left: pos.left }}
+          className={`w-max ${maxWidth} rounded-md border shadow-2xl z-[1001] py-1 ${scrollClass} ${className}`}
+        >
+          {children}
+        </div>
+      </>,
+      document.body,
+    );
+  }
+
+  // Legacy: absolute positioning relative to nearest positioned ancestor.
+  const alignClass = align === "right" ? "right-0" : "left-0";
   return (
     <>
       <div className="fixed inset-0 z-10" onClick={onClose} />
       <div
-        style={{
-          backgroundColor: `${accent}1f`,
-          borderColor: `${accent}66`,
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          minWidth: `${minWidthPx}px`,
-        }}
+        style={panelStyle}
         className={`absolute top-full ${alignClass} mt-1 w-max ${maxWidth} rounded-md border shadow-2xl z-20 py-1 ${scrollClass} ${className}`}
       >
         {children}
