@@ -35,6 +35,7 @@ import { ContentType as BackendContentType } from "../../../../types/content";
 import { Tooltip } from "../../../ui/Tooltip";
 import { ModUpdateText } from "../../../ui/ModUpdateText";
 import { ConfirmDeleteDialog } from "../../../modals/ConfirmDeleteDialog";
+import { BrowseContentSideSheetV3 } from "../BrowseContentSideSheetV3";
 import { preloadIcons } from "../../../../lib/icon-utils";
 import { useDelayedTrue } from "../../../../hooks/useDelayedTrue";
 import { EmptyStateV3 } from "../shared/EmptyStateV3";
@@ -73,7 +74,6 @@ interface LocalContentTabV3Props<T extends LocalContentItem> {
   addContentButtonText: string;
   emptyStateIconOverride?: string;
   onRefreshRequired?: () => void;
-  onBrowseContentRequest?: (browseContentType: string) => void;
 }
 
 const SORT_OPTIONS: { value: SortKey; labelKey: string; icon: string }[] = [
@@ -113,7 +113,6 @@ export function LocalContentTabV3<T extends LocalContentItem>({
   addContentButtonText,
   emptyStateIconOverride,
   onRefreshRequired,
-  onBrowseContentRequest,
 }: LocalContentTabV3Props<T>) {
   const { t } = useTranslation();
 
@@ -363,9 +362,21 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     return sorted;
   }, [manager.filteredItems, filter, sortBy, getDisplayFileName, manager, hasUpdate, isBlockedConfigLoaded]);
 
+  // "Add content" opens an in-place side sheet instead of navigating to a
+  // dedicated browse route, so the profile view stays mounted and the
+  // install-then-see-in-list feedback loop doesn't require a page-nav.
+  // NoRisk mods are gated off the sheet since they come via the pack
+  // selector, not Modrinth browse.
+  const canBrowse = contentType !== "NoRiskMod";
+  const [isBrowseSheetOpen, setBrowseSheetOpen] = useState(false);
   const handleAddClick = useCallback(() => {
-    onBrowseContentRequest?.(contentType);
-  }, [onBrowseContentRequest, contentType]);
+    setBrowseSheetOpen(true);
+  }, []);
+  const handleBrowseSheetClose = useCallback(() => {
+    setBrowseSheetOpen(false);
+    // Refresh in case the user installed something while the sheet was open.
+    manager.fetchData(true);
+  }, [manager]);
 
   const activeSortLabel = t(SORT_OPTIONS.find(o => o.value === sortBy)?.labelKey ?? "profiles.v3.sort.name");
   const activeFilterLabel = t(FILTER_OPTIONS.find(o => o.value === filter)?.labelKey ?? "profiles.v3.filter.all");
@@ -521,7 +532,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
           />
         </button>
 
-        {onBrowseContentRequest && (
+        {canBrowse && (
           <button
             onClick={handleAddClick}
             className="h-8 px-3 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 text-xs font-minecraft-ten uppercase tracking-wider flex items-center gap-1.5"
@@ -570,7 +581,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
             title={manager.searchQuery
               ? t("profiles.v3.content.noMatch", { type: itemTypeNamePlural.toLowerCase(), query: manager.searchQuery })
               : t("profiles.v3.content.noItems", { type: itemTypeNamePlural.toLowerCase() })}
-            hint={onBrowseContentRequest
+            hint={canBrowse
               ? t("profiles.v3.content.emptyHint", { cta: addContentButtonText, type: itemTypeNamePlural.toLowerCase() })
               : undefined}
           />
@@ -655,6 +666,18 @@ export function LocalContentTabV3<T extends LocalContentItem>({
         onClear={() => manager.handleSelectAllToggle(false)}
         batchProgress={batchProgress}
         actions={fabActions}
+      />
+
+      {/* Side-sheet replaces the old `/profilesv2/:id/browse/:type` route
+          push — keeps the profile view mounted under the sheet and lets
+          the install→see-in-list feedback loop happen without a page-nav
+          round trip. */}
+      <BrowseContentSideSheetV3
+        open={isBrowseSheetOpen}
+        profile={profile}
+        contentType={contentType}
+        onClose={handleBrowseSheetClose}
+        onInstallSuccess={() => manager.fetchData(true)}
       />
 
       {/* Confirm-dialog for single and batch delete — the manager toggles

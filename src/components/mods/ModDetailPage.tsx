@@ -170,9 +170,41 @@ function getProjectTypeFromClassId(classId: number | undefined): string {
   }
 }
 
-export function ModDetailPage() {
+interface ModDetailPageProps {
+  /**
+   * Override the `source` URL param. Use when hosting the detail page
+   * inside another surface (e.g. the V3 Add-content sheet) so the route
+   * itself doesn't need to change.
+   */
+  sourceOverride?: string;
+  /** Same idea for projectId. */
+  projectIdOverride?: string;
+  /**
+   * Override the default back behavior (`navigate(-1)`). Hosts that render
+   * this inside a stacked layer can pass their own handler to pop just
+   * that layer instead of the router history.
+   */
+  onBack?: () => void;
+  /**
+   * When embedded inside another surface (like the V3 sheet) the host
+   * already provides its own back control — rendering the page's internal
+   * back button on top would duplicate it. Set this to suppress the
+   * built-in back button; `handleBack` still fires via `onBack` from the
+   * host chrome.
+   */
+  hideBackButton?: boolean;
+}
+
+export function ModDetailPage({
+  sourceOverride,
+  projectIdOverride,
+  onBack,
+  hideBackButton,
+}: ModDetailPageProps = {}) {
   const { t } = useTranslation();
-  const { source, projectId } = useParams<{ source: string; projectId: string }>();
+  const params = useParams<{ source: string; projectId: string }>();
+  const source = sourceOverride ?? params.source;
+  const projectId = projectIdOverride ?? params.projectId;
   const navigate = useNavigate();
   const { accentColor } = useThemeStore();
 
@@ -337,6 +369,10 @@ export function ModDetailPage() {
   }, [source, projectId]);
 
   const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     navigate(-1);
   };
 
@@ -344,13 +380,15 @@ export function ModDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full p-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>{t('common.back')}</span>
-        </button>
+        {!hideBackButton && (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Icon icon="solar:refresh-bold" className="w-12 h-12 text-white/50 animate-spin" />
@@ -365,13 +403,15 @@ export function ModDetailPage() {
   if (error || !project) {
     return (
       <div className="flex flex-col h-full p-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>{t('common.back')}</span>
-        </button>
+        {!hideBackButton && (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Icon icon="solar:danger-triangle-bold" className="w-12 h-12 text-red-500" />
@@ -390,19 +430,24 @@ export function ModDetailPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Back Button */}
-      <div className="px-6 pt-6 pb-4">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>{t('common.back')}</span>
-        </button>
-      </div>
+      {/* Back Button — hidden when embedded inside a host that provides its
+          own back control (e.g. the V3 Add-content sheet's breadcrumb). */}
+      {!hideBackButton && (
+        <div className="px-6 pt-6 pb-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        </div>
+      )}
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      {/* Scrollable Content — `custom-scrollbar` gives this area the same
+          accent-themed scrollbar as the rest of the V3 UI; without it the
+          native Chromium default shows up here and reads as foreign. */}
+      <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 ${hideBackButton ? "pt-6" : ""}`}>
         {/* Header */}
         <ModDetailHeader
           project={project}

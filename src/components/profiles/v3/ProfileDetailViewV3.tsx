@@ -139,10 +139,6 @@ export function ProfileDetailViewV3({
   // Stub — tabs handle their own refresh; mirrors V2's handleRefresh noop.
   const handleRefresh = useCallback(() => {}, []);
 
-  const handleBrowseContent = useCallback((contentType: string) => {
-    navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
-  }, [navigate, profile.id]);
-
   const handleLaunchRequest = useCallback(async (params: {
     profileId: string;
     quickPlaySingleplayer?: string;
@@ -584,7 +580,6 @@ export function ProfileDetailViewV3({
               addContentButtonText={t('profiles.content.addMods')}
               emptyStateIconOverride="solar:bolt-bold-duotone"
               onRefreshRequired={handleRefresh}
-              onBrowseContentRequest={handleBrowseContent}
             />
           )}
 
@@ -598,7 +593,6 @@ export function ProfileDetailViewV3({
               addContentButtonText={t('profiles.content.addResourcePacks')}
               emptyStateIconOverride="solar:gallery-bold-duotone"
               onRefreshRequired={handleRefresh}
-              onBrowseContentRequest={handleBrowseContent}
             />
           )}
 
@@ -612,7 +606,6 @@ export function ProfileDetailViewV3({
               addContentButtonText={t('profiles.content.addShaderPacks')}
               emptyStateIconOverride="solar:sun-bold-duotone"
               onRefreshRequired={handleRefresh}
-              onBrowseContentRequest={handleBrowseContent}
             />
           )}
 
@@ -626,7 +619,6 @@ export function ProfileDetailViewV3({
               addContentButtonText={t('profiles.content.addDataPacks')}
               emptyStateIconOverride="solar:database-bold-duotone"
               onRefreshRequired={handleRefresh}
-              onBrowseContentRequest={handleBrowseContent}
             />
           )}
 
