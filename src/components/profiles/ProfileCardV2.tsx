@@ -608,7 +608,7 @@ export function ProfileCardV2({
                 </button>
               )}
               {preferredAccount && (
-                <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
+                <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
                   <div className="flex items-center gap-1.5 text-white/60">
                     {preferredAccountAvatarUrl && (
                       <img
@@ -793,7 +793,7 @@ export function ProfileCardV2({
             </button>
           )}
           {preferredAccount && (
-            <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
+            <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
               <div className="flex items-center gap-1.5 text-white/60">
                 {preferredAccountAvatarUrl && (
                   <img

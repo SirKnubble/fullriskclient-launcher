@@ -467,7 +467,7 @@ export function ProfileDetailViewV2({
                 
                 {/* Preferred Account Indicator next to title */}
                 {preferredAccount && (
-                  <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
+                  <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
                     <div className="flex items-center gap-1 text-white/60">
                       {preferredAccountAvatarUrl && (
                         <img
