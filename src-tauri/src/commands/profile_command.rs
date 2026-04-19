@@ -681,6 +681,22 @@ async fn try_update_profile(id: Uuid, params: UpdateProfileParams) -> Result<(),
         // settings can be moved if it's Clone or Copy, or borrowed if not
         info!("Updating settings: {:?}", settings);
         profile.settings = settings; // Assuming ProfileSettings is Clone or params.settings is not used after this
+
+        // Mirror legacy override into the per-loader map so writes that only
+        // touch `overwrite_loader_version` (e.g. Settings modal) stay in sync
+        // with the new read-path that prefers the map. Keyed by the profile's
+        // current loader because that's the implicit context of any legacy
+        // write. See `overwrite_loader_versions` comment in profile_state.rs.
+        if profile.settings.use_overwrite_loader_version {
+            if let Some(v) = profile.settings.overwrite_loader_version.clone() {
+                if !v.is_empty() {
+                    profile
+                        .settings
+                        .overwrite_loader_versions
+                        .insert(profile.loader.as_str().to_string(), v);
+                }
+            }
+        }
     }
 
     // Handle selected_norisk_pack_id based on clear_selected_norisk_pack and new value
