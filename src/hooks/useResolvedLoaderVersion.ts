@@ -39,6 +39,11 @@ export function useResolvedLoaderVersion(
     profile?.loader_version,
     profile?.settings?.use_overwrite_loader_version,
     profile?.settings?.overwrite_loader_version,
+    // Per-loader override map — serialise so primitive-equality catches
+    // nested changes (entry added/removed/updated for current loader).
+    profile?.settings?.overwrite_loader_versions
+      ? JSON.stringify(profile.settings.overwrite_loader_versions)
+      : "",
     profile?.selected_norisk_pack_id,
     refreshKey,
   ]);

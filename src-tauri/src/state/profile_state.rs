@@ -259,7 +259,18 @@ pub struct ProfileSettings {
     pub use_custom_java_path: bool, // Ob der benutzerdefinierte Java-Pfad verwendet werden soll
     #[serde(default)]
     pub use_overwrite_loader_version: bool, // Ob die überschriebene Loader-Version verwendet werden soll
-    pub overwrite_loader_version: Option<String>, // Überschriebene Loader-Version
+    // LEGACY single-slot override. Kept for backwards-compat with existing
+    // profile JSONs and with the settings modal that still writes here. The
+    // handler (profile_command.rs) mirrors any non-empty value into
+    // `overwrite_loader_versions` under the current loader key on save, so
+    // new reads prefer the per-loader map.
+    pub overwrite_loader_version: Option<String>,
+    // Per-loader override map. Key = `ModLoader::as_str()` ("fabric", "forge",
+    // "quilt", "neoforge"). Lets profiles hold distinct pinned versions for
+    // each loader, so switching Fabric → Forge → Fabric restores the Fabric
+    // pick instead of inheriting a meaningless string.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub overwrite_loader_versions: HashMap<String, String>,
     pub memory: MemorySettings,    // Speicher Einstellungen
     #[serde(default)]
     pub resolution: Option<WindowSize>, // Auflösung
@@ -3313,6 +3324,7 @@ impl Default for ProfileSettings {
             use_custom_java_path: false,
             use_overwrite_loader_version: false,
             overwrite_loader_version: None,
+            overwrite_loader_versions: HashMap::new(),
             memory: MemorySettings::default(),
             resolution: None,
             fullscreen: false,

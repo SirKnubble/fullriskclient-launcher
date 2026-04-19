@@ -75,7 +75,16 @@ export interface ProfileSettings {
   java_path: string | null;       // Option<String> -> string | null
   use_custom_java_path: boolean; // Added boolean flag
   use_overwrite_loader_version: boolean; // Added boolean flag for loader version overwrite
-  overwrite_loader_version: string | null; // Option<String> -> string | null
+  overwrite_loader_version: string | null; // LEGACY single-slot; read-only path, writes go through the map below. Kept for old-profile compat.
+  /**
+   * Per-loader override map. Keys match `ModLoader::as_str()` ("fabric",
+   * "forge", "quilt", "neoforge"). Lets a profile hold distinct pinned
+   * versions for each loader, so fabric → forge → fabric restores the
+   * earlier fabric pick. Legacy profiles get the legacy field mirrored
+   * into it on the first save (backend handler). Optional because Rust
+   * uses `skip_serializing_if = "is_empty"` — absent when empty.
+   */
+  overwrite_loader_versions?: Record<string, string>;
   memory: MemorySettings;
   resolution: WindowSize | null;
   fullscreen: boolean;
