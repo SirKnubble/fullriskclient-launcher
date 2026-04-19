@@ -34,6 +34,7 @@ import { useAppDragDropStore } from "../../../../store/appStore";
 import { ContentType as BackendContentType } from "../../../../types/content";
 import { Tooltip } from "../../../ui/Tooltip";
 import { ModUpdateText } from "../../../ui/ModUpdateText";
+import { ConfirmDeleteDialog } from "../../../modals/ConfirmDeleteDialog";
 import { preloadIcons } from "../../../../lib/icon-utils";
 import { useDelayedTrue } from "../../../../hooks/useDelayedTrue";
 import { EmptyStateV3 } from "../shared/EmptyStateV3";
@@ -654,6 +655,25 @@ export function LocalContentTabV3<T extends LocalContentItem>({
         onClear={() => manager.handleSelectAllToggle(false)}
         batchProgress={batchProgress}
         actions={fabActions}
+      />
+
+      {/* Confirm-dialog for single and batch delete — the manager toggles
+          `isConfirmDeleteDialogOpen` but leaves the UI to the consumer. */}
+      <ConfirmDeleteDialog
+        isOpen={manager.isConfirmDeleteDialogOpen}
+        itemName={
+          manager.itemToDeleteForDialog
+            ? getDisplayFileName(manager.itemToDeleteForDialog as T)
+            : `${manager.selectedItemIds.size} ${manager.selectedItemIds.size === 1 ? itemTypeName : itemTypeNamePlural}`
+        }
+        onClose={manager.handleCloseDeleteDialog}
+        onConfirm={manager.handleConfirmDeletion}
+        isDeleting={manager.isDialogActionLoading}
+        title={
+          manager.itemToDeleteForDialog
+            ? t("content.delete_item_title", { name: getDisplayFileName(manager.itemToDeleteForDialog as T) })
+            : t("content.delete_selected_title", { itemType: itemTypeNamePlural })
+        }
       />
     </div>
   );
