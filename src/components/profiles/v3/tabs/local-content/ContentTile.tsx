@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../../../../store/useThemeStore";
@@ -94,6 +95,14 @@ export function ContentTile({
     (item.curseforge_info as any)?.file_id ||
     null;
 
+  // Portal-mode triggers: the tile wrapper carries `opacity-55` when the
+  // content is disabled. CSS opacity cascades to children, so without a
+  // portal the dropdown panels would also fade and become unreadable.
+  // Passing these refs into ThemedDropdown renders the panels in
+  // `document.body`, outside the faded subtree.
+  const versionButtonRef = useRef<HTMLButtonElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
   return (
     <div
       style={isSelected ? { backgroundColor: `${accentColor.value}1a`, borderColor: `${accentColor.value}66` } : undefined}
@@ -180,6 +189,7 @@ export function ContentTile({
         <div className="flex items-center gap-2 mt-1 text-xs font-minecraft-ten">
           <div className="relative min-w-0">
             <button
+              ref={versionButtonRef}
               onClick={(e) => { e.stopPropagation(); if (isSwitchable && !isSwitchingVersion) onVersionClick(); }}
               disabled={!isSwitchable || isSwitchingVersion}
               /* Fixed h-5 verhindert dass die Chip 1-2px hoeher wird sobald ein
@@ -223,6 +233,7 @@ export function ContentTile({
               width="w-72"
               align="left"
               scrollable
+              triggerRef={versionButtonRef}
             >
               <ThemedDropdownHeader>{t("profiles.v3.versions.selectVersion")}</ThemedDropdownHeader>
               {isLoadingVersions && (
@@ -317,12 +328,13 @@ export function ContentTile({
       {/* Menu */}
       <div className="relative flex-shrink-0">
         <button
+          ref={menuButtonRef}
           onClick={(e) => { e.stopPropagation(); onMenuToggle(!menuOpen); }}
           className="p-1.5 rounded text-white/40 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <Icon icon="solar:menu-dots-bold" className="w-4 h-4" />
         </button>
-        <ThemedDropdown open={menuOpen} onClose={() => onMenuToggle(false)} width="w-52">
+        <ThemedDropdown open={menuOpen} onClose={() => onMenuToggle(false)} width="w-52" triggerRef={menuButtonRef}>
           <ThemedDropdownItem
             icon="solar:folder-linear"
             onClick={() => { onOpenFolder(); onMenuToggle(false); }}
