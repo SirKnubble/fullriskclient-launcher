@@ -98,6 +98,15 @@ export interface ModrinthSearchV2Props {
   initialProjectType?: ModrinthProjectType; // Added new prop
   allowedProjectTypes?: ModrinthProjectType[]; // New prop for allowed project types
   disableVirtualization?: boolean; // New prop to disable Virtuoso and use infinite div scrolling
+  /**
+   * Override the default title-click navigation on each project card.
+   * Used by the V3 Add-content sheet to render the mod detail as a stacked
+   * layer inside the sheet instead of routing away.
+   */
+  onProjectClick?: (
+    project: UnifiedModSearchResult | any,
+    source: "modrinth" | "curseforge",
+  ) => void;
 }
 
 const ALL_MODRINTH_PROJECT_TYPES: ModrinthProjectType[] = ['modpack', 'mod', 'resourcepack', 'shader', 'datapack'];
@@ -121,6 +130,7 @@ export function ModrinthSearchV2({
   initialProjectType, // Added new prop
   allowedProjectTypes, // Destructure new prop
   disableVirtualization = false, // Default to false (use Virtuoso by default)
+  onProjectClick,
 }: ModrinthSearchV2Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -3333,10 +3343,11 @@ export function ModrinthSearchV2({
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
                       projectNoRiskStatus={projectNoRiskStatus}
+                      onProjectClick={onProjectClick}
                     />
                   );
                 })}
-                
+
                 {/* Load more button for non-virtualized mode */}
                 {!loading && searchResults.length > 0 && searchResults.length < totalHits && (
                   <div className="flex justify-center p-4">
@@ -3425,6 +3436,7 @@ export function ModrinthSearchV2({
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
                       projectNoRiskStatus={projectNoRiskStatus}
+                      onProjectClick={onProjectClick}
                     />
                   );
                 }}
