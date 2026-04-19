@@ -101,7 +101,12 @@ export function Tooltip({
         onMouseEnter={showTooltip}
         onMouseMove={handleMouseMove}
         onMouseLeave={hideTooltip}
-        className="inline-block"
+        // `inline-flex items-center` instead of `inline-block` so the trigger
+        // wrapper has the same baseline/alignment semantics as the chips + icon
+        // buttons around it in flex rows. Plain `inline-block` was offsetting
+        // wrapped children by ~1px because its baseline sits on the last line
+        // of text while neighboring `inline-flex` items center their content.
+        className="inline-flex items-center"
       >
         {children}
       </div>
