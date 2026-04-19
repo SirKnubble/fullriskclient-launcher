@@ -43,6 +43,11 @@ import { SettingsContextMenu, type ContextMenuItem } from "../../ui/SettingsCont
 import { Tooltip } from "../../ui/Tooltip";
 
 import { ProfileLeftRailV3, type NavKey, CONTENT_NAV_KEYS } from "./ProfileLeftRailV3";
+import { EditableChipV3 } from "./chips/EditableChipV3";
+import { GameVersionPickerV3 } from "./chips/GameVersionPickerV3";
+import { LoaderBadgeV3 } from "./chips/LoaderBadgeV3";
+import { LoaderVersionPickerV3 } from "./chips/LoaderVersionPickerV3";
+import { useHeroChipEditors } from "./chips/useHeroChipEditors";
 import { LocalContentTabV3 } from "./tabs/LocalContentTabV3";
 import { WorldsTabV3 } from "./tabs/WorldsTabV3";
 import { ScreenshotsTabV3 } from "./tabs/ScreenshotsTabV3";
@@ -51,16 +56,6 @@ import type { LocalContentItem } from "../../../hooks/useLocalContentManager";
 
 const mainTabFor = (k: NavKey): string =>
   CONTENT_NAV_KEYS.includes(k) ? "content" : k;
-
-const getLoaderIcon = (loader?: string | null): string => {
-  switch (loader) {
-    case "fabric":   return "/icons/fabric.png";
-    case "forge":    return "/icons/forge.png";
-    case "quilt":    return "/icons/quilt.png";
-    case "neoforge": return "/icons/neoforge.png";
-    default:         return "/icons/minecraft.png";
-  }
-};
 
 interface ProfileDetailViewV3Props {
   profile: Profile;
@@ -96,6 +91,12 @@ export function ProfileDetailViewV3({
   const navigate = useNavigate();
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
   const [activeNavItem, setActiveNavItem] = useState<NavKey>("mods");
+
+  // Inline-edit chip editors — owns fetchers + save + lock state
+  const chipEditors = useHeroChipEditors(currentProfile, setCurrentProfile);
+
+  // Group-chip draft input (persisted-on-Save via chipEditors.saveGroup)
+  const [groupDraft, setGroupDraft] = useState<string>(profile.group ?? "");
 
   useEffect(() => { setDiscordState("Editing a Profile"); }, []);
 
@@ -304,7 +305,10 @@ export function ProfileDetailViewV3({
   }, [openContextMenuId, contextMenuId, isContextMenuOpen, setOpenContextMenuId]);
 
   // ── Effects ───────────────────────────────────────────────────────────────
-  useEffect(() => { setCurrentProfile(profile); }, [profile]);
+  useEffect(() => {
+    setCurrentProfile(profile);
+    setGroupDraft(profile.group ?? "");
+  }, [profile]);
 
   useEffect(() => {
     setDragDropMainTab(mainTabFor(activeNavItem));
@@ -439,9 +443,12 @@ export function ProfileDetailViewV3({
           {/* Icon + loader overlay */}
           <div className="relative flex-shrink-0">
             <ProfileIconV2 profile={currentProfile} size="lg" className="w-24 h-24 rounded-lg ring-1 ring-white/10" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-md bg-black/80 ring-1 ring-white/15 flex items-center justify-center">
-              <img src={getLoaderIcon(currentProfile.loader)} alt={currentProfile.loader ?? "vanilla"} className="w-4 h-4" />
-            </div>
+            <LoaderBadgeV3
+              loader={currentProfile.loader}
+              disabled={chipEditors.isLocked}
+              disabledReason={chipEditors.lockReason}
+              onChange={(loader) => { void chipEditors.saveLoader(loader); }}
+            />
           </div>
 
           {/* Identity + chips */}
@@ -451,14 +458,75 @@ export function ProfileDetailViewV3({
               dangerouslySetInnerHTML={{ __html: parseMotdToHtml(currentProfile.name || currentProfile.id) }}
             />
             <div className="flex flex-wrap items-center gap-1.5 mt-2">
-              <Chip icon="solar:gamepad-bold">{currentProfile.game_version}</Chip>
-              {!isVanillaLoader && (() => {
-                const loaderVersion = resolvedLoaderVersion?.version || currentProfile.loader_version;
+              <EditableChipV3
+                icon="solar:gamepad-bold"
+                withSaveCancel={false}
+                width="w-64"
+                disabled={chipEditors.isLocked}
+                disabledReason={chipEditors.lockReason}
+                onOpen={() => { void chipEditors.loadMinecraftVersions(); }}
+                renderEditor={({ close }) => (
+                  <GameVersionPickerV3
+                    currentVersion={currentProfile.game_version}
+                    versions={chipEditors.mcVersions}
+                    isLoading={chipEditors.mcLoading}
+                    onSelect={(v) => {
+                      void chipEditors.saveGameVersion(v);
+                      close();
+                    }}
+                  />
+                )}
+              >
+                {currentProfile.game_version}
+              </EditableChipV3>
+              {!isVanillaLoader && currentProfile.loader && (() => {
+                // Resolve priority (matches Rust `ModloaderFactory::resolve_loader_version`):
+                //   1. settings.use_overwrite_loader_version + overwrite_loader_version
+                //   2. selected_norisk_pack policy
+                //   3. profile.loader_version (stored)
+                //   4. auto-fetch latest from loader API
+                // `resolvedLoaderVersion` already encapsulates this, so it's the
+                // only source of truth for display + picker-highlight. Stored
+                // is just a last-resort fallback if resolve hasn't answered yet
+                // (network failure, vanilla check races, …).
+                const resolved = resolvedLoaderVersion?.version ?? null;
+                const stored = currentProfile.loader_version ?? null;
+                const effectiveVersion = resolved || stored;
+                // `reason: "not_resolved"` with no effective version means the
+                // loader's API has no releases for this MC (e.g. Quilt for
+                // 26.x today) — surface it explicitly instead of the useless
+                // "latest" placeholder.
+                const notSupported =
+                  resolvedLoaderVersion?.reason === "not_resolved" && !effectiveVersion;
+                const displayVersion = notSupported
+                  ? t("profiles.v3.chips.loaderVersion.notSupported")
+                  : effectiveVersion || t("profiles.v3.chips.loaderVersion.latest");
                 return (
-                  <Chip icon="solar:box-bold">
-                    {currentProfile.loader}
-                    {loaderVersion ? ` ${loaderVersion}` : ""}
-                  </Chip>
+                  <EditableChipV3
+                    icon="solar:box-bold"
+                    withSaveCancel={false}
+                    width="w-48"
+                    disabled={chipEditors.isLocked}
+                    disabledReason={chipEditors.lockReason}
+                    onOpen={() => { void chipEditors.loadLoaderVersions(currentProfile.loader!, currentProfile.game_version); }}
+                    renderEditor={({ close }) => (
+                      <LoaderVersionPickerV3
+                        loader={currentProfile.loader!}
+                        currentVersion={effectiveVersion}
+                        resolvedSource={resolvedLoaderVersion?.reason}
+                        versions={chipEditors.loaderVersions}
+                        isLoading={chipEditors.loaderLoading}
+                        onSelect={(v) => {
+                          void chipEditors.saveLoaderVersion(v);
+                          close();
+                        }}
+                      />
+                    )}
+                  >
+                    <span className={notSupported ? "italic text-white/50" : undefined}>
+                      {displayVersion}
+                    </span>
+                  </EditableChipV3>
                 );
               })()}
               {hasModpack && (
@@ -467,21 +535,42 @@ export function ProfileDetailViewV3({
                   {modpackVersionNumber && <span className="text-white/40 ml-1">· {modpackVersionNumber}</span>}
                 </Chip>
               )}
-              {currentProfile.group && <Chip icon="solar:folder-bold">{currentProfile.group}</Chip>}
+              <EditableChipV3
+                icon="solar:folder-bold"
+                disabled={chipEditors.isLocked}
+                disabledReason={chipEditors.lockReason}
+                onSave={() => { void chipEditors.saveGroup(groupDraft); }}
+                onCancel={() => setGroupDraft(currentProfile.group ?? "")}
+                renderEditor={({ commit }) => (
+                  <div className="px-2 pt-2 pb-1">
+                    <input
+                      autoFocus
+                      type="text"
+                      value={groupDraft}
+                      onChange={(e) => setGroupDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
+                      placeholder={t("profiles.v3.chips.group.placeholder")}
+                      className="w-full h-7 px-2 rounded bg-white/5 border border-white/10 focus:border-white/25 outline-none text-xs text-white placeholder:text-white/30 font-minecraft-ten"
+                    />
+                  </div>
+                )}
+              >
+                {currentProfile.group || <span className="italic text-white/40">{t("profiles.v3.chips.group.empty")}</span>}
+              </EditableChipV3>
               {preferredAccount && (
-                <Tooltip content={t('profiles.launchWith', { username: preferredAccount.username })}>
+                <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-xs text-white/70 font-minecraft-ten">
                     {preferredAccountAvatarUrl ? (
                       <img
                         src={preferredAccountAvatarUrl}
                         alt={preferredAccount.username}
-                        className="w-3.5 h-3.5 rounded-sm"
+                        className="w-3.5 h-3.5 rounded-sm flex-shrink-0"
                         style={{ imageRendering: 'pixelated' }}
                       />
                     ) : (
-                      <Icon icon="solar:user-bold" className="w-3.5 h-3.5" />
+                      <Icon icon="solar:user-bold" className="w-3.5 h-3.5 flex-shrink-0" />
                     )}
-                    <span className="normal-case">{preferredAccount.username}</span>
+                    {preferredAccount.username}
                   </span>
                 </Tooltip>
               )}
