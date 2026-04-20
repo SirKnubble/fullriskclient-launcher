@@ -4,9 +4,6 @@ This Repository includes all bugfixes and features of [NoRiskClient/issues](http
 aswell as the FullRisk Theme in Launcher Settings, which is based on a overhaul of the original NoRiskClient look by [@TimLohrer](https://github.com/TimLohrer/noriskclient-launcher).
 
 <img width="1600" height="1000" alt="image" src="https://github.com/user-attachments/assets/7c187c19-8bb0-4ece-ac74-cfd327f9e09c" />
-
-
-### To-Do
-- github actions automerge with newest norisk.gg version
-- build (working) reöease bundles
-
+ 
+ 
+We are not affiliated, associated, endorsed by, or in any way connected to Discord@FullRisk.
