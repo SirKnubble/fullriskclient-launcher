@@ -11,6 +11,7 @@ import { formatFileSize } from "../../../../../utils/format-file-size";
 import { Tooltip } from "../../../../ui/Tooltip";
 import { ModUpdateText } from "../../../../ui/ModUpdateText";
 import { ToggleSwitch } from "../../../../ui/ToggleSwitch";
+import { CheckboxV2 } from "../../../../ui/CheckboxV2";
 import { ThemedDropdown, ThemedDropdownItem, ThemedDropdownDivider, ThemedDropdownHeader } from "../../shared/ThemedDropdown";
 
 export interface ContentTileProps {
@@ -114,20 +115,14 @@ export function ContentTile({
       }`}
     >
       {/* Selection checkbox (on-hover, or permanent when selectMode aktiv) */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleSelection(); }}
-        className={`flex-shrink-0 transition-opacity ${selectMode || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-        title={isSelected ? t("profiles.v3.tile.deselect") : t("profiles.v3.tile.select")}
-      >
-        <div
-          style={isSelected ? { backgroundColor: accentColor.value, borderColor: accentColor.value } : undefined}
-          className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-            isSelected ? "" : "border-white/30 hover:border-white/60"
-          }`}
-        >
-          {isSelected && <Icon icon="solar:check-read-linear" className="w-3 h-3 text-black" />}
-        </div>
-      </button>
+      <div className={`flex-shrink-0 transition-opacity ${selectMode || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+        <CheckboxV2
+          size="sm"
+          checked={isSelected}
+          onChange={() => onToggleSelection()}
+          tooltip={isSelected ? t("profiles.v3.tile.deselect") : t("profiles.v3.tile.select")}
+        />
+      </div>
 
       {/* Icon + optionales NoRisk-Warn-Icon */}
       <div className="relative w-12 h-12 flex-shrink-0">
