@@ -10,6 +10,7 @@ import type { UnifiedVersion } from "../../../../../types/unified";
 import { formatFileSize } from "../../../../../utils/format-file-size";
 import { Tooltip } from "../../../../ui/Tooltip";
 import { ModUpdateText } from "../../../../ui/ModUpdateText";
+import { ToggleSwitch } from "../../../../ui/ToggleSwitch";
 import { ThemedDropdown, ThemedDropdownItem, ThemedDropdownDivider, ThemedDropdownHeader } from "../../shared/ThemedDropdown";
 
 export interface ContentTileProps {
@@ -313,17 +314,18 @@ export function ContentTile({
         </Tooltip>
       )}
 
-      {/* Toggle switch */}
-      <button
-        onClick={onToggle}
-        disabled={busy}
-        className="flex-shrink-0 disabled:opacity-40"
+      {/* Enable/Disable — V2 ToggleSwitch (accent-getönt, Minecraft-Border) */}
+      <div
+        className="flex-shrink-0"
         title={enabled ? t("profiles.v3.tile.disable") : t("profiles.v3.tile.enable")}
       >
-        <div className={`relative w-9 h-5 rounded-full transition-colors ${enabled ? "bg-emerald-500/70" : "bg-white/10"}`}>
-          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : ""}`} />
-        </div>
-      </button>
+        <ToggleSwitch
+          checked={enabled}
+          onChange={() => onToggle()}
+          disabled={busy}
+          size="sm"
+        />
+      </div>
 
       {/* Menu */}
       <div className="relative flex-shrink-0">

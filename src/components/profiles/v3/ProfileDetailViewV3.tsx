@@ -35,6 +35,7 @@ import { useMinecraftAuthStore } from "../../../store/minecraft-auth-store";
 import { useCrafatarAvatar } from "../../../hooks/useCrafatarAvatar";
 import { useResolvedLoaderVersion } from "../../../hooks/useResolvedLoaderVersion";
 
+import { Button } from "../../ui/buttons/Button";
 import { ProfileIconV2 } from "../ProfileIconV2";
 import { ExportProfileModal } from "../ExportProfileModal";
 import { ModpackVersionsModal } from "../../modals/ModpackVersionsModal";
@@ -579,18 +580,16 @@ export function ProfileDetailViewV3({
 
           {/* Primary CTA cluster */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
+            <Button
               onClick={handleLaunch}
-              className={`group relative h-14 min-w-[180px] px-6 rounded-lg font-minecraft-ten text-xl uppercase tracking-wider text-white transition-all
-                ${isLaunching
-                  ? "bg-gradient-to-b from-rose-500/90 to-rose-600/90 hover:from-rose-400 hover:to-rose-500 ring-1 ring-rose-300/30 shadow-[0_8px_24px_-8px_rgba(244,63,94,0.6)]"
-                  : "bg-gradient-to-b from-emerald-500/90 to-emerald-600/90 hover:from-emerald-400 hover:to-emerald-500 ring-1 ring-emerald-300/30 shadow-[0_8px_24px_-8px_rgba(16,185,129,0.6)]"}`}
+              variant={isLaunching ? "destructive" : "3d"}
+              size="lg"
+              heightClassName="h-14"
+              widthClassName="w-[200px]"
+              icon={<Icon icon={isLaunching ? "solar:stop-bold" : "solar:play-bold"} width="24" height="24" />}
             >
-              <span className="flex items-center justify-center gap-2.5">
-                <Icon icon={isLaunching ? "solar:stop-bold" : "solar:play-bold"} className="w-6 h-6" />
-                {isLaunching ? t('profiles.stop') : t('profiles.play')}
-              </span>
-            </button>
+              {isLaunching ? t('profiles.stop') : t('profiles.play')}
+            </Button>
             <Tooltip content={t('profiles.editProfile')}>
               <button
                 onClick={onEdit}
