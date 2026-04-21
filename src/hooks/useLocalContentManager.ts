@@ -327,9 +327,17 @@ export function useLocalContentManager<T extends LocalContentItem>({
   const [isInitialLoadProcessComplete, setIsInitialLoadProcessComplete] = useState(false);
 
   const onRefreshRequiredRef = useRef(onRefreshRequired);
+  const itemsRef = useRef<T[]>([]);
   useEffect(() => {
     onRefreshRequiredRef.current = onRefreshRequired;
   }, [onRefreshRequired]);
+
+  // Mirror `items` into a ref so memoized callbacks can read the length
+  // without subscribing to every items change (which would otherwise
+  // recompute the callback identity and retrigger the Phase 2 effect).
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   // Generic Phase 1: Fetch basic info for all content types
   const fetchBasicInfo = useCallback(async (): Promise<void> => {
@@ -387,7 +395,11 @@ export function useLocalContentManager<T extends LocalContentItem>({
 
   // Generic Phase 2: Fetch hashes and update items
   const fetchHashesAndUpdateItems = useCallback(async (): Promise<void> => {
-    if (!profile?.id || items.length === 0) return;
+    // Read length via ref — closing over `items` would force this callback
+    // to re-memoize on every setItems call, which cascades into the Phase 2
+    // effect below and caused it to loop while directories (no hash) kept
+    // satisfying the trigger condition.
+    if (!profile?.id || itemsRef.current.length === 0) return;
 
     const backendContentType = mapUiContentTypeToBackend(contentType);
     console.log(`[${contentType}] Phase 2: Fetching hashes and full local info...`, new Date().toISOString());
@@ -439,7 +451,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
     } finally {
       setIsFetchingHashesState(false);
     }
-  }, [profile?.id, contentType, items, getDisplayFileName]); // items is a dependency here
+  }, [profile?.id, contentType, getDisplayFileName]);
 
   // fetchData now just calls fetchBasicInfo, which is Phase 1
   const fetchData = useCallback(async (initialFetch = true): Promise<void> => {
@@ -463,10 +475,13 @@ export function useLocalContentManager<T extends LocalContentItem>({
   
   // Phase 2: Trigger Fetch Hashes (for all content types)
   useEffect(() => {
-    // Only trigger if Phase 1 is done, and there are items that might need hashes,
-    // and hash fetching isn't already in progress.
-    if (!isInitialLoadingState && items.length > 0 && items.some(item => item.sha1_hash === null) && !isFetchingHashesState) {
-      fetchHashesAndUpdateItems(); 
+    // Directories never get a sha1_hash from the backend — checking them
+    // against `=== null` would keep the condition true forever and cause
+    // this effect to re-fire on every items-update, cancelling Phase 3
+    // (Modrinth metadata lookup) via its isMounted cleanup. Shaderpack
+    // tabs with a loose folder would loop and never populate modrinth_info.
+    if (!isInitialLoadingState && items.length > 0 && items.some(item => !item.is_directory && item.sha1_hash === null) && !isFetchingHashesState) {
+      fetchHashesAndUpdateItems();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, isInitialLoadingState, isFetchingHashesState, fetchHashesAndUpdateItems]); // fetchHashesAndUpdateItems is memoized
