@@ -77,21 +77,21 @@ export function EditableChipV3({
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
         title={disabled ? disabledReason : undefined}
-        className={`group inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-xs font-minecraft-ten transition-colors
+        className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-minecraft-ten transition-colors
           ${disabled
-            ? "bg-white/[0.02] border-white/5 text-white/30 cursor-not-allowed"
+            ? "bg-black/20 border-white/5 text-white/30 cursor-not-allowed"
             : open
-              ? "bg-white/10 border-white/20 text-white cursor-pointer"
-              : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white cursor-pointer"}`}
+              ? "bg-black/40 border-white/25 text-white cursor-pointer"
+              : "bg-black/30 border-white/10 text-white/75 hover:bg-black/40 hover:border-white/20 hover:text-white cursor-pointer"}`}
       >
-        {icon && <Icon icon={icon} className="w-3.5 h-3.5" />}
+        {icon && <Icon icon={icon} className="w-4 h-4 flex-shrink-0" />}
         <span>{children}</span>
         {disabled ? (
-          <Icon icon="solar:lock-keyhole-minimalistic-bold" className="w-3 h-3 text-white/30 ml-0.5" />
+          <Icon icon="solar:lock-keyhole-minimalistic-bold" className="w-3.5 h-3.5 text-white/30 ml-0.5 flex-shrink-0" />
         ) : (
           <Icon
             icon="solar:pen-linear"
-            className={`w-3 h-3 ml-0.5 transition-opacity ${
+            className={`w-3.5 h-3.5 ml-0.5 flex-shrink-0 transition-opacity ${
               open ? "opacity-80" : "opacity-40 group-hover:opacity-80"
             }`}
           />

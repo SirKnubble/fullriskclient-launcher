@@ -40,7 +40,9 @@ import { preloadIcons } from "../../../../lib/icon-utils";
 import { useDelayedTrue } from "../../../../hooks/useDelayedTrue";
 import { EmptyStateV3 } from "../shared/EmptyStateV3";
 import { FloatingActionBar, type FABActionConfig } from "../shared/FloatingActionBar";
-import { ThemedDropdown, ThemedDropdownItem, ThemedDropdownDivider } from "../shared/ThemedDropdown";
+import { SearchWithFilters } from "../../../ui/SearchWithFilters";
+import { ContentActionButtons, type ContentActionButton } from "../../../ui/ContentActionButtons";
+import type { DropdownOption } from "../../../ui/CustomDropdown";
 import { ContentTile } from "./local-content/ContentTile";
 import { NoriskPackSelector } from "./local-content/NoriskPackSelector";
 
@@ -158,8 +160,6 @@ export function LocalContentTabV3<T extends LocalContentItem>({
 
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [hoverMenuId, setHoverMenuId] = useState<string | null>(null);
 
   // ── Version-Switcher-State (pro Item) ─────────────────────────────────────
@@ -378,8 +378,16 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     manager.fetchData(true);
   }, [manager]);
 
-  const activeSortLabel = t(SORT_OPTIONS.find(o => o.value === sortBy)?.labelKey ?? "profiles.v3.sort.name");
-  const activeFilterLabel = t(FILTER_OPTIONS.find(o => o.value === filter)?.labelKey ?? "profiles.v3.filter.all");
+  const sortDropdownOptions: DropdownOption[] = useMemo(
+    () => SORT_OPTIONS.map(o => ({ value: o.value, label: t(o.labelKey), icon: o.icon })),
+    [t],
+  );
+  const filterDropdownOptions: DropdownOption[] = useMemo(
+    () => FILTER_OPTIONS
+      .filter(opt => !opt.nrcOnly || isBlockedConfigLoaded)
+      .map(o => ({ value: o.value, label: t(o.labelKey), icon: o.icon, separator: o.separator })),
+    [t, isBlockedConfigLoaded],
+  );
 
   // Loading-Spinner erst nach 500ms zeigen: schnelle Loads (Cache-Hit etc.)
   // rendern dann direkt die Liste statt kurz "Loading…" zu flashen.
@@ -420,127 +428,75 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     },
   ];
 
+  // Right-side actions: Update-all, Refresh, Add — match V2's ContentActionButton
+  // styling (accent-themed `highlight` for CTAs, `text` for refresh) so the
+  // toolbar feels like the rest of the launcher.
+  const toolbarActions: ContentActionButton[] = [
+    ...(manager.updatableContentCount > 0 ? [{
+      id: "update-all",
+      label: manager.isUpdatingAll
+        ? t("profiles.v3.toolbar.updateAll")
+        : `${t("profiles.v3.toolbar.updateAll")} (${manager.updatableContentCount})`,
+      icon: manager.isUpdatingAll || manager.isCheckingUpdates ? "solar:refresh-bold" : "solar:refresh-circle-bold",
+      variant: "highlight" as const,
+      disabled: manager.isUpdatingAll,
+      loading: manager.isUpdatingAll || manager.isCheckingUpdates,
+      tooltip: t("profiles.v3.toolbar.updateAllTitle", { count: manager.updatableContentCount }),
+      onClick: manager.handleUpdateAllAvailableContent,
+    }] : []),
+    {
+      id: "refresh",
+      icon: "solar:refresh-bold",
+      variant: "text" as const,
+      disabled: manager.isAnyTaskRunning,
+      loading: manager.isAnyTaskRunning,
+      tooltip: t("profiles.v3.toolbar.refresh"),
+      onClick: () => manager.fetchData(false),
+    },
+    ...(canBrowse ? [{
+      id: "add",
+      label: addContentButtonText,
+      icon: "solar:add-circle-bold",
+      variant: "highlight" as const,
+      tooltip: addContentButtonText,
+      onClick: handleAddClick,
+    }] : []),
+  ];
+
   return (
     <div className="flex flex-col min-h-0 flex-1 relative">
       {/* ── Sticky Toolbar ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-5 h-12 border-b border-white/5 flex-shrink-0 bg-black/20 sticky top-0 z-10">
-        {/* Fixed width: search darf NICHT mit dem Spacer (<div className="flex-1"/>)
-            konkurrieren — sonst schrumpfen beide, wenn Status-Chips reinkommen,
-            und das Layout wackelt beim Update-Check. */}
-        <div className="relative w-64 flex-shrink-0">
-          <Icon icon="solar:magnifer-linear" className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-          <input
-            value={manager.searchQuery}
-            onChange={(e) => manager.setSearchQuery(e.target.value)}
-            placeholder={t("profiles.v3.toolbar.searchPlaceholder", { type: itemTypeNamePlural.toLowerCase() })}
-            className="w-full h-8 pl-8 pr-3 rounded-md bg-white/5 border border-white/10 focus:border-white/25 outline-none text-sm text-white placeholder:text-white/30 font-minecraft-ten"
-          />
-        </div>
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/10 flex-shrink-0 bg-black/20 sticky top-0 z-10">
+        <SearchWithFilters
+          searchValue={manager.searchQuery}
+          onSearchChange={manager.setSearchQuery}
+          placeholder={t("profiles.v3.toolbar.searchPlaceholder", { type: itemTypeNamePlural.toLowerCase() })}
+          sortOptions={sortDropdownOptions}
+          sortValue={sortBy}
+          onSortChange={(v) => setSortBy(v as SortKey)}
+          filterOptions={filterDropdownOptions}
+          filterValue={filter}
+          onFilterChange={(v) => setFilter(v as FilterKey)}
+          dropdownSize="sm"
+          className="flex-1"
+        />
 
         {/* NoRisk pack selector (only for NRC) */}
         {isNrc && (
           <NoriskPackSelector profile={profile} onChanged={onRefreshRequired} />
         )}
 
-        {/* Filter dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => { setFilterMenuOpen(v => !v); setSortMenuOpen(false); }}
-            className="h-8 px-2.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-minecraft-ten text-white/70 flex items-center gap-1.5"
-          >
-            <Icon icon="solar:filter-bold" className="w-3.5 h-3.5" />
-            {activeFilterLabel}
-            <Icon icon="solar:alt-arrow-down-linear" className="w-3 h-3 opacity-60" />
-          </button>
-          <ThemedDropdown open={filterMenuOpen} onClose={() => setFilterMenuOpen(false)} width="w-44">
-            {FILTER_OPTIONS.filter(opt => !opt.nrcOnly || isBlockedConfigLoaded).map(opt => (
-              <div key={opt.value}>
-                {opt.separator && <ThemedDropdownDivider />}
-                <ThemedDropdownItem
-                  icon={opt.icon}
-                  selected={filter === opt.value}
-                  onClick={() => { setFilter(opt.value); setFilterMenuOpen(false); }}
-                >
-                  {t(opt.labelKey)}
-                </ThemedDropdownItem>
-              </div>
-            ))}
-          </ThemedDropdown>
-        </div>
-
-        {/* Sort dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => { setSortMenuOpen(v => !v); setFilterMenuOpen(false); }}
-            className="h-8 px-2.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-minecraft-ten text-white/70 flex items-center gap-1.5"
-          >
-            <Icon icon="solar:sort-vertical-bold" className="w-3.5 h-3.5" />
-            {activeSortLabel}
-            <Icon icon="solar:alt-arrow-down-linear" className="w-3 h-3 opacity-60" />
-          </button>
-          <ThemedDropdown open={sortMenuOpen} onClose={() => setSortMenuOpen(false)} width="w-40">
-            {SORT_OPTIONS.map(opt => (
-              <ThemedDropdownItem
-                key={opt.value}
-                icon={opt.icon}
-                selected={sortBy === opt.value}
-                onClick={() => { setSortBy(opt.value); setSortMenuOpen(false); }}
-              >
-                {t(opt.labelKey)}
-              </ThemedDropdownItem>
-            ))}
-          </ThemedDropdown>
-        </div>
-
-        <div className="flex-1" />
-
         {/* Update-Check-Error: auffaellig weil kritisch (Netzwerk/API-Problem). */}
         {manager.contentUpdateError && (
           <Tooltip content={manager.contentUpdateError}>
-            <div className="h-8 px-2.5 rounded-md bg-rose-500/10 border border-rose-400/30 text-rose-200 flex items-center gap-1.5 text-xs font-minecraft-ten">
-              <Icon icon="solar:danger-triangle-bold" className="w-3.5 h-3.5" />
-              {t("profiles.v3.toolbar.checkFailed")}
+            <div className="h-9 px-3 rounded-lg bg-red-600/20 border border-red-500/30 text-white flex items-center gap-2 font-minecraft lowercase text-2xl">
+              <Icon icon="solar:danger-triangle-bold" className="w-4 h-4" />
+              <span style={{ transform: 'translateY(-0.075em)' }}>{t("profiles.v3.toolbar.checkFailed")}</span>
             </div>
           </Tooltip>
         )}
-        {manager.updatableContentCount > 0 && (
-          <button
-            onClick={manager.handleUpdateAllAvailableContent}
-            disabled={manager.isUpdatingAll}
-            className="h-8 px-3 rounded-md bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 text-xs font-minecraft-ten text-amber-100 flex items-center gap-1.5 disabled:opacity-50 transition-colors"
-            title={t("profiles.v3.toolbar.updateAllTitle", { count: manager.updatableContentCount })}
-          >
-            <Icon
-              icon={manager.isUpdatingAll ? "solar:refresh-bold" : "solar:refresh-circle-bold"}
-              className={`w-4 h-4 ${manager.isUpdatingAll || manager.isCheckingUpdates ? "animate-spin" : ""}`}
-            />
-            {t("profiles.v3.toolbar.updateAll")}
-            <span className="px-1.5 rounded bg-amber-400/30 text-amber-50 text-[10px] tabular-nums">{manager.updatableContentCount}</span>
-          </button>
-        )}
 
-        {/* Refresh: spinnt waehrend *irgendeine* Pipeline-Phase laeuft. */}
-        <button
-          onClick={() => manager.fetchData(false)}
-          disabled={manager.isAnyTaskRunning}
-          className="h-8 px-2.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white disabled:opacity-50 flex items-center transition-colors"
-          title={t("profiles.v3.toolbar.refresh")}
-        >
-          <Icon
-            icon="solar:refresh-bold"
-            className={`w-4 h-4 ${manager.isAnyTaskRunning ? "animate-spin" : ""}`}
-          />
-        </button>
-
-        {canBrowse && (
-          <button
-            onClick={handleAddClick}
-            className="h-8 px-3 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 text-xs font-minecraft-ten uppercase tracking-wider flex items-center gap-1.5"
-          >
-            <Icon icon="solar:add-circle-bold" className="w-4 h-4" />
-            {addContentButtonText}
-          </button>
-        )}
+        <ContentActionButtons actions={toolbarActions} size="sm" />
       </div>
 
       {/* ── Content area ───────────────────────────────────────────────── */}

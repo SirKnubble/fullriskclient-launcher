@@ -108,10 +108,10 @@ export function ContentTile({
   return (
     <div
       style={isSelected ? { backgroundColor: `${accentColor.value}1a`, borderColor: `${accentColor.value}66` } : undefined}
-      className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+      className={`group relative flex items-center gap-4 p-3 rounded-lg border transition-colors ${
         isSelected
           ? ""
-          : `bg-white/[0.03] border-white/10 hover:border-white/20 hover:bg-white/[0.06] ${!enabled ? "opacity-55" : ""}`
+          : `bg-black/20 border-white/10 hover:border-white/20 hover:bg-black/30 ${!enabled ? "opacity-55" : ""}`
       }`}
     >
       {/* Selection checkbox (on-hover, or permanent when selectMode aktiv) */}
@@ -125,8 +125,8 @@ export function ContentTile({
       </div>
 
       {/* Icon + optionales NoRisk-Warn-Icon */}
-      <div className="relative w-12 h-12 flex-shrink-0">
-        <div className="w-full h-full rounded-md bg-white/10 ring-1 ring-white/10 flex items-center justify-center overflow-hidden">
+      <div className="relative w-14 h-14 flex-shrink-0">
+        <div className="w-full h-full rounded-lg bg-white/5 ring-1 ring-white/10 flex items-center justify-center overflow-hidden">
           {iconUrl ? (
             <img src={iconUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
           ) : (

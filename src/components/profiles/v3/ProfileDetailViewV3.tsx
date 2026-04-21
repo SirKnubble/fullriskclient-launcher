@@ -66,18 +66,18 @@ interface ProfileDetailViewV3Props {
 
 // ─── Atoms ─────────────────────────────────────────────────────────────────
 const Chip: React.FC<{ icon?: string; children: React.ReactNode }> = ({ icon, children }) => (
-  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-xs text-white/70 font-minecraft-ten">
-    {icon && <Icon icon={icon} className="w-3.5 h-3.5" />}
+  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-sm text-white/75 font-minecraft-ten">
+    {icon && <Icon icon={icon} className="w-4 h-4 flex-shrink-0" />}
     {children}
   </span>
 );
 
 const Stat: React.FC<{ icon: string; label: string; value: string; muted?: boolean }> = ({ icon, label, value, muted }) => (
-  <div className="flex items-center gap-2.5 px-3 py-2 rounded-md bg-white/[0.03] border border-white/10 min-w-[140px]">
-    <Icon icon={icon} className={`w-4 h-4 ${muted ? "text-white/25" : "text-white/50"}`} />
-    <div className="flex flex-col leading-tight">
-      <span className="text-[10px] uppercase tracking-wider text-white/40 font-minecraft-ten">{label}</span>
-      <span className={`text-sm font-minecraft-ten ${muted ? "text-white/40" : "text-white/90"}`}>{value}</span>
+  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 hover:border-white/20 transition-colors min-w-[160px]">
+    <Icon icon={icon} className={`w-5 h-5 flex-shrink-0 ${muted ? "text-white/25" : "text-white/60"}`} />
+    <div className="flex flex-col leading-tight min-w-0">
+      <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft-ten">{label}</span>
+      <span className={`text-sm font-minecraft-ten truncate ${muted ? "text-white/40" : "text-white/95"}`} title={value}>{value}</span>
     </div>
   </div>
 );
@@ -560,16 +560,16 @@ export function ProfileDetailViewV3({
               </EditableChipV3>
               {preferredAccount && (
                 <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-xs text-white/70 font-minecraft-ten">
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-sm text-white/75 font-minecraft-ten">
                     {preferredAccountAvatarUrl ? (
                       <img
                         src={preferredAccountAvatarUrl}
                         alt={preferredAccount.username}
-                        className="w-3.5 h-3.5 rounded-sm flex-shrink-0"
+                        className="w-4 h-4 rounded-sm flex-shrink-0"
                         style={{ imageRendering: 'pixelated' }}
                       />
                     ) : (
-                      <Icon icon="solar:user-bold" className="w-3.5 h-3.5 flex-shrink-0" />
+                      <Icon icon="solar:user-bold" className="w-4 h-4 flex-shrink-0" />
                     )}
                     {preferredAccount.username}
                   </span>
@@ -608,10 +608,10 @@ export function ProfileDetailViewV3({
             leading-tight) damit 1:1 gleiche Pixel. */}
         <div className="flex items-center gap-2 flex-wrap mt-5">
           {isLaunching && statusMessage ? (
-            <div className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-md bg-emerald-500/10 border border-emerald-400/25 min-w-[140px] animate-in fade-in duration-200">
-              <Icon icon="solar:refresh-bold" className="w-4 h-4 text-emerald-300 animate-spin flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 min-w-[160px] animate-in fade-in duration-200">
+              <Icon icon="solar:refresh-bold" className="w-5 h-5 text-emerald-300 animate-spin flex-shrink-0" />
               <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-[10px] uppercase tracking-wider text-emerald-300/70 font-minecraft-ten">
+                <span className="text-xs uppercase tracking-wider text-emerald-300/70 font-minecraft-ten">
                   {t("profiles.card.starting")}
                 </span>
                 <span className="text-sm text-emerald-100/95 font-minecraft-ten truncate" title={statusMessage}>

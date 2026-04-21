@@ -10,7 +10,6 @@ import type React from "react";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import type { Profile } from "../../../types/profile";
-import { useThemeStore } from "../../../store/useThemeStore";
 
 export type NavKey =
   | "mods" | "resourcepacks" | "shaderpacks" | "datapacks" | "nrc"
@@ -38,7 +37,6 @@ interface ProfileLeftRailV3Props {
 
 export function ProfileLeftRailV3({ profile, activeNavItem, onNavChange }: ProfileLeftRailV3Props) {
   const { t } = useTranslation();
-  const accentColor = useThemeStore((s) => s.accentColor);
 
   const modCount = profile.mods?.length ?? 0;
 
@@ -64,13 +62,13 @@ export function ProfileLeftRailV3({ profile, activeNavItem, onNavChange }: Profi
   ];
 
   return (
-    <aside className="w-60 flex-shrink-0 border-r border-white/5 overflow-y-auto py-3 flex flex-col">
+    <aside className="w-64 flex-shrink-0 border-r border-white/10 overflow-y-auto no-scrollbar py-4 flex flex-col">
       {groups.map((group, gi) => (
-        <div key={gi} className="mb-4">
-          <div className="px-4 mb-1.5 text-[10px] uppercase tracking-[0.15em] text-white/35 font-minecraft-ten">
+        <div key={gi} className="mb-5">
+          <div className="px-4 mb-2 text-xs uppercase tracking-wider text-white/60 font-minecraft-ten">
             {gi === 0 ? t("profiles.tabs.content") : t("profiles.v3.leftRail.world")}
           </div>
-          <div className="px-2 space-y-0.5">
+          <div className="px-2 space-y-1">
             {group.items.map((item) => {
               const active = item.key === activeNavItem;
               return (
@@ -80,7 +78,6 @@ export function ProfileLeftRailV3({ profile, activeNavItem, onNavChange }: Profi
                   icon={item.icon}
                   label={t(item.labelKey)}
                   count={item.count}
-                  accent={accentColor.value}
                   onClick={() => onNavChange(item.key)}
                 />
               );
@@ -97,25 +94,22 @@ interface NavButtonProps {
   label: string;
   count?: number;
   active?: boolean;
-  accent: string;
   onClick: () => void;
 }
 
-const NavButton: React.FC<NavButtonProps> = ({ icon, label, count, active, accent, onClick }) => (
+const NavButton: React.FC<NavButtonProps> = ({ icon, label, count, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`group w-full flex items-center gap-3 px-2.5 py-2 rounded-md text-left transition-colors ${
-      active ? "bg-white/10 text-white" : "text-white/55 hover:text-white hover:bg-white/5"
+    className={`w-full flex items-center gap-3 px-3 py-2 rounded text-left transition-colors border ${
+      active
+        ? "bg-white/10 text-white border-white/20"
+        : "text-white/60 hover:text-white hover:bg-white/5 border-transparent"
     }`}
   >
-    <span
-      className="w-0.5 h-5 rounded-full"
-      style={{ backgroundColor: active ? accent : "transparent" }}
-    />
-    <Icon icon={icon} className="w-4 h-4 flex-shrink-0" />
-    <span className="flex-1 font-minecraft-ten text-sm normal-case truncate">{label}</span>
+    <Icon icon={icon} className="w-5 h-5 flex-shrink-0" />
+    <span className="flex-1 font-minecraft-ten text-sm uppercase tracking-wide truncate">{label}</span>
     {typeof count === "number" && count > 0 && (
-      <span className="text-[10px] font-minecraft-ten text-white/40 tabular-nums">{count}</span>
+      <span className="text-xs font-minecraft-ten text-white/45 tabular-nums">{count}</span>
     )}
   </button>
 );
