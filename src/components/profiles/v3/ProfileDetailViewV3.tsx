@@ -17,6 +17,29 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
+import { preloadIcons } from "../../../lib/icon-utils";
+
+// Pre-fetch the chip/stat/top-bar icons so the hero row doesn't horizontally
+// jitter as Iconify resolves them on mount — a chip's icon has w-4 h-4 but
+// Iconify renders 0×0 until fetch completes, so the chip grows sideways
+// once each icon lands.
+preloadIcons([
+  // Hero chips
+  "solar:gamepad-bold", "solar:box-bold", "solar:folder-bold",
+  "solar:widget-bold", "solar:user-bold", "solar:pen-linear",
+  "solar:lock-keyhole-minimalistic-bold",
+  // Hero actions
+  "solar:play-bold", "solar:stop-bold", "solar:settings-bold",
+  "solar:refresh-bold",
+  // Top bar
+  "solar:arrow-left-linear", "solar:folder-linear", "solar:copy-linear",
+  "solar:upload-linear", "solar:menu-dots-bold",
+  // Stats strip
+  "solar:clock-circle-bold", "solar:hourglass-bold", "solar:hard-drive-bold",
+  // Context menu
+  "solar:copy-bold", "solar:download-bold", "solar:archive-bold",
+  "solar:trash-bin-trash-bold",
+]);
 
 import type { Profile } from "../../../types/profile";
 import { setDiscordState } from "../../../utils/discordRpc";
@@ -72,8 +95,13 @@ const Chip: React.FC<{ icon?: string; children: React.ReactNode }> = ({ icon, ch
   </span>
 );
 
+// Stats card — width is bounded (min 160, max 240). Without the max the card
+// grew when a long value showed up async (e.g. "Cobblemon Official Modpack
+// [Forge] 1.5.2 1.5.2" replacing the "Modpack" placeholder) and pushed the
+// whole strip around after mount. Capped width + truncate keeps the layout
+// stable while still surfacing the full text on hover via `title`.
 const Stat: React.FC<{ icon: string; label: string; value: string; muted?: boolean }> = ({ icon, label, value, muted }) => (
-  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 hover:border-white/20 transition-colors min-w-[160px]">
+  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 hover:border-white/20 transition-colors min-w-[160px] max-w-[240px]">
     <Icon icon={icon} className={`w-5 h-5 flex-shrink-0 ${muted ? "text-white/25" : "text-white/60"}`} />
     <div className="flex flex-col leading-tight min-w-0">
       <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft-ten">{label}</span>
@@ -499,9 +527,14 @@ export function ProfileDetailViewV3({
                 // "latest" placeholder.
                 const notSupported =
                   resolvedLoaderVersion?.reason === "not_resolved" && !effectiveVersion;
+                // Normalize " (stable)" away so the chip width doesn't shrink
+                // the moment `resolvedLoaderVersion` fires — `stored` keeps
+                // the suffix (Fabric/Quilt wizard-stored format), while
+                // `resolved` comes from the loader API without it.
+                const stripped = effectiveVersion?.replace(/\s*\(stable\)\s*$/i, "") ?? null;
                 const displayVersion = notSupported
                   ? t("profiles.v3.chips.loaderVersion.notSupported")
-                  : effectiveVersion || t("profiles.v3.chips.loaderVersion.latest");
+                  : stripped || t("profiles.v3.chips.loaderVersion.latest");
                 return (
                   <EditableChipV3
                     icon="solar:box-bold"
@@ -530,12 +563,6 @@ export function ProfileDetailViewV3({
                   </EditableChipV3>
                 );
               })()}
-              {hasModpack && (
-                <Chip icon="solar:widget-bold">
-                  {modpackLabel}
-                  {modpackVersionNumber && <span className="text-white/40 ml-1">· {modpackVersionNumber}</span>}
-                </Chip>
-              )}
               <EditableChipV3
                 icon="solar:folder-bold"
                 disabled={chipEditors.isLocked}
@@ -558,6 +585,41 @@ export function ProfileDetailViewV3({
               >
                 {currentProfile.group || <span className="italic text-white/40">{t("profiles.v3.chips.group.empty")}</span>}
               </EditableChipV3>
+              {/* Modpack chip sits at the end of the row so async name/version
+                  resolution (getModpackVersions) can only grow rightwards —
+                  fixed chips (version/loader/group) stay put. Clicking opens
+                  the full ModpackVersionsModal (changelogs, install flow) —
+                  an inline ThemedDropdown would be too cramped for the UX. */}
+              {hasModpack && (() => {
+                const versionsReady = !!modpackVersions;
+                const tooltip = !versionsReady
+                  ? t("profiles.v3.chips.modpack.loading")
+                  : modpackVersionNumber ? `${modpackLabel} · ${modpackVersionNumber}` : modpackLabel;
+                return (
+                  <Tooltip content={tooltip}>
+                    <button
+                      type="button"
+                      disabled={!versionsReady}
+                      onClick={() => versionsReady && handleOpenModpackVersionsModal()}
+                      className={`group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-minecraft-ten transition-colors max-w-[280px] ${
+                        !versionsReady
+                          ? "bg-black/20 border-white/5 text-white/30 cursor-wait"
+                          : "bg-black/30 border-white/10 text-white/75 hover:bg-black/40 hover:border-white/20 hover:text-white cursor-pointer"
+                      }`}
+                    >
+                      <Icon icon="solar:widget-bold" className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{modpackLabel}</span>
+                      {modpackVersionNumber && <span className="text-white/40 flex-shrink-0">· {modpackVersionNumber}</span>}
+                      {versionsReady && (
+                        <Icon
+                          icon="solar:pen-linear"
+                          className="w-3.5 h-3.5 ml-0.5 flex-shrink-0 opacity-40 group-hover:opacity-80 transition-opacity"
+                        />
+                      )}
+                    </button>
+                  </Tooltip>
+                );
+              })()}
               {preferredAccount && (
                 <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
                   <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 text-sm text-white/75 font-minecraft-ten">
@@ -625,12 +687,6 @@ export function ProfileDetailViewV3({
                 icon="solar:clock-circle-bold"
                 label={t('profiles.sort.lastPlayed')}
                 value={formatRelativeTime(currentProfile.last_played)}
-              />
-              <Stat
-                icon="solar:archive-bold"
-                label={t("profiles.v3.stats.modpack")}
-                value={hasModpack ? (modpackVersionNumber ? `${modpackLabel} ${modpackVersionNumber}` : modpackLabel) : "—"}
-                muted={!hasModpack}
               />
               <Stat
                 icon="solar:hourglass-bold"
