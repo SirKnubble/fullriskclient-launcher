@@ -719,17 +719,20 @@ pub async fn install_minecraft_version(
         launch_params = launch_params.with_additional_jvm_args(current_jvm_args);
         info!("Configured Fabric addMods meta file for profile '{}'", profile.name);
     } else if modloader_enum == ModLoader::Forge || modloader_enum == ModLoader::NeoForge {
-        // Forge/NeoForge: use nrc-forgeloader to register mods from cache via meta file.
-        // Legacy Forge: -cp + -Dfml.coreMods.load (IFMLLoadingPlugin)
-        // Modern Forge + NeoForge: -cp, ServiceLoader discovers ForgeModLoader automatically
         let loader_str = if modloader_enum == ModLoader::NeoForge { "neoforge" } else { "forge" };
         let is_legacy_forge = modloader_enum == ModLoader::Forge
             && ["1.7.10", "1.8.9", "1.12.2"].contains(&version_id);
 
+        let (early_service_mods, meta_mods) = if modloader_enum == ModLoader::NeoForge {
+            crate::minecraft::downloads::mod_resolver::split_neoforge_early_service_mods(&target_mods).await
+        } else {
+            (Vec::new(), target_mods.clone())
+        };
+
         let meta_path = crate::minecraft::downloads::mod_resolver::build_forge_add_mods_meta(
             profile.id,
             version_id,
-            &target_mods,
+            &meta_mods,
         )
         .await?;
 
@@ -747,9 +750,15 @@ pub async fn install_minecraft_version(
 
         let mut libs = launch_params.additional_libraries.clone();
         libs.push(loader_path);
+        for tm in &early_service_mods {
+            libs.push(tm.cache_path.clone());
+        }
         launch_params = launch_params.with_additional_libraries(libs);
 
-        info!("Configured {} ForgeModLoader for profile '{}' ({} mods)", loader_str, profile.name, target_mods.len());
+        info!(
+            "Configured {} ForgeModLoader for profile '{}' ({} meta mods, {} early-service mods on cp)",
+            loader_str, profile.name, meta_mods.len(), early_service_mods.len()
+        );
     }
 
     // --- Step: Sync mods from cache to profile directory ---
