@@ -34,7 +34,6 @@ export interface SearchWithFiltersProps {
   showSort?: boolean;
   /** Whether to show the filter dropdown */
   showFilter?: boolean;
-  /** Size of the integrated sort/filter dropdowns — "sm" for dense toolbars. */
   dropdownSize?: 'sm' | 'md';
 }
 

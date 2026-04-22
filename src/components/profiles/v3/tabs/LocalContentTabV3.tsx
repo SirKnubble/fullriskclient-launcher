@@ -428,9 +428,6 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     },
   ];
 
-  // Right-side actions: Update-all, Refresh, Add — match V2's ContentActionButton
-  // styling (accent-themed `highlight` for CTAs, `text` for refresh) so the
-  // toolbar feels like the rest of the launcher.
   const toolbarActions: ContentActionButton[] = [
     ...(manager.updatableContentCount > 0 ? [{
       id: "update-all",

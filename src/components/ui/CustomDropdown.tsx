@@ -8,7 +8,6 @@ export interface DropdownOption {
   value: string;
   label: string;
   icon?: string;
-  /** Render a divider above this option to group items. Ignored on first option. */
   separator?: boolean;
 }
 
