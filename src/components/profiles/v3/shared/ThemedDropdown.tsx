@@ -27,7 +27,7 @@
  */
 
 import type React from "react";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../../../store/useThemeStore";
@@ -72,12 +72,13 @@ export function ThemedDropdown({
 }: ThemedDropdownProps) {
   const accent = useThemeStore((s) => s.accentColor.value);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [flipped, setFlipped] = useState(false);
 
-  // Only compute position when portaling. Layout-effect so it fires before
-  // paint and the panel doesn't flash at (0,0) for a frame.
   useLayoutEffect(() => {
     if (!open || !triggerRef?.current) {
       setPos(null);
+      setFlipped(false);
       return;
     }
     const r = triggerRef.current.getBoundingClientRect();
@@ -86,7 +87,20 @@ export function ThemedDropdown({
       top: r.bottom + 4,
       left: align === "right" ? r.right - minW : r.left,
     });
+    setFlipped(false);
   }, [open, triggerRef, width, align]);
+
+  useLayoutEffect(() => {
+    if (flipped || !pos || !panelRef.current || !triggerRef?.current) return;
+    const panel = panelRef.current.getBoundingClientRect();
+    const trigger = triggerRef.current.getBoundingClientRect();
+    const overflowsBelow = panel.bottom > window.innerHeight - 8;
+    const fitsAbove = trigger.top - panel.height - 4 >= 8;
+    if (overflowsBelow && fitsAbove) {
+      setFlipped(true);
+      setPos({ top: trigger.top - panel.height - 4, left: pos.left });
+    }
+  }, [pos, flipped, triggerRef]);
 
   if (!open) return null;
 
@@ -112,6 +126,7 @@ export function ThemedDropdown({
       <>
         <div className="fixed inset-0 z-[1000]" onClick={onClose} />
         <div
+          ref={panelRef}
           style={{ ...panelStyle, position: "fixed", top: pos.top, left: pos.left }}
           className={`w-max ${maxWidth} rounded-md border shadow-2xl z-[1001] py-1 ${scrollClass} ${className}`}
         >
