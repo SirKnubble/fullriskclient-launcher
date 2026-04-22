@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { setDiscordState } from '../../../utils/discordRpc';
 import UnifiedService from '../../../services/unified-service';
 import { ModrinthService } from '../../../services/modrinth-service';
 import { CurseForgeService } from '../../../services/curseforge-service';
@@ -71,11 +72,13 @@ import {
 import type { ContentInstallStatus, ContentCheckRequest, BatchCheckContentParams } from '../../../types/profile'; // For the extended status
 
 import { useProfileStore } from '../../../store/profile-store'; // Hinzufügen des ProfileStore Imports
+import { useModSearchStore } from '../../../store/useModSearchStore';
 import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
 import { useNavigate } from 'react-router-dom';
 import { useGlobalModal } from '../../../hooks/useGlobalModal';
 import { useThemeStore } from '../../../store/useThemeStore';
 import { handleIrisCheckAndShowModal, IrisRequiredModal } from '../../../utils/iris-detection.tsx';
+import { useTranslation } from "react-i18next";
 
 // Remove any other stray imports of uninstallContentFromProfile below this point
 
@@ -95,6 +98,15 @@ export interface ModrinthSearchV2Props {
   initialProjectType?: ModrinthProjectType; // Added new prop
   allowedProjectTypes?: ModrinthProjectType[]; // New prop for allowed project types
   disableVirtualization?: boolean; // New prop to disable Virtuoso and use infinite div scrolling
+  /**
+   * Override the default title-click navigation on each project card.
+   * Used by the V3 Add-content sheet to render the mod detail as a stacked
+   * layer inside the sheet instead of routing away.
+   */
+  onProjectClick?: (
+    project: UnifiedModSearchResult | any,
+    source: "modrinth" | "curseforge",
+  ) => void;
 }
 
 const ALL_MODRINTH_PROJECT_TYPES: ModrinthProjectType[] = ['modpack', 'mod', 'resourcepack', 'shader', 'datapack'];
@@ -118,38 +130,55 @@ export function ModrinthSearchV2({
   initialProjectType, // Added new prop
   allowedProjectTypes, // Destructure new prop
   disableVirtualization = false, // Default to false (use Virtuoso by default)
+  onProjectClick,
 }: ModrinthSearchV2Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { showModal, hideModal } = useGlobalModal();
   const searchResultsAreaRef = useRef<HTMLDivElement>(null); // Ref for the scrollable area
-  const [searchTerm, setSearchTerm] = useState('');
-  const [projectType, setProjectType] = useState<ModrinthProjectType>(() => {
-    const effectiveAllowedTypes = allowedProjectTypes || ALL_MODRINTH_PROJECT_TYPES;
-    if (initialProjectType && effectiveAllowedTypes.includes(initialProjectType)) {
-      return initialProjectType;
+
+  const {
+    searchTerm, setSearchTerm,
+    projectType, setProjectType,
+    sortOrder, setSortOrder,
+    selectedCategoriesByProjectType, setSelectedCategoriesByProjectType,
+    selectedLoadersByProjectType, setSelectedLoadersByProjectType,
+    selectedGameVersions, setSelectedGameVersions,
+    filterClientRequired, setFilterClientRequired,
+    filterServerRequired, setFilterServerRequired,
+    scrollPosition, setScrollPosition,
+    offset, setOffset,
+    searchResults, setSearchResults,
+    totalHits, setTotalHits,
+  } = useModSearchStore();
+
+  const hasInitializedProjectType = useRef(false);
+  useEffect(() => {
+    if (!hasInitializedProjectType.current) {
+      hasInitializedProjectType.current = true;
+      const effectiveAllowedTypes = allowedProjectTypes || ALL_MODRINTH_PROJECT_TYPES;
+      if (initialProjectType && effectiveAllowedTypes.includes(initialProjectType)) {
+        if (projectType !== initialProjectType) {
+          setProjectType(initialProjectType);
+        }
+      }
     }
-    return effectiveAllowedTypes[0] || 'mod'; // Default to first allowed type or 'mod'
-  });
-  const [searchResults, setSearchResults] = useState<UnifiedModSearchResult[]>([]);
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [totalHits, setTotalHits] = useState(0);
   const limit = 20;
-  
+
   // State to control delayed display of "No results found" message
   const [showNoResultsMessage, setShowNoResultsMessage] = useState(false);
   const noResultsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // New state for Sort Order, now with UnifiedSortType
-  const [sortOrder, setSortOrder] = useState<UnifiedSortType>(UnifiedSortType.Relevance);
   
   const sortOptions: { value: UnifiedSortType; label: string; icon?: string }[] = [
-    { value: UnifiedSortType.Relevance, label: 'Relevance', icon: 'solar:sort-bold' },
-    { value: UnifiedSortType.Downloads, label: 'Downloads', icon: 'solar:download-bold' },
-    { value: UnifiedSortType.Follows, label: 'Follows', icon: 'solar:heart-bold' },
-    { value: UnifiedSortType.Newest, label: 'Newest', icon: 'solar:calendar-mark-bold' },
-    { value: UnifiedSortType.Updated, label: 'Updated', icon: 'solar:refresh-bold' },
+    { value: UnifiedSortType.Relevance, label: t('content.search.sort.relevance'), icon: 'solar:sort-bold' },
+    { value: UnifiedSortType.Downloads, label: t('content.search.sort.downloads'), icon: 'solar:download-bold' },
+    { value: UnifiedSortType.Follows, label: t('content.search.sort.follows'), icon: 'solar:heart-bold' },
+    { value: UnifiedSortType.Newest, label: t('content.search.sort.newest'), icon: 'solar:calendar-mark-bold' },
+    { value: UnifiedSortType.Updated, label: t('content.search.sort.updated'), icon: 'solar:refresh-bold' },
   ];
 
   // State for blocked mods configuration
@@ -159,20 +188,8 @@ export function ModrinthSearchV2({
   const [gameVersionsData, setGameVersionsData] = useState<ModrinthGameVersion[]>([]);
   const [allLoadersData, setAllLoadersData] = useState<ModrinthLoader[]>([]);
 
-  const initialCategoriesState = useMemo(() => 
-    (allowedProjectTypes || ALL_MODRINTH_PROJECT_TYPES).reduce((acc, pt) => ({ ...acc, [pt]: [] }), {} as Record<ModrinthProjectType, string[]>)
-  , [allowedProjectTypes]);
-  const [selectedCategoriesByProjectType, setSelectedCategoriesByProjectType] = useState(initialCategoriesState);
-  
-  const [selectedLoadersByProjectType, setSelectedLoadersByProjectType] = useState(initialCategoriesState);
-  
-  const [selectedGameVersions, setSelectedGameVersions] = useState<string[]>([]); 
   const [showAllGameVersionsSidebar, setShowAllGameVersionsSidebar] = useState(false); // Renamed state and set default to false
   const [gameVersionSearchTerm, setGameVersionSearchTerm] = useState('');
-
-  // New states for Environment filter
-  const [filterClientRequired, setFilterClientRequired] = useState(false);
-  const [filterServerRequired, setFilterServerRequired] = useState(false);
 
   // New state for expanded versions
   const [expandedVersions, setExpandedVersions] = useState<Record<string, UnifiedVersion[] | null | 'loading'>>({});
@@ -424,7 +441,25 @@ export function ModrinthSearchV2({
     allCategoriesData, allLoadersData, gameVersionsData
   ]);
 
+  const isInitialMount = useRef(true);
+  const restoredScrollTop = useRef(searchResults.length > 0 ? scrollPosition : 0);
+
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (searchResults.length > 0) {
+        console.log('[ModrinthSearchV2] Restoring cached results from store, skipping initial fetch.');
+        if (disableVirtualization && searchResultsAreaRef.current && scrollPosition > 0) {
+          requestAnimationFrame(() => {
+            if (searchResultsAreaRef.current) {
+              searchResultsAreaRef.current.scrollTop = scrollPosition;
+            }
+          });
+        }
+        return;
+      }
+    }
+
     console.log('[ModrinthSearchV2] useEffect for search triggered. Calling performSearch(true). Params:', {
       searchTerm,
       projectType,
@@ -438,6 +473,7 @@ export function ModrinthSearchV2({
     if (searchResultsAreaRef.current) {
       searchResultsAreaRef.current.scrollTop = 0;
     }
+    setScrollPosition(0);
 
     // Reset expanded versions when filter changes
     setExpandedVersions({});
@@ -453,6 +489,14 @@ export function ModrinthSearchV2({
 
   const handleProjectTypeChange = (newProjectType: ModrinthProjectType) => {
     setProjectType(newProjectType);
+    const discordMap: Record<string, string> = {
+      mod: "Browsing Mods",
+      modpack: "Browsing Modpacks",
+      resourcepack: "Browsing Resource Packs",
+      shader: "Browsing Shaders",
+      datapack: "Browsing Data Packs",
+    };
+    setDiscordState(discordMap[newProjectType] || "Browsing Mods");
   };
 
   // Simplified handleCategoryToggle - all category groups are multi-select
@@ -549,6 +593,16 @@ export function ModrinthSearchV2({
       performSearch(false);
     }
   };
+
+  const scrollSaveTimer = useRef<NodeJS.Timeout | null>(null);
+  const handleScrollSave = useCallback(() => {
+    if (scrollSaveTimer.current) clearTimeout(scrollSaveTimer.current);
+    scrollSaveTimer.current = setTimeout(() => {
+      if (searchResultsAreaRef.current) {
+        setScrollPosition(searchResultsAreaRef.current.scrollTop);
+      }
+    }, 150);
+  }, [setScrollPosition]);
 
   // Functions to remove individual filter tags
   const removeGameVersionTag = (version: string) => handleGameVersionToggle(version);
@@ -1124,7 +1178,7 @@ export function ModrinthSearchV2({
 
     if (!targetVersion || !targetProject) {
       console.error('❌ Missing required installation information:', { targetProject, targetVersion });
-      toast.error("Missing required installation information");
+      toast.error(t('content.install.missing_info'));
       return;
     }
 
@@ -1133,7 +1187,7 @@ export function ModrinthSearchV2({
     try {
       const primaryFile = targetVersion.files.find(file => file.primary) || targetVersion.files[0];
       if (!primaryFile) {
-        toast.error("No download file available for the selected version.");
+        toast.error(t('content.install.no_file'));
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
       }
@@ -1146,7 +1200,7 @@ export function ModrinthSearchV2({
       
       // Special handling for modpacks: should not reach here if mapUnifiedProjectTypeToNrContentType works correctly
       if (targetProject.project_type === 'modpack') {
-        toast.error("Modpacks must be installed as new profiles.");
+        toast.error(t('content.install.modpack_as_profile'));
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
       }
@@ -1169,7 +1223,7 @@ export function ModrinthSearchV2({
 
       await installContentToProfile(payload);
 
-      toast.success(`Successfully installed ${targetProject.title} (${targetVersion.version_number}) to ${internalProfiles.find(p => p.id === profileId)?.name || 'profile'}`);
+      toast.success(t('content.install.success', { title: targetProject.title, version: targetVersion.version_number, profile: internalProfiles.find(p => p.id === profileId)?.name || 'profile' }));
 
       // Check for Iris shader mod if a shader pack was installed
       if (targetProject.project_type === 'shader') {
@@ -1216,7 +1270,7 @@ export function ModrinthSearchV2({
       }
       
     } catch (error) {
-      toast.error(`Failed to install: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(t('content.install.failed', { error: error instanceof Error ? error.message : String(error) }));
       console.error("Install error in installToProfile:", error);
     } finally {
       setInstalling(prev => ({ ...prev, [profileId]: false }));
@@ -1240,7 +1294,7 @@ export function ModrinthSearchV2({
       // Get primary file
       const primaryFile = version.files.find(f => f.primary) || version.files[0];
       if (!primaryFile) {
-        toast.error(`No primary file found for ${project.title}`);
+        toast.error(t('content.install.no_primary_file', { title: project.title }));
         setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
         return;
       }
@@ -1254,7 +1308,7 @@ export function ModrinthSearchV2({
 
       // Special handling for modpacks
       if (project.project_type === 'modpack') {
-        toast.error("Modpacks must be installed as new profiles.");
+        toast.error(t('content.install.modpack_as_profile'));
         setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
         return;
       }
@@ -1280,8 +1334,8 @@ export function ModrinthSearchV2({
         installContentToProfile(payload),
         {
           loading: `Installing ${project.title} (${version.version_number}) to ${profileName}...`,
-          success: `Successfully installed ${project.title} (${version.version_number}) to ${profileName}`,
-          error: (err) => `Failed to install: ${err.message || String(err)}`,
+          success: t('content.install.success', { title: project.title, version: version.version_number, profile: profileName }),
+          error: (err) => t('content.install.failed', { error: err.message || String(err) }),
         }
       );
 
@@ -1322,7 +1376,7 @@ export function ModrinthSearchV2({
 
     } catch (error) {
       console.error(`Direct install failed for ${project.title}:`, error);
-      toast.error(`Failed to install ${project.title}`);
+      toast.error(t('content.install.failed', { error: project.title }));
     } finally {
       // Reset loading state for the version
       setInstallingVersion(prev => ({ ...prev, [version.id]: false }));
@@ -1408,12 +1462,12 @@ export function ModrinthSearchV2({
         return NrContentType.DataPack;
       case 'modpack':
       case UnifiedProjectType.Modpack: // Modpacks are handled by creating a new profile
-        toast.error("Modpacks should be installed as new profiles, not as content via this method.");
+        toast.error(t('content.install.modpack_as_profile'));
         return null;
       default:
         // Log unhandled project types if any, but avoid throwing error that breaks UI
         console.warn(`Unsupported project type for direct installation: ${projectType}`);
-        toast.error(`Cannot directly install project type: ${projectType}`);
+        toast.error(t('content.install.unsupported_type', { type: projectType }));
         return null;
     }
   }
@@ -1489,7 +1543,7 @@ export function ModrinthSearchV2({
 
     if (!selectedProfile) {
       console.error('❌ No selected profile for direct install');
-      toast.error('No profile selected for installation');
+      toast.error(t('content.install.no_profile_selected'));
       return;
     }
 
@@ -1503,7 +1557,7 @@ export function ModrinthSearchV2({
         project_id: project.project_id
       });
       if (!response.versions || response.versions.length === 0) {
-        toast.error(`No versions found for ${project.title}`);
+        toast.error(t('content.install.no_versions', { title: project.title }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1513,7 +1567,7 @@ export function ModrinthSearchV2({
       const bestVersion = findBestVersionForProfile(selectedProfile, sortedVersions);
 
       if (!bestVersion) {
-        toast.error(`No compatible version of ${project.title} for profile '${selectedProfile.name}'`);
+        toast.error(t('content.install.no_compatible_version', { title: project.title, profile: selectedProfile.name }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1521,7 +1575,7 @@ export function ModrinthSearchV2({
       // Get primary file
       const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
       if (!primaryFile) {
-        toast.error(`No primary file found for ${project.title}`);
+        toast.error(t('content.install.no_primary_file', { title: project.title }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1535,7 +1589,7 @@ export function ModrinthSearchV2({
 
       // Special handling for modpacks
       if (project.project_type === 'modpack') {
-        toast.error("Modpacks must be installed as new profiles.");
+        toast.error(t('content.install.modpack_as_profile'));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1561,8 +1615,8 @@ export function ModrinthSearchV2({
         installContentToProfile(payload),
         {
           loading: `Installing ${project.title} (${bestVersion.version_number}) to ${selectedProfile.name}...`,
-          success: `Successfully installed ${project.title} (${bestVersion.version_number}) to ${selectedProfile.name}`,
-          error: (err) => `Failed to install: ${err.message || String(err)}`,
+          success: t('content.install.success', { title: project.title, version: bestVersion.version_number, profile: selectedProfile.name }),
+          error: (err) => t('content.install.failed', { error: err.message || String(err) }),
         }
       );
 
@@ -1603,7 +1657,7 @@ export function ModrinthSearchV2({
 
     } catch (error) {
       console.error(`Quick install failed for ${project.title}:`, error);
-      toast.error(`Failed to install ${project.title}`);
+      toast.error(t('content.install.failed', { error: project.title }));
     } finally {
       // Reset loading state for the project
       setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
@@ -1708,7 +1762,7 @@ export function ModrinthSearchV2({
         project_id: project.project_id
       });
       if (!response.versions || response.versions.length === 0) {
-        toast.error(`No versions found for ${project.title}`);
+        toast.error(t('content.install.no_versions', { title: project.title }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1718,7 +1772,7 @@ export function ModrinthSearchV2({
       const bestVersion = findBestVersionForProfile(profile, sortedVersions);
 
       if (!bestVersion) {
-        toast.error(`No compatible version of ${project.title} for profile '${profile.name}'`);
+        toast.error(t('content.install.no_compatible_version', { title: project.title, profile: profile.name }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1726,7 +1780,7 @@ export function ModrinthSearchV2({
       // Get primary file
       const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
       if (!primaryFile) {
-        toast.error(`No primary file found for ${project.title}`);
+        toast.error(t('content.install.no_primary_file', { title: project.title }));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1740,7 +1794,7 @@ export function ModrinthSearchV2({
 
       // Special handling for modpacks
       if (project.project_type === 'modpack') {
-        toast.error("Modpacks must be installed as new profiles.");
+        toast.error(t('content.install.modpack_as_profile'));
         setQuickInstallingProjects(prev => ({ ...prev, [project.project_id]: false }));
         return;
       }
@@ -1766,8 +1820,8 @@ export function ModrinthSearchV2({
         installContentToProfile(payload),
         {
           loading: `Installing ${project.title} (${bestVersion.version_number}) to ${profile.name}...`,
-          success: `Successfully installed ${project.title} (${bestVersion.version_number}) to ${profile.name}`,
-          error: (err) => `Failed to install: ${err.message || String(err)}`,
+          success: t('content.install.success', { title: project.title, version: bestVersion.version_number, profile: profile.name }),
+          error: (err) => t('content.install.failed', { error: err.message || String(err) }),
         }
       );
 
@@ -1811,7 +1865,7 @@ export function ModrinthSearchV2({
 
     } catch (error) {
       console.error(`Quick install failed for ${project.title}:`, error);
-      toast.error(`Failed to install ${project.title}`);
+      toast.error(t('content.install.failed', { error: project.title }));
     } finally {
       // Reset loading state for the profile
       setInstalling(prev => ({ ...prev, [profile.id]: false }));
@@ -1830,19 +1884,19 @@ export function ModrinthSearchV2({
   // Install mod to selected profile via quick install
   const quickInstallToProfile = async (profileId: string) => {
     if (!quickInstallProject || !quickInstallVersions) {
-      toast.error("Missing required installation information");
+      toast.error(t('content.install.missing_info'));
       return;
     }
 
     const profile = internalProfiles.find(p => p.id === profileId);
     if (!profile) {
-      toast.error("Profile not found");
+      toast.error(t('content.install.profile_not_found'));
       return;
     }
 
     const bestVersion = findBestVersionForProfile(profile, quickInstallVersions);
     if (!bestVersion) {
-      toast.error(`No compatible version found for ${profile.name}`);
+      toast.error(t('content.install.no_compatible_version', { title: quickInstallProject.title, profile: profile.name }));
       return;
     }
 
@@ -1851,7 +1905,7 @@ export function ModrinthSearchV2({
     try {
       const primaryFile = bestVersion.files.find(file => file.primary) || bestVersion.files[0];
       if (!primaryFile) {
-        toast.error("No download file available for the selected version.");
+        toast.error(t('content.install.no_file'));
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
       }
@@ -1861,9 +1915,9 @@ export function ModrinthSearchV2({
         setInstalling(prev => ({ ...prev, [profileId]: false }));
         return;
       }
-      
+
       if (quickInstallProject.project_type === 'modpack') {
-          toast.error("Modpacks must be installed as new profiles.");
+          toast.error(t('content.install.modpack_as_profile'));
           setInstalling(prev => ({ ...prev, [profileId]: false }));
           return;
       }
@@ -1886,7 +1940,7 @@ export function ModrinthSearchV2({
 
       await installContentToProfile(payload);
 
-      toast.success(`Successfully installed ${quickInstallProject.title} (${bestVersion.version_number}) to ${profile.name}`);
+      toast.success(t('content.install.success', { title: quickInstallProject.title, version: bestVersion.version_number, profile: profile.name }));
 
       // Check for Iris shader mod if a shader pack was installed
       if (quickInstallProject.project_type === 'shader') {
@@ -1934,7 +1988,7 @@ export function ModrinthSearchV2({
       }
       
     } catch (error) {
-      toast.error(`Failed to install: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error(t('content.install.failed', { error: error instanceof Error ? error.message : String(error) }));
       console.error("Install error in quickInstallToProfile:", error);
     } finally {
       setInstalling(prev => ({ ...prev, [profileId]: false }));
@@ -2147,7 +2201,7 @@ export function ModrinthSearchV2({
 
   const handleInstallModpackAsProfile = async (project: UnifiedModSearchResult | any) => {
     if (project.project_type !== 'modpack') {
-      toast.error("This handler is primarily for modpacks. For other types, behavior might differ.");
+      toast.error(t('content.install.modpack_handler_warning'));
       if (onInstallSuccess) {
         onInstallSuccess();
       }
@@ -2158,7 +2212,7 @@ export function ModrinthSearchV2({
     let progressUnlisten: UnlistenFn | null = null;
 
     setInstallingModpackAsProfile(prev => ({ ...prev, [project.project_id]: true })); // Start loading
-    toast.loading(`Fetching versions for ${project.title}...`, { id: toastId });
+    toast.loading(t('content.install.fetching_versions', { title: project.title }), { id: toastId });
 
     try {
       const response = await UnifiedService.getModVersions({
@@ -2168,7 +2222,7 @@ export function ModrinthSearchV2({
       const allVersions = response.versions;
 
       if (!allVersions || allVersions.length === 0) {
-        throw new Error("No versions found for this modpack.");
+        throw new Error(t('content.install.modpack_no_versions'));
       }
 
       // Sort all versions by date published, newest first
@@ -2182,9 +2236,9 @@ export function ModrinthSearchV2({
         latestVersion = sortedVersions[0];
       }
 
-      if (!latestVersion || !latestVersion.files || latestVersion.files.length === 0) { throw new Error("Latest version has no files."); }
+      if (!latestVersion || !latestVersion.files || latestVersion.files.length === 0) { throw new Error(t('content.install.modpack_no_files')); }
       const primaryFile = latestVersion.files.find(f => f.primary) || latestVersion.files[0];
-      if (!primaryFile) { throw new Error("No primary file found for the latest version."); }
+      if (!primaryFile) { throw new Error(t('content.install.no_primary_file', { title: project.title })); }
 
       const fileName = primaryFile.filename || project.title || "modpack";
 
@@ -2248,7 +2302,7 @@ export function ModrinthSearchV2({
         progressUnlisten = null;
       }
 
-      toast.success(`Successfully installed ${project.title} as a new profile!`, { id: toastId, duration: 3000 });
+      toast.success(t('content.install.modpack_success', { title: project.title }), { id: toastId, duration: 3000 });
 
       try {
         // Wait for the profile list to be updated in the global store
@@ -2260,7 +2314,7 @@ export function ModrinthSearchV2({
         navigate(`/profilesv2/${newProfileId}`);
       } catch (profileError) {
         console.error("Failed to refresh profiles list internally:", profileError);
-        toast.error("Profile installed, but failed to navigate automatically.");
+        toast.error(t('content.install.profile_refresh_failed'));
       }
 
       // Conditionally call onInstallSuccess
@@ -2272,7 +2326,7 @@ export function ModrinthSearchV2({
 
     } catch (err: any) {
       console.error("Failed to install modpack as profile:", err);
-      toast.error(`Error installing ${project.title}: ${err.message || 'Unknown error'}`, { id: toastId });
+      toast.error(t('content.install.modpack_error', { title: project.title, error: err.message || 'Unknown error' }), { id: toastId });
     } finally {
       // Clean up listener
       if (progressUnlisten) {
@@ -2284,14 +2338,14 @@ export function ModrinthSearchV2({
 
   const handleInstallModpackVersionAsProfile = async (project: UnifiedModSearchResult | any, version: UnifiedVersion) => {
     if (project.project_type !== 'modpack') {
-      toast.error("This handler is primarily for modpack versions. For other types, behavior might differ.");
+      toast.error(t('content.install.modpack_version_handler_warning'));
       if (onInstallSuccess) {
         onInstallSuccess();
       }
       return;
     }
     if (!version || !version.files || version.files.length === 0) {
-      toast.error("Selected version has no files.");
+      toast.error(t('content.install.version_no_files'));
       return;
     }
 
@@ -2303,7 +2357,7 @@ export function ModrinthSearchV2({
 
     const primaryFile = version.files.find(f => f.primary) || version.files[0];
     if (!primaryFile) {
-        toast.error("No primary file found for the selected version.");
+        toast.error(t('content.install.no_primary_file_version'));
         return;
     }
 
@@ -2370,7 +2424,7 @@ export function ModrinthSearchV2({
         progressUnlisten = null;
       }
 
-      toast.success(`Successfully installed ${project.title} (v${version.version_number}) as a new profile!`, { id: toastId, duration: 3000 });
+      toast.success(t('content.install.modpack_version_success', { title: project.title, version: version.version_number }), { id: toastId, duration: 3000 });
 
       try {
         // Wait for the profile list to be updated in the global store
@@ -2382,7 +2436,7 @@ export function ModrinthSearchV2({
         navigate(`/profilesv2/${newProfileId}`);
       } catch (profileError) {
         console.error("Failed to refresh profiles list internally:", profileError);
-        toast.error("Profile installed, but failed to navigate automatically.");
+        toast.error(t('content.install.profile_refresh_failed'));
       }
 
       // Conditionally call onInstallSuccess
@@ -2393,7 +2447,7 @@ export function ModrinthSearchV2({
 
     } catch (err: any) {
       console.error("Failed to install modpack version as profile:", err);
-      toast.error(`Error installing ${project.title}: ${err.message || 'Unknown error'}`, { id: toastId });
+      toast.error(t('content.install.modpack_error', { title: project.title, error: err.message || 'Unknown error' }), { id: toastId });
     } finally {
       // Clean up listener
       if (progressUnlisten) {
@@ -2833,7 +2887,7 @@ export function ModrinthSearchV2({
 
     } catch (error) {
       console.error("Error in handleInstallToNewProfile:", error);
-      toast.error(`Failed to create profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(t('content.install.create_profile_failed', { error: error instanceof Error ? error.message : 'Unknown error' }));
     }
   };
 
@@ -2849,7 +2903,7 @@ export function ModrinthSearchV2({
 
     const primaryFile = version.files.find(file => file.primary) || version.files[0];
     if (!primaryFile) {
-      toast.error("No primary file found for the version. Cannot determine details for deletion.");
+      toast.error(t('content.install.no_primary_file_delete'));
       return;
     }
 
@@ -2859,7 +2913,7 @@ export function ModrinthSearchV2({
     };
 
     if (!payload.sha1_hash) {
-      toast.error("SHA1 hash is missing for this version. Cannot proceed with deletion.");
+      toast.error(t('content.install.sha1_missing'));
       console.error("Deletion failed: SHA1 hash missing for", project.title, version.version_number, primaryFile);
       return;
     }
@@ -3078,7 +3132,7 @@ export function ModrinthSearchV2({
 
     // Regular content toggle using SHA1 hash (for non-NoRisk pack items)
     if (!sha1Hash) {
-      toast.error("Cannot enable/disable version: missing file hash");
+      toast.error(t('content.install.toggle_missing_hash'));
       return;
     }
 
@@ -3227,13 +3281,13 @@ export function ModrinthSearchV2({
         />
 
         {/* Search Results Area (scrollable within the left content area) */}
-        <div ref={searchResultsAreaRef} className="search-results-area flex-1 overflow-y-auto"> {/* Removed p-4 */}
+        <div ref={searchResultsAreaRef} onScroll={handleScrollSave} className="search-results-area flex-1 overflow-y-auto"> {/* Removed p-4 */}
           {/* {loading && searchResults.length === 0 && <p className="p-4 text-center">Loading initial results...</p>} REMOVED */}
           {searchResults.length === 0 && !loading && error && (
-            <p className="p-4 text-red-500 text-center">Error: {error}</p>
+            <p className="p-4 text-red-500 text-center">{t('content.search.error', { error })}</p>
           )}
           {searchResults.length === 0 && !loading && !error && showNoResultsMessage && (
-            <p className="p-4 text-center text-xl lowercase text-gray-400">No results found. Try adjusting filters or search term.</p>
+            <p className="p-4 text-center text-xl lowercase text-gray-400">{t('content.search.no_results')}</p>
           )}
 
           {searchResults.length > 0 && (
@@ -3289,10 +3343,11 @@ export function ModrinthSearchV2({
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
                       projectNoRiskStatus={projectNoRiskStatus}
+                      onProjectClick={onProjectClick}
                     />
                   );
                 })}
-                
+
                 {/* Load more button for non-virtualized mode */}
                 {!loading && searchResults.length > 0 && searchResults.length < totalHits && (
                   <div className="flex justify-center p-4">
@@ -3300,22 +3355,22 @@ export function ModrinthSearchV2({
                       onClick={loadMoreResults}
                       className="px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
                     >
-                      Load More ({totalHits - searchResults.length} remaining)
+                      {t('content.search.load_more', { remaining: totalHits - searchResults.length })}
                     </button>
                   </div>
                 )}
-                
+
                 {/* Loading indicator */}
                 {loading && searchResults.length > 0 && (
                   <div className="p-4 text-center">
-                    Loading more items...
+                    {t('content.search.loading_more')}
                   </div>
                 )}
-                
+
                 {/* End of results */}
                 {!loading && searchResults.length > 0 && searchResults.length >= totalHits && (
                   <div className="p-4 text-center text-xl text-gray-400">
-                    No more results.
+                    {t('content.search.no_more_results')}
                   </div>
                 )}
               </div>
@@ -3323,8 +3378,15 @@ export function ModrinthSearchV2({
               // Virtualized list (original implementation)
               <Virtuoso
                 style={{ height: '100%' }}
+                initialScrollTop={restoredScrollTop.current}
                 data={searchResults}
                 endReached={loadMoreResults}
+                onScroll={(e) => {
+                  if (scrollSaveTimer.current) clearTimeout(scrollSaveTimer.current);
+                  scrollSaveTimer.current = setTimeout(() => {
+                    setScrollPosition((e.target as HTMLElement).scrollTop);
+                  }, 150);
+                }}
                 itemContent={(index, hit) => {
                   const projectVersions = expandedVersions[hit.project_id];
                   const displayedCount = numDisplayedVersions[hit.project_id] || initialDisplayCount;
@@ -3374,6 +3436,7 @@ export function ModrinthSearchV2({
                       onToggleEnableClick={handleToggleEnableVersion}
                       isBlocked={isProjectBlocked(hit)}
                       projectNoRiskStatus={projectNoRiskStatus}
+                      onProjectClick={onProjectClick}
                     />
                   );
                 }}
@@ -3382,14 +3445,14 @@ export function ModrinthSearchV2({
                     if (loading && searchResults.length > 0) {
                       return (
                         <div className="p-4 text-center">
-                          Loading more items...
+                          {t('content.search.loading_more')}
                         </div>
                       );
                     }
                     if (!loading && searchResults.length > 0 && searchResults.length >= totalHits) {
                        return (
                         <div className="p-4 text-center text-xl lowercase text-gray-400">
-                          No more results.
+                          {t('content.search.no_more_results')}
                         </div>
                       );
                     }

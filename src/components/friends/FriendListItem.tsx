@@ -1,4 +1,5 @@
 import { useState, memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { FriendsFriendUser, OnlineState, useFriendsStore } from "../../store/friends-store";
 import { useChatStore } from "../../store/chat-store";
@@ -11,15 +12,16 @@ interface FriendListItemProps {
   friend: FriendsFriendUser;
 }
 
-const statusConfig: Record<OnlineState, { color: string; label: string }> = {
-  ONLINE: { color: "#22c55e", label: "ONLINE" },
-  AFK: { color: "#f97316", label: "AFK" },
-  BUSY: { color: "#ef4444", label: "BUSY" },
-  OFFLINE: { color: "#6b7280", label: "OFFLINE" },
-  INVISIBLE: { color: "#6b7280", label: "OFFLINE" },
+const statusColors: Record<OnlineState, string> = {
+  ONLINE: "#22c55e",
+  AFK: "#f97316",
+  BUSY: "#ef4444",
+  OFFLINE: "#6b7280",
+  INVISIBLE: "#6b7280",
 };
 
 export const FriendListItem = memo(function FriendListItem({ friend }: FriendListItemProps) {
+  const { t } = useTranslation();
   const { removeFriend, openChat, closeChat, activeChatFriend } = useFriendsStore();
   const { chats } = useChatStore();
   const { accentColor } = useThemeStore();
@@ -41,15 +43,13 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
     }
   };
 
-  const handleRemoveClick = async () => {
+  const handleRemoveClick = () => {
     if (isRemoving) return;
+    setConfirmRemove(true);
+  };
 
-    if (!confirmRemove) {
-      setConfirmRemove(true);
-      setTimeout(() => setConfirmRemove(false), 3000);
-      return;
-    }
-
+  const handleConfirmRemove = async () => {
+    if (isRemoving) return;
     setIsRemoving(true);
     try {
       await removeFriend(friend.username, friend.uuid);
@@ -61,8 +61,64 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
     }
   };
 
+  const statusConfig: Record<OnlineState, { color: string; label: string }> = {
+    ONLINE: { color: statusColors.ONLINE, label: t('friends.status.online') },
+    AFK: { color: statusColors.AFK, label: t('friends.status.afk') },
+    BUSY: { color: statusColors.BUSY, label: t('friends.status.busy') },
+    OFFLINE: { color: statusColors.OFFLINE, label: t('friends.status.offline') },
+    INVISIBLE: { color: statusColors.INVISIBLE, label: t('friends.status.offline') },
+  };
+
   const status = statusConfig[friend.state];
   const [isHovered, setIsHovered] = useState(false);
+
+  if (confirmRemove) {
+    return (
+      <div
+        className="flex items-center justify-between p-3 rounded-xl transition-all duration-200"
+        style={{
+          backgroundColor: "rgba(239, 68, 68, 0.15)",
+          border: "1px solid rgba(239, 68, 68, 0.4)",
+          minHeight: "72px",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <Icon icon="solar:trash-bin-minimalistic-bold" className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <span className="text-sm font-minecraft-ten text-red-400">
+            {t('friends.remove_confirm')}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleConfirmRemove}
+            disabled={isRemoving}
+            className="px-3 py-1.5 rounded-lg text-xs font-minecraft-ten transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: "rgba(239, 68, 68, 0.3)",
+              border: "1px solid rgba(239, 68, 68, 0.5)",
+              color: "#ef4444",
+            }}
+          >
+            {isRemoving ? (
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin" />
+            ) : (
+              t('common.confirm')
+            )}
+          </button>
+          <button
+            onClick={() => setConfirmRemove(false)}
+            className="px-3 py-1.5 rounded-lg text-xs font-minecraft-ten text-white/60 transition-all duration-200 hover:scale-105"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+            }}
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -111,7 +167,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
           {friend.server ? (
             <>
               <Icon icon="solar:server-bold" className="w-4 h-4" />
-              <span className="truncate">playing on {friend.server}</span>
+              <span className="truncate">{t('friends.playing_on', { server: friend.server })}</span>
             </>
           ) : (
             <span>{status.label}</span>
@@ -140,7 +196,7 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
               e.currentTarget.style.backgroundColor = activeChatFriend?.uuid === friend.uuid ? `${accentColor.value}40` : `${accentColor.value}20`;
               e.currentTarget.style.borderColor = `${accentColor.value}40`;
             }}
-            title="Chat"
+            title={t('friends.chat')}
           >
             <Icon icon="solar:chat-round-dots-bold" className="w-5 h-5" />
           </button>
@@ -154,28 +210,21 @@ export const FriendListItem = memo(function FriendListItem({ friend }: FriendLis
           disabled={isRemoving}
           className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
           style={{
-            backgroundColor: confirmRemove ? "rgba(239, 68, 68, 0.25)" : `${accentColor.value}20`,
-            border: `1px solid ${confirmRemove ? "rgba(239, 68, 68, 0.5)" : `${accentColor.value}40`}`,
-            color: confirmRemove ? "#ef4444" : accentColor.value,
+            backgroundColor: `${accentColor.value}20`,
+            border: `1px solid ${accentColor.value}40`,
+            color: accentColor.value,
           }}
           onMouseEnter={(e) => {
-            if (!confirmRemove) {
-              e.currentTarget.style.backgroundColor = `${accentColor.value}40`;
-              e.currentTarget.style.borderColor = `${accentColor.value}70`;
-            }
+            e.currentTarget.style.backgroundColor = `${accentColor.value}40`;
+            e.currentTarget.style.borderColor = `${accentColor.value}70`;
           }}
           onMouseLeave={(e) => {
-            if (!confirmRemove) {
-              e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
-              e.currentTarget.style.borderColor = `${accentColor.value}40`;
-            }
+            e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
+            e.currentTarget.style.borderColor = `${accentColor.value}40`;
           }}
-          title={confirmRemove ? "Click again to remove" : "Remove Friend"}
+          title={t('friends.remove_friend')}
         >
-          <Icon
-            icon={confirmRemove ? "solar:trash-bin-minimalistic-bold" : "solar:user-minus-bold"}
-            className={cn("w-5 h-5", isRemoving && "animate-pulse")}
-          />
+          <Icon icon="solar:user-minus-bold" className="w-5 h-5" />
         </button>
       </div>
     </div>

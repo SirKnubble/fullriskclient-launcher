@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { UnifiedProjectDetails, UnifiedVersion, UnifiedModSearchResult } from "../../types/unified";
 import { ModPlatform } from "../../types/unified";
@@ -95,6 +96,7 @@ function findBestVersionForProfile(profile: Profile, versions: UnifiedVersion[])
 }
 
 export function ModDetailHeader({ project, accentColor, showVersions, onToggleVersions }: ModDetailHeaderProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { profiles, fetchProfiles } = useProfileStore();
   const { showModal, hideModal } = useGlobalModal();
@@ -110,7 +112,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       await openExternalUrl(project.project_url);
     } catch (error) {
       console.error("Failed to open URL:", error);
-      toast.error("Could not open link in browser.");
+      toast.error(t('common.open_link_failed'));
     }
   };
 
@@ -139,7 +141,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
     let progressUnlisten: UnlistenFn | null = null;
 
     setIsInstalling(true);
-    toast.loading(`Fetching versions for ${project.title}...`, { id: toastId });
+    toast.loading(t('mod_detail.fetching_versions', { title: project.title }), { id: toastId });
 
     try {
       const response = await UnifiedService.getModVersions({
@@ -149,7 +151,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       const allVersions = response.versions;
 
       if (!allVersions || allVersions.length === 0) {
-        throw new Error("No versions found for this modpack.");
+        throw new Error(t('mod_detail.no_versions_found'));
       }
 
       // Sort all versions by date published, newest first
@@ -164,12 +166,12 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       }
 
       if (!latestVersion?.files?.length) {
-        throw new Error("Latest version has no files.");
+        throw new Error(t('mod_detail.no_files_in_version'));
       }
 
       const primaryFile = latestVersion.files.find(f => f.primary) || latestVersion.files[0];
       if (!primaryFile) {
-        throw new Error("No primary file found for the latest version.");
+        throw new Error(t('mod_detail.no_primary_file'));
       }
 
       const fileName = primaryFile.filename || project.title || "modpack";
@@ -202,7 +204,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
         const fileId = parseInt(latestVersion.id);
 
         if (isNaN(projectId) || isNaN(fileId)) {
-          throw new Error("Invalid project or file ID for CurseForge modpack");
+          throw new Error(t('mod_detail.invalid_curseforge_ids'));
         }
 
         newProfileId = await CurseForgeService.downloadAndInstallCurseForgeModpack(
@@ -232,7 +234,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
         progressUnlisten = null;
       }
 
-      toast.success(`Successfully installed ${project.title} as a new profile!`, { id: toastId, duration: 3000 });
+      toast.success(t('mod_detail.installed_as_profile', { title: project.title }), { id: toastId, duration: 3000 });
 
       // Refresh profiles and navigate
       await fetchProfiles();
@@ -240,7 +242,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
 
     } catch (error: any) {
       console.error("Modpack installation failed:", error);
-      toast.error(`Failed to install modpack: ${error.message || error}`, { id: toastId });
+      toast.error(t('mod_detail.modpack_install_failed', { error: error.message || error }), { id: toastId });
     } finally {
       // Clean up listener
       if (progressUnlisten) {
@@ -270,7 +272,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       const versions = response.versions;
 
       if (versions.length === 0) {
-        toast.error("No versions available for this project");
+        toast.error(t('mod_detail.no_versions_available'));
         setIsInstalling(false);
         return;
       }
@@ -279,7 +281,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       const handleProfileSelect = async (proj: any, profile: Profile) => {
         const bestVersion = findBestVersionForProfile(profile, versions);
         if (!bestVersion) {
-          toast.error(`No compatible version found for ${profile.name}`);
+          toast.error(t('mod_detail.no_compatible_version', { profile: profile.name }));
           return;
         }
 
@@ -288,13 +290,13 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
         try {
           const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
           if (!primaryFile) {
-            toast.error("No download file available");
+            toast.error(t('mod_detail.no_download_file'));
             return;
           }
 
           const contentType = mapProjectTypeToContentType(project.project_type);
           if (!contentType) {
-            toast.error(`Cannot install project type: ${project.project_type}`);
+            toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
             return;
           }
 
@@ -315,11 +317,11 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
           };
 
           await installContentToProfile(payload);
-          toast.success(`Installed ${project.title} to ${profile.name}`);
+          toast.success(t('mod_detail.installed_to_profile', { title: project.title, profile: profile.name }));
           setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
         } catch (error) {
           console.error("Installation failed:", error);
-          toast.error(`Failed to install: ${error}`);
+          toast.error(t('mod_detail.install_failed', { error }));
         } finally {
           setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
         }
@@ -344,7 +346,7 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       );
     } catch (error) {
       console.error("Failed to fetch versions:", error);
-      toast.error("Failed to load versions");
+      toast.error(t('mod_detail.load_versions_failed'));
     } finally {
       setIsInstalling(false);
     }

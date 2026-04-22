@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { ModrinthService } from "../../services/modrinth-service";
+import { setDiscordState } from "../../utils/discordRpc";
 import { CurseForgeService } from "../../services/curseforge-service";
 import type { ModrinthProject } from "../../types/modrinth";
 import type { CurseForgeMod } from "../../types/curseforge";
@@ -168,8 +170,41 @@ function getProjectTypeFromClassId(classId: number | undefined): string {
   }
 }
 
-export function ModDetailPage() {
-  const { source, projectId } = useParams<{ source: string; projectId: string }>();
+interface ModDetailPageProps {
+  /**
+   * Override the `source` URL param. Use when hosting the detail page
+   * inside another surface (e.g. the V3 Add-content sheet) so the route
+   * itself doesn't need to change.
+   */
+  sourceOverride?: string;
+  /** Same idea for projectId. */
+  projectIdOverride?: string;
+  /**
+   * Override the default back behavior (`navigate(-1)`). Hosts that render
+   * this inside a stacked layer can pass their own handler to pop just
+   * that layer instead of the router history.
+   */
+  onBack?: () => void;
+  /**
+   * When embedded inside another surface (like the V3 sheet) the host
+   * already provides its own back control — rendering the page's internal
+   * back button on top would duplicate it. Set this to suppress the
+   * built-in back button; `handleBack` still fires via `onBack` from the
+   * host chrome.
+   */
+  hideBackButton?: boolean;
+}
+
+export function ModDetailPage({
+  sourceOverride,
+  projectIdOverride,
+  onBack,
+  hideBackButton,
+}: ModDetailPageProps = {}) {
+  const { t } = useTranslation();
+  const params = useParams<{ source: string; projectId: string }>();
+  const source = sourceOverride ?? params.source;
+  const projectId = projectIdOverride ?? params.projectId;
   const navigate = useNavigate();
   const { accentColor } = useThemeStore();
 
@@ -178,10 +213,12 @@ export function ModDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
 
+  useEffect(() => { setDiscordState("Viewing a Mod"); }, []);
+
   useEffect(() => {
     async function loadProject() {
       if (!source || !projectId) {
-        setError("Invalid URL parameters");
+        setError(t('mod_detail.invalid_url_params'));
         setIsLoading(false);
         return;
       }
@@ -292,12 +329,12 @@ export function ModDetailPage() {
 
             setProject(modrinthToUnified(modrinthProject, authorName, authorAvatarUrl, teamMembers, dependencies));
           } else {
-            setError("Project not found");
+            setError(t('mod_detail.project_not_found'));
           }
         } else if (source.toLowerCase() === "curseforge") {
           const modId = parseInt(projectId, 10);
           if (isNaN(modId)) {
-            setError("Invalid CurseForge mod ID");
+            setError(t('mod_detail.invalid_curseforge_id'));
             return;
           }
           const response = await CurseForgeService.getModsByIds([modId]);
@@ -315,7 +352,7 @@ export function ModDetailPage() {
 
             setProject(curseforgeToUnified(mod, fullDescription));
           } else {
-            setError("Mod not found");
+            setError(t('mod_detail.mod_not_found'));
           }
         } else {
           setError(`Unknown source: ${source}`);
@@ -332,6 +369,10 @@ export function ModDetailPage() {
   }, [source, projectId]);
 
   const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     navigate(-1);
   };
 
@@ -339,17 +380,19 @@ export function ModDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col h-full p-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
-        </button>
+        {!hideBackButton && (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Icon icon="solar:refresh-bold" className="w-12 h-12 text-white/50 animate-spin" />
-            <span className="text-white/50 font-minecraft-ten">Loading project details...</span>
+            <span className="text-white/50 font-minecraft-ten">{t('mod_detail.loading_project')}</span>
           </div>
         </div>
       </div>
@@ -360,22 +403,24 @@ export function ModDetailPage() {
   if (error || !project) {
     return (
       <div className="flex flex-col h-full p-6">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
-        </button>
+        {!hideBackButton && (
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Icon icon="solar:danger-triangle-bold" className="w-12 h-12 text-red-500" />
-            <span className="text-red-400 font-minecraft-ten">{error || "Project not found"}</span>
+            <span className="text-red-400 font-minecraft-ten">{error || t('mod_detail.project_not_found')}</span>
             <button
               onClick={handleBack}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-minecraft-ten transition-colors"
             >
-              Go Back
+              {t('mod_detail.go_back')}
             </button>
           </div>
         </div>
@@ -385,19 +430,24 @@ export function ModDetailPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Back Button */}
-      <div className="px-6 pt-6 pb-4">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
-        >
-          <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-          <span>Back</span>
-        </button>
-      </div>
+      {/* Back Button — hidden when embedded inside a host that provides its
+          own back control (e.g. the V3 Add-content sheet's breadcrumb). */}
+      {!hideBackButton && (
+        <div className="px-6 pt-6 pb-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
+            <span>{t('common.back')}</span>
+          </button>
+        </div>
+      )}
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6">
+      {/* Scrollable Content — `custom-scrollbar` gives this area the same
+          accent-themed scrollbar as the rest of the V3 UI; without it the
+          native Chromium default shows up here and reads as foreign. */}
+      <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 ${hideBackButton ? "pt-6" : ""}`}>
         {/* Header */}
         <ModDetailHeader
           project={project}

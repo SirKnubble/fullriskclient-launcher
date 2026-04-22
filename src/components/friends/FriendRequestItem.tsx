@@ -1,4 +1,5 @@
 import { useState, memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { FriendRequestWithUsers, useFriendsStore } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -11,6 +12,7 @@ interface FriendRequestItemProps {
 }
 
 export const FriendRequestItem = memo(function FriendRequestItem({ request, type }: FriendRequestItemProps) {
+  const { t } = useTranslation();
   const { acceptRequest, denyRequest, currentUser } = useFriendsStore();
   const { accentColor } = useThemeStore();
   const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +87,7 @@ export const FriendRequestItem = memo(function FriendRequestItem({ request, type
             icon={type === "incoming" ? "solar:inbox-in-bold" : "solar:inbox-out-bold"}
             className="w-4 h-4"
           />
-          <span>{type === "incoming" ? "wants to be friends" : "pending..."}</span>
+          <span>{type === "incoming" ? t('friends.wants_to_be_friends') : t('friends.request_pending')}</span>
         </div>
       </div>
 
@@ -111,7 +113,7 @@ export const FriendRequestItem = memo(function FriendRequestItem({ request, type
               e.currentTarget.style.backgroundColor = "rgba(34, 197, 94, 0.2)";
               e.currentTarget.style.borderColor = "rgba(34, 197, 94, 0.4)";
             }}
-            title="Accept"
+            title={t('common.accept')}
           >
             <Icon icon="solar:check-circle-bold" className="w-5 h-5" />
           </button>
@@ -135,7 +137,7 @@ export const FriendRequestItem = memo(function FriendRequestItem({ request, type
               e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
               e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)";
             }}
-            title="Deny"
+            title={t('common.deny')}
           >
             <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
           </button>
@@ -161,7 +163,7 @@ export const FriendRequestItem = memo(function FriendRequestItem({ request, type
             e.currentTarget.style.backgroundColor = `${accentColor.value}20`;
             e.currentTarget.style.borderColor = `${accentColor.value}40`;
           }}
-          title="Cancel Request"
+          title={t('friends.cancel_request')}
         >
           <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
         </button>

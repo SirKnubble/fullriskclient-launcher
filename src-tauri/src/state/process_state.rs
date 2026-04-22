@@ -639,7 +639,7 @@ impl ProcessManager {
                     "Notifying Discord manager about game process {} start.",
                     process_id
                 );
-                state.discord_manager.notify_game_start(process_id).await;
+                state.discord_manager.notify_game_start(process_id, metadata.profile_name.clone(), metadata.minecraft_version.clone()).await;
             }
             Err(e) => {
                 log::error!("Failed to get global state to update Discord timestamp for process {}: {}. Discord state might be incorrect.", process_id, e);
@@ -757,6 +757,49 @@ impl ProcessManager {
                     .get(&process_id)
                     .map(|p_entry| p_entry.metadata.clone())
             };
+
+            // Accumulate playtime on the profile. `last_played` is already set at launch-time;
+            // here we add the session duration to the running total so the Hero stat reflects
+            // cumulative minutes across launches.
+            if let Some(metadata) = &exiting_process_metadata_clone {
+                let elapsed = chrono::Utc::now().signed_duration_since(metadata.start_time);
+                let secs = elapsed.num_seconds().max(0) as u64;
+                if secs > 0 {
+                    if let Ok(state) = &state_for_monitor_res {
+                        match state.profile_manager.get_profile(metadata.profile_id).await {
+                            Ok(mut profile) => {
+                                profile.playtime_seconds =
+                                    profile.playtime_seconds.saturating_add(secs);
+                                if let Err(e) = state
+                                    .profile_manager
+                                    .update_profile(metadata.profile_id, profile)
+                                    .await
+                                {
+                                    log::warn!(
+                                        "Failed to persist playtime (+{}s) for profile {}: {}",
+                                        secs,
+                                        metadata.profile_id,
+                                        e
+                                    );
+                                } else {
+                                    log::info!(
+                                        "Added {}s of playtime to profile {}",
+                                        secs,
+                                        metadata.profile_id
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "Could not load profile {} to update playtime: {}",
+                                    metadata.profile_id,
+                                    e
+                                );
+                            }
+                        }
+                    }
+                }
+            }
 
             // Try to get crash content if it was processed very fast. No extensive polling here.
             let crash_content_for_payload: Option<String> = {
@@ -886,6 +929,9 @@ impl ProcessManager {
                     &removed_process,
                 )
                 .await;
+
+                // Notify Discord that game has stopped
+                state.discord_manager.notify_game_stop(process_id).await;
             } else {
                 log::error!("Monitor task for process {} could not get state to stop watcher or save processes.", process_id);
             }
@@ -1522,8 +1568,9 @@ impl ProcessManager {
     /// Fetches the latest crash report for a given profile.
     /// Uses profile_id to locate the crash-reports directory (since process might be removed from map).
     /// If process_id is provided, emits events and stores content for that process.
-    pub async fn fetch_latest_crash_report(&self, profile_id: Uuid, process_id: Option<Uuid>) -> Result<Option<String>> {
-        log::info!("Manually fetching latest crash report for profile {} (process {:?})", profile_id, process_id);
+    /// If process_start_time is provided, only considers crash reports created after that time.
+    pub async fn fetch_latest_crash_report(&self, profile_id: Uuid, process_id: Option<Uuid>, process_start_time: Option<DateTime<Utc>>) -> Result<Option<String>> {
+        log::info!("Manually fetching latest crash report for profile {} (process {:?}, start_time {:?})", profile_id, process_id, process_start_time);
         
         // 1. Get crash-reports directory path using profile_id
         let app_state = state::State::get().await?;
@@ -1547,6 +1594,14 @@ impl ProcessManager {
                     if name_str.starts_with("crash-") && name_str.ends_with(".txt") {
                         if let Ok(metadata) = async_fs::metadata(&path).await {
                             if let Ok(modified) = metadata.modified() {
+                                // Skip crash reports that are older than the process start time
+                                if let Some(start_time) = process_start_time {
+                                    let start_system_time: std::time::SystemTime = start_time.into();
+                                    if modified < start_system_time {
+                                        log::debug!("Skipping crash report {:?} - created before process start time", path);
+                                        continue;
+                                    }
+                                }
                                 match &latest_crash_file {
                                     None => latest_crash_file = Some((path.clone(), modified)),
                                     Some((_, latest_time)) if modified > *latest_time => {

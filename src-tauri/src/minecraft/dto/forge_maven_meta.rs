@@ -36,11 +36,16 @@ impl ForgeMavenMetadata {
     }
 
     pub fn get_versions_for_minecraft(&self, minecraft_version: &str) -> Vec<String> {
+        // Forge version strings are `MC_VERSION-FORGE_BUILD` (e.g.
+        // "1.21.1-52.1.0", "26.1.2-64.0.4"). Match against the full MC prefix
+        // WITH the separator so `"26.1"` never accidentally matches `"26.10-…"`
+        // entries once they exist.
+        let prefix = format!("{}-", minecraft_version);
         self.versioning
             .versions
             .versions
             .iter()
-            .filter(|v| v.starts_with(minecraft_version))
+            .filter(|v| v.starts_with(&prefix))
             .cloned()
             .collect()
     }

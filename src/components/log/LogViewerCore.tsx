@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
+import { useTranslation } from "react-i18next";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useLogSettingsStore } from "../../store/useLogSettingsStore";
 import { LogEntry, LogLevel } from "../../store/useProcessStore";
 import { openExternalUrl } from "../../services/tauri-service";
 import { uploadLogToMclogs } from "../../services/log-service";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 // Hex colors for filter buttons
 const LEVEL_COLORS: Record<LogLevel, string> = {
@@ -73,6 +75,10 @@ export interface LogViewerCoreProps {
   noLogsIcon?: string;
   noLogsTitle?: string;
   noLogsSubtitle?: string;
+  logFiles?: string[];
+  selectedLogPath?: string | null;
+  onLogSelect?: (path: string) => void;
+  onOpenFolder?: () => void;
 }
 
 export function LogViewerCore({
@@ -82,7 +88,12 @@ export function LogViewerCore({
   noLogsIcon = "solar:document-text-bold",
   noLogsTitle = "NO LOGS YET",
   noLogsSubtitle = "Waiting for log output...",
+  logFiles,
+  selectedLogPath,
+  onLogSelect,
+  onOpenFolder,
 }: LogViewerCoreProps) {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
   const { showThreadPrefix, toggleShowThreadPrefix } = useLogSettingsStore();
   const [searchTerm, setSearchTerm] = useState("");
@@ -98,7 +109,11 @@ export function LogViewerCore({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPopupRef = useRef<HTMLDivElement>(null);
+  const fileDropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const fileDropdownRef = useRef<HTMLDivElement>(null);
+  const [isFileDropdownOpen, setIsFileDropdownOpen] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isUserScrollingRef = useRef(false);
 
   // State for delayed "NO LOGS YET" display
@@ -134,7 +149,6 @@ export function LogViewerCore({
     }
   }, [filteredLogs.length]);
 
-  // Close settings popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -146,11 +160,20 @@ export function LogViewerCore({
       ) {
         setIsSettingsOpen(false);
       }
+      if (
+        isFileDropdownOpen &&
+        fileDropdownRef.current &&
+        fileDropdownButtonRef.current &&
+        !fileDropdownRef.current.contains(event.target as Node) &&
+        !fileDropdownButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsFileDropdownOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, isFileDropdownOpen]);
 
   // Check if scrolled to bottom
   const isAtBottom = useCallback(() => {
@@ -174,11 +197,11 @@ export function LogViewerCore({
     }
   }, [isAtBottom, isAutoscrollEnabled]);
 
-  // Auto-scroll effect
+  // Auto-scroll effect — use Virtuoso's API
   useEffect(() => {
-    if (isAutoscrollEnabled && logContainerRef.current) {
+    if (isAutoscrollEnabled && virtuosoRef.current && filteredLogs.length > 0) {
       isUserScrollingRef.current = true;
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
       setTimeout(() => {
         isUserScrollingRef.current = false;
       }, 50);
@@ -193,7 +216,7 @@ export function LogViewerCore({
 
   const handleUpload = async () => {
     if (filteredLogs.length === 0) {
-      toast.error("No logs to upload");
+      toast.error(t('logs.no_logs_to_upload'));
       return;
     }
 
@@ -214,7 +237,7 @@ export function LogViewerCore({
       const url = await uploadLogToMclogs(logText);
 
       await writeText(url);
-      toast.success("Uploaded! URL copied to clipboard");
+      toast.success(t('logs.uploaded_url_copied'));
       await openExternalUrl(url);
     } catch (error) {
       console.error("Failed to upload logs:", error);
@@ -222,17 +245,17 @@ export function LogViewerCore({
       const errorMessage = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message
         : String(error);
-      toast.error(errorMessage || "Failed to upload logs");
+      toast.error(errorMessage || t('logs.upload_failed'));
     } finally {
       setIsUploading(false);
     }
   };
 
   const scrollToBottom = () => {
-    if (logContainerRef.current) {
-      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-      setIsAutoscrollEnabled(true);
+    if (virtuosoRef.current && filteredLogs.length > 0) {
+      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
     }
+    setIsAutoscrollEnabled(true);
   };
 
   return (
@@ -253,7 +276,7 @@ export function LogViewerCore({
           <Icon icon="solar:magnifer-bold" className="w-4 h-4 text-white/50" />
           <input
             type="text"
-            placeholder="Search logs..."
+            placeholder={t('placeholders.search_logs')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent text-sm font-minecraft-ten text-white/90 placeholder:text-white/40 outline-none flex-1 min-w-0"
@@ -291,6 +314,25 @@ export function LogViewerCore({
         {/* Spacer */}
         <div className="flex-1" />
 
+        {logFiles && logFiles.length > 0 && onLogSelect && (
+          <button
+            ref={fileDropdownButtonRef}
+            onClick={() => setIsFileDropdownOpen(!isFileDropdownOpen)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-minecraft-ten transition-all max-w-[250px]"
+            style={{
+              backgroundColor: isFileDropdownOpen ? `${accentColor.value}25` : `${accentColor.value}15`,
+              border: `1px solid ${accentColor.value}30`,
+              color: "rgba(255,255,255,0.8)",
+            }}
+          >
+            <Icon icon="solar:document-text-bold" className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">
+              {selectedLogPath ? (selectedLogPath.split(/[\\/]/).pop() || selectedLogPath) : "Select log..."}
+            </span>
+            <Icon icon="solar:alt-arrow-down-bold" className="w-3 h-3 flex-shrink-0" />
+          </button>
+        )}
+
         {/* Settings Button */}
         <div className="relative">
           <button
@@ -310,8 +352,7 @@ export function LogViewerCore({
       {/* Log Content */}
       <div
         ref={logContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar rounded-lg bg-black/60 backdrop-blur-sm"
+        className="flex-1 overflow-hidden p-4 font-mono text-sm rounded-lg bg-black/60 backdrop-blur-sm"
         style={{ boxShadow: `0 4px 20px ${accentColor.value}15` }}
       >
         {filteredLogs.length === 0 ? (
@@ -325,12 +366,15 @@ export function LogViewerCore({
             </div>
           )
         ) : (
-          <div className="space-y-0.5">
-            {filteredLogs.map((log) => (
-              <div
-                key={log.id}
-                className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded"
-              >
+          <Virtuoso
+            ref={virtuosoRef}
+            className="custom-scrollbar"
+            style={{ height: "100%" }}
+            data={filteredLogs}
+            followOutput={() => isAutoscrollEnabled ? "auto" : false}
+            initialTopMostItemIndex={filteredLogs.length > 0 ? filteredLogs.length - 1 : 0}
+            itemContent={(_index, log) => (
+              <div className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded">
                 {log.timestamp ? (
                   <>
                     <span className={`pr-2 select-none ${getLevelColorClass(log.level)}`}>
@@ -363,8 +407,8 @@ export function LogViewerCore({
                   </span>
                 )}
               </div>
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
 
@@ -412,6 +456,15 @@ export function LogViewerCore({
             >
               <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
               CLEAR
+            </button>
+          )}
+          {onOpenFolder && (
+            <button
+              onClick={onOpenFolder}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded hover:bg-white/10 transition-colors text-white/60 hover:text-white/90 font-minecraft-ten text-xs"
+            >
+              <Icon icon="solar:folder-open-bold" className="w-4 h-4" />
+              OPEN FOLDER
             </button>
           )}
           <button
@@ -477,6 +530,40 @@ export function LogViewerCore({
               </div>
             </div>
           </label>
+        </div>,
+        document.body
+      )}
+
+      {isFileDropdownOpen && fileDropdownButtonRef.current && createPortal(
+        <div
+          ref={fileDropdownRef}
+          className="fixed min-w-[200px] max-w-[400px] max-h-[300px] overflow-y-auto p-1 rounded-lg border custom-scrollbar"
+          style={{
+            top: fileDropdownButtonRef.current.getBoundingClientRect().bottom + 8,
+            right: window.innerWidth - fileDropdownButtonRef.current.getBoundingClientRect().right,
+            backgroundColor: "rgba(0, 0, 0, 0.95)",
+            borderColor: `${accentColor.value}40`,
+            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
+            zIndex: 9999,
+          }}
+        >
+          {logFiles?.map((path) => {
+            const name = path.split(/[\\/]/).pop() || path;
+            const isSelected = path === selectedLogPath;
+            return (
+              <button
+                key={path}
+                onClick={() => { onLogSelect?.(path); setIsFileDropdownOpen(false); }}
+                className="w-full text-left px-3 py-2 text-xs font-minecraft-ten rounded transition-all hover:bg-white/5"
+                style={{
+                  backgroundColor: isSelected ? `${accentColor.value}20` : undefined,
+                  color: isSelected ? accentColor.value : "rgba(255,255,255,0.7)",
+                }}
+              >
+                {name}
+              </button>
+            );
+          })}
         </div>,
         document.body
       )}

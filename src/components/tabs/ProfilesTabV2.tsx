@@ -20,8 +20,12 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "../profiles/ExportProfileModal";
 import { Icon } from "@iconify/react";
+import { useTranslation } from "react-i18next";
+import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
+import { setDiscordState } from "../../utils/discordRpc";
 
 export function ProfilesTabV2() {
+  const { t } = useTranslation();
   const {
     profiles,
     loading,
@@ -31,8 +35,7 @@ export function ProfilesTabV2() {
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
   const { openModal: openWizard } = useProfileWizardStore();
-
-  // Global modal system
+  const { isPinned } = usePinnedProfilesStore();
   const { showModal, hideModal } = useGlobalModal();
   
   // Persistent filters from theme store
@@ -47,6 +50,8 @@ export function ProfilesTabV2() {
     setProfilesTabLayoutMode,
   } = useThemeStore();
   
+  useEffect(() => { setDiscordState("Managing Profiles"); }, []);
+
   // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -60,9 +65,9 @@ export function ProfilesTabV2() {
   const actionButtons: ActionButton[] = [
     {
       id: "import",
-      label: "IMPORT",
+      label: t('profiles.import').toUpperCase(),
       icon: "solar:upload-bold",
-      tooltip: "Import profile",
+      tooltip: t('profiles.importProfile'),
       onClick: () => {
         showModal("profile-import", <ProfileImport
           onClose={() => {
@@ -76,9 +81,9 @@ export function ProfilesTabV2() {
     },
     {
       id: "create",
-      label: "CREATE",
+      label: t('profiles.create').toUpperCase(),
       icon: "solar:widget-add-bold",
-      tooltip: "Create new profile",
+      tooltip: t('profiles.createNewProfile'),
       onClick: () => {
         // Pass current group as default, but not if it's "all" or "server"
         const defaultGroup = (activeGroup === "all" || activeGroup === "server") ? null : activeGroup;
@@ -179,10 +184,10 @@ export function ProfilesTabV2() {
     const profile = profiles.find(p => p.id === profileId);
     
     const confirmed = await confirm({
-      title: "delete profile",
-      message: `Are you sure you want to delete profile "${profileName}"? This action cannot be undone.`,
-      confirmText: "DELETE",
-      cancelText: "CANCEL",
+      title: t('profiles.deleteProfileTitle'),
+      message: t('profiles.deleteConfirmMessageSimple', { name: profileName }),
+      confirmText: t('profiles.deleteConfirm'),
+      cancelText: t('profiles.cancelAction'),
       type: "danger",
       fullscreen: true,
     });
@@ -190,13 +195,13 @@ export function ProfilesTabV2() {
     if (confirmed) {
       const deletePromise = useProfileStore.getState().deleteProfile(profileId);
       toast.promise(deletePromise, {
-        loading: `Deleting profile '${profileName}'...`,
+        loading: t('profiles.deletingProfile', { name: profileName }),
         success: () => {
           fetchProfiles();
-          return `Profile '${profileName}' deleted successfully!`;
+          return t('profiles.deleteSuccess', { name: profileName });
         },
         error: (err) =>
-          `Failed to delete profile: ${err instanceof Error ? err.message : String(err.message)}`,
+          t('profiles.deleteError', { error: err instanceof Error ? err.message : String(err.message) }),
       });
     }
   };
@@ -205,12 +210,12 @@ export function ProfilesTabV2() {
     console.log("[ProfilesTabV2] handleOpenFolder called for:", profile.name);
     const openPromise = ProfileService.openProfileFolder(profile.id);
     toast.promise(openPromise, {
-      loading: `Opening folder for '${profile.name}'...`,
-      success: `Successfully opened folder for '${profile.name}'!`,
+      loading: t('profiles.openingFolder', { name: profile.name }),
+      success: t('profiles.openFolderSuccess', { name: profile.name }),
       error: (err) => {
         const message = err instanceof Error ? err.message : String(err.message);
         console.error(`Failed to open folder for ${profile.name}:`, err);
-        return `Failed to open folder: ${message}`;
+        return t('profiles.openFolderError', { error: message });
       },
     });
   };
@@ -231,7 +236,7 @@ export function ProfilesTabV2() {
   };
 
   if (loading) {
-    return <LoadingState message="Loading profiles..." />;
+    return <LoadingState message={t('profiles.loadingProfiles')} />;
   }
 
   if (error) {
@@ -247,7 +252,7 @@ export function ProfilesTabV2() {
     return (
       <EmptyState
         icon="solar:widget-bold"
-        message="No profiles found"
+        message={t('profiles.noProfilesFound')}
       />
     );
   }
@@ -275,6 +280,10 @@ export function ProfilesTabV2() {
 
   // Sort filtered profiles
   const sortedProfiles = [...filteredProfiles].sort((a, b) => {
+    const aPinned = isPinned(a.id);
+    const bPinned = isPinned(b.id);
+    if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
     switch (sortBy) {
       case "name":
         return a.name.localeCompare(b.name);
@@ -282,19 +291,19 @@ export function ProfilesTabV2() {
         // Multi-level sorting: last_played -> date_created -> name
         const aTimestamp = a.last_played ? new Date(a.last_played).getTime() : 0;
         const bTimestamp = b.last_played ? new Date(b.last_played).getTime() : 0;
-        
+
         // Primary sort: by last_played (descending)
         if (bTimestamp !== aTimestamp) {
           return bTimestamp - aTimestamp;
         }
-        
-        // Secondary sort: by date_created (descending) 
+
+        // Secondary sort: by date_created (descending)
         const aCreated = new Date(a.created).getTime();
         const bCreated = new Date(b.created).getTime();
         if (bCreated !== aCreated) {
           return bCreated - aCreated;
         }
-        
+
         // Tertiary sort: by name (ascending)
         return a.name.localeCompare(b.name);
       case "date_created":
@@ -323,18 +332,18 @@ export function ProfilesTabV2() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 flex-1">
             <SearchWithFilters
-              placeholder="Search profiles..."
+              placeholder={t('profiles.searchProfiles')}
               searchValue={searchQuery}
               onSearchChange={setSearchQuery}
               sortOptions={[
-                { value: "name", label: "Name", icon: "solar:text-bold" },
-                { value: "last_played", label: "Last played", icon: "solar:clock-circle-bold" },
-                { value: "date_created", label: "Date created", icon: "solar:calendar-add-bold" },
+                { value: "name", label: t('profiles.sort.name'), icon: "solar:text-bold" },
+                { value: "last_played", label: t('profiles.sort.lastPlayed'), icon: "solar:clock-circle-bold" },
+                { value: "date_created", label: t('profiles.sort.dateCreated'), icon: "solar:calendar-add-bold" },
               ]}
               sortValue={sortBy}
               onSortChange={setProfilesTabSortBy}
               filterOptions={[
-                { value: "all", label: "All versions", icon: "solar:layers-bold" },
+                { value: "all", label: t('profiles.filter.allVersions'), icon: "solar:layers-bold" },
                 { value: "1.21", label: "1.21.x", icon: "solar:gamepad-bold" },
                 { value: "1.20", label: "1.20.x", icon: "solar:gamepad-bold" },
                 { value: "1.19", label: "1.19.x", icon: "solar:gamepad-bold" },
@@ -351,11 +360,11 @@ export function ProfilesTabV2() {
               }}
               className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
               title={
-                layoutMode === "list" 
-                  ? "Switch to grid view (2 profiles per row)" 
+                layoutMode === "list"
+                  ? t('profiles.layout.switchToGrid')
                   : layoutMode === "grid"
-                  ? "Switch to compact view (3 profiles per row)"
-                  : "Switch to list view"
+                  ? t('profiles.layout.switchToCompact')
+                  : t('profiles.layout.switchToList')
               }
             >
               <div className="w-4 h-8 flex items-center justify-center">
