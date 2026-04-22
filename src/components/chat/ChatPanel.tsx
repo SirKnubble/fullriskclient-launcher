@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback, useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -8,7 +9,7 @@ import { useFriendsStore, FriendsFriendUser } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useCrafatarAvatar } from "../../hooks/useCrafatarAvatar";
 
-function getDateLabel(timestamp: number): string {
+function getDateLabel(timestamp: number, t: (key: string) => string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -16,9 +17,9 @@ function getDateLabel(timestamp: number): string {
   const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
   if (messageDate.getTime() === today.getTime()) {
-    return "Today";
+    return t('chat.today');
   } else if (messageDate.getTime() === yesterday.getTime()) {
-    return "Yesterday";
+    return t('chat.yesterday');
   } else {
     return date.toLocaleDateString(undefined, {
       weekday: 'long',
@@ -71,6 +72,7 @@ interface ChatPanelProps {
 const MESSAGES_PER_PAGE = 5; // Backend pageSize
 
 export function ChatPanel({ friend }: ChatPanelProps) {
+  const { t } = useTranslation();
   const { accentColor } = useThemeStore();
   const { closeChat, currentUser } = useFriendsStore();
   const [chat, setChat] = useState<ChatInfo | null>(null);
@@ -317,15 +319,15 @@ export function ChatPanel({ friend }: ChatPanelProps) {
         >
           <div className="flex items-center gap-3">
             <div
-              className="w-7 h-7 rounded-lg animate-pulse"
+              className="w-7 h-7 rounded-lg"
               style={{ backgroundColor: `${accentColor.value}30` }}
             />
             <div
-              className="w-7 h-7 rounded-lg animate-pulse"
+              className="w-7 h-7 rounded-lg"
               style={{ backgroundColor: `${accentColor.value}20` }}
             />
             <div
-              className="h-4 w-24 rounded animate-pulse"
+              className="h-4 w-24 rounded"
               style={{ backgroundColor: `${accentColor.value}20` }}
             />
           </div>
@@ -333,31 +335,31 @@ export function ChatPanel({ friend }: ChatPanelProps) {
 
         {/* Skeleton Messages */}
         <div className="flex-1 overflow-hidden py-3">
-          {[...Array(5)].map((_, i) => (
+          {[80, 65, 90, 70, 85].map((width, i) => (
             <div key={i} className="flex gap-3 px-3 py-1 mb-2">
               <div
-                className="w-8 h-8 rounded-md animate-pulse shrink-0"
+                className="w-8 h-8 rounded-md shrink-0"
                 style={{ backgroundColor: `${accentColor.value}15` }}
               />
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2">
                   <div
-                    className="h-3 rounded animate-pulse"
+                    className="h-3 rounded"
                     style={{
                       backgroundColor: `${accentColor.value}20`,
-                      width: `${60 + Math.random() * 40}px`,
+                      width: `${width}px`,
                     }}
                   />
                   <div
-                    className="h-2 w-12 rounded animate-pulse"
+                    className="h-2 w-12 rounded"
                     style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
                   />
                 </div>
                 <div
-                  className="h-4 rounded animate-pulse"
+                  className="h-4 rounded"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.08)",
-                    width: `${40 + Math.random() * 50}%`,
+                    width: `${40 + width / 3}%`,
                   }}
                 />
               </div>
@@ -368,7 +370,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
         {/* Skeleton Input */}
         <div className="px-3 py-2 shrink-0">
           <div
-            className="h-10 rounded-lg animate-pulse"
+            className="h-10 rounded-lg"
             style={{ backgroundColor: `${accentColor.value}10` }}
           />
         </div>
@@ -386,16 +388,6 @@ export function ChatPanel({ friend }: ChatPanelProps) {
         }}
       >
         <div className="flex items-center gap-3">
-          <button
-            onClick={closeChat}
-            className="p-1.5 rounded-lg transition-all duration-200"
-            style={{
-              backgroundColor: `${accentColor.value}20`,
-              color: accentColor.value,
-            }}
-          >
-            <Icon icon="solar:arrow-left-linear" className="w-4 h-4" />
-          </button>
           {avatarUrl ? (
             <img
               src={avatarUrl}
@@ -422,6 +414,16 @@ export function ChatPanel({ friend }: ChatPanelProps) {
             {friend.username}
           </span>
         </div>
+        <button
+          onClick={closeChat}
+          className="p-1.5 rounded-lg transition-all duration-200"
+          style={{
+            backgroundColor: `${accentColor.value}20`,
+            color: accentColor.value,
+          }}
+        >
+          <Icon icon="solar:close-circle-bold" className="w-4 h-4" />
+        </button>
       </div>
 
       <div
@@ -444,8 +446,8 @@ export function ChatPanel({ friend }: ChatPanelProps) {
                 style={{ color: accentColor.value }}
               />
             </div>
-            <p className="text-white/50 text-xs font-minecraft-ten">No Messages Yet</p>
-            <p className="text-white/30 text-xl mt-1 font-minecraft">say hello!</p>
+            <p className="text-white/50 text-xs font-minecraft-ten">{t('chat.no_messages_title')}</p>
+            <p className="text-white/30 text-xl mt-1 font-minecraft">{t('chat.no_messages_desc')}</p>
           </div>
         ) : (
           <>
@@ -465,7 +467,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
             {!hasMore && !isLoadingMore && (
               <div className="flex justify-center py-2">
                 <span className="text-xs font-minecraft-ten text-white/30">
-                  — start of conversation —
+                  {t('chat.start_of_conversation')}
                 </span>
               </div>
             )}
@@ -475,7 +477,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
               const prevTimestamp = prevMessage ? (prevMessage.createdAt || prevMessage.sentAt || prevMessage.timestamp || 0) : 0;
 
               const showDateSeparator = index === 0 ||
-                getDateLabel(timestamp) !== getDateLabel(prevTimestamp);
+                getDateLabel(timestamp, t) !== getDateLabel(prevTimestamp, t);
 
               // Discord-style: show header if different sender or > 5 min gap
               const isNewGroup = !prevMessage ||
@@ -495,7 +497,7 @@ export function ChatPanel({ friend }: ChatPanelProps) {
                           border: `1px solid ${accentColor.value}30`,
                         }}
                       >
-                        {getDateLabel(timestamp)}
+                        {getDateLabel(timestamp, t)}
                       </div>
                     </div>
                   )}

@@ -67,8 +67,20 @@ export class MinecraftSkinService {
      * @param skinVariant - The model variant ('classic' or 'slim').
      * @returns A promise that resolves when the skin is applied.
      */
-    static async applySkinFromBase64(uuid: string, accessToken: string, base64Data: string, skinVariant: SkinVariant): Promise<void> {
-        await invoke("apply_skin_from_base64", { uuid, accessToken, base64Data, skinVariant });
+    static async applySkinFromBase64(
+        uuid: string,
+        accessToken: string,
+        base64Data: string,
+        skinVariant: SkinVariant,
+        skinName: string,
+    ): Promise<void> {
+        await invoke("apply_skin_from_base64", {
+            uuid,
+            accessToken,
+            base64Data,
+            skinVariant,
+            skinName,
+        });
     }
 
     /**
