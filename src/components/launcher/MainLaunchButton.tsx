@@ -246,6 +246,15 @@ export function MainLaunchButton({
               >
                 {renderLaunchButtonContent()}
               </Button>
+              <IconButton
+                onClick={handleOpenModal}
+                disabled={isButtonLaunching || !versions || versions.length === 0}
+                icon={<Icon icon="solar:alt-arrow-down-bold" />}
+                variant={isButtonLaunching ? "destructive" : "3d"}
+                size="xl"
+                className={cn("rounded-l-none w-16", mainButtonHeight)}
+                aria-label={t("launcher.select_version")}
+              />
             </div>
           </div>
         ) : (
