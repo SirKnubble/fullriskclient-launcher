@@ -11,7 +11,7 @@ import { ColorPicker } from ".././ColorPicker";
 import { RadiusPicker } from ".././RadiusPicker";
 import type { LauncherConfig } from "../../types/launcherConfig";
 import * as ConfigService from "../../services/launcher-config-service";
-import { useThemeStore } from "../../store/useThemeStore";
+import { useThemeStore, type UIStylePreset } from "../../store/useThemeStore";
 import { invalidateAnalyticsCache } from "../../services/analytics-service";
 import {
   BACKGROUND_EFFECTS,
@@ -52,11 +52,14 @@ export function SettingsTab() {
   const [tempConfig, setTempConfig] = useState<LauncherConfig | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<boolean>(false); const [activeTab, setActiveTab] = useState<"general" | "appearance" | "advanced" | "debug">(
-    "general",
-  );
+  const [saving, setSaving] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<
+    "general" | "appearance" | "advanced" | "debug"
+  >("general");
 
-  useEffect(() => { setDiscordState("Configuring Settings"); }, []);
+  useEffect(() => {
+    setDiscordState("Configuring Settings");
+  }, []);
 
   // Create groups array for tabs
   const createGroups = (): GroupTab[] => {
@@ -92,11 +95,16 @@ export function SettingsTab() {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isHooksExpanded, setIsHooksExpanded] = useState<boolean>(false);
-  const [isPreLaunchEditEnabled, setIsPreLaunchEditEnabled] = useState<boolean>(false);
-  const [isWrapperEditEnabled, setIsWrapperEditEnabled] = useState<boolean>(false);
-  const [isPostExitEditEnabled, setIsPostExitEditEnabled] = useState<boolean>(false);
+  const [isPreLaunchEditEnabled, setIsPreLaunchEditEnabled] =
+    useState<boolean>(false);
+  const [isWrapperEditEnabled, setIsWrapperEditEnabled] =
+    useState<boolean>(false);
+  const [isPostExitEditEnabled, setIsPostExitEditEnabled] =
+    useState<boolean>(false);
   const isResettingRef = useRef<boolean>(false);
   const {
+    uiStylePreset,
+    setUIStylePreset,
     accentColor,
     setCustomAccentColor,
     customColorHistory,
@@ -107,11 +115,13 @@ export function SettingsTab() {
   } = useThemeStore();
   const { currentEffect, setCurrentEffect } = useBackgroundEffectStore();
   const { qualityLevel, setQualityLevel } = useQualitySettingsStore();
-  const { borderRadius, setBorderRadius, setAnalyticsConsent } = useThemeStore();
+  const { borderRadius, setBorderRadius, setAnalyticsConsent } =
+    useThemeStore();
 
   const { confirm, confirmDialog } = useConfirmDialog();
   const { showModal, hideModal } = useGlobalModal();
   const { isThemeActive } = useLauncherTheme();
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
 
   const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
   const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
@@ -185,12 +195,17 @@ export function SettingsTab() {
         label: t("settings.quality.medium"),
         icon: "solar:battery-full-bold",
       },
-      { value: "high", label: t("settings.quality.high"), icon: "solar:battery-charge-bold" },
+      {
+        value: "high",
+        label: t("settings.quality.high"),
+        icon: "solar:battery-charge-bold",
+      },
     ];
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
-    setError(null); try {
+    setError(null);
+    try {
       const loadedConfig = await ConfigService.getLauncherConfig();
       const configWithHooks = {
         ...loadedConfig,
@@ -234,7 +249,9 @@ export function SettingsTab() {
       } catch (err) {
         console.error("Failed to auto-save configuration:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
-        toast.error(t("settings.toast.auto_save_failed", { error: errorMessage }));
+        toast.error(
+          t("settings.toast.auto_save_failed", { error: errorMessage }),
+        );
       } finally {
         setSaving(false);
       }
@@ -324,7 +341,113 @@ export function SettingsTab() {
       </div>
 
       <div>
-      {/* Accent Color Section */}
+        <div className="flex items-center gap-2 mb-2">
+          <Icon icon="solar:pallete-2-bold" className="w-6 h-6 text-white" />
+          <h3 className="text-3xl font-minecraft text-white">Launcher Style</h3>
+        </div>
+        <p className="text-base text-white/70 font-minecraft-ten mt-2">
+          Only changes the appearance of the launcher, not the features.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {(
+          [
+            {
+              id: "default",
+              name: "Default",
+              description:
+                "Das aktuelle Launcher Design. Hier wurden Tierversuche durchgeführt.",
+            },
+            {
+              id: "fullrisk",
+              name: "FullRisk",
+              description:
+                "Behalt deine Seele und gib mir den alten Lountscher.",
+            },
+          ] satisfies Array<{
+            id: UIStylePreset;
+            name: string;
+            description: string;
+          }>
+        ).map((preset) => {
+          const isSelected = uiStylePreset === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => setUIStylePreset(preset.id)}
+              className={cn(
+                "text-left p-4 border-2 transition-all duration-200",
+                isSelected
+                  ? "border-white/70 bg-white/10"
+                  : "border-white/15 bg-black/20 hover:border-white/35 hover:bg-white/5",
+              )}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-minecraft text-2xl text-white lowercase">
+                    {preset.name}
+                  </div>
+                  <div className="font-minecraft-ten text-sm text-white/65 mt-2">
+                    {preset.description}
+                  </div>
+                </div>
+                {isSelected && (
+                  <Icon
+                    icon="solar:check-circle-bold"
+                    className="w-6 h-6 text-white flex-shrink-0"
+                  />
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Icon icon="solar:star-bold" className="w-6 h-6 text-white" />
+          <h3 className="text-3xl font-minecraft text-white">
+            {t("settings.theme.title")}
+          </h3>
+        </div>
+        <p className="text-base text-white/70 font-minecraft-ten mt-2">
+          {t("settings.theme.description")}
+        </p>
+      </div>
+      <div className="mt-4">
+        <ThemeSelector />
+      </div>
+
+      {/* Language Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Icon icon="solar:global-bold" className="w-6 h-6 text-white" />
+          <h3 className="text-3xl font-minecraft text-white">
+            {t("settings.language")}
+          </h3>
+        </div>
+        <p className="text-base text-white/70 font-minecraft-ten mt-2">
+          {t("settings.language.description")}
+        </p>
+        <div className="mt-4 max-w-xs">
+          <Select
+            value={language}
+            onChange={(value) => setLanguage(value as SupportedLanguage)}
+            options={LANGUAGE_OPTIONS.map((opt) => ({
+              value: opt.value,
+              label: opt.label,
+              icon: <Icon icon={opt.flag} className="w-5 h-5" />,
+            }))}
+            size="sm"
+            variant="flat"
+          />
+        </div>
+      </div>
+
+      <div>
+        {/* Accent Color Section */}
         <div className="flex items-center gap-2 mb-2">
           <Icon icon="solar:palette-bold" className="w-6 h-6 text-white" />
           <h3 className="text-3xl font-minecraft text-white">
@@ -334,23 +457,31 @@ export function SettingsTab() {
         <p className="text-base text-white/70 font-minecraft-ten mt-2">
           {t("settings.accent_color.description")}
           {isThemeActive && (
-            <span className="text-white/50 ml-2">{t("settings.accent_color.disabled_theme")}</span>
+            <span className="text-white/50 ml-2">
+              (Disabled while a theme is active)
+            </span>
           )}
         </p>
       </div>
 
       <div className="mt-6 flex items-center gap-6">
         <div className="flex-1">
-          <ColorPicker shape="square" size="md" showCustomOption={false} disabled={isAccentColorDisabled} />
+          <ColorPicker
+            shape="square"
+            size="md"
+            showCustomOption={false}
+            disabled={isAccentColorDisabled}
+          />
         </div>
 
         <button
           onClick={() => {
             if (!isAccentColorDisabled) {
-              showModal('color-picker-modal',
+              showModal(
+                "color-picker-modal",
                 <ColorPickerModal
-                  onClose={() => hideModal('color-picker-modal')}
-                />
+                  onClose={() => hideModal("color-picker-modal")}
+                />,
               );
             }
           }}
@@ -358,9 +489,13 @@ export function SettingsTab() {
             "group flex items-center gap-3 px-4 py-3 rounded-lg border-2 border-dashed border-[#ffffff30] transition-all duration-200",
             isAccentColorDisabled
               ? "opacity-40 cursor-not-allowed"
-              : "hover:border-[#ffffff50] cursor-pointer"
+              : "hover:border-[#ffffff50] cursor-pointer",
           )}
-          title={isAccentColorDisabled ? t("settings.accent_color.custom_tooltip_disabled") : t("settings.accent_color.custom_tooltip")}
+          title={
+            isAccentColorDisabled
+              ? "Disabled while a theme is active"
+              : "Click to open advanced color picker"
+          }
           disabled={isAccentColorDisabled}
         >
           <div
@@ -381,7 +516,6 @@ export function SettingsTab() {
           />
         </button>
       </div>
-
 
       {/* Settings Grid */}
       <CompactSettingsGrid
@@ -419,21 +553,26 @@ export function SettingsTab() {
               tempConfig &&
               setTempConfig({ ...tempConfig, check_beta_channel: checked }),
           },
-          ...(canShowExperimental ? [{
-            id: "experimental-mode",
-            label: t("settings.experimental_mode"),
-            tooltip: t("settings.experimental_mode.tooltip"),
-            type: "toggle" as const,
-            value: tempConfig?.is_experimental || false,
-            onChange: (checked: boolean) => {
-              if (tempConfig) {
-                setTempConfig({
-                  ...tempConfig,
-                  is_experimental: checked,
-                });
-              }
-            },
-          }] : []),
+          ...(canShowExperimental
+            ? [
+                {
+                  id: "experimental-mode",
+                  label: "Experimental Mode",
+                  tooltip:
+                    "Enable experimental features and unstable functionality. May cause crashes or unexpected behavior.",
+                  type: "toggle" as const,
+                  value: tempConfig?.is_experimental || false,
+                  onChange: (checked: boolean) => {
+                    if (tempConfig) {
+                      setTempConfig({
+                        ...tempConfig,
+                        is_experimental: checked,
+                      });
+                    }
+                  },
+                },
+              ]
+            : []),
           {
             id: "open-logs",
             label: t("settings.open_logs"),
@@ -462,8 +601,8 @@ export function SettingsTab() {
           },
           {
             id: "analytics",
-            label: t('analytics.settings.label'),
-            tooltip: t('analytics.settings.tooltip'),
+            label: t("analytics.settings.label"),
+            tooltip: t("analytics.settings.tooltip"),
             type: "toggle",
             value: tempConfig?.enable_analytics || false,
             onChange: (checked) => {
@@ -475,7 +614,7 @@ export function SettingsTab() {
                 // Update ThemeStore state
                 setAnalyticsConsent({
                   hasMadeDecision: true,
-                  decision: checked ? 'accepted' : 'declined',
+                  decision: checked ? "accepted" : "declined",
                 });
                 // Invalidate analytics cache when setting changes
                 invalidateAnalyticsCache();
@@ -542,12 +681,10 @@ export function SettingsTab() {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Icon icon="solar:star-bold" className="w-6 h-6 text-white" />
-          <h3 className="text-3xl font-minecraft text-white">
-            {t("settings.theme.title")}
-          </h3>
+          <h3 className="text-3xl font-minecraft text-white">Theme</h3>
         </div>
         <p className="text-base text-white/70 font-minecraft-ten mt-2">
-          {t("settings.theme.description")}
+          Select a theme to customize your launcher's appearance
         </p>
       </div>
       <div className="mt-4">
@@ -564,9 +701,14 @@ export function SettingsTab() {
                 {t("settings.background.title")}
               </h3>
             </div>
-            <div className="flex flex-col items-end gap-2" style={{ transform: 'translateY(16px)' }}>
+            <div
+              className="flex flex-col items-end gap-2"
+              style={{ transform: "translateY(16px)" }}
+            >
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/70 font-minecraft-ten">{t("settings.background.animations")}</span>
+                <span className="text-sm text-white/70 font-minecraft-ten">
+                  Animations
+                </span>
                 <ToggleSwitch
                   checked={!staticBackground}
                   onChange={() => {
@@ -577,19 +719,23 @@ export function SettingsTab() {
                   size="sm"
                 />
               </div>
-              <SnowEffectToggle
-                showLabel={true}
-                size="sm"
-                disabled={saving}
-              />
+              <SnowEffectToggle showLabel={true} size="sm" disabled={saving} />
               <div className="flex items-center gap-3">
-                <span className="text-xs text-white/60 font-minecraft-ten">{t("settings.background.quality_low")}</span>
+                <span className="text-xs text-white/60 font-minecraft-ten">
+                  Quality: Low
+                </span>
                 <input
                   type="range"
                   min="0"
                   max="2"
                   step="1"
-                  value={qualityLevel === "low" ? 0 : qualityLevel === "medium" ? 1 : 2}
+                  value={
+                    qualityLevel === "low"
+                      ? 0
+                      : qualityLevel === "medium"
+                        ? 1
+                        : 2
+                  }
                   onChange={(e) => {
                     const value = parseInt(e.target.value);
                     const levels = ["low", "medium", "high"] as const;
@@ -598,7 +744,9 @@ export function SettingsTab() {
                   className="w-16 h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider accent-white hover:accent-white/80 transition-colors"
                   disabled={saving}
                 />
-                <span className="text-xs text-white/60 font-minecraft-ten">{t("settings.background.quality_high")}</span>
+                <span className="text-xs text-white/60 font-minecraft-ten">
+                  High
+                </span>
               </div>
             </div>
           </div>
@@ -620,12 +768,13 @@ export function SettingsTab() {
           ))}
         </div>
       </div>
-
     </div>
   );
 
   const renderAdvancedTab = () => (
-    <div className="space-y-6">
+    <div
+      className={cn("space-y-6", isFullRiskStyle && "max-w-[980px] mx-auto")}
+    >
       {/* Browser-Based Login Section */}
       <div>
         <CompactSettingsGrid
@@ -638,7 +787,10 @@ export function SettingsTab() {
               value: tempConfig?.use_browser_based_login || false,
               onChange: (checked) =>
                 tempConfig &&
-                setTempConfig({ ...tempConfig, use_browser_based_login: checked }),
+                setTempConfig({
+                  ...tempConfig,
+                  use_browser_based_login: checked,
+                }),
             },
             {
               id: "cache-natives-extraction",
@@ -648,7 +800,23 @@ export function SettingsTab() {
               value: tempConfig?.cache_natives_extraction ?? true,
               onChange: (checked) =>
                 tempConfig &&
-                setTempConfig({ ...tempConfig, cache_natives_extraction: checked }),
+                setTempConfig({
+                  ...tempConfig,
+                  cache_natives_extraction: checked,
+                }),
+            },
+            {
+              id: "cache-natives-extraction",
+              label: t("settings.cache_natives"),
+              tooltip: t("settings.cache_natives.tooltip"),
+              type: "toggle",
+              value: tempConfig?.cache_natives_extraction ?? true,
+              onChange: (checked) =>
+                tempConfig &&
+                setTempConfig({
+                  ...tempConfig,
+                  cache_natives_extraction: checked,
+                }),
             },
           ]}
           disabled={saving}
@@ -693,7 +861,10 @@ export function SettingsTab() {
                 }}
                 title={t("settings.game_data_dir.reset_tooltip")}
               >
-                <Icon icon="solar:close-circle-bold" className="w-5 h-5 text-red-400" />
+                <Icon
+                  icon="solar:close-circle-bold"
+                  className="w-5 h-5 text-red-400"
+                />
               </Button>
             )}
             <Button
@@ -702,7 +873,7 @@ export function SettingsTab() {
               disabled={saving}
               onClick={async () => {
                 try {
-                  const { open } = await import('@tauri-apps/plugin-dialog');
+                  const { open } = await import("@tauri-apps/plugin-dialog");
                   const directory = await open({
                     multiple: false,
                     directory: true,
@@ -715,7 +886,7 @@ export function SettingsTab() {
                     });
                   }
                 } catch (error) {
-                  console.error('Fehler beim Ordner-Dialog:', error);
+                  console.error("Fehler beim Ordner-Dialog:", error);
                 }
               }}
               title={t("settings.game_data_dir.select_tooltip")}
@@ -741,12 +912,18 @@ export function SettingsTab() {
               onClick={() => setIsHooksExpanded((v) => !v)}
               icon={
                 <Icon
-                  icon={isHooksExpanded ? "solar:alt-arrow-up-bold" : "solar:alt-arrow-down-bold"}
+                  icon={
+                    isHooksExpanded
+                      ? "solar:alt-arrow-up-bold"
+                      : "solar:alt-arrow-down-bold"
+                  }
                   className="w-5 h-5"
                 />
               }
             >
-              {isHooksExpanded ? t("settings.hooks.hide") : t("settings.hooks.show")}
+              {isHooksExpanded
+                ? t("settings.hooks.hide")
+                : t("settings.hooks.show")}
             </Button>
           </div>
           <p className="text-base text-white/70 font-minecraft-ten mt-2">
@@ -759,8 +936,13 @@ export function SettingsTab() {
             <div className="p-4 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon="solar:play-circle-bold" className="w-5 h-5 text-white" />
-                  <h5 className="font-minecraft text-2xl lowercase text-white">{t("settings.hooks.pre_launch.title")}</h5>
+                  <Icon
+                    icon="solar:play-circle-bold"
+                    className="w-5 h-5 text-white"
+                  />
+                  <h5 className="font-minecraft text-2xl lowercase text-white">
+                    Pre-Launch Hook
+                  </h5>
                 </div>
                 <Button
                   variant={isPreLaunchEditEnabled ? "secondary" : "ghost"}
@@ -772,8 +954,7 @@ export function SettingsTab() {
                     }
                     const confirmed = await confirm({
                       title: t("settings.hooks.pre_launch.confirm_title"),
-                      message:
-                        t("settings.hooks.pre_launch.confirm_message"),
+                      message: t("settings.hooks.pre_launch.confirm_message"),
                       confirmText: t("common.enable"),
                       cancelText: t("common.cancel"),
                       type: "warning",
@@ -786,12 +967,18 @@ export function SettingsTab() {
                   }}
                   icon={
                     <Icon
-                      icon={isPreLaunchEditEnabled ? "solar:lock-unlocked-bold" : "solar:lock-keyhole-bold"}
+                      icon={
+                        isPreLaunchEditEnabled
+                          ? "solar:lock-unlocked-bold"
+                          : "solar:lock-keyhole-bold"
+                      }
                       className="w-4 h-4"
                     />
                   }
                 >
-                  {isPreLaunchEditEnabled ? t("settings.hooks.disable_editing") : t("settings.hooks.enable_editing")}
+                  {isPreLaunchEditEnabled
+                    ? "Disable editing"
+                    : "Enable editing"}
                 </Button>
               </div>
               <p className="text-sm text-white/60 font-minecraft-ten mb-4">
@@ -814,15 +1001,24 @@ export function SettingsTab() {
                 placeholder={t("settings.hooks.pre_launch.placeholder")}
                 className="w-full p-3 rounded-md bg-black/40 border border-[#ffffff20] text-white placeholder-white/40 font-minecraft-ten focus:outline-none focus:ring-2 focus:ring-white/30"
                 disabled={saving || !isPreLaunchEditEnabled}
-                title={!isPreLaunchEditEnabled ? t("settings.hooks.pre_launch.disabled_tooltip") : undefined}
+                title={
+                  !isPreLaunchEditEnabled
+                    ? "Enable editing to modify this field"
+                    : undefined
+                }
               />
             </div>
 
             <div className="p-4 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon="solar:shield-bold" className="w-5 h-5 text-white" />
-                  <h5 className="font-minecraft text-2xl lowercase text-white">{t("settings.hooks.wrapper.title")}</h5>
+                  <Icon
+                    icon="solar:shield-bold"
+                    className="w-5 h-5 text-white"
+                  />
+                  <h5 className="font-minecraft text-2xl lowercase text-white">
+                    Wrapper Hook
+                  </h5>
                 </div>
                 <Button
                   variant={isWrapperEditEnabled ? "secondary" : "ghost"}
@@ -834,8 +1030,7 @@ export function SettingsTab() {
                     }
                     const confirmed = await confirm({
                       title: t("settings.hooks.wrapper.confirm_title"),
-                      message:
-                        t("settings.hooks.wrapper.confirm_message"),
+                      message: t("settings.hooks.wrapper.confirm_message"),
                       confirmText: t("common.enable"),
                       cancelText: t("common.cancel"),
                       type: "warning",
@@ -848,12 +1043,18 @@ export function SettingsTab() {
                   }}
                   icon={
                     <Icon
-                      icon={isWrapperEditEnabled ? "solar:lock-unlocked-bold" : "solar:lock-keyhole-bold"}
+                      icon={
+                        isWrapperEditEnabled
+                          ? "solar:lock-unlocked-bold"
+                          : "solar:lock-keyhole-bold"
+                      }
                       className="w-4 h-4"
                     />
                   }
                 >
-                  {isWrapperEditEnabled ? t("settings.hooks.disable_editing") : t("settings.hooks.enable_editing")}
+                  {isWrapperEditEnabled
+                    ? t("settings.hooks.disable_editing")
+                    : t("settings.hooks.enable_editing")}
                 </Button>
               </div>
               <p className="text-sm text-white/60 font-minecraft-ten mb-4">
@@ -876,15 +1077,24 @@ export function SettingsTab() {
                 placeholder={t("settings.hooks.wrapper.placeholder")}
                 className="w-full p-3 rounded-md bg-black/40 border border-[#ffffff20] text-white placeholder-white/40 font-minecraft-ten focus:outline-none focus:ring-2 focus:ring-white/30"
                 disabled={saving || !isWrapperEditEnabled}
-                title={!isWrapperEditEnabled ? t("settings.hooks.wrapper.disabled_tooltip") : undefined}
+                title={
+                  !isWrapperEditEnabled
+                    ? "Enable editing to modify this field"
+                    : undefined
+                }
               />
             </div>
 
             <div className="p-4 rounded-lg border border-[#ffffff20] hover:bg-black/30 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Icon icon="solar:stop-circle-bold" className="w-5 h-5 text-white" />
-                  <h5 className="font-minecraft text-2xl lowercase text-white">{t("settings.hooks.post_exit.title")}</h5>
+                  <Icon
+                    icon="solar:stop-circle-bold"
+                    className="w-5 h-5 text-white"
+                  />
+                  <h5 className="font-minecraft text-2xl lowercase text-white">
+                    Post-Exit Hook
+                  </h5>
                 </div>
                 <Button
                   variant={isPostExitEditEnabled ? "secondary" : "ghost"}
@@ -896,8 +1106,7 @@ export function SettingsTab() {
                     }
                     const confirmed = await confirm({
                       title: t("settings.hooks.post_exit.confirm_title"),
-                      message:
-                        t("settings.hooks.post_exit.confirm_message"),
+                      message: t("settings.hooks.post_exit.confirm_message"),
                       confirmText: t("common.enable"),
                       cancelText: t("common.cancel"),
                       type: "warning",
@@ -910,12 +1119,18 @@ export function SettingsTab() {
                   }}
                   icon={
                     <Icon
-                      icon={isPostExitEditEnabled ? "solar:lock-unlocked-bold" : "solar:lock-keyhole-bold"}
+                      icon={
+                        isPostExitEditEnabled
+                          ? "solar:lock-unlocked-bold"
+                          : "solar:lock-keyhole-bold"
+                      }
                       className="w-4 h-4"
                     />
                   }
                 >
-                  {isPostExitEditEnabled ? t("settings.hooks.disable_editing") : t("settings.hooks.enable_editing")}
+                  {isPostExitEditEnabled
+                    ? t("settings.hooks.disable_editing")
+                    : t("settings.hooks.enable_editing")}
                 </Button>
               </div>
               <p className="text-sm text-white/60 font-minecraft-ten mb-4">
@@ -938,13 +1153,20 @@ export function SettingsTab() {
                 placeholder={t("settings.hooks.post_exit.placeholder")}
                 className="w-full p-3 rounded-md bg-black/40 border border-[#ffffff20] text-white placeholder-white/40 font-minecraft-ten focus:outline-none focus:ring-2 focus:ring-white/30"
                 disabled={saving || !isPostExitEditEnabled}
-                title={!isPostExitEditEnabled ? t("settings.hooks.post_exit.disabled_tooltip") : undefined}
+                title={
+                  !isPostExitEditEnabled
+                    ? "Enable editing to modify this field"
+                    : undefined
+                }
               />
             </div>
 
             <div className="mt-6 p-4 rounded-lg border border-orange-500/30 bg-orange-900/20">
               <div className="flex items-start gap-3">
-                <Icon icon="solar:danger-triangle-bold" className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1" />
+                <Icon
+                  icon="solar:danger-triangle-bold"
+                  className="w-6 h-6 text-orange-400 flex-shrink-0 mt-1"
+                />
                 <div>
                   <h4 className="text-xl font-minecraft text-orange-300 mb-2 lowercase">
                     {t("settings.hooks.warning.title")}
@@ -958,15 +1180,27 @@ export function SettingsTab() {
 
             <div className="mt-6 p-4 rounded-lg border border-[#ffffff20] bg-black/10">
               <div className="flex items-start gap-3">
-                <Icon icon="solar:info-circle-bold" className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+                <Icon
+                  icon="solar:info-circle-bold"
+                  className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1"
+                />
                 <div>
                   <h4 className="text-xl font-minecraft text-blue-300 mb-2 lowercase">
                     {t("settings.hooks.examples.title")}
                   </h4>
                   <div className="space-y-2 text-sm text-blue-200/80 font-minecraft-ten">
-                    <p><strong>Pre-Launch:</strong> <code>echo "Starting game..."</code></p>
-                    <p><strong>Wrapper:</strong> <code>firejail</code> or <code>gamemoderun</code></p>
-                    <p><strong>Post-Exit:</strong> <code>notify-send "Game finished"</code></p>
+                    <p>
+                      <strong>Pre-Launch:</strong>{" "}
+                      <code>echo "Starting game..."</code>
+                    </p>
+                    <p>
+                      <strong>Wrapper:</strong> <code>firejail</code> or{" "}
+                      <code>gamemoderun</code>
+                    </p>
+                    <p>
+                      <strong>Post-Exit:</strong>{" "}
+                      <code>notify-send "Game finished"</code>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -979,7 +1213,10 @@ export function SettingsTab() {
         <div className="mb-4">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
-              <Icon icon="solar:document-text-bold" className="w-6 h-6 text-white" />
+              <Icon
+                icon="solar:document-text-bold"
+                className="w-6 h-6 text-white"
+              />
               <h3 className="text-3xl font-minecraft text-white lowercase">
                 {t("settings.licenses.title")}
               </h3>
@@ -988,9 +1225,11 @@ export function SettingsTab() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                openExternalUrl("https://norisk.gg/licenses")
+                openExternalUrl("https://blog.norisk.gg/open-source-licenses/");
               }}
-              icon={<Icon icon="solar:external-link-bold" className="w-5 h-5" />}
+              icon={
+                <Icon icon="solar:external-link-bold" className="w-5 h-5" />
+              }
             >
               {t("settings.licenses.view")}
             </Button>
@@ -1000,7 +1239,6 @@ export function SettingsTab() {
           </p>
         </div>
       </div>
-
     </div>
   );
 
@@ -1074,21 +1312,45 @@ export function SettingsTab() {
     }
   };
 
-
   return (
-    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+    <div
+      className={cn(
+        "h-full flex flex-col overflow-hidden p-4 relative",
+        isFullRiskStyle && "px-10 py-6",
+      )}
+    >
       {/* Header with Group Tabs and Actions */}
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+      <div
+        className={cn(
+          "flex items-center justify-between mb-4 pb-2",
+          isFullRiskStyle
+            ? "border-b-[3px] mb-8 pb-4"
+            : "border-b border-white/10",
+        )}
+        style={
+          isFullRiskStyle
+            ? { borderColor: "var(--panel-border-strong)" }
+            : undefined
+        }
+      >
         {/* Group Tabs */}
         <GroupTabs
           groups={groups}
           activeGroup={activeTab}
-          onGroupChange={(groupId) => setActiveTab(groupId as "general" | "appearance" | "advanced" | "debug")}
+          onGroupChange={(groupId) =>
+            setActiveTab(
+              groupId as "general" | "appearance" | "advanced" | "debug",
+            )
+          }
           showAddButton={false}
         />
 
         {/* Header Actions */}
-        <div style={{ transform: 'translateY(-3px)' }}>
+        <div
+          style={{
+            transform: isFullRiskStyle ? "translateY(0px)" : "translateY(-3px)",
+          }}
+        >
           <ActionButton
             id="open-directory"
             label={t("settings.open_directory")}
@@ -1101,7 +1363,9 @@ export function SettingsTab() {
                 await openLauncherDirectory();
               } catch (err) {
                 console.error("Failed to open launcher directory:", err);
-                toast.error(t("settings.open_directory.error", { error: String(err) }));
+                toast.error(
+                  t("settings.open_directory.error", { error: String(err) }),
+                );
               }
             }}
           />
@@ -1110,7 +1374,10 @@ export function SettingsTab() {
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {/* Content */}
-        <div ref={contentRef}>
+        <div
+          ref={contentRef}
+          className={cn(isFullRiskStyle && "fullrisk-panel p-6")}
+        >
           {renderTabContent()}
         </div>
       </div>

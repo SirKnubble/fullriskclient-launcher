@@ -57,9 +57,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const buttonRef = useRef<HTMLButtonElement>(null);
     const accentColor = useThemeStore((state) => state.accentColor);
     const borderRadius = useThemeStore((state) => state.borderRadius);
+    const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
     const isBackgroundAnimationEnabled = useThemeStore(
       (state) => state.isBackgroundAnimationEnabled,
     );
+    const isFullRiskStyle = uiStylePreset === "fullrisk";
     const [isPressed, setIsPressed] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
@@ -149,7 +151,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       label,
       description,
       disabled
-    });    const getBackgroundColor = () => {
+    });
+
+    const getBackgroundColor = () => {
       if (variant === "ghost") {
         return isHovered ? `rgba(255, 255, 255, 0.1)` : "transparent";
       }
@@ -158,9 +162,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         return `${colors.main}30`;
       }
 
-      const baseOpacity = isHovered ? "50" : "30";
+      if (variant === "3d") {
+        if (!isFullRiskStyle) {
+          return `${colors.main}${isHovered ? "50" : "30"}`;
+        }
+        return isHovered ? `${colors.light}` : `${colors.main}`;
+      }
+
+      const baseOpacity = isHovered ? "55" : "35";
       return `${colors.main}${baseOpacity}`;
-    };    const getBorderColor = () => {
+    };
+
+    const getBorderColor = () => {
       if (variant === "ghost") {
         return "transparent";
       }
@@ -202,10 +215,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       }
 
       if (variant === "3d") {
+        if (isFullRiskStyle) {
+          return shadowDepth === "none" ? "border-[3px]" : "border-[3px] border-b-[7px]";
+        }
         return shadowDepth === "none" ? "border-2" : "border-2 border-b-4";
       }
 
-      return "border border-b-2";
+      return isFullRiskStyle ? "border-[2px] border-b-[4px]" : "border border-b-2";
     };
 
     const getTextColor = () => {
@@ -220,9 +236,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={mergedRef}
         type="button"
-        disabled={disabled}        className={cn(
+        disabled={disabled}
+        className={cn(
           "relative overflow-hidden lowercase font-minecraft transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
-          "flex items-center justify-center gap-2 backdrop-blur-md whitespace-nowrap",
+          isFullRiskStyle ? "flex items-center justify-center gap-2 whitespace-nowrap" : "flex items-center justify-center gap-2 backdrop-blur-md whitespace-nowrap",
           radiusClass,
           sizeClasses,
           getBorderClasses(),
@@ -232,9 +249,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           className,
         )}
         style={{
-          backgroundColor: getBackgroundColor(),
+          ...(isFullRiskStyle ? { background: getBackgroundColor() } : { backgroundColor: getBackgroundColor() }),
           borderColor: getBorderColor(),
-          borderBottomColor: getBorderBottomColor(),
+          borderBottomColor: variant === "3d" && isFullRiskStyle ? "#094f86" : getBorderBottomColor(),
           boxShadow: getBoxShadow(),
           color: getTextColor(),
           transform: isPressed ? "translateY(1px)" : "translateY(0)",

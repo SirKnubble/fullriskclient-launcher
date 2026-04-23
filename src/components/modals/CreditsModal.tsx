@@ -16,7 +16,7 @@ interface CreditsModalProps {
 export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
   const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
-  
+
   if (!isOpen) return null;
 
   const handleOpenUrl = async (url: string) => {
@@ -29,7 +29,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
 
   return (
     <Modal
-      title={t('credits_modal.title')}
+      title={t("credits_modal.title")}
       titleIcon={<Icon icon="solar:code-bold" className="w-6 h-6" />}
       onClose={onClose}
       width="md"
@@ -62,7 +62,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             <div className="flex items-center gap-2">
               <div className="text-right mr-3">
                 <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide">
-                  {t('credits_modal.ui_frontend')}
+                  {t("credits_modal.ui_frontend")}
                 </p>
               </div>
               <IconButton
@@ -73,7 +73,14 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
                 title="Visit deadmake.dev"
               />
               <IconButton
-                icon={<span className="text-sm" style={{ transform: "translateY(2px)"}}>🍋</span>}
+                icon={
+                  <span
+                    className="text-sm"
+                    style={{ transform: "translateY(2px)" }}
+                  >
+                    🍋
+                  </span>
+                }
                 onClick={() => handleOpenUrl("https://fruity.dev")}
                 variant="default"
                 size="sm"
@@ -81,9 +88,9 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
               />
             </div>
           </div>
-            <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border-2 border-white/20 transition-colors">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-black/20 border-2 border-white/20 transition-colors">
             <div className="flex items-center gap-4">
-              <div 
+              <div
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: `${accentColor.value}40` }}
               >
@@ -103,7 +110,7 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
             </div>
             <div className="text-right">
               <p className="text-white/80 font-minecraft text-lg lowercase tracking-wide">
-                {t('credits_modal.backend_core')}
+                {t("credits_modal.backend_core")}
               </p>
             </div>
           </div>
@@ -116,7 +123,9 @@ export function CreditsModal({ isOpen, onClose }: CreditsModalProps) {
               onClick={() => handleOpenUrl("https://norisk.gg/licenses")}
             >
               <Icon icon="solar:external-link-bold" className="w-5 h-5" />
-              <span className="font-minecraft text-lg lowercase">{t('credits_modal.view_licenses')}</span>
+              <span className="font-minecraft text-lg lowercase">
+                {t("credits_modal.view_licenses")}
+              </span>
             </Button>
           </div>
         </div>

@@ -14,6 +14,7 @@ import { useSocialsModalStore } from "../../store/socials-modal-store";
 import { useFriendsStore } from "../../store/friends-store";
 import { Icon } from "@iconify/react";
 import { NotificationBell } from "./NotificationBell";
+import { useThemeStore } from "../../store/useThemeStore";
 
 interface UserProfileBarProps {
   className?: string;
@@ -25,6 +26,8 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const { initializeAccounts } = useMinecraftAuthStore();
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
   const [_, setMounted] = useState(false);
   const { openModal: openSocialsModal } = useSocialsModalStore();
   const { toggleSidebar: toggleFriendsSidebar } = useFriendsStore();
@@ -58,8 +61,8 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
 
   return (
     <div className={cn("relative flex items-center gap-3", className)}>
-      <div className="profile-bar-container flex items-center gap-2">
-        <NotificationBell />
+      <div className={cn("profile-bar-container flex items-center gap-2", isFullRiskStyle ? "px-1 py-1" : undefined)}>
+        {!isFullRiskStyle && <NotificationBell />}
         <RunningInstancesIndicator />
 
         <div ref={profileButtonRef}>
@@ -87,8 +90,6 @@ export function UserProfileBar({ className }: UserProfileBarProps) {
           className="text-white/70 hover:text-white h-10 w-10"
         />
       </div>
-
-  
 
       <Dropdown
         ref={dropdownRef}

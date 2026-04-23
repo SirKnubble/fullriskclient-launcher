@@ -28,7 +28,8 @@ export function PlayTab() {
   } = useProfileStore();
 
   const { activeAccount } = useMinecraftAuthStore();
-  const { staticBackground, accentColor } = useThemeStore();
+  const { staticBackground, accentColor, uiStylePreset } = useThemeStore();
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
   const { currentEffect } = useBackgroundEffectStore();
   const { isThemeActive, selectedTheme } = useLauncherTheme();
 
@@ -57,8 +58,20 @@ export function PlayTab() {
   }));
 
   return (
-    <div className="flex h-full relative">
-      <div className="flex-grow flex flex-col items-center justify-center p-8 relative z-15">
+    <div
+      className={
+        isFullRiskStyle
+          ? "h-full relative overflow-hidden bg-[linear-gradient(180deg,rgba(26,25,28,0.12)_0%,rgba(26,25,28,0.56)_100%)]"
+          : "flex h-full relative"
+      }
+    >
+      <div
+        className={
+          isFullRiskStyle
+            ? "h-full flex flex-col items-center justify-center px-7 py-8 relative z-15"
+            : "flex-grow flex flex-col items-center justify-center p-8 relative z-15"
+        }
+      >
         {/* Only show RetroGrid effect if no theme background is active */}
         {currentEffect === BACKGROUND_EFFECTS.RETRO_GRID && !(isThemeActive && selectedTheme?.backgroundImage) && (
           <RetroGridEffect
@@ -69,7 +82,7 @@ export function PlayTab() {
         )}
 
         {/* Referral Banner - Top Left */}
-        <div className="absolute top-3 left-3 z-20">
+        <div className={isFullRiskStyle ? "absolute top-6 left-6 z-20" : "absolute top-3 left-3 z-20"}>
           <ReferralBanner />
         </div>
 
@@ -84,7 +97,7 @@ export function PlayTab() {
           className="absolute top-6 left-6 z-10"
         /> */}
 
-        <div className="relative z-10">
+        <div className={isFullRiskStyle ? "relative z-10 w-full h-full flex items-center justify-center" : "relative z-10"}>
           {profilesError && !loading && (
             <ErrorMessage
               message={profilesError || "An unknown error occurred"}
@@ -101,12 +114,16 @@ export function PlayTab() {
             }
             onLaunchVersionChange={handleVersionChange}
             launchButtonVersions={versions}
-            className=""
+            className={isFullRiskStyle ? "w-full max-w-[1120px]" : ""}
           />
         </div>
       </div>
 
-      <NewsSection className="w-1/3 border-l-2 border-white/40 bg-black/10 backdrop-blur-lg p-5 overflow-hidden flex flex-col relative z-10" />
+      {isFullRiskStyle ? (
+        <NewsSection className="absolute bottom-6 right-6 z-40" />
+      ) : (
+        <NewsSection className="w-1/3 border-l-2 border-white/40 bg-black/10 backdrop-blur-lg p-5 overflow-hidden flex flex-col relative z-10" />
+      )}
     </div>
   );
 }

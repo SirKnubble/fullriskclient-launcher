@@ -38,17 +38,26 @@
     --border: 217 19% 27%;
     --input: 217 19% 27%;
     --ring: 210 78% 35%;
+    --panel-background: rgba(18, 18, 22, 0.88);
+    --panel-background-strong: rgba(10, 10, 14, 0.94);
+    --panel-border: rgba(79, 142, 255, 0.38);
+    --panel-border-strong: #4f8eff;
+    --panel-border-shadow: rgba(0, 0, 0, 0.7);
+    --panel-highlight: #ffffff;
+    --panel-highlight-shadow: rgba(0, 0, 0, 0.6);
+    --text-shadow-color: rgba(0, 0, 0, 0.9);
     --text-primary: #ffffff;
     --text-secondary: #ababab;
     --text-muted: #808080;
     --animation-short: 0.2s;
     --animation-medium: 0.5s;
-    --animation-long: 1s;    --radius-sm: 4px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-2xl: 24px;
-    --border-radius: 0px; 
+    --animation-long: 1s;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-xl: 0px;
+    --radius-2xl: 0px;
+    --border-radius: 0px;
     --font-minecraft: "Minecraft", monospace;
     --font-minecraft-ten: "MinecraftTen", sans-serif;
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -66,6 +75,34 @@
     --accent-hover: #3a7aff;
     --accent-shadow: rgba(79, 142, 255, 0.5);
     --accent-rgb: 79, 142, 255;
+}
+
+:root[data-ui-style="fullrisk"] {
+    --background: 260 4% 11%;
+    --card: 240 6% 14%;
+    --popover: 240 6% 14%;
+    --primary: 196 100% 45%;
+    --secondary: 212 71% 41%;
+    --muted: 240 5% 20%;
+    --accent: 212 71% 41%;
+    --border: 240 6% 24%;
+    --input: 240 6% 24%;
+    --ring: 196 100% 45%;
+    --panel-background: rgba(34, 33, 38, 0.92);
+    --panel-background-strong: rgba(26, 25, 28, 0.97);
+    --panel-border: rgba(0, 175, 232, 0.6);
+    --panel-border-strong: #00afe8;
+    --panel-border-shadow: rgba(0, 0, 0, 0.88);
+    --panel-highlight: #f4e4bd;
+    --panel-highlight-shadow: #4f4732;
+    --text-shadow-color: rgba(0, 0, 0, 0.85);
+    --shadow-sm: 0 4px 0 rgba(0, 0, 0, 0.28);
+    --shadow-md: 0 6px 0 rgba(0, 0, 0, 0.3), 0 10px 18px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 8px 0 rgba(0, 0, 0, 0.32), 0 14px 26px rgba(0, 0, 0, 0.3);
+    --accent: #00afe8;
+    --accent-hover: #2ec9ff;
+    --accent-shadow: rgba(0, 175, 232, 0.55);
+    --accent-rgb: 0, 175, 232;
 }
 
 @keyframes fadeIn {
@@ -235,11 +272,13 @@
 
     body {
         @apply bg-dark text-white;
+        background: transparent;
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
         font-family: var(--font-minecraft), monospace;
         letter-spacing: 0.03em;
+        color: var(--text-primary);
     }
 
     h1,
@@ -289,6 +328,60 @@
 
 .text-shadow-lg {
     text-shadow: 0 4px 10px rgba(0, 0, 0, 0.9), 0 0 5px rgba(0, 0, 0, 1);
+}
+
+.fullrisk-panel {
+    background: linear-gradient(180deg, rgba(42, 42, 48, 0.95) 0%, rgba(29, 29, 34, 0.97) 100%);
+    border: 3px solid var(--panel-border);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 6px 0 rgba(0, 0, 0, 0.28),
+        0 12px 22px rgba(0, 0, 0, 0.22);
+}
+
+.fullrisk-outline {
+    border: 6px solid var(--panel-border-strong);
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+        0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.fullrisk-title {
+    color: white;
+    text-transform: lowercase;
+    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.92), 0 8px 16px rgba(0, 0, 0, 0.72);
+}
+
+:root[data-ui-style="fullrisk"] body {
+    background:
+        radial-gradient(circle at top, rgba(0, 175, 232, 0.12), transparent 38%),
+        linear-gradient(180deg, #242228 0%, #1a191c 100%);
+}
+
+:root[data-ui-style="fullrisk"] .text-shadow {
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.92), 0 4px 8px var(--text-shadow-color);
+}
+
+:root[data-ui-style="fullrisk"] .text-shadow-sm {
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92), 0 2px 5px var(--text-shadow-color);
+}
+
+:root[data-ui-style="fullrisk"] .text-shadow-lg {
+    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.92), 0 8px 14px var(--text-shadow-color);
+}
+
+.theme-switching *,
+.theme-switching body,
+.theme-switching #root {
+    transition:
+        background 0.28s ease,
+        background-color 0.28s ease,
+        border-color 0.28s ease,
+        box-shadow 0.28s ease,
+        color 0.28s ease,
+        opacity 0.28s ease,
+        transform 0.28s ease,
+        filter 0.28s ease !important;
 }
 
 .custom-scrollbar {

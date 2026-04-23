@@ -262,10 +262,10 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
         }}
         role={role}
         className={cn(
-          "fixed font-minecraft backdrop-blur-md z-[1001] overflow-hidden",
+          "fixed font-minecraft backdrop-blur-xl z-[1001] overflow-hidden",
           radiusClass,
           "text-white transition-all duration-200",
-          "border-2 border-b-4 shadow-[0_8px_0_rgba(0,0,0,0.3),0_10px_15px_rgba(0,0,0,0.35)]",
+          "border shadow-[0_20px_45px_rgba(0,0,0,0.42)]",
           animationState === "entering" && animationClasses.entering,
           animationState === "entered" && animationClasses.entered,
           animationState === "exiting" && animationClasses.exiting,
@@ -275,10 +275,11 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
           top: `${dropdownTop}px`,
           left: `${dropdownLeft}px`,
           width: `${width}px`,
-          backgroundColor: `${colors.main}15`,
-          borderColor: `${colors.main}40`,
-          borderBottomColor: colors.dark,
-          boxShadow: `0 8px 0 rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.35), inset 0 1px 0 ${colors.light}20, inset 0 0 0 1px ${colors.main}10`,
+          background: `linear-gradient(180deg, rgba(18,18,24,0.9) 0%, rgba(10,10,16,0.82) 100%)`,
+          borderColor: `${colors.main}38`,
+          boxShadow: `0 20px 45px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px ${colors.main}10`,
+          backdropFilter: "blur(22px)",
+          WebkitBackdropFilter: "blur(22px)",
           ...createRadiusStyle(borderRadius),
         }}
         {...accessibilityProps}

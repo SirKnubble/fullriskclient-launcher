@@ -20,26 +20,29 @@ import {
   type MinecraftProcessExitedPayload,
 } from "./types/events";
 import { GlobalCrashReportModal } from "./components/modals/GlobalCrashReportModal";
-import { TermsOfServiceModal, AnalyticsConsentBanner } from "./components/modals/TermsOfServiceModal";
+import {
+  TermsOfServiceModal,
+  AnalyticsConsentBanner,
+} from "./components/modals/TermsOfServiceModal";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
 import { useThemeStore } from "./store/useThemeStore";
 import { useGlobalModal } from "./hooks/useGlobalModal";
 import { Modal } from "./components/ui/Modal";
-import { refreshNrcDataOnMount } from "./services/nrc-service";
+import { dumpDebugLogs, refreshNrcDataOnMount } from "./services/nrc-service";
 import {
   getLauncherConfig,
   setProfileGroupingPreference,
 } from "./services/launcher-config-service";
 import * as ConfigService from "./services/launcher-config-service";
-import { useGlobalDragAndDrop } from './hooks/useGlobalDragAndDrop';
-import { loadIcons } from '@iconify/react';
+import { useGlobalDragAndDrop } from "./hooks/useGlobalDragAndDrop";
+import { loadIcons } from "@iconify/react";
 import { trackEvent } from "./services/analytics-service";
 
 let launcherStartTracked = false;
 
-import flagsmith from 'flagsmith';
-import { FlagsmithProvider } from 'flagsmith/react';
+import flagsmith from "flagsmith";
+import { FlagsmithProvider } from "flagsmith/react";
 import { Button } from "./components/ui/buttons/Button";
 import { openExternalUrl } from "./services/tauri-service";
 import { ExternalLink } from "lucide-react";
@@ -73,9 +76,8 @@ export function App() {
 
   const activeTab = location.pathname.substring(1) || "play";
 
-
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
-      useState<string>("none");
+    useState<string>("none");
 
   const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
   useEffect(() => {
@@ -87,22 +89,27 @@ export function App() {
         if (themeData.state?.accentColor?.value) {
           root.style.setProperty("--accent", themeData.state.accentColor.value);
           root.style.setProperty(
-              "--accent-hover",
-              themeData.state.accentColor.hoverValue,
+            "--accent-hover",
+            themeData.state.accentColor.hoverValue,
+          );
+          root.style.setProperty(
+            "--panel-border-strong",
+            themeData.state.accentColor.value,
           );
 
           const hexToRgb = (hex: string) => {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
-                hex,
+              hex,
             );
             return result
-                ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
-                : null;
+              ? `${Number.parseInt(result[1], 16)}, ${Number.parseInt(result[2], 16)}, ${Number.parseInt(result[3], 16)}`
+              : null;
           };
 
           const rgbValue = hexToRgb(themeData.state.accentColor.value);
           if (rgbValue) {
             root.style.setProperty("--accent-rgb", rgbValue);
+            root.style.setProperty("--panel-border", `rgba(${rgbValue}, 0.6)`);
           }
         }
 
@@ -122,7 +129,10 @@ export function App() {
               xl: "var(--radius-xl)",
               "2xl": "var(--radius-2xl)",
             };
-            root.style.setProperty("--radius", radiusMap[radiusTheme] || "var(--radius-md)");
+            root.style.setProperty(
+              "--radius",
+              radiusMap[radiusTheme] || "var(--radius-md)",
+            );
           }
         }
       } catch (e) {
@@ -133,33 +143,33 @@ export function App() {
 
   useEffect(() => {
     const unlisten = listen<FrontendEventPayload>(
-        "state_event",
-        (event: TauriEvent<FrontendEventPayload>) => {
-          if (
-              event.payload.event_type === FrontendEventType.MinecraftProcessExited
-          ) {
-            try {
-              const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
-                  event.payload.message,
-              );
-              console.log(
-                  "[App.tsx] Global MinecraftProcessExited event:",
-                  exitPayload,
-              );
-              if (!exitPayload.success) {
-                const crashMsg = `Minecraft crashed (Exit Code: ${exitPayload.exit_code ?? "N/A"}). See crash report for details.`;
-                toast.error(crashMsg, { duration: 10000 });
-                openCrashModal(exitPayload);
-              }
-            } catch (e) {
-              console.error(
-                  "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
-                  e,
-              );
-              toast.error(t('app.errors.process_status'));
+      "state_event",
+      (event: TauriEvent<FrontendEventPayload>) => {
+        if (
+          event.payload.event_type === FrontendEventType.MinecraftProcessExited
+        ) {
+          try {
+            const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
+              event.payload.message,
+            );
+            console.log(
+              "[App.tsx] Global MinecraftProcessExited event:",
+              exitPayload,
+            );
+            if (!exitPayload.success) {
+              const crashMsg = `Minecraft crashed (Exit Code: ${exitPayload.exit_code ?? "N/A"}). See crash report for details.`;
+              toast.error(crashMsg, { duration: 10000 });
+              openCrashModal(exitPayload);
             }
+          } catch (e) {
+            console.error(
+              "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
+              e,
+            );
+            toast.error(t("app.errors.process_status"));
           }
-        },
+        }
+      },
     );
 
     return () => {
@@ -219,7 +229,10 @@ export function App() {
                       if (result.success) {
                         toast.success(t("deep_link.auth.success"));
                       } else {
-                        console.error("[App.tsx] Auth bridge confirm failed:", result.message);
+                        console.error(
+                          "[App.tsx] Auth bridge confirm failed:",
+                          result.message,
+                        );
                         toast.error(t("deep_link.auth.error"));
                       }
                     } catch (e) {
@@ -268,26 +281,72 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (analyticsConsent.decision !== 'accepted' || launcherStartTracked) return;
+    const handleDebugDumpHotkey = async (event: KeyboardEvent) => {
+      const isCtrlOrCmdPressed = event.ctrlKey || event.metaKey;
+      const isShiftPressed = event.shiftKey;
+      const isD = event.key.toLowerCase() === "d";
+
+      if (!isCtrlOrCmdPressed || !isShiftPressed || !isD || event.repeat) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const isTypingTarget =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isTypingTarget) {
+        return;
+      }
+
+      event.preventDefault();
+      try {
+        const path = await dumpDebugLogs("hotkey_ctrl_shift_d");
+        toast.success(`Debug dump saved: ${path}`);
+      } catch (error) {
+        console.error("[App.tsx] Failed to dump debug logs via hotkey:", error);
+        toast.error(t("app.errors.unexpected"));
+      }
+    };
+
+    window.addEventListener("keydown", handleDebugDumpHotkey);
+    return () => {
+      window.removeEventListener("keydown", handleDebugDumpHotkey);
+    };
+  }, [t]);
+
+  useEffect(() => {
+    if (analyticsConsent.decision !== "accepted" || launcherStartTracked)
+      return;
     launcherStartTracked = true;
 
     (async () => {
       try {
-        const launcherVersion = await invoke<string>('get_app_version').catch(() => 'unknown');
-        const javaInfo: any = await invoke('get_java_info_command').catch(() => null);
-        const osInfo = await invoke<{ os: string; os_version: string; arch: string }>(
-          'get_system_os_info',
-        ).catch(() => ({ os: 'unknown', os_version: 'unknown', arch: 'unknown' }));
-        await trackEvent('launcher_started', {
+        const launcherVersion = await invoke<string>("get_app_version").catch(
+          () => "unknown",
+        );
+        const javaInfo: any = await invoke("get_java_info_command").catch(
+          () => null,
+        );
+        const osInfo = await invoke<{
+          os: string;
+          os_version: string;
+          arch: string;
+        }>("get_system_os_info").catch(() => ({
+          os: "unknown",
+          os_version: "unknown",
+          arch: "unknown",
+        }));
+        await trackEvent("launcher_started", {
           launcher_version: launcherVersion,
-          java_version: javaInfo?.version ?? 'unknown',
+          java_version: javaInfo?.version ?? "unknown",
           os: osInfo.os,
           os_version: osInfo.os_version,
           arch: osInfo.arch,
         });
       } catch (error) {
         launcherStartTracked = false;
-        console.error('[App] launcher_started tracking failed:', error);
+        console.error("[App] launcher_started tracking failed:", error);
       }
     })();
   }, [analyticsConsent.decision]);
@@ -306,43 +365,43 @@ export function App() {
     const preloadIcons = async () => {
       await loadIcons([
         // Action Buttons
-        'solar:play-bold',
-        'solar:box-bold',
-        'solar:settings-bold',
+        "solar:play-bold",
+        "solar:box-bold",
+        "solar:settings-bold",
 
         // Group Tabs & Navigation
-        'solar:add-circle-bold',
-        'solar:user-id-bold',
-        'solar:widget-bold',
-        'solar:emoji-funny-circle-bold',
-        'solar:shop-bold',
+        "solar:add-circle-bold",
+        "solar:user-id-bold",
+        "solar:widget-bold",
+        "solar:emoji-funny-circle-bold",
+        "solar:shop-bold",
 
         // Search & Filters
-        'solar:magnifer-bold',
-        'solar:text-bold',
-        'solar:clock-circle-bold',
-        'solar:calendar-add-bold',
-        'solar:layers-bold',
-        'solar:gamepad-bold',
-        'solar:lightbulb-bold',
+        "solar:magnifer-bold",
+        "solar:text-bold",
+        "solar:clock-circle-bold",
+        "solar:calendar-add-bold",
+        "solar:layers-bold",
+        "solar:gamepad-bold",
+        "solar:lightbulb-bold",
 
         // Status & UI
-        'solar:danger-triangle-bold',
-        'solar:check-circle-bold',
-        'solar:info-circle-bold',
-        'solar:danger-circle-bold',
-        'solar:close-circle-bold',
+        "solar:danger-triangle-bold",
+        "solar:check-circle-bold",
+        "solar:info-circle-bold",
+        "solar:danger-circle-bold",
+        "solar:close-circle-bold",
 
         // Common UI Elements
-        'solar:alt-arrow-down-bold',
-        'solar:alt-arrow-up-bold',
-        'solar:refresh-bold',
-        'solar:stop-bold',
-        'solar:folder-bold',
-        'solar:download-bold',
-        'solar:upload-bold',
-        'solar:code-bold',
-        'solar:palette-bold',
+        "solar:alt-arrow-down-bold",
+        "solar:alt-arrow-up-bold",
+        "solar:refresh-bold",
+        "solar:stop-bold",
+        "solar:folder-bold",
+        "solar:download-bold",
+        "solar:upload-bold",
+        "solar:code-bold",
+        "solar:palette-bold",
       ]);
     };
 
@@ -351,20 +410,20 @@ export function App() {
 
   useEffect(() => {
     getLauncherConfig()
-        .then((config) => {
-          if (config && config.profile_grouping_criterion) {
-            setCurrentGroupingCriterion(config.profile_grouping_criterion);
-          } else {
-            setCurrentGroupingCriterion("none");
-          }
-        })
-        .catch((err) => {
-          console.error(
-              "Failed to get initial profile grouping from config:",
-              err,
-          );
+      .then((config) => {
+        if (config && config.profile_grouping_criterion) {
+          setCurrentGroupingCriterion(config.profile_grouping_criterion);
+        } else {
           setCurrentGroupingCriterion("none");
-        });
+        }
+      })
+      .catch((err) => {
+        console.error(
+          "Failed to get initial profile grouping from config:",
+          err,
+        );
+        setCurrentGroupingCriterion("none");
+      });
   }, []);
 
   const handleProfileGroupingChange = async (newCriterion: string) => {
@@ -374,7 +433,7 @@ export function App() {
       console.log("[App.tsx] Grouping preference saved successfully.");
     } catch (error) {
       console.error("[App.tsx] Failed to save grouping preference:", error);
-      toast.error(t('app.errors.save_grouping'));
+      toast.error(t("app.errors.save_grouping"));
     }
   };
 
@@ -384,7 +443,7 @@ export function App() {
       // Update ThemeStore state
       setAnalyticsConsent({
         hasMadeDecision: true,
-        decision: 'accepted',
+        decision: "accepted",
         hasSeenBanner: true,
         lastShown: new Date().toISOString(),
       });
@@ -397,13 +456,15 @@ export function App() {
       });
 
       // Invalidate analytics cache to reflect the change immediately
-      const { invalidateAnalyticsCache } = await import('./services/analytics-service');
+      const { invalidateAnalyticsCache } = await import(
+        "./services/analytics-service"
+      );
       invalidateAnalyticsCache();
 
-      toast.success(t('analytics.toast.enabled'));
+      toast.success(t("analytics.toast.enabled"));
     } catch (error) {
       console.error("Failed to enable analytics:", error);
-      toast.error(t('analytics.toast.enable_failed'));
+      toast.error(t("analytics.toast.enable_failed"));
     }
   };
 
@@ -412,7 +473,7 @@ export function App() {
       // Update ThemeStore state
       setAnalyticsConsent({
         hasMadeDecision: true,
-        decision: 'declined',
+        decision: "declined",
         hasSeenBanner: true,
         lastShown: new Date().toISOString(),
       });
@@ -425,13 +486,15 @@ export function App() {
       });
 
       // Invalidate analytics cache to reflect the change immediately
-      const { invalidateAnalyticsCache } = await import('./services/analytics-service');
+      const { invalidateAnalyticsCache } = await import(
+        "./services/analytics-service"
+      );
       invalidateAnalyticsCache();
 
-      toast.success(t('analytics.toast.disabled'));
+      toast.success(t("analytics.toast.disabled"));
     } catch (error) {
       console.error("Failed to disable analytics:", error);
-      toast.error(t('analytics.toast.disable_failed'));
+      toast.error(t("analytics.toast.disable_failed"));
     }
   };
 
@@ -442,7 +505,7 @@ export function App() {
       lastShown: new Date().toISOString(),
       reminderCount: newReminderCount,
     });
-    toast(t('analytics.toast.dismissed'));
+    toast(t("analytics.toast.dismissed"));
   };
 
   // Sync analytics state with config on app start
@@ -451,15 +514,21 @@ export function App() {
       try {
         const config = await ConfigService.getLauncherConfig();
         // Update ThemeStore decision based on config
-        if (config.enable_analytics && analyticsConsent.decision !== 'accepted') {
+        if (
+          config.enable_analytics &&
+          analyticsConsent.decision !== "accepted"
+        ) {
           setAnalyticsConsent({
             hasMadeDecision: true,
-            decision: 'accepted',
+            decision: "accepted",
           });
-        } else if (!config.enable_analytics && analyticsConsent.decision === 'accepted') {
+        } else if (
+          !config.enable_analytics &&
+          analyticsConsent.decision === "accepted"
+        ) {
           setAnalyticsConsent({
             hasMadeDecision: true,
-            decision: 'declined',
+            decision: "declined",
           });
         }
       } catch (error) {
@@ -479,8 +548,10 @@ export function App() {
     navigate(`/${tabId}`);
 
     // Track tab clicked only if analytics are enabled
-    if (analyticsConsent.decision === 'accepted') {
-      trackEvent('sidebar_tab_clicked', { tab_name: tabId }).catch(console.error);
+    if (analyticsConsent.decision === "accepted") {
+      trackEvent("sidebar_tab_clicked", { tab_name: tabId }).catch(
+        console.error,
+      );
     }
   };
 
@@ -495,7 +566,7 @@ export function App() {
     <FlagsmithProvider
       options={{
         environmentID: FLAGSMITH_ENVIRONMENT_ID,
-        api: 'https://flagsmith-staging.norisk.gg/api/v1/',
+        api: "https://flagsmith-staging.norisk.gg/api/v1/",
       }}
       flagsmith={flagsmith}
     >

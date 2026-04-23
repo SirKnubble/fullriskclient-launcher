@@ -40,6 +40,8 @@ export function VerticalNavbar({
   const buttonRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const [isMounted, setIsMounted] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -123,20 +125,28 @@ export function VerticalNavbar({
       <div
         ref={navRef}
         className={cn(
-          "flex flex-col items-center py-6 w-24 backdrop-blur-lg",
+          isFullRiskStyle ? "flex flex-col items-center py-5 w-[108px]" : "flex flex-col items-center py-6 w-24 backdrop-blur-lg",
           className,
         )}
         style={{
-          backgroundColor: `rgba(${parseInt(accentColor.value.slice(1, 3), 16)}, ${parseInt(accentColor.value.slice(3, 5), 16)}, ${parseInt(accentColor.value.slice(5, 7), 16)}, 0.4)`,
-          borderRight: `2px solid ${accentColor.value}60`,
-          borderLeft: `2px solid ${accentColor.value}60`,
-          boxShadow: `0 0 10px ${accentColor.value}30 inset`,
+          background: isFullRiskStyle
+            ? "linear-gradient(180deg, rgba(34,33,38,0.98) 0%, rgba(26,25,28,0.98) 100%)"
+            : undefined,
+          backgroundColor: isFullRiskStyle
+            ? undefined
+            : `rgba(${parseInt(accentColor.value.slice(1, 3), 16)}, ${parseInt(accentColor.value.slice(3, 5), 16)}, ${parseInt(accentColor.value.slice(5, 7), 16)}, 0.4)`,
+          borderRight: isFullRiskStyle ? `3px solid ${accentColor.value}80` : `2px solid ${accentColor.value}60`,
+          borderLeft: isFullRiskStyle ? `3px solid rgba(255,255,255,0.04)` : `2px solid ${accentColor.value}60`,
+          boxShadow: isFullRiskStyle
+            ? `inset -1px 0 0 rgba(255,255,255,0.05), 4px 0 0 rgba(0,0,0,0.18)`
+            : `0 0 10px ${accentColor.value}30 inset`,
         }}
-      >        <div className="mb-12">
+      >
+        <div className={isFullRiskStyle ? "mb-10 mt-1" : "mb-12"}>
           <Logo size="sm" onClick={() => setShowCreditsModal(true)} />
         </div>
 
-        <div className="flex-1 flex flex-col items-center space-y-4 min-h-[400px]">
+        <div className={isFullRiskStyle ? "flex-1 flex flex-col items-center space-y-3 min-h-[400px]" : "flex-1 flex flex-col items-center space-y-4 min-h-[400px]"}>
           {items.map((item) => (
             <div
               key={item.id}

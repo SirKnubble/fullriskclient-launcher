@@ -201,7 +201,10 @@ export function LogViewerCore({
   useEffect(() => {
     if (isAutoscrollEnabled && virtuosoRef.current && filteredLogs.length > 0) {
       isUserScrollingRef.current = true;
-      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
+      virtuosoRef.current.scrollToIndex({
+        index: filteredLogs.length - 1,
+        behavior: "auto",
+      });
       setTimeout(() => {
         isUserScrollingRef.current = false;
       }, 50);
@@ -216,7 +219,7 @@ export function LogViewerCore({
 
   const handleUpload = async () => {
     if (filteredLogs.length === 0) {
-      toast.error(t('logs.no_logs_to_upload'));
+      toast.error(t("logs.no_logs_to_upload"));
       return;
     }
 
@@ -237,15 +240,16 @@ export function LogViewerCore({
       const url = await uploadLogToMclogs(logText);
 
       await writeText(url);
-      toast.success(t('logs.uploaded_url_copied'));
+      toast.success(t("logs.uploaded_url_copied"));
       await openExternalUrl(url);
     } catch (error) {
       console.error("Failed to upload logs:", error);
       // Extract error message properly from Tauri CommandError
-      const errorMessage = error && typeof error === 'object' && 'message' in error
-        ? (error as { message: string }).message
-        : String(error);
-      toast.error(errorMessage || t('logs.upload_failed'));
+      const errorMessage =
+        error && typeof error === "object" && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      toast.error(errorMessage || t("logs.upload_failed"));
     } finally {
       setIsUploading(false);
     }
@@ -253,7 +257,10 @@ export function LogViewerCore({
 
   const scrollToBottom = () => {
     if (virtuosoRef.current && filteredLogs.length > 0) {
-      virtuosoRef.current.scrollToIndex({ index: filteredLogs.length - 1, behavior: "auto" });
+      virtuosoRef.current.scrollToIndex({
+        index: filteredLogs.length - 1,
+        behavior: "auto",
+      });
     }
     setIsAutoscrollEnabled(true);
   };
@@ -276,7 +283,7 @@ export function LogViewerCore({
           <Icon icon="solar:magnifer-bold" className="w-4 h-4 text-white/50" />
           <input
             type="text"
-            placeholder={t('placeholders.search_logs')}
+            placeholder={t("placeholders.search_logs")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-transparent text-sm font-minecraft-ten text-white/90 placeholder:text-white/40 outline-none flex-1 min-w-0"
@@ -293,22 +300,26 @@ export function LogViewerCore({
 
         {/* Level Filter Buttons */}
         <div className="flex items-center gap-1.5">
-          {(["ERROR", "WARN", "INFO", "DEBUG", "TRACE"] as LogLevel[]).map((level) => (
-            <button
-              key={level}
-              onClick={() => toggleLevelFilter(level)}
-              className="px-2.5 py-1 text-xs font-minecraft-ten rounded transition-all"
-              style={{
-                backgroundColor: levelFilters[level]
-                  ? `${LEVEL_COLORS[level]}25`
-                  : "rgba(255,255,255,0.05)",
-                color: levelFilters[level] ? LEVEL_COLORS[level] : "rgba(255,255,255,0.3)",
-                border: `1px solid ${levelFilters[level] ? `${LEVEL_COLORS[level]}50` : "transparent"}`,
-              }}
-            >
-              {level}
-            </button>
-          ))}
+          {(["ERROR", "WARN", "INFO", "DEBUG", "TRACE"] as LogLevel[]).map(
+            (level) => (
+              <button
+                key={level}
+                onClick={() => toggleLevelFilter(level)}
+                className="px-2.5 py-1 text-xs font-minecraft-ten rounded transition-all"
+                style={{
+                  backgroundColor: levelFilters[level]
+                    ? `${LEVEL_COLORS[level]}25`
+                    : "rgba(255,255,255,0.05)",
+                  color: levelFilters[level]
+                    ? LEVEL_COLORS[level]
+                    : "rgba(255,255,255,0.3)",
+                  border: `1px solid ${levelFilters[level] ? `${LEVEL_COLORS[level]}50` : "transparent"}`,
+                }}
+              >
+                {level}
+              </button>
+            ),
+          )}
         </div>
 
         {/* Spacer */}
@@ -320,16 +331,26 @@ export function LogViewerCore({
             onClick={() => setIsFileDropdownOpen(!isFileDropdownOpen)}
             className="flex items-center gap-2 px-3 py-1.5 rounded text-sm font-minecraft-ten transition-all max-w-[250px]"
             style={{
-              backgroundColor: isFileDropdownOpen ? `${accentColor.value}25` : `${accentColor.value}15`,
+              backgroundColor: isFileDropdownOpen
+                ? `${accentColor.value}25`
+                : `${accentColor.value}15`,
               border: `1px solid ${accentColor.value}30`,
               color: "rgba(255,255,255,0.8)",
             }}
           >
-            <Icon icon="solar:document-text-bold" className="w-4 h-4 flex-shrink-0" />
+            <Icon
+              icon="solar:document-text-bold"
+              className="w-4 h-4 flex-shrink-0"
+            />
             <span className="truncate">
-              {selectedLogPath ? (selectedLogPath.split(/[\\/]/).pop() || selectedLogPath) : "Select log..."}
+              {selectedLogPath
+                ? selectedLogPath.split(/[\\/]/).pop() || selectedLogPath
+                : "Select log..."}
             </span>
-            <Icon icon="solar:alt-arrow-down-bold" className="w-3 h-3 flex-shrink-0" />
+            <Icon
+              icon="solar:alt-arrow-down-bold"
+              className="w-3 h-3 flex-shrink-0"
+            />
           </button>
         )}
 
@@ -340,8 +361,12 @@ export function LogViewerCore({
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
             className="p-1.5 rounded transition-all hover:bg-white/10"
             style={{
-              backgroundColor: isSettingsOpen ? `${accentColor.value}20` : undefined,
-              color: isSettingsOpen ? accentColor.value : "rgba(255,255,255,0.5)",
+              backgroundColor: isSettingsOpen
+                ? `${accentColor.value}20`
+                : undefined,
+              color: isSettingsOpen
+                ? accentColor.value
+                : "rgba(255,255,255,0.5)",
             }}
           >
             <Icon icon="solar:settings-bold" className="w-4 h-4" />
@@ -356,7 +381,8 @@ export function LogViewerCore({
         style={{ boxShadow: `0 4px 20px ${accentColor.value}15` }}
       >
         {filteredLogs.length === 0 ? (
-          showNoLogs && showNoLogsMessage && (
+          showNoLogs &&
+          showNoLogsMessage && (
             <div className="flex items-center justify-center h-full text-white/30">
               <div className="text-center">
                 <Icon icon={noLogsIcon} className="w-12 h-12 mx-auto mb-2" />
@@ -371,13 +397,17 @@ export function LogViewerCore({
             className="custom-scrollbar"
             style={{ height: "100%" }}
             data={filteredLogs}
-            followOutput={() => isAutoscrollEnabled ? "auto" : false}
-            initialTopMostItemIndex={filteredLogs.length > 0 ? filteredLogs.length - 1 : 0}
+            followOutput={() => (isAutoscrollEnabled ? "auto" : false)}
+            initialTopMostItemIndex={
+              filteredLogs.length > 0 ? filteredLogs.length - 1 : 0
+            }
             itemContent={(_index, log) => (
               <div className="flex flex-nowrap items-start py-0.5 hover:bg-white/5 px-2 -mx-2 rounded">
                 {log.timestamp ? (
                   <>
-                    <span className={`pr-2 select-none ${getLevelColorClass(log.level)}`}>
+                    <span
+                      className={`pr-2 select-none ${getLevelColorClass(log.level)}`}
+                    >
                       <span className="opacity-80">[{log.timestamp}]</span>
                       {showThreadPrefix && (
                         <span className="opacity-80 ml-1">
@@ -425,10 +455,16 @@ export function LogViewerCore({
           <button
             onClick={() => setIsAutoscrollEnabled(!isAutoscrollEnabled)}
             className="flex items-center gap-1.5 hover:text-white/70 transition-colors"
-            style={{ color: isAutoscrollEnabled ? accentColor.value : undefined }}
+            style={{
+              color: isAutoscrollEnabled ? accentColor.value : undefined,
+            }}
           >
             <Icon
-              icon={isAutoscrollEnabled ? "solar:arrow-down-bold" : "solar:pause-bold"}
+              icon={
+                isAutoscrollEnabled
+                  ? "solar:arrow-down-bold"
+                  : "solar:pause-bold"
+              }
               className="w-4 h-4"
             />
             {isAutoscrollEnabled ? "FOLLOWING" : "PAUSED"}
@@ -439,7 +475,7 @@ export function LogViewerCore({
               className="flex items-center gap-1.5 hover:text-white/70 transition-colors px-2 py-0.5 rounded"
               style={{
                 backgroundColor: `${accentColor.value}20`,
-                color: accentColor.value
+                color: accentColor.value,
               }}
             >
               <Icon icon="solar:arrow-down-bold" className="w-4 h-4" />
@@ -487,86 +523,103 @@ export function LogViewerCore({
       </div>
 
       {/* Settings Popup */}
-      {isSettingsOpen && settingsButtonRef.current && createPortal(
-        <div
-          ref={settingsPopupRef}
-          className="fixed min-w-[240px] p-3 rounded-lg border"
-          style={{
-            top: settingsButtonRef.current.getBoundingClientRect().bottom + 8,
-            right: window.innerWidth - settingsButtonRef.current.getBoundingClientRect().right,
-            backgroundColor: "rgba(0, 0, 0, 0.95)",
-            borderColor: `${accentColor.value}40`,
-            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
-            zIndex: 9999,
-          }}
-        >
-          <div className="text-xs font-minecraft-ten text-white/70 mb-3 pb-2 border-b border-white/10">
-            LOG SETTINGS
-          </div>
+      {isSettingsOpen &&
+        settingsButtonRef.current &&
+        createPortal(
+          <div
+            ref={settingsPopupRef}
+            className="fixed min-w-[240px] p-3 rounded-lg border"
+            style={{
+              top: settingsButtonRef.current.getBoundingClientRect().bottom + 8,
+              right:
+                window.innerWidth -
+                settingsButtonRef.current.getBoundingClientRect().right,
+              backgroundColor: "rgba(0, 0, 0, 0.95)",
+              borderColor: `${accentColor.value}40`,
+              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
+              zIndex: 9999,
+            }}
+          >
+            <div className="text-xs font-minecraft-ten text-white/70 mb-3 pb-2 border-b border-white/10">
+              LOG SETTINGS
+            </div>
 
-          <label className="flex items-center gap-3 cursor-pointer group">
-            <div
-              className="relative w-9 h-5 rounded-full transition-all cursor-pointer"
-              style={{
-                backgroundColor: showThreadPrefix
-                  ? `${accentColor.value}80`
-                  : "rgba(255,255,255,0.15)",
-              }}
-              onClick={toggleShowThreadPrefix}
-            >
+            <label className="flex items-center gap-3 cursor-pointer group">
               <div
-                className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all"
+                className="relative w-9 h-5 rounded-full transition-all cursor-pointer"
                 style={{
-                  left: showThreadPrefix ? "calc(100% - 18px)" : "2px",
+                  backgroundColor: showThreadPrefix
+                    ? `${accentColor.value}80`
+                    : "rgba(255,255,255,0.15)",
                 }}
-              />
-            </div>
-            <div className="flex-1">
-              <div className="text-sm text-white/90 font-minecraft-ten">
-                Thread Prefix
-              </div>
-              <div className="text-xs text-white/50 font-sans">
-                Show [Thread/LEVEL] prefix
-              </div>
-            </div>
-          </label>
-        </div>,
-        document.body
-      )}
-
-      {isFileDropdownOpen && fileDropdownButtonRef.current && createPortal(
-        <div
-          ref={fileDropdownRef}
-          className="fixed min-w-[200px] max-w-[400px] max-h-[300px] overflow-y-auto p-1 rounded-lg border custom-scrollbar"
-          style={{
-            top: fileDropdownButtonRef.current.getBoundingClientRect().bottom + 8,
-            right: window.innerWidth - fileDropdownButtonRef.current.getBoundingClientRect().right,
-            backgroundColor: "rgba(0, 0, 0, 0.95)",
-            borderColor: `${accentColor.value}40`,
-            boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
-            zIndex: 9999,
-          }}
-        >
-          {logFiles?.map((path) => {
-            const name = path.split(/[\\/]/).pop() || path;
-            const isSelected = path === selectedLogPath;
-            return (
-              <button
-                key={path}
-                onClick={() => { onLogSelect?.(path); setIsFileDropdownOpen(false); }}
-                className="w-full text-left px-3 py-2 text-xs font-minecraft-ten rounded transition-all hover:bg-white/5"
-                style={{
-                  backgroundColor: isSelected ? `${accentColor.value}20` : undefined,
-                  color: isSelected ? accentColor.value : "rgba(255,255,255,0.7)",
-                }}
+                onClick={toggleShowThreadPrefix}
               >
-                {name}
-              </button>
-            );
-          })}
-        </div>,
-        document.body
-      )}
+                <div
+                  className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all"
+                  style={{
+                    left: showThreadPrefix ? "calc(100% - 18px)" : "2px",
+                  }}
+                />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm text-white/90 font-minecraft-ten">
+                  Thread Prefix
+                </div>
+                <div className="text-xs text-white/50 font-sans">
+                  Show [Thread/LEVEL] prefix
+                </div>
+              </div>
+            </label>
+          </div>,
+          document.body,
+        )}
+
+      {isFileDropdownOpen &&
+        fileDropdownButtonRef.current &&
+        createPortal(
+          <div
+            ref={fileDropdownRef}
+            className="fixed min-w-[200px] max-w-[400px] max-h-[300px] overflow-y-auto p-1 rounded-lg border custom-scrollbar"
+            style={{
+              top:
+                fileDropdownButtonRef.current.getBoundingClientRect().bottom +
+                8,
+              right:
+                window.innerWidth -
+                fileDropdownButtonRef.current.getBoundingClientRect().right,
+              backgroundColor: "rgba(0, 0, 0, 0.95)",
+              borderColor: `${accentColor.value}40`,
+              boxShadow: `0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px ${accentColor.value}20`,
+              zIndex: 9999,
+            }}
+          >
+            {logFiles?.map((path) => {
+              const name = path.split(/[\\/]/).pop() || path;
+              const isSelected = path === selectedLogPath;
+              return (
+                <button
+                  key={path}
+                  onClick={() => {
+                    onLogSelect?.(path);
+                    setIsFileDropdownOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs font-minecraft-ten rounded transition-all hover:bg-white/5"
+                  style={{
+                    backgroundColor: isSelected
+                      ? `${accentColor.value}20`
+                      : undefined,
+                    color: isSelected
+                      ? accentColor.value
+                      : "rgba(255,255,255,0.7)",
+                  }}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

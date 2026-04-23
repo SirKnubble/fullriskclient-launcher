@@ -36,6 +36,8 @@ export function RunningInstancesIndicator({
   );
   const buttonRef = useRef<HTMLDivElement>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
 
   const fetchProcesses = useCallback(async () => {
     setError(null);
@@ -142,11 +144,11 @@ export function RunningInstancesIndicator({
     <div className={cn("relative", className)}>
       <div ref={buttonRef} className="relative">
         <Button
-          variant={hasInstances ? "success" : "flat"}
+          variant={hasInstances ? "success" : isFullRiskStyle ? "ghost" : "flat"}
           size="sm"
           onClick={handleOpenLogWindow}
           icon={<Icon icon="solar:monitor-bold" className="w-4 h-4" />}
-          className="h-10"
+          className={isFullRiskStyle ? "h-10 border-transparent shadow-none" : "h-10"}
         >
           {isLoading && instanceCount === 0
             ? t('instances.loading')

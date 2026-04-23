@@ -23,21 +23,19 @@ import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
 import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
 import { setDiscordState } from "../../utils/discordRpc";
+import { FullRiskProfileCard } from "../profiles/FullRiskProfileCard";
 
 export function ProfilesTabV2() {
   const { t } = useTranslation();
-  const {
-    profiles,
-    loading,
-    error,
-    fetchProfiles,
-  } = useProfileStore();
+  const { profiles, loading, error, fetchProfiles } = useProfileStore();
   const navigate = useNavigate();
   const { confirm, confirmDialog } = useConfirmDialog();
   const { openModal: openWizard } = useProfileWizardStore();
   const { isPinned } = usePinnedProfilesStore();
   const { showModal, hideModal } = useGlobalModal();
-  
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
+
   // Persistent filters from theme store
   const {
     profilesTabActiveGroup,
@@ -49,12 +47,14 @@ export function ProfilesTabV2() {
     setProfilesTabVersionFilter,
     setProfilesTabLayoutMode,
   } = useThemeStore();
-  
-  useEffect(() => { setDiscordState("Managing Profiles"); }, []);
+
+  useEffect(() => {
+    setDiscordState("Managing Profiles");
+  }, []);
 
   // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // Use persistent values instead of local state
   const activeGroup = profilesTabActiveGroup;
   const sortBy = profilesTabSortBy;
@@ -65,38 +65,44 @@ export function ProfilesTabV2() {
   const actionButtons: ActionButton[] = [
     {
       id: "import",
-      label: t('profiles.import').toUpperCase(),
+      label: t("profiles.import").toUpperCase(),
       icon: "solar:upload-bold",
-      tooltip: t('profiles.importProfile'),
+      tooltip: t("profiles.importProfile"),
       onClick: () => {
-        showModal("profile-import", <ProfileImport
-          onClose={() => {
-            hideModal("profile-import");
-            navigate("/profiles");
-          }}
-          onImportComplete={handleImportComplete}
-        />);
+        showModal(
+          "profile-import",
+          <ProfileImport
+            onClose={() => {
+              hideModal("profile-import");
+              navigate("/profiles");
+            }}
+            onImportComplete={handleImportComplete}
+          />,
+        );
         navigate("/profiles");
       },
     },
     {
       id: "create",
-      label: t('profiles.create').toUpperCase(),
+      label: t("profiles.create").toUpperCase(),
       icon: "solar:widget-add-bold",
-      tooltip: t('profiles.createNewProfile'),
+      tooltip: t("profiles.createNewProfile"),
       onClick: () => {
         // Pass current group as default, but not if it's "all" or "server"
-        const defaultGroup = (activeGroup === "all" || activeGroup === "server") ? null : activeGroup;
+        const defaultGroup =
+          activeGroup === "all" || activeGroup === "server"
+            ? null
+            : activeGroup;
         openWizard(defaultGroup);
         navigate("/profiles");
       },
     },
   ];
-  
+
   // Get unique profile groups dynamically (normalized to lowercase)
   const getUniqueProfileGroups = () => {
     const uniqueGroups = new Set<string>();
-    profiles.forEach(profile => {
+    profiles.forEach((profile) => {
       if (profile.group && profile.group.trim() !== "") {
         // Normalize to lowercase to avoid duplicates like "Custom" and "CUSTOM"
         uniqueGroups.add(profile.group.toLowerCase());
@@ -109,20 +115,28 @@ export function ProfilesTabV2() {
   const isNrcGroup = (groupName: string | null): boolean => {
     if (!groupName) return false;
     const normalized = groupName.toLowerCase();
-    return normalized === "nrc" || normalized === "noriskclient" || normalized === "norisk client";
+    return (
+      normalized === "nrc" ||
+      normalized === "noriskclient" ||
+      normalized === "norisk client"
+    );
   };
 
   // Calculate group counts based on current search/filter
   const getFilteredCountForGroup = (groupId: string) => {
     if (groupId === "all") return profiles.length;
-    
+
     // Handle default groups
-    if (groupId === "nrc") return profiles.filter(p => isNrcGroup(p.group)).length;
-    if (groupId === "server") return profiles.filter(p => p.group === "SERVER").length;
-    if (groupId === "modpacks") return profiles.filter(p => p.group === "MODPACKS").length;
-    
+    if (groupId === "nrc")
+      return profiles.filter((p) => isNrcGroup(p.group)).length;
+    if (groupId === "server")
+      return profiles.filter((p) => p.group === "SERVER").length;
+    if (groupId === "modpacks")
+      return profiles.filter((p) => p.group === "MODPACKS").length;
+
     // Handle dynamic groups (groupId is normalized lowercase, compare with profile.group in lowercase)
-    return profiles.filter(p => p.group && p.group.toLowerCase() === groupId).length;
+    return profiles.filter((p) => p.group && p.group.toLowerCase() === groupId)
+      .length;
   };
 
   // Create groups array with default groups + dynamic groups
@@ -130,18 +144,27 @@ export function ProfilesTabV2() {
     const defaultGroups: GroupTab[] = [
       { id: "all", name: "All", count: getFilteredCountForGroup("all") },
       { id: "nrc", name: "NRC", count: getFilteredCountForGroup("nrc") },
-      { id: "server", name: "SERVER", count: getFilteredCountForGroup("server") },
-      { id: "modpacks", name: "MODPACKS", count: getFilteredCountForGroup("modpacks") },
+      {
+        id: "server",
+        name: "SERVER",
+        count: getFilteredCountForGroup("server"),
+      },
+      {
+        id: "modpacks",
+        name: "MODPACKS",
+        count: getFilteredCountForGroup("modpacks"),
+      },
     ];
 
     // Get unique profile groups and convert to GroupTab format
     const uniqueGroups = getUniqueProfileGroups();
     const dynamicGroups: GroupTab[] = uniqueGroups
-      .filter(group => 
-        !["server", "modpacks"].includes(group) && // Exclude SERVER and MODPACKS (already normalized)
-        !isNrcGroup(group) // Exclude all NRC variations
+      .filter(
+        (group) =>
+          !["server", "modpacks"].includes(group) && // Exclude SERVER and MODPACKS (already normalized)
+          !isNrcGroup(group), // Exclude all NRC variations
       )
-      .map(group => ({
+      .map((group) => ({
         id: group, // group is already lowercase from getUniqueProfileGroups
         name: group, // group is already lowercase from getUniqueProfileGroups
         count: getFilteredCountForGroup(group), // Use the updated function
@@ -179,15 +202,15 @@ export function ProfilesTabV2() {
       profileId,
       profileName,
     );
-    
+
     // Find the profile to check if it's a standard version
-    const profile = profiles.find(p => p.id === profileId);
-    
+    const profile = profiles.find((p) => p.id === profileId);
+
     const confirmed = await confirm({
-      title: t('profiles.deleteProfileTitle'),
-      message: t('profiles.deleteConfirmMessageSimple', { name: profileName }),
-      confirmText: t('profiles.deleteConfirm'),
-      cancelText: t('profiles.cancelAction'),
+      title: t("profiles.deleteProfileTitle"),
+      message: t("profiles.deleteConfirmMessageSimple", { name: profileName }),
+      confirmText: t("profiles.deleteConfirm"),
+      cancelText: t("profiles.cancelAction"),
       type: "danger",
       fullscreen: true,
     });
@@ -195,13 +218,15 @@ export function ProfilesTabV2() {
     if (confirmed) {
       const deletePromise = useProfileStore.getState().deleteProfile(profileId);
       toast.promise(deletePromise, {
-        loading: t('profiles.deletingProfile', { name: profileName }),
+        loading: t("profiles.deletingProfile", { name: profileName }),
         success: () => {
           fetchProfiles();
-          return t('profiles.deleteSuccess', { name: profileName });
+          return t("profiles.deleteSuccess", { name: profileName });
         },
         error: (err) =>
-          t('profiles.deleteError', { error: err instanceof Error ? err.message : String(err.message) }),
+          t("profiles.deleteError", {
+            error: err instanceof Error ? err.message : String(err.message),
+          }),
       });
     }
   };
@@ -210,12 +235,13 @@ export function ProfilesTabV2() {
     console.log("[ProfilesTabV2] handleOpenFolder called for:", profile.name);
     const openPromise = ProfileService.openProfileFolder(profile.id);
     toast.promise(openPromise, {
-      loading: t('profiles.openingFolder', { name: profile.name }),
-      success: t('profiles.openFolderSuccess', { name: profile.name }),
+      loading: t("profiles.openingFolder", { name: profile.name }),
+      success: t("profiles.openFolderSuccess", { name: profile.name }),
       error: (err) => {
-        const message = err instanceof Error ? err.message : String(err.message);
+        const message =
+          err instanceof Error ? err.message : String(err.message);
         console.error(`Failed to open folder for ${profile.name}:`, err);
-        return t('profiles.openFolderError', { error: message });
+        return t("profiles.openFolderError", { error: message });
       },
     });
   };
@@ -236,15 +262,12 @@ export function ProfilesTabV2() {
   };
 
   if (loading) {
-    return <LoadingState message={t('profiles.loadingProfiles')} />;
+    return <LoadingState message={t("profiles.loadingProfiles")} />;
   }
 
   if (error) {
     return (
-      <EmptyState
-        icon="solar:danger-triangle-bold"
-        message={error || ""}
-      />
+      <EmptyState icon="solar:danger-triangle-bold" message={error || ""} />
     );
   }
 
@@ -252,7 +275,7 @@ export function ProfilesTabV2() {
     return (
       <EmptyState
         icon="solar:widget-bold"
-        message={t('profiles.noProfilesFound')}
+        message={t("profiles.noProfilesFound")}
       />
     );
   }
@@ -260,21 +283,24 @@ export function ProfilesTabV2() {
   // Filter profiles based on search query, active group, and version filter
   const filteredProfiles = profiles.filter((profile) => {
     // Search filter
-    const matchesSearch = searchQuery === "" || 
+    const matchesSearch =
+      searchQuery === "" ||
       profile.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (profile.group && profile.group.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+      (profile.group &&
+        profile.group.toLowerCase().includes(searchQuery.toLowerCase()));
+
     // Group filter
-    const matchesGroup = activeGroup === "all" || 
+    const matchesGroup =
+      activeGroup === "all" ||
       (activeGroup === "nrc" && isNrcGroup(profile.group)) ||
       (activeGroup === "server" && profile.group === "SERVER") ||
       (activeGroup === "modpacks" && profile.group === "MODPACKS") ||
       (profile.group && profile.group.toLowerCase() === activeGroup);
-    
+
     // Version filter (simplified for now)
-    const matchesVersion = versionFilter === "all" || 
-      profile.game_version?.includes(versionFilter);
-    
+    const matchesVersion =
+      versionFilter === "all" || profile.game_version?.includes(versionFilter);
+
     return matchesSearch && matchesGroup && matchesVersion;
   });
 
@@ -289,8 +315,12 @@ export function ProfilesTabV2() {
         return a.name.localeCompare(b.name);
       case "last_played":
         // Multi-level sorting: last_played -> date_created -> name
-        const aTimestamp = a.last_played ? new Date(a.last_played).getTime() : 0;
-        const bTimestamp = b.last_played ? new Date(b.last_played).getTime() : 0;
+        const aTimestamp = a.last_played
+          ? new Date(a.last_played).getTime()
+          : 0;
+        const bTimestamp = b.last_played
+          ? new Date(b.last_played).getTime()
+          : 0;
 
         // Primary sort: by last_played (descending)
         if (bTimestamp !== aTimestamp) {
@@ -317,91 +347,159 @@ export function ProfilesTabV2() {
   });
 
   return (
-    <div className="h-full flex flex-col overflow-hidden p-4 relative">
+    <div
+      className={
+        isFullRiskStyle
+          ? "h-full flex flex-col overflow-hidden px-10 py-6 relative"
+          : "h-full flex flex-col overflow-hidden p-4 relative"
+      }
+    >
       <div className="flex-1 overflow-y-auto no-scrollbar">
-      {/* Group Tabs */}
-      <GroupTabs
-        groups={groups}
-        activeGroup={activeGroup}
-        onGroupChange={setProfilesTabActiveGroup}
-        showAddButton={false}
-      />
+        {/* Group Tabs */}
+        <GroupTabs
+          groups={groups}
+          activeGroup={activeGroup}
+          onGroupChange={setProfilesTabActiveGroup}
+          showAddButton={false}
+          className={isFullRiskStyle ? "mb-8" : ""}
+        />
 
-      {/* Search & Filter Header */}
-      <div className="mb-6 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 flex-1">
-            <SearchWithFilters
-              placeholder={t('profiles.searchProfiles')}
-              searchValue={searchQuery}
-              onSearchChange={setSearchQuery}
-              sortOptions={[
-                { value: "name", label: t('profiles.sort.name'), icon: "solar:text-bold" },
-                { value: "last_played", label: t('profiles.sort.lastPlayed'), icon: "solar:clock-circle-bold" },
-                { value: "date_created", label: t('profiles.sort.dateCreated'), icon: "solar:calendar-add-bold" },
-              ]}
-              sortValue={sortBy}
-              onSortChange={setProfilesTabSortBy}
-              filterOptions={[
-                { value: "all", label: t('profiles.filter.allVersions'), icon: "solar:layers-bold" },
-                { value: "1.21", label: "1.21.x", icon: "solar:gamepad-bold" },
-                { value: "1.20", label: "1.20.x", icon: "solar:gamepad-bold" },
-                { value: "1.19", label: "1.19.x", icon: "solar:gamepad-bold" },
-              ]}
-              filterValue={versionFilter}
-              onFilterChange={setProfilesTabVersionFilter}
-            />
-            
-                         {/* Layout Toggle Button - Right next to SearchWithFilters */}
-                         <button
-              onClick={() => {
-                const nextMode = layoutMode === "list" ? "grid" : layoutMode === "grid" ? "compact" : "list";
-                setProfilesTabLayoutMode(nextMode);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
-              title={
-                layoutMode === "list"
-                  ? t('profiles.layout.switchToGrid')
-                  : layoutMode === "grid"
-                  ? t('profiles.layout.switchToCompact')
-                  : t('profiles.layout.switchToList')
-              }
-            >
-              <div className="w-4 h-8 flex items-center justify-center">
-                <Icon 
-                  icon="solar:list-bold"
-                  className="w-8 h-8"
-                />
-              </div>
-            </button>
+        {/* Search & Filter Header */}
+        <div
+          className={
+            isFullRiskStyle
+              ? "mb-8 pb-6 border-b-[3px]"
+              : "mb-6 pb-4 border-b border-white/10"
+          }
+          style={
+            isFullRiskStyle
+              ? { borderColor: "var(--panel-border-strong)" }
+              : undefined
+          }
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 flex-1">
+              <SearchWithFilters
+                placeholder={t("profiles.searchProfiles")}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                sortOptions={[
+                  {
+                    value: "name",
+                    label: t("profiles.sort.name"),
+                    icon: "solar:text-bold",
+                  },
+                  {
+                    value: "last_played",
+                    label: t("profiles.sort.lastPlayed"),
+                    icon: "solar:clock-circle-bold",
+                  },
+                  {
+                    value: "date_created",
+                    label: t("profiles.sort.dateCreated"),
+                    icon: "solar:calendar-add-bold",
+                  },
+                ]}
+                sortValue={sortBy}
+                onSortChange={setProfilesTabSortBy}
+                filterOptions={[
+                  {
+                    value: "all",
+                    label: t("profiles.filter.allVersions"),
+                    icon: "solar:layers-bold",
+                  },
+                  {
+                    value: "1.21",
+                    label: "1.21.x",
+                    icon: "solar:gamepad-bold",
+                  },
+                  {
+                    value: "1.20",
+                    label: "1.20.x",
+                    icon: "solar:gamepad-bold",
+                  },
+                  {
+                    value: "1.19",
+                    label: "1.19.x",
+                    icon: "solar:gamepad-bold",
+                  },
+                ]}
+                filterValue={versionFilter}
+                onFilterChange={setProfilesTabVersionFilter}
+              />
+
+              {/* Layout Toggle Button - Right next to SearchWithFilters */}
+              <button
+                onClick={() => {
+                  const nextMode =
+                    layoutMode === "list"
+                      ? "grid"
+                      : layoutMode === "grid"
+                        ? "compact"
+                        : "list";
+                  setProfilesTabLayoutMode(nextMode);
+                }}
+                className={
+                  isFullRiskStyle
+                    ? "flex items-center gap-2 px-4 py-2 fullrisk-panel text-white hover:text-[var(--panel-highlight)] font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
+                    : "flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200 min-h-[2.5rem]"
+                }
+                title={
+                  layoutMode === "list"
+                    ? t("profiles.layout.switchToGrid")
+                    : layoutMode === "grid"
+                      ? t("profiles.layout.switchToCompact")
+                      : t("profiles.layout.switchToList")
+                }
+              >
+                <div className="w-4 h-8 flex items-center justify-center">
+                  <Icon icon="solar:list-bold" className="w-8 h-8" />
+                </div>
+              </button>
+            </div>
+
+            <ActionButtons actions={actionButtons} />
           </div>
-          
-          <ActionButtons actions={actionButtons} />
         </div>
-      </div>
 
-      {/* Profile list */}
-      <div className={
-        layoutMode === "list" 
-          ? "space-y-3"
-          : layoutMode === "grid"
-          ? "grid grid-cols-2 gap-3" 
-          : "grid grid-cols-3 gap-3"
-      }>
-                 {sortedProfiles.map((profile) => (
-           <ProfileCardV2
-             key={profile.id}
-             profile={profile}
-             onSettings={handleSettings}
-             onMods={handleMods}
-             onDelete={handleDeleteProfile}
-             onOpenFolder={handleOpenFolder}
-             layoutMode={layoutMode}
-           />
-         ))}
-      </div>
+        {/* Profile list */}
+        <div
+          className={
+            isFullRiskStyle && layoutMode === "grid"
+              ? "mx-auto flex max-w-[1280px] flex-wrap justify-center gap-x-10 gap-y-24 items-start pb-10"
+              : layoutMode === "list"
+                ? "space-y-3"
+                : layoutMode === "grid"
+                  ? "grid grid-cols-2 gap-3"
+                  : "grid grid-cols-3 gap-3"
+          }
+        >
+          {sortedProfiles.map((profile) =>
+            isFullRiskStyle && layoutMode === "grid" ? (
+              <FullRiskProfileCard
+                key={profile.id}
+                profile={profile}
+                onSettings={handleSettings}
+                onMods={handleMods}
+                onDelete={handleDeleteProfile}
+                onOpenFolder={handleOpenFolder}
+              />
+            ) : (
+              <ProfileCardV2
+                key={profile.id}
+                profile={profile}
+                onSettings={handleSettings}
+                onMods={handleMods}
+                onDelete={handleDeleteProfile}
+                onOpenFolder={handleOpenFolder}
+                layoutMode={layoutMode}
+                variant={isFullRiskStyle ? "3d" : "default"}
+              />
+            ),
+          )}
+        </div>
 
-      {/* Bottom tip */}
+        {/* Bottom tip */}
       </div>
 
       {/* Modals from ProfilesTab.tsx */}

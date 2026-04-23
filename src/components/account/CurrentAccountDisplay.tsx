@@ -179,10 +179,10 @@ export function CurrentAccountDisplay({
   return (
     <div
       ref={buttonRef}
-      className={cn(
-        "font-minecraft relative overflow-hidden backdrop-blur-md transition-all duration-200",
-        "rounded-md text-white tracking-wider",
-        "flex items-center gap-3 px-4 py-1",
+        className={cn(
+          "font-minecraft relative overflow-hidden backdrop-blur-md transition-all duration-200",
+          "rounded-md text-white tracking-wider",
+          "flex items-center gap-3 px-4 py-1",
         "text-shadow-sm",
         getBorderClasses(),
         variant !== "flat" &&

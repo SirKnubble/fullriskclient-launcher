@@ -30,18 +30,22 @@ import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import * as ConfigService from "../../services/launcher-config-service";
 import { SocialsModal } from "../modals/SocialsModal";
 import { FriendsSidebar } from "../friends/FriendsSidebar";
+import { FullRiskTopNavbar } from "../navigation/FullRiskTopNavbar";
 // TODO: Re-enable when WebSocket is stable
 // import { useFriendsWebSocket } from "../../hooks/useFriendsWebSocket";
 import { useFriendsStore } from "../../store/friends-store";
 import { useChatStore } from "../../store/chat-store";
-import { checkUpdateAvailable, downloadAndInstallUpdate } from "../../services/nrc-service";
+import {
+  checkUpdateAvailable,
+  downloadAndInstallUpdate,
+} from "../../services/nrc-service";
 import type { UpdateInfo } from "../../types/updater";
 import { ProfileWizardV2Modal } from "../modals/ProfileWizardV2Modal";
 import { ProfileSettingsModal } from "../modals/ProfileSettingsModal";
 import { ProfileDuplicateModal } from "../modals/ProfileDuplicateModal";
-import { exit, relaunch } from '@tauri-apps/plugin-process';
+import { exit, relaunch } from "@tauri-apps/plugin-process";
 import { Tooltip } from "../ui/Tooltip";
-import { toast } from 'react-hot-toast';
+import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
 const appConfig = {
@@ -67,18 +71,56 @@ export function AppLayout({
   const closeRef = useRef<HTMLDivElement>(null);
   const { currentEffect } = useBackgroundEffectStore();
 
-  const navItems = [
-    { id: "play", icon: "solar:play-bold", label: t("nav.play") },
-    { id: "profiles", icon: "solar:user-id-bold", label: t("nav.profiles") },
-    { id: "mods", icon: "solar:widget-bold", label: t("nav.mods") },
-    { id: "skins", icon: "solar:emoji-funny-circle-bold", label: t("nav.skins") },
-    { id: "capes", icon: "solar:shop-bold", label: t("nav.capes") },
-    // DISABLED: Advent Calendar (seasonal feature)
-    // { id: "advent-calendar", icon: "solar:gift-bold", label: t("nav.advent") },
-    { id: "settings", icon: "solar:settings-bold", label: t("nav.settings") },
-  ];
   const { qualityLevel } = useQualitySettingsStore();
-  const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
+  const {
+    isBackgroundAnimationEnabled,
+    accentColor: themeAccentColor,
+    accentColor,
+    uiStylePreset,
+  } = useThemeStore();
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
+  const navItems = isFullRiskStyle
+    ? [
+        {
+          id: "skins",
+          icon: "solar:emoji-funny-circle-bold",
+          label: t("nav.skins"),
+        },
+        { id: "capes", icon: "solar:shop-bold", label: "cape" },
+        { id: "servers", icon: "solar:server-bold", label: "servers" },
+        { id: "play", icon: "solar:play-bold", label: t("nav.play") },
+        {
+          id: "profiles",
+          icon: "solar:user-id-bold",
+          label: t("nav.profiles"),
+        },
+        { id: "mods", icon: "solar:widget-bold", label: "addons" },
+        {
+          id: "settings",
+          icon: "solar:settings-bold",
+          label: t("nav.settings"),
+        },
+      ]
+    : [
+        { id: "play", icon: "solar:play-bold", label: t("nav.play") },
+        { id: "mods", icon: "solar:widget-bold", label: t("nav.mods") },
+        {
+          id: "skins",
+          icon: "solar:emoji-funny-circle-bold",
+          label: t("nav.skins"),
+        },
+        { id: "capes", icon: "solar:shop-bold", label: t("nav.capes") },
+        {
+          id: "profiles",
+          icon: "solar:user-id-bold",
+          label: t("nav.profiles"),
+        },
+        {
+          id: "settings",
+          icon: "solar:settings-bold",
+          label: t("nav.settings"),
+        },
+      ];
   const { isEnabled: isSnowEnabled } = useSnowEffectStore();
   const { selectedTheme, isThemeActive } = useLauncherTheme();
   const { connectWebSocket, loadCurrentUser, loadFriends } = useFriendsStore();
@@ -184,9 +226,7 @@ export function AppLayout({
           }
 
           if (closeRef.current) {
-            closeRef.current.addEventListener("click", () =>
-              exit(0),
-            );
+            closeRef.current.addEventListener("click", () => exit(0));
           }
         } else {
           console.log(
@@ -205,7 +245,11 @@ export function AppLayout({
 
   const renderBackgroundEffect = () => {
     // Show theme background image only on play screen - override all other effects
-    if (isThemeActive && selectedTheme?.backgroundImage && activeTab === "play") {
+    if (
+      isThemeActive &&
+      selectedTheme?.backgroundImage &&
+      activeTab === "play"
+    ) {
       return (
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -293,9 +337,11 @@ export function AppLayout({
           return `rgba(${r}, ${g}, ${b}, 0.05)`;
         };
         return (
-          <div 
+          <div
             className="absolute inset-0"
-            style={{ backgroundColor: hexToRgbaWithLowOpacity(themeAccentColor.value) }}
+            style={{
+              backgroundColor: hexToRgbaWithLowOpacity(themeAccentColor.value),
+            }}
           ></div>
         );
       case BACKGROUND_EFFECTS.PLAIN_BACKGROUND:
@@ -312,25 +358,33 @@ export function AppLayout({
   return (
     <div
       ref={launcherRef}
-      className="h-screen w-full bg-black/50 backdrop-blur-lg border-2 overflow-hidden relative flex shadow-[0_0_25px_rgba(0,0,0,0.4)]"
+      className="h-screen w-full overflow-hidden relative flex"
       style={{
         backgroundColor: backgroundColor,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundImage: `linear-gradient(to bottom right, ${backgroundColor}, rgba(0,0,0,0.9))`,
-        borderColor: `${themeAccentColor.value}30`,
-        boxShadow: `0 0 15px ${themeAccentColor.value}30, inset 0 0 10px ${themeAccentColor.value}20`,
+        backgroundImage: isFullRiskStyle
+          ? `linear-gradient(180deg, rgba(36,34,40,0.98) 0%, ${backgroundColor} 100%)`
+          : `linear-gradient(to bottom right, ${backgroundColor}, rgba(0,0,0,0.9))`,
+        border: isFullRiskStyle
+          ? `0 solid ${themeAccentColor.value}00`
+          : undefined,
+        boxShadow: isFullRiskStyle
+          ? "none"
+          : `0 0 15px ${themeAccentColor.value}30, inset 0 0 10px ${themeAccentColor.value}20`,
       }}
     >
       <BorderGlowEffects accentColor={themeAccentColor.value} />
 
-      <VerticalNavbar
-        items={navItems}
-        activeItem={activeTab}
-        onItemClick={onNavChange}
-        className="h-full border-r-2 z-10"
-        version={appConfig.version}
-      />
+      {!isFullRiskStyle && (
+        <VerticalNavbar
+          items={navItems}
+          activeItem={activeTab}
+          onItemClick={onNavChange}
+          className="h-full border-r-2 z-10"
+          version={appConfig.version}
+        />
+      )}
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <HeaderBar
@@ -338,6 +392,13 @@ export function AppLayout({
           maximizeRef={maximizeRef}
           closeRef={closeRef}
         />
+        {isFullRiskStyle && (
+          <FullRiskTopNavbar
+            items={navItems.map(({ id, label }) => ({ id, label }))}
+            activeItem={activeTab}
+            onItemClick={onNavChange}
+          />
+        )}
 
         <div className="flex-1 relative overflow-hidden">
           {renderBackgroundEffect()}
@@ -399,8 +460,12 @@ interface HeaderBarProps {
 function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
   const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
   const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(
+    null,
+  );
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleUpdateClick = async () => {
@@ -408,14 +473,14 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
 
     setIsUpdating(true);
     try {
-      await toast.promise(
-        downloadAndInstallUpdate(),
-        {
-          loading: t('header.update.downloading'),
-          success: t('header.update.success'),
-          error: (err) => t('header.update.failed', { error: err instanceof Error ? err.message : String(err) }),
-        }
-      );
+      await toast.promise(downloadAndInstallUpdate(), {
+        loading: t("header.update.downloading"),
+        success: t("header.update.success"),
+        error: (err) =>
+          t("header.update.failed", {
+            error: err instanceof Error ? err.message : String(err),
+          }),
+      });
     } catch (error) {
       console.error("Failed to download and install update:", error);
       // Toast error is already handled by the promise toast
@@ -446,9 +511,15 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
 
     const warningRgb = { r: 245, g: 158, b: 100 }; // Amber base
 
-    const mixedR = Math.round(rgb.r * accentWeight + warningRgb.r * warningWeight);
-    const mixedG = Math.round(rgb.g * accentWeight + warningRgb.g * warningWeight);
-    const mixedB = Math.round(rgb.b * accentWeight + warningRgb.b * warningWeight);
+    const mixedR = Math.round(
+      rgb.r * accentWeight + warningRgb.r * warningWeight,
+    );
+    const mixedG = Math.round(
+      rgb.g * accentWeight + warningRgb.g * warningWeight,
+    );
+    const mixedB = Math.round(
+      rgb.b * accentWeight + warningRgb.b * warningWeight,
+    );
 
     return `rgb(${mixedR}, ${mixedG}, ${mixedB})`;
   };
@@ -464,27 +535,30 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
       }
     };
 
-  const checkForUpdates = async () => {
-    try {
-      const updateInfo = await checkUpdateAvailable();
-      if (updateInfo) {
-        console.log("Update available:", updateInfo);
-        setAvailableUpdate(updateInfo);
+    const checkForUpdates = async () => {
+      try {
+        const updateInfo = await checkUpdateAvailable();
+        if (updateInfo) {
+          console.log("Update available:", updateInfo);
+          setAvailableUpdate(updateInfo);
+        }
+      } catch (error) {
+        console.error("Failed to check for updates:", error);
+        // Don't show error to user, just silently fail
       }
-    } catch (error) {
-      console.error("Failed to check for updates:", error);
-      // Don't show error to user, just silently fail
-    }
-  };
+    };
 
     fetchVersion();
     checkForUpdates();
 
     // Check for updates every 4 hours (4 * 60 * 60 * 1000 = 14,400,000 ms)
-    const updateCheckInterval = setInterval(() => {
-      console.log("Performing scheduled update check...");
-      checkForUpdates();
-    }, 4 * 60 * 60 * 1000);
+    const updateCheckInterval = setInterval(
+      () => {
+        console.log("Performing scheduled update check...");
+        checkForUpdates();
+      },
+      4 * 60 * 60 * 1000,
+    );
 
     return () => {
       clearInterval(updateCheckInterval);
@@ -493,36 +567,62 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
 
   return (
     <div
-      className="h-20 flex-shrink-0 border-b-2 backdrop-blur-lg flex items-center justify-between px-8 z-10"
+      className={
+        isFullRiskStyle
+          ? "h-[68px] flex-shrink-0 border-b-[3px] flex items-center justify-between px-8 z-10"
+          : "h-20 flex-shrink-0 border-b-2 backdrop-blur-lg flex items-center justify-between px-8 z-10"
+      }
       style={{
-        borderColor: `${accentColor.value}40`,
-        backgroundColor: `rgba(${Number.parseInt(accentColor.value.slice(1, 3), 16)}, ${Number.parseInt(
-          accentColor.value.slice(3, 5),
-          16,
-        )}, ${Number.parseInt(accentColor.value.slice(5, 7), 16)}, 0.01)`,
+        borderColor: isFullRiskStyle
+          ? `${accentColor.value}80`
+          : `${accentColor.value}40`,
+        background: isFullRiskStyle
+          ? "linear-gradient(180deg, rgba(34,33,38,0.98) 0%, rgba(26,25,28,0.98) 100%)"
+          : undefined,
+        backgroundColor: isFullRiskStyle
+          ? undefined
+          : `rgba(${Number.parseInt(accentColor.value.slice(1, 3), 16)}, ${Number.parseInt(
+              accentColor.value.slice(3, 5),
+              16,
+            )}, ${Number.parseInt(accentColor.value.slice(5, 7), 16)}, 0.01)`,
+        boxShadow: isFullRiskStyle
+          ? `inset 0 -1px 0 rgba(255,255,255,0.05), 0 4px 0 rgba(0,0,0,0.22)`
+          : undefined,
       }}
       data-tauri-drag-region
     >
       <div className="flex items-center gap-4" data-tauri-drag-region>
-        <NavigationHistory />
+        {!isFullRiskStyle && <NavigationHistory />}
 
         <div className="flex flex-col items-start -mt-2.5">
           <div className="flex items-center gap-3">
             <h1
-              className="font-minecraft text-4xl tracking-wider font-bold lowercase text-shadow"
+              className={
+                isFullRiskStyle
+                  ? "font-minecraft text-[34px] tracking-wider font-bold lowercase text-shadow"
+                  : "font-minecraft text-4xl tracking-wider font-bold lowercase text-shadow"
+              }
               data-tauri-drag-region
             >
-              noriskclient
+              {isFullRiskStyle ? "fullriskclient" : "noriskclient"}
             </h1>
             {availableUpdate && (
-              <Tooltip content={isUpdating ? t('header.update.tooltip_updating') : t('header.update.tooltip_available', { version: availableUpdate.version })}>
+              <Tooltip
+                content={
+                  isUpdating
+                    ? t("header.update.tooltip_updating")
+                    : t("header.update.tooltip_available", {
+                        version: availableUpdate.version,
+                      })
+                }
+              >
                 <div
-                  className={`mt-2.5 ${isUpdating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                  className={`mt-2.5 ${isUpdating ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                   onClick={handleUpdateClick}
                 >
                   <Icon
-                    icon={isUpdating ? "solar:download-minimalistic-bold" : "solar:download-minimalistic-bold"}
-                    className={`w-6 h-6 transition-colors ${isUpdating ? 'animate-pulse' : ''}`}
+                    icon="solar:download-minimalistic-bold"
+                    className={`w-6 h-6 transition-colors ${isUpdating ? "animate-pulse" : ""}`}
                     style={{
                       color: accentColor.value,
                     }}
@@ -531,7 +631,13 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
               </Tooltip>
             )}
           </div>
-          <span className="text-white/70 font-minecraft-ten text-[8px] font-normal -mt-2.5">
+          <span
+            className={
+              isFullRiskStyle
+                ? "text-white/70 font-minecraft-ten text-[9px] font-normal -mt-2"
+                : "text-white/70 font-minecraft-ten text-[8px] font-normal -mt-2.5"
+            }
+          >
             v{appVersion || "?.?.?"}
           </span>
         </div>
@@ -567,21 +673,21 @@ function WindowControls({
       <div
         ref={minimizeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-white transition-colors cursor-pointer"
-        title={t('window.minimize')}
+        title={t("window.minimize")}
       >
         <Icon icon="pixel:minus-solid" className="w-4 h-4" />
       </div>
       <div
         ref={maximizeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-white transition-colors cursor-pointer"
-        title={t('window.maximize')}
+        title={t("window.maximize")}
       >
         <Icon icon="pixel:expand-solid" className="w-4 h-4" />
       </div>
       <div
         ref={closeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-red-500 transition-colors cursor-pointer"
-        title={t('window.close')}
+        title={t("window.close")}
       >
         <Icon icon="pixel:window-close-solid" className="w-4 h-4" />
       </div>
