@@ -42,17 +42,7 @@ import { ProfileDuplicateModal } from "../modals/ProfileDuplicateModal";
 import { exit, relaunch } from '@tauri-apps/plugin-process';
 import { Tooltip } from "../ui/Tooltip";
 import { toast } from 'react-hot-toast';
-
-const navItems = [
-  { id: "play", icon: "solar:play-bold", label: "Play" },
-  { id: "profiles", icon: "solar:user-id-bold", label: "Profiles" },
-  { id: "mods", icon: "solar:widget-bold", label: "Mods" },
-  { id: "skins", icon: "solar:emoji-funny-circle-bold", label: "Skins" },
-  { id: "capes", icon: "solar:shop-bold", label: "Capes" },
-  // DISABLED: Advent Calendar (seasonal feature)
-  // { id: "advent-calendar", icon: "solar:gift-bold", label: "Advent" },
-  { id: "settings", icon: "solar:settings-bold", label: "Settings" },
-];
+import { useTranslation } from "react-i18next";
 
 const appConfig = {
   version: "v0.5.22",
@@ -69,12 +59,24 @@ export function AppLayout({
   activeTab,
   onNavChange,
 }: AppLayoutProps) {
+  const { t } = useTranslation();
   const launcherRef = useRef<HTMLDivElement>(null);
   const backgroundPatternRef = useRef<HTMLDivElement>(null);
   const minimizeRef = useRef<HTMLDivElement>(null);
   const maximizeRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLDivElement>(null);
   const { currentEffect } = useBackgroundEffectStore();
+
+  const navItems = [
+    { id: "play", icon: "solar:play-bold", label: t("nav.play") },
+    { id: "profiles", icon: "solar:user-id-bold", label: t("nav.profiles") },
+    { id: "mods", icon: "solar:widget-bold", label: t("nav.mods") },
+    { id: "skins", icon: "solar:emoji-funny-circle-bold", label: t("nav.skins") },
+    { id: "capes", icon: "solar:shop-bold", label: t("nav.capes") },
+    // DISABLED: Advent Calendar (seasonal feature)
+    // { id: "advent-calendar", icon: "solar:gift-bold", label: t("nav.advent") },
+    { id: "settings", icon: "solar:settings-bold", label: t("nav.settings") },
+  ];
   const { qualityLevel } = useQualitySettingsStore();
   const { isBackgroundAnimationEnabled, accentColor: themeAccentColor, accentColor } = useThemeStore();
   const { isEnabled: isSnowEnabled } = useSnowEffectStore();
@@ -395,6 +397,7 @@ interface HeaderBarProps {
 }
 
 function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<UpdateInfo | null>(null);
@@ -408,9 +411,9 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
       await toast.promise(
         downloadAndInstallUpdate(),
         {
-          loading: 'Downloading and installing update...',
-          success: 'Update installed successfully! Application will restart.',
-          error: (err) => `Update failed: ${err instanceof Error ? err.message : String(err)}`,
+          loading: t('header.update.downloading'),
+          success: t('header.update.success'),
+          error: (err) => t('header.update.failed', { error: err instanceof Error ? err.message : String(err) }),
         }
       );
     } catch (error) {
@@ -512,7 +515,7 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
               noriskclient
             </h1>
             {availableUpdate && (
-              <Tooltip content={isUpdating ? 'Downloading update...' : `Click to update: ${availableUpdate.version}`}>
+              <Tooltip content={isUpdating ? t('header.update.tooltip_updating') : t('header.update.tooltip_available', { version: availableUpdate.version })}>
                 <div
                   className={`mt-2.5 ${isUpdating ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                   onClick={handleUpdateClick}
@@ -558,26 +561,27 @@ function WindowControls({
   maximizeRef,
   closeRef,
 }: WindowControlsProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 ml-4">
       <div
         ref={minimizeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-white transition-colors cursor-pointer"
-        title="Minimize"
+        title={t('window.minimize')}
       >
         <Icon icon="pixel:minus-solid" className="w-4 h-4" />
       </div>
       <div
         ref={maximizeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-white transition-colors cursor-pointer"
-        title="Maximize"
+        title={t('window.maximize')}
       >
         <Icon icon="pixel:expand-solid" className="w-4 h-4" />
       </div>
       <div
         ref={closeRef}
         className="titlebar-button-borderless w-5 h-5 flex items-center justify-center text-white/60 hover:text-red-500 transition-colors cursor-pointer"
-        title="Close"
+        title={t('window.close')}
       >
         <Icon icon="pixel:window-close-solid" className="w-4 h-4" />
       </div>

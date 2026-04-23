@@ -1,4 +1,5 @@
 pub mod assets_command;
+pub mod deep_link_handler;
 pub mod cape_command;
 pub mod config_commands;
 pub mod content_command;
@@ -17,3 +18,4 @@ pub mod path_commands;
 pub mod process_command;
 pub mod profile_command;
 pub mod vanilla_cape_command;
+pub mod analytics_command;

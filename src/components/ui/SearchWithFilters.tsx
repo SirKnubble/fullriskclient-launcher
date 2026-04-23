@@ -34,6 +34,7 @@ export interface SearchWithFiltersProps {
   showSort?: boolean;
   /** Whether to show the filter dropdown */
   showFilter?: boolean;
+  dropdownSize?: 'sm' | 'md';
 }
 
 export function SearchWithFilters({
@@ -51,6 +52,7 @@ export function SearchWithFilters({
   searchIcon = "solar:magnifer-bold",
   showSort = true,
   showFilter = true,
+  dropdownSize = 'md',
 }: SearchWithFiltersProps) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSearchChange?.(e.target.value);
@@ -90,6 +92,7 @@ export function SearchWithFilters({
                 onChange={onSortChange}
                 options={sortOptions}
                 className="w-auto"
+                size={dropdownSize}
               />
             </div>
           </>
@@ -109,6 +112,7 @@ export function SearchWithFilters({
                 onChange={onFilterChange}
                 options={filterOptions}
                 className="w-auto"
+                size={dropdownSize}
               />
             </div>
           </>

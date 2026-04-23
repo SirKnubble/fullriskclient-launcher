@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { type Event as TauriEvent, listen } from "@tauri-apps/api/event";
 import {
   type EventPayload as FrontendEventPayload,
@@ -12,6 +13,7 @@ import { Button } from "../ui/buttons/Button";
 import { openExternalUrl } from "../../services/tauri-service";
 
 export default function ChildProtectionModal() {
+  const { t } = useTranslation();
   const { showModal, hideModal } = useGlobalModal();
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function ChildProtectionModal() {
                 showModal(
                   "child-protection-modal",
                   <Modal
-                    title="Microsoft Account Restriction"
+                    title={t('child_protection.title')}
                     onClose={async () => {
                       hideModal("child-protection-modal");
                     }}
@@ -41,13 +43,13 @@ export default function ChildProtectionModal() {
                   >
                     <div className="p-4">
                       <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                        It looks like your Microsoft account has a child protection or privacy mode enabled that restricts multiplayer functionality. Because of this the launcher cannot complete the login step.
+                        {t('child_protection.description')}
                       </p>
                       <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                        Please review your Microsoft / Xbox account parental controls or family settings and ensure multiplayer access is allowed, then try logging in again.
+                        {t('child_protection.review_settings')}
                       </p>
                       <p className="text-white/90 mb-6 text-center font-minecraft-ten">
-                        The setting you are looking for can be found on the Xbox website under "Privacy & Online Safety" → "Online Safety" → "You can join multiplayer games" → "Allow".
+                        {t('child_protection.setting_location')}
                       </p>
                       <div className="flex justify-center gap-4">
                         <Button
@@ -55,14 +57,14 @@ export default function ChildProtectionModal() {
                           size="md"
                           onClick={() => hideModal("child-protection-modal")}
                         >
-                          Ignore
+                          {t('child_protection.button.ignore')}
                         </Button>
                         <Button
                           onClick={() => openExternalUrl(`https://www.xbox.com/user/settings/privacy-and-safety?gamertag=${event.payload.message}&activetab=main:privilegetab`)}
                           variant="info"
                           size="md"
                         >
-                          Open Microsoft Account Settings
+                          {t('child_protection.button.open_settings')}
                         </Button>
                       </div>
                     </div>
@@ -82,7 +84,7 @@ export default function ChildProtectionModal() {
     return () => {
       unlisten.then((f) => f());
     };
-    // showModal/hideModal are stable from hook; keep empty deps to only register once
+    // showModal/hideModal are stable from hook; t is stable from i18next
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

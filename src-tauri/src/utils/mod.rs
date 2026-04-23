@@ -1,3 +1,15 @@
+/// Measures the execution time of a block and logs it in milliseconds.
+/// Returns the result of the block transparently — works with both sync and async code.
+macro_rules! measure_time {
+    ($label:expr, $block:expr) => {{
+        let __start = std::time::Instant::now();
+        let __result = $block;
+        let __elapsed = __start.elapsed().as_millis();
+        log::info!("[Timing] {} took {}ms", $label, __elapsed);
+        __result
+    }};
+}
+
 pub mod datapack_utils; // DataPack-Utils für das Scannen und Verwalten von DataPacks
 pub mod debug_utils;
 pub mod disk_space_utils; // Disk space utility for checking available space before downloads
@@ -27,5 +39,6 @@ pub mod api_utils; // API response parsing helpers with detailed logging
 // Füge hier ggf. andere Util-Module hinzu
 // pub mod network_utils;
 pub mod string_utils;
+pub mod deep_link_utils;
 
 // Mache server_ping verfügbar
