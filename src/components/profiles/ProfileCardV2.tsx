@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { Profile } from "../../types/profile";
+import type { Profile, ResolvedLoaderVersion } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import {
