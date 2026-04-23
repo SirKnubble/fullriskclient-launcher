@@ -265,71 +265,73 @@ export function NewsSection({ className }: NewsSectionProps) {
         />
       ) : null}
 
-      <div
-        className={cn(
-          isFullRiskStyle ? "p-3 pb-2" : "pb-1",
-          effectiveCollapsed && "p-0 h-full w-full",
-        )}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Icon icon="pixel:newspaper-solid" className="w-7 h-7 text-white" />
-            <h2 className="text-2xl font-minecraft lowercase text-white">
-              {t("news.title")}
-            </h2>
+      {effectiveCollapsed ? (
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(false)}
+          className="absolute inset-0 z-20 flex items-center justify-center text-white/75 transition-colors hover:text-white"
+          aria-label="Expand news"
+        >
+          <Icon
+            icon={
+              isCollapsedHovered
+                ? "solar:alt-arrow-left-bold"
+                : "pixel:newspaper-solid"
+            }
+            className={cn(
+              "block shrink-0 transition-all duration-150",
+              isCollapsedHovered ? "h-5 w-5" : "h-7 w-7",
+              isFullRiskStyle && !isCollapsedHovered ? "text-white/85" : "",
+            )}
+          />
+        </button>
+      ) : (
+        <div className={cn(isFullRiskStyle ? "p-3 pb-2" : "pb-1")}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Icon
+                icon="pixel:newspaper-solid"
+                className="w-7 h-7 text-white"
+              />
+              <h2 className="text-2xl font-minecraft lowercase text-white">
+                {t("news.title")}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(true)}
+              className="text-white/70 hover:text-white transition-all"
+              aria-label="Collapse news"
+            >
+              <Icon
+                icon={
+                  isFullRiskStyle
+                    ? "solar:alt-arrow-right-bold"
+                    : "solar:alt-arrow-right-bold"
+                }
+                className={cn(
+                  isFullRiskStyle
+                    ? "w-5 h-5 transition-all duration-200"
+                    : "w-5 h-5",
+                )}
+                style={
+                  isFullRiskStyle
+                    ? {
+                        transform: "rotate(45deg)",
+                      }
+                    : undefined
+                }
+              />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCollapsed((value) => !value)}
-            className={cn(
-              "text-white/70 hover:text-white transition-all",
-              effectiveCollapsed
-                ? "absolute inset-0 flex items-center justify-center"
-                : "",
-            )}
-            aria-label={effectiveCollapsed ? "Expand news" : "Collapse news"}
-          >
-            <Icon
-              icon={
-                isFullRiskStyle
-                  ? "solar:alt-arrow-right-bold"
-                  : effectiveCollapsed
-                    ? "solar:alt-arrow-left-bold"
-                    : "solar:alt-arrow-right-bold"
-              }
-              className={cn(
-                isFullRiskStyle
-                  ? "w-5 h-5 transition-all duration-200"
-                  : "w-5 h-5",
-                effectiveCollapsed
-                  ? isCollapsedHovered
-                    ? "opacity-100 translate-x-0"
-                    : isFullRiskStyle
-                      ? "opacity-0 -translate-x-1"
-                      : "opacity-100"
-                  : "opacity-100",
-              )}
-              style={
-                isFullRiskStyle
-                  ? {
-                      transform: effectiveCollapsed
-                        ? "rotate(-135deg)"
-                        : "rotate(45deg)",
-                    }
-                  : undefined
-              }
-            />
-          </button>
-        </div>
-
-        {!effectiveCollapsed ? (
           <hr
             className="mt-2 border-t-2"
             style={{ borderColor: `${accentColor.value}40` }}
           />
-        ) : null}
-      </div>
+        </div>
+      )}
 
       {!effectiveCollapsed ? (
         <div
