@@ -44,6 +44,8 @@ export function GroupTabs({
   addButtonIcon = "solar:add-circle-bold",
 }: GroupTabsProps) {
   const accentColor = useThemeStore((state) => state.accentColor);
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
 
   const handleGroupClick = (groupId: string) => {
     onGroupChange(groupId);
@@ -55,26 +57,42 @@ export function GroupTabs({
 
   return (
     <div className={`mb-4 ${className}`}>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className={isFullRiskStyle ? "flex items-center gap-0 flex-wrap" : "flex items-center gap-2 flex-wrap"}>
         {groups.map((group) => (
-          <button
-            key={group.id}
-            onClick={() => handleGroupClick(group.id)}
-                         className={`px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
-              activeGroup === group.id
-                ? 'text-white'
-                : 'text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20'
-            }`}
-            style={{
-              backgroundColor: activeGroup === group.id ? `${accentColor.value}20` : undefined,
-              borderColor: activeGroup === group.id ? accentColor.value : undefined,
-            }}
-          >
-            {group.icon && (
-              <Icon icon={group.icon} className="w-4 h-4" />
+          <div key={group.id} className="flex items-center">
+            <button
+              onClick={() => handleGroupClick(group.id)}
+              className={
+                isFullRiskStyle
+                  ? "px-4 py-1 font-minecraft text-[28px] transition-all duration-150 lowercase"
+                  : `px-3 py-1 rounded-lg font-minecraft text-2xl transition-all duration-200 flex items-center gap-2 border-2 ${
+                      activeGroup === group.id
+                        ? "text-white"
+                        : "text-white/70 bg-black/30 hover:bg-black/40 border-white/10 hover:border-white/20"
+                    }`
+              }
+              style={
+                isFullRiskStyle
+                  ? {
+                      color: activeGroup === group.id ? accentColor.value : "rgba(255,255,255,0.75)",
+                      textShadow: activeGroup === group.id ? "2px 2px rgba(0,0,0,0.9)" : undefined,
+                      transform: activeGroup === group.id ? "scaleX(1.12)" : undefined,
+                    }
+                  : {
+                      backgroundColor: activeGroup === group.id ? `${accentColor.value}20` : undefined,
+                      borderColor: activeGroup === group.id ? accentColor.value : undefined,
+                    }
+              }
+            >
+              {!isFullRiskStyle && group.icon && (
+                <Icon icon={group.icon} className="w-4 h-4" />
+              )}
+              <span className="lowercase">{group.name}</span>
+            </button>
+            {isFullRiskStyle && (
+              <span className="font-minecraft text-[28px] text-white/70 px-1">|</span>
             )}
-            <span className="lowercase">{group.name}</span>
-          </button>
+          </div>
         ))}
         
         {/* Add Group Button */}

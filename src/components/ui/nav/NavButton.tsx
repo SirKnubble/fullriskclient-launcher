@@ -18,6 +18,8 @@ export const NavButton = forwardRef<HTMLButtonElement, NavButtonProps>(
   ) => {
     const buttonRef = useRef<HTMLButtonElement>(null);
     const accentColor = useThemeStore((state) => state.accentColor);
+    const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+    const isFullRiskStyle = uiStylePreset === "fullrisk";
 
     const getVariantColors = () => {
       switch (variant) {
@@ -49,17 +51,23 @@ export const NavButton = forwardRef<HTMLButtonElement, NavButtonProps>(
 
     const baseClasses = cn(
       "font-minecraft relative overflow-hidden transition-all duration-300",
-      "w-16 h-16 rounded-md text-white flex items-center justify-center",
+      isFullRiskStyle ? "w-[68px] h-[68px] text-white flex items-center justify-center" : "w-16 h-16 rounded-md text-white flex items-center justify-center",
       "text-shadow-sm",
       "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-black/20",
     );
 
     const activeStateClasses = cn(
       variant !== "ghost" && [
-        "border-2 border-b-4",
-        "shadow-[0_6px_0_rgba(0,0,0,0.25),0_8px_15px_rgba(0,0,0,0.3)]",
-        "hover:translate-y-[-2px] hover:shadow-[0_8px_0_rgba(0,0,0,0.2),0_10px_20px_rgba(0,0,0,0.25)]",
-        "active:translate-y-[2px] active:shadow-[0_3px_0_rgba(0,0,0,0.15),0_4px_8px_rgba(0,0,0,0.2)]",
+        isFullRiskStyle ? "border-[3px] border-b-[6px]" : "border-2 border-b-4",
+        isFullRiskStyle
+          ? "shadow-[0_6px_0_rgba(0,0,0,0.25),0_10px_16px_rgba(0,0,0,0.25)]"
+          : "shadow-[0_6px_0_rgba(0,0,0,0.25),0_8px_15px_rgba(0,0,0,0.3)]",
+        isFullRiskStyle
+          ? "hover:translate-y-[-2px] hover:shadow-[0_8px_0_rgba(0,0,0,0.2),0_12px_20px_rgba(0,0,0,0.25)]"
+          : "hover:translate-y-[-2px] hover:shadow-[0_8px_0_rgba(0,0,0,0.2),0_10px_20px_rgba(0,0,0,0.25)]",
+        isFullRiskStyle
+          ? "active:translate-y-[2px] active:shadow-[0_3px_0_rgba(0,0,0,0.15),0_5px_8px_rgba(0,0,0,0.2)]"
+          : "active:translate-y-[2px] active:shadow-[0_3px_0_rgba(0,0,0,0.15),0_4px_8px_rgba(0,0,0,0.2)]",
       ],
       "hover:brightness-110 active:brightness-90",
     );
@@ -67,9 +75,11 @@ export const NavButton = forwardRef<HTMLButtonElement, NavButtonProps>(
     const activeStateStyles: React.CSSProperties = variant === "ghost" ? {} : {
       backgroundColor: `${colors.main}40`,
       borderColor: `${colors.main}90`,
-      borderTopColor: colors.light,
-      borderBottomColor: colors.dark,
-      boxShadow: `0 6px 0 rgba(0,0,0,0.25), 0 8px 15px rgba(0,0,0,0.3), inset 0 1px 0 ${colors.light}40, inset 0 0 0 1px ${colors.main}20`,
+      borderTopColor: isFullRiskStyle ? `${colors.light}` : colors.light,
+      borderBottomColor: isFullRiskStyle ? "#094f86" : colors.dark,
+      boxShadow: isFullRiskStyle
+        ? `0 6px 0 rgba(0,0,0,0.25), 0 10px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2), inset 0 0 0 1px ${colors.main}20`
+        : `0 6px 0 rgba(0,0,0,0.25), 0 8px 15px rgba(0,0,0,0.3), inset 0 1px 0 ${colors.light}40, inset 0 0 0 1px ${colors.main}20`,
       color: colors.text,
     };
 
@@ -96,7 +106,7 @@ export const NavButton = forwardRef<HTMLButtonElement, NavButtonProps>(
           isActive ? activeStateClasses : nonActiveStateClasses,
           className,
         )}
-        style={isActive ? activeStateStyles : { ...nonActiveStateStyles, borderColor: "transparent" }}
+        style={isActive ? activeStateStyles : isFullRiskStyle ? { ...nonActiveStateStyles, backgroundColor: "rgba(255,255,255,0.03)", border: "3px solid transparent" } : { ...nonActiveStateStyles, borderColor: "transparent" }}
         {...props}
       >
         <span

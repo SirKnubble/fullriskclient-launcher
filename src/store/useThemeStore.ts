@@ -203,10 +203,15 @@ const calculateColorVariants = (baseColor: string): Partial<AccentColor> => {
 export const DEFAULT_BORDER_RADIUS = 0;
 export const MIN_BORDER_RADIUS = 0;
 export const MAX_BORDER_RADIUS = 32;
+export type UIStylePreset = "default" | "fullrisk";
 
-let borderRadiusAnalyticsDebounceId: ReturnType<typeof setTimeout> | null = null;
+let borderRadiusAnalyticsDebounceId: ReturnType<typeof setTimeout> | null =
+  null;
 
 interface ThemeState {
+  uiStylePreset: UIStylePreset;
+  setUIStylePreset: (preset: UIStylePreset) => void;
+  applyUIStylePresetToDOM: () => void;
   accentColor: AccentColor;
   setAccentColor: (color: AccentColor) => void;
   setCustomAccentColor: (hexColor: string) => void;
@@ -260,12 +265,14 @@ interface ThemeState {
   analyticsConsent: {
     hasSeenBanner: boolean;
     hasMadeDecision: boolean;
-    decision: 'accepted' | 'declined' | null;
+    decision: "accepted" | "declined" | null;
     lastShown: string | null;
     reminderCount: number;
     launchCount: number;
   };
-  setAnalyticsConsent: (consent: Partial<ThemeState['analyticsConsent']>) => void;
+  setAnalyticsConsent: (
+    consent: Partial<ThemeState["analyticsConsent"]>,
+  ) => void;
   incrementLaunchCount: () => void;
   shouldShowAnalyticsBanner: () => boolean;
 }
@@ -273,6 +280,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
+      uiStylePreset: "default",
       accentColor: ACCENT_COLORS.blue,
       isBackgroundAnimationEnabled: false,
       isDetailViewSidebarOnLeft: true,
@@ -312,13 +320,18 @@ export const useThemeStore = create<ThemeState>()(
         set({ accentColor: color });
         get().applyAccentColorToDOM();
 
-        const { trackEvent } = await import('../services/analytics-service');
-        const name = color.name?.trim() || 'Custom';
-        trackEvent('color_changed', { color: name, color_name: name }).catch(console.error);
+        const { trackEvent } = await import("../services/analytics-service");
+        const name = color.name?.trim() || "Custom";
+        trackEvent("color_changed", { color: name, color_name: name }).catch(
+          console.error,
+        );
       },
 
       setBorderRadius: (radius: number) => {
-        const clampedRadius = Math.max(MIN_BORDER_RADIUS, Math.min(MAX_BORDER_RADIUS, radius));
+        const clampedRadius = Math.max(
+          MIN_BORDER_RADIUS,
+          Math.min(MAX_BORDER_RADIUS, radius),
+        );
         set({ borderRadius: clampedRadius });
         get().applyBorderRadiusToDOM();
 
@@ -327,9 +340,14 @@ export const useThemeStore = create<ThemeState>()(
         }
         borderRadiusAnalyticsDebounceId = setTimeout(() => {
           borderRadiusAnalyticsDebounceId = null;
-          void import("../services/analytics-service").then(({ trackEvent }) => {
-            trackEvent('border_radius_changed', { radius: clampedRadius, radius_px: clampedRadius }).catch(console.error);
-          });
+          void import("../services/analytics-service").then(
+            ({ trackEvent }) => {
+              trackEvent("border_radius_changed", {
+                radius: clampedRadius,
+                radius_px: clampedRadius,
+              }).catch(console.error);
+            },
+          );
         }, 1000);
       },
 
@@ -348,18 +366,18 @@ export const useThemeStore = create<ThemeState>()(
       addToCustomColorHistory: (hexColor: string) => {
         set((state) => {
           const newHistory = [...state.customColorHistory];
-          
+
           const existingIndex = newHistory.indexOf(hexColor);
           if (existingIndex > -1) {
             newHistory.splice(existingIndex, 1);
           }
-          
+
           newHistory.unshift(hexColor);
-          
+
           if (newHistory.length > 10) {
             newHistory.pop();
           }
-          
+
           return { customColorHistory: newHistory };
         });
       },
@@ -393,12 +411,14 @@ export const useThemeStore = create<ThemeState>()(
 
       toggleStaticBackground: () => {
         set((state) => ({ staticBackground: !state.staticBackground }));
-      },      acceptTermsOfService: () => {
+      },
+      acceptTermsOfService: () => {
         set({ hasAcceptedTermsOfService: true });
       },
       acceptCapeGuidelines: () => {
         set({ hasAcceptedCapeGuidelines: true });
-      },      applyAccentColorToDOM: () => {
+      },
+      applyAccentColorToDOM: () => {
         const { accentColor } = get();
 
         const hexToRgb = (hex: string) => {
@@ -428,22 +448,43 @@ export const useThemeStore = create<ThemeState>()(
           "--accent-dark",
           accentColor.dark,
         );
+        document.documentElement.style.setProperty(
+          "--panel-border-strong",
+          accentColor.value,
+        );
 
         const rgbValue = hexToRgb(accentColor.value);
         if (rgbValue) {
           document.documentElement.style.setProperty("--accent-rgb", rgbValue);
+          document.documentElement.style.setProperty(
+            "--panel-border",
+            `rgba(${rgbValue}, 0.6)`,
+          );
         }
-      },      applyBorderRadiusToDOM: () => {
+      },
+
+      applyBorderRadiusToDOM: () => {
         const { borderRadius } = get();
-        
-        document.documentElement.style.setProperty("--border-radius", `${borderRadius}px`);
-        
-        document.documentElement.setAttribute("data-border-radius", borderRadius.toString());
+
+        document.documentElement.style.setProperty(
+          "--border-radius",
+          `${borderRadius}px`,
+        );
+
+        document.documentElement.setAttribute(
+          "data-border-radius",
+          borderRadius.toString(),
+        );
         if (borderRadius === 0) {
           document.documentElement.classList.add("radius-flat");
         } else {
           document.documentElement.classList.remove("radius-flat");
         }
+      },
+
+      applyUIStylePresetToDOM: () => {
+        const { uiStylePreset } = get();
+        document.documentElement.setAttribute("data-ui-style", uiStylePreset);
       },
 
       setCollapsedProfileGroups: (groups: string[]) => {
@@ -506,7 +547,7 @@ export const useThemeStore = create<ThemeState>()(
       // Analytics consent functions
       setAnalyticsConsent: (consentUpdate) => {
         set((state) => ({
-          analyticsConsent: { ...state.analyticsConsent, ...consentUpdate }
+          analyticsConsent: { ...state.analyticsConsent, ...consentUpdate },
         }));
       },
 
@@ -514,8 +555,8 @@ export const useThemeStore = create<ThemeState>()(
         set((state) => ({
           analyticsConsent: {
             ...state.analyticsConsent,
-            launchCount: state.analyticsConsent.launchCount + 1
-          }
+            launchCount: state.analyticsConsent.launchCount + 1,
+          },
         }));
       },
 
@@ -528,12 +569,14 @@ export const useThemeStore = create<ThemeState>()(
         if (consent.reminderCount >= 3) return false;
         if (consent.lastShown) {
           const lastShown = new Date(consent.lastShown);
-          const daysSinceLastShown = (Date.now() - lastShown.getTime()) / (1000 * 60 * 60 * 24);
+          const daysSinceLastShown =
+            (Date.now() - lastShown.getTime()) / (1000 * 60 * 60 * 24);
           if (daysSinceLastShown < 30) return false;
         }
         return true;
       },
-    }),    {
+    }),
+    {
       name: "norisk-theme-storage",
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -541,12 +584,14 @@ export const useThemeStore = create<ThemeState>()(
           if (state.profileGroupingCriterion === "none") {
             state.profileGroupingCriterion = "group";
           }
-          
+
           state.applyAccentColorToDOM();
           state.applyBorderRadiusToDOM();
           // Apply language on rehydrate
           if (state.language) {
-            import("../i18n/i18n").then((mod) => mod.default.changeLanguage(state.language));
+            import("../i18n/i18n").then((mod) =>
+              mod.default.changeLanguage(state.language),
+            );
           }
           // Ensure collapsedProfileGroups exists after rehydrate
           if (!Array.isArray(state.collapsedProfileGroups)) {

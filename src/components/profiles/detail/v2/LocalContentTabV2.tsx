@@ -8,10 +8,14 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../ui/buttons/Button";
-import { ContentActionButtons, type ContentActionButton } from "../../../ui/ContentActionButtons";
+import {
+  ContentActionButtons,
+  type ContentActionButton,
+} from "../../../ui/ContentActionButtons";
 import { GenericDetailListItem } from "../items/GenericDetailListItem";
 import { TagBadge } from "../../../ui/TagBadge";
 import { useThemeStore } from "../../../../store/useThemeStore";
@@ -30,7 +34,11 @@ import {
   useLocalContentManager,
 } from "../../../../hooks/useLocalContentManager";
 import type { UnifiedVersion } from "../../../../types/unified";
-import { ModPlatform, UnifiedVersionType, UnifiedDependencyType } from "../../../../types/unified";
+import {
+  ModPlatform,
+  UnifiedVersionType,
+  UnifiedDependencyType,
+} from "../../../../types/unified";
 import type { NoriskModpacksConfig } from "../../../../types/noriskPacks";
 import * as ProfileService from "../../../../services/profile-service";
 import * as ContentService from "../../../../services/content-service"; // Added import
@@ -62,7 +70,7 @@ import { parseMotdToHtml } from "../../../../utils/motd-utils";
 function isCurrentInstalledVersion(
   version: UnifiedVersion,
   item: LocalContentItem,
-  debugMode: boolean = false
+  debugMode: boolean = false,
 ): boolean {
   // Check Modrinth info first (most common)
   const localModrinthInfo = item.modrinth_info;
@@ -75,7 +83,9 @@ function isCurrentInstalledVersion(
       localModrinthInfo.version_id === version.id
     ) {
       if (debugMode) {
-        console.log(`[${item.filename}] Version match by version_id: ${localModrinthInfo.version_id}`);
+        console.log(
+          `[${item.filename}] Version match by version_id: ${localModrinthInfo.version_id}`,
+        );
       }
       return true;
     }
@@ -88,7 +98,9 @@ function isCurrentInstalledVersion(
       (localModrinthInfo as any).id === version.id
     ) {
       if (debugMode) {
-        console.log(`[${item.filename}] Version match by id fallback: ${(localModrinthInfo as any).id}`);
+        console.log(
+          `[${item.filename}] Version match by id fallback: ${(localModrinthInfo as any).id}`,
+        );
       }
       return true;
     }
@@ -105,7 +117,9 @@ function isCurrentInstalledVersion(
       localCurseForgeInfo.file_id === version.id
     ) {
       if (debugMode) {
-        console.log(`[${item.filename}] CurseForge version match by file_id: ${localCurseForgeInfo.file_id}`);
+        console.log(
+          `[${item.filename}] CurseForge version match by file_id: ${localCurseForgeInfo.file_id}`,
+        );
       }
       return true;
     }
@@ -123,16 +137,20 @@ function isCurrentInstalledVersion(
   */
 
   if (debugMode) {
-    const installedVersionStr = localModrinthInfo?.version_number ||
-                               localCurseForgeInfo?.version_number ||
-                               "N/A";
-    const installedIdToCompare = localModrinthInfo?.version_id ||
-                                (localModrinthInfo && 'id' in localModrinthInfo ? localModrinthInfo.id : undefined) ||
-                                localCurseForgeInfo?.file_id ||
-                                "N/A";
+    const installedVersionStr =
+      localModrinthInfo?.version_number ||
+      localCurseForgeInfo?.version_number ||
+      "N/A";
+    const installedIdToCompare =
+      localModrinthInfo?.version_id ||
+      (localModrinthInfo && "id" in localModrinthInfo
+        ? localModrinthInfo.id
+        : undefined) ||
+      localCurseForgeInfo?.file_id ||
+      "N/A";
 
     console.log(
-      `[${item.filename}] Checking: List ver: ${version.version_number} (ID: ${version.id}) vs Installed: ${installedVersionStr} (Stored ID: ${installedIdToCompare}) -> NO MATCH`
+      `[${item.filename}] Checking: List ver: ${version.version_number} (ID: ${version.id}) vs Installed: ${installedVersionStr} (Stored ID: ${installedIdToCompare}) -> NO MATCH`,
     );
   }
 
@@ -188,6 +206,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   onRefreshRequired,
   onBrowseContentRequest, // Destructure new prop
 }: LocalContentTabV2Props<T>) {
+  const { t } = useTranslation();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const accentColor = useThemeStore((state) => state.accentColor);
@@ -378,6 +397,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       setIsRefreshingPacksList(false);
     }
   }, [contentType, t]);
+  }, [contentType, t]);
 
   const noriskPackOptions = useMemo((): SelectOption[] => {
     if (contentType !== "NoRiskMod" || !noriskPacksConfig) {
@@ -540,6 +560,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         }
         const buttonRect = versionButtonRef.current.getBoundingClientRect();
         const dropdownElement = versionDropdownRef.current;
+        const viewportHeight = window.innerHeight;
 
         if (
           buttonRect.width === 0 &&
@@ -547,15 +568,34 @@ export function LocalContentTabV2<T extends LocalContentItem>({
           buttonRect.x === 0 &&
           buttonRect.y === 0
         ) {
-          // Button likely not properly laid out yet, or invisible
+          // Update: Button is fine, now if dropdown opens above or below is random. Caused by different AppWindow Sizes (fullscreen/window)
           // Hide dropdown until next frame attempts to position it
           dropdownElement.style.visibility = "hidden";
           requestAnimationFrame(updatePosition); // Retry positioning on next frame
           return;
         }
 
-        dropdownElement.style.top = `${buttonRect.bottom + 2}px`;
+        // Simple height calculation
+        const maxDropdownHeight = 300;
+        const spaceBelow = viewportHeight - buttonRect.bottom + 35; // change this if you need more/less space buffer (opening to top falsely)
+        const spaceAbove = buttonRect.top - 20;
+
+        let maxH: number;
+
+        // Not so simple space above/below handler
+        if (spaceBelow >= maxDropdownHeight || spaceBelow >= spaceAbove) {
+          dropdownElement.style.top = `${buttonRect.bottom + 2}px`;
+          dropdownElement.style.bottom = "auto";
+          maxH = Math.max(0, Math.min(maxDropdownHeight, spaceBelow));
+        } else {
+          dropdownElement.style.bottom = `${window.innerHeight - buttonRect.top + 2}px`;
+          dropdownElement.style.top = "auto";
+          maxH = Math.max(0, Math.min(maxDropdownHeight, spaceAbove));
+        }
+
         dropdownElement.style.left = `${buttonRect.left}px`;
+        dropdownElement.style.maxHeight = `${maxH}px`;
+        dropdownElement.style.height = "auto"; // forced when few entries
         dropdownElement.style.visibility = "visible";
       } else if (versionDropdownRef.current) {
         versionDropdownRef.current.style.visibility = "hidden";
@@ -611,7 +651,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
               source: platform,
               project_id: projectId,
               loaders: loadersArg,
-              game_versions: profile?.game_version ? [profile.game_version] : undefined,
+              game_versions: profile?.game_version
+                ? [profile.game_version]
+                : undefined,
             });
             setAvailableVersions(versions.versions);
           } catch (error) {
@@ -652,14 +694,47 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
     // Event listeners for keeping position updated and closing
     const scrollableParents = document.querySelectorAll(".custom-scrollbar");
-    const handleScrollOrResize = () => requestAnimationFrame(updatePosition);
+
+    const handleScrollOrResize = (event: Event) => {
+      // Check if Scroll is by Dropdown
+      if (
+        versionDropdownRef.current &&
+        event.target &&
+        versionDropdownRef.current.contains(event.target as Node)
+      ) {
+        // dont kill only reposition
+        requestAnimationFrame(updatePosition);
+        return;
+      }
+
+      // kill dropdown on scroll container
+      if (openVersionDropdownId) {
+        setOpenVersionDropdownId(null);
+      }
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      if (
+        versionDropdownRef.current &&
+        event.target &&
+        versionDropdownRef.current.contains(event.target as Node)
+      ) {
+        return;
+      }
+
+      if (openVersionDropdownId) {
+        setOpenVersionDropdownId(null);
+      }
+    };
 
     scrollableParents.forEach((el) =>
       el.addEventListener("scroll", handleScrollOrResize),
     );
     window.addEventListener("scroll", handleScrollOrResize);
-    window.addEventListener("resize", handleScrollOrResize);
-    document.addEventListener("wheel", handleScrollOrResize, { passive: true });
+    window.addEventListener("resize", () =>
+      requestAnimationFrame(updatePosition),
+    );
+    document.addEventListener("wheel", handleWheel, { passive: true });
 
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -678,8 +753,10 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         el.removeEventListener("scroll", handleScrollOrResize),
       );
       window.removeEventListener("scroll", handleScrollOrResize);
-      window.removeEventListener("resize", handleScrollOrResize);
-      document.removeEventListener("wheel", handleScrollOrResize);
+      window.removeEventListener("resize", () =>
+        requestAnimationFrame(updatePosition),
+      );
+      document.removeEventListener("wheel", handleWheel);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [openVersionDropdownId]); // Effect runs when dropdown open state changes
@@ -688,7 +765,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     (item: T) => {
       const itemTitleRaw = getDisplayFileName(item);
       const itemTitle = (
-        <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(itemTitleRaw) }} />
+        <span
+          dangerouslySetInnerHTML={{ __html: parseMotdToHtml(itemTitleRaw) }}
+        />
       );
       const isToggling = itemBeingToggled === item.filename;
       const isDeleting = itemBeingDeleted === item.filename;
@@ -710,12 +789,21 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             item.modrinth_info?.version_id || item.curseforge_info?.file_id,
           )
         : null;
-      const isBlockedByNoRisk = noRiskStatus === 'blocked';
-      const isWarningByNoRisk = noRiskStatus === 'warning';
-      
+      const isBlockedByNoRisk = noRiskStatus === "blocked";
+      const isWarningByNoRisk = noRiskStatus === "warning";
+
       // Debug logging
       if (noRiskStatus) {
-        console.log('[LocalContentTabV2] Item:', item.filename, 'noRiskStatus:', noRiskStatus, 'isBlocked:', isBlockedByNoRisk, 'isWarning:', isWarningByNoRisk);
+        console.log(
+          "[LocalContentTabV2] Item:",
+          item.filename,
+          "noRiskStatus:",
+          noRiskStatus,
+          "isBlocked:",
+          isBlockedByNoRisk,
+          "isWarning:",
+          isWarningByNoRisk,
+        );
       }
 
       // Get the appropriate icon using the platform-aware helper function
@@ -728,9 +816,13 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             src={itemIconUrl}
             alt={`${itemTitle} ${getItemPlatformDisplayName(item)} icon`}
             className="w-full h-full object-contain image-pixelated"
-            style={item.is_disabled ? {
-              filter: "grayscale(100%) brightness(0.7)"
-            } : undefined}
+            style={
+              item.is_disabled
+                ? {
+                    filter: "grayscale(100%) brightness(0.7)",
+                  }
+                : undefined
+            }
             onError={(e) => {
               (e.target as HTMLImageElement).style.visibility = "hidden";
             }}
@@ -756,6 +848,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                 <div>
                   <Icon
                     icon="solar:danger-triangle-bold"
+                  <Icon
+                    icon="solar:danger-triangle-bold"
                     className="w-4 h-4 text-red-500 drop-shadow-lg"
                   />
                 </div>
@@ -766,6 +860,8 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             <div className="absolute top-0.5 left-0.5 z-10 pointer-events-auto">
               <Tooltip content={t('modrinth.warning_mod_tooltip')}>
                 <div>
+                  <Icon
+                    icon="solar:danger-triangle-bold"
                   <Icon
                     icon="solar:danger-triangle-bold"
                     className="w-4 h-4 text-yellow-500 drop-shadow-lg"
@@ -844,13 +940,14 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                       createPortal(
                         <div
                           ref={versionDropdownRef}
-                          className="fixed z-[100] font-minecraft-ten"
+                          className="fixed z-[100] font-minecraft-ten flex flex-col"
                           style={{
                             backgroundColor: "rgb(20, 20, 20)",
                             border: `2px solid rgba(${parseInt(accentColor.value.substring(1, 3), 16)}, ${parseInt(accentColor.value.substring(3, 5), 16)}, ${parseInt(accentColor.value.substring(5, 7), 16)}, 0.6)`,
                             boxShadow: `0 6px 16px rgba(0, 0, 0, 0.7)`,
                             padding: "12px",
-                            minWidth: "170px",
+                            minWidth: "250px",
+                            maxWidth: "350px",
                             visibility: "hidden",
                           }}
                         >
@@ -859,7 +956,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                               {t('content.loading_versions')}
                             </div>
                           ) : versionsError ? (
-                            <div className="text-red-400 text-sm tracking-wider">
+                            <div className="text-red-400 text-sm tracking-wider p-2">
                               {versionsError}
                             </div>
                           ) : availableVersions &&
@@ -868,24 +965,16 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                               <div className="font-bold mb-2 text-sm tracking-wider">
                                 {t('content.available_versions_on', { platform: getItemPlatformDisplayName(item) })}
                               </div>
-                              <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 fits">
                                 {availableVersions.map((version) => {
-                                  // Use the centralized function to determine if this version is currently installed
                                   const isCurrent = isCurrentInstalledVersion(
                                     version,
                                     item,
-                                    item.filename === openVersionDropdownId // Enable debug mode for the currently open dropdown
                                   );
-
                                   return (
                                     <div
                                       key={version.id}
-                                      className={`p-1.5 text-xs hover:bg-white/10 cursor-pointer rounded-sm ${isCurrent ? "font-bold text-white" : "text-white/80"}`}
-                                      style={
-                                        {
-                                          // No specific background for individual items unless it's the current one, which is handled by font-bold
-                                        }
-                                      }
+                                      className={`p-2 text-sm hover:bg-white/10 cursor-pointer rounded-sm transition-colors ${isCurrent ? "font-bold text-white bg-white/5" : "text-white/80"}`}
                                       onClick={() => {
                                         handleSwitchContentVersion(
                                           item,
@@ -938,20 +1027,37 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         }] : []),
 
         // Platform badge - only show the primary platform
-        ...(itemPlatform !== 'Local' ? [{
-          icon: itemPlatform === 'Modrinth'
-            ? "https://cdn.modrinth.com/modrinth-new.png"
-            : "https://cdn.norisk.gg/misc/curseforge.webp",
-          text: itemPlatform,
-          color: isDisabled ? "#6b7280" : (itemPlatform === 'Modrinth' ? "#22c55e" : "#f97316"),
-          iconFilter: isDisabled ? "grayscale(100%) brightness(0.7)" : undefined
-        }] : []),
+        ...(itemPlatform !== "Local"
+          ? [
+              {
+                icon:
+                  itemPlatform === "Modrinth"
+                    ? "https://cdn.modrinth.com/modrinth-new.png"
+                    : "https://cdn.norisk.gg/misc/curseforge.webp",
+                text: itemPlatform,
+                color: isDisabled
+                  ? "#6b7280"
+                  : itemPlatform === "Modrinth"
+                    ? "#22c55e"
+                    : "#f97316",
+                iconFilter: isDisabled
+                  ? "grayscale(100%) brightness(0.7)"
+                  : undefined,
+              },
+            ]
+          : []),
 
         // Source type badge (for local/custom mods)
-        ...(item.source_type && item.source_type !== 'custom' ? [{
-          text: item.source_type.charAt(0).toUpperCase() + item.source_type.slice(1),
-          color: isDisabled ? "#6b7280" : "#f59e0b"
-        }] : []),
+        ...(item.source_type && item.source_type !== "custom"
+          ? [
+              {
+                text:
+                  item.source_type.charAt(0).toUpperCase() +
+                  item.source_type.slice(1),
+                color: isDisabled ? "#6b7280" : "#f59e0b",
+              },
+            ]
+          : []),
 
         // Updates status badge - removed for cleaner look
       ];
@@ -967,39 +1073,58 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       let updateButtonTooltip = "";
 
       // Check if this mod comes from a modpack (defined outside if block for broader scope)
-      const isFromModPack = item.modpack_origin !== null && item.modpack_origin !== undefined;
+      const isFromModPack =
+        item.modpack_origin !== null && item.modpack_origin !== undefined;
 
       if (hasUpdateAvailable) {
-        console.log(`Update available for ${item.filename}:`, updateAvailableVersion);
+        console.log(
+          `Update available for ${item.filename}:`,
+          updateAvailableVersion,
+        );
         // Check if current version differs from available update
-        const currentVersionId = item.modrinth_info?.version_id || item.curseforge_info?.file_id || item.id;
+        const currentVersionId =
+          item.modrinth_info?.version_id ||
+          item.curseforge_info?.file_id ||
+          item.id;
         if (currentVersionId !== updateAvailableVersion.id) {
-
-          const currentVersion = item.modrinth_info?.version_number || item.curseforge_info?.version_number;
+          const currentVersion =
+            item.modrinth_info?.version_number ||
+            item.curseforge_info?.version_number;
 
           if (isFromModPack && item.updates_enabled !== true) {
             // Show disabled update button for modpack mods (only if updates are not explicitly enabled)
             shouldShowUpdateButton = true;
             isUpdateButtonDimmed = true; // Show dimmed styling and actually disable
             updateButtonTooltip = `This mod comes from a modpack and cannot be updated individually. Updates should be handled through the modpack.`;
-            console.log(`Update button shown and disabled for ${item.filename} - modpack mod`);
+            console.log(
+              `Update button shown and disabled for ${item.filename} - modpack mod`,
+            );
           } else {
             // Check if updates are enabled for this mod (consistent with updatableContentCount logic)
             // Default to enabled if null/undefined, only disabled if explicitly false
             const updatesEnabledDefault = item.updates_enabled ?? true;
-            const hasUpdatesEnabled = contentType === 'Mod' && updatesEnabledDefault !== false;
+            const hasUpdatesEnabled =
+              contentType === "Mod" && updatesEnabledDefault !== false;
 
             if (hasUpdatesEnabled) {
               // Normal update button for mods with updates enabled
               shouldShowUpdateButton = true;
               isUpdateButtonDimmed = false;
-              updateButtonTooltip = getUpdateText(isFromModPack, updateAvailableVersion, currentVersion, item.modpack_origin, item.updates_enabled);
+              updateButtonTooltip = getUpdateText(
+                isFromModPack,
+                updateAvailableVersion,
+                currentVersion,
+                item.modpack_origin,
+                item.updates_enabled,
+              );
             } else {
               // Show dimmed update button for mods with updates disabled
               shouldShowUpdateButton = true;
               isUpdateButtonDimmed = true;
               updateButtonTooltip = `Update checks are disabled for this mod. Enable update checks first to allow automatic updates.`;
-              console.log(`Update button will be shown (dimmed) for ${item.filename} - updates disabled`);
+              console.log(
+                `Update button will be shown (dimmed) for ${item.filename} - updates disabled`,
+              );
             }
           }
         }
@@ -1007,7 +1132,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
 
       // Debug logging only for items that have updates available
       if (updateAvailableVersion) {
-        console.log(`Item "${item.filename}": modrinth_info=${!!item.modrinth_info}, curseforge_info=${!!item.curseforge_info}, sha1_hash="${item.sha1_hash}", fingerprint=${item.curseforge_info?.fingerprint}, updateIdentifier="${updateIdentifier}", hasUpdate=${!!updateAvailableVersion}, updateVersion="${updateAvailableVersion.version_number}", modpack_origin="${item.modpack_origin}", updates_enabled=${item.updates_enabled}, isFromModPack=${item.modpack_origin !== null && item.modpack_origin !== undefined}, buttonDisabled=${isUpdateButtonDimmed}`);
+        console.log(
+          `Item "${item.filename}": modrinth_info=${!!item.modrinth_info}, curseforge_info=${!!item.curseforge_info}, sha1_hash="${item.sha1_hash}", fingerprint=${item.curseforge_info?.fingerprint}, updateIdentifier="${updateIdentifier}", hasUpdate=${!!updateAvailableVersion}, updateVersion="${updateAvailableVersion.version_number}", modpack_origin="${item.modpack_origin}", updates_enabled=${item.updates_enabled}, isFromModPack=${item.modpack_origin !== null && item.modpack_origin !== undefined}, buttonDisabled=${isUpdateButtonDimmed}`,
+        );
       }
 
       // Update action is handled separately with custom tooltip below
@@ -1039,7 +1166,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       if (!item.norisk_info) {
         itemActions.push({
           id: "delete",
-          icon: isDeleting ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11] : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6],
+          icon: isDeleting
+            ? LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[11]
+            : LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[6],
           variant: "destructive",
           tooltip: t('content.actions.delete_item', { itemType: itemTypeName }),
           disabled: isDeleting,
@@ -1072,7 +1201,10 @@ export function LocalContentTabV2<T extends LocalContentItem>({
               <ModUpdateText
                 isFromModPack={isFromModPack}
                 updateVersion={updateAvailableVersion}
-                currentVersion={item.modrinth_info?.version_number || item.curseforge_info?.version_number}
+                currentVersion={
+                  item.modrinth_info?.version_number ||
+                  item.curseforge_info?.version_number
+                }
                 className="text-left"
                 modpackOrigin={item.modpack_origin}
                 updatesEnabled={item.updates_enabled}
@@ -1086,8 +1218,14 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             icon={LOCAL_CONTENT_TAB_ICONS_TO_PRELOAD[10]}
             variant={isUpdateButtonDimmed ? "secondary" : "highlight"}
             disabled={isUpdateButtonDimmed}
-            onClick={() => handleUpdateContentItem(item, updateAvailableVersion)}
-            className={isUpdateButtonDimmed ? "opacity-50 cursor-not-allowed grayscale" : ""}
+            onClick={() =>
+              handleUpdateContentItem(item, updateAvailableVersion)
+            }
+            className={
+              isUpdateButtonDimmed
+                ? "opacity-50 cursor-not-allowed grayscale"
+                : ""
+            }
           />
         </Tooltip>
       ) : null;
@@ -1095,13 +1233,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       const itemActionsNode = (
         <div className="flex items-center gap-2">
           {updateButtonNode}
-          <ContentActionButtons
-            actions={itemActions}
-          />
+          <ContentActionButtons actions={itemActions} />
         </div>
       );
-
-
 
       const itemDropdownNode = (
         <div
@@ -1123,7 +1257,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                 e.currentTarget.style.backgroundColor = `${accentColor.value}15`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
               <Icon
@@ -1160,14 +1294,17 @@ export function LocalContentTabV2<T extends LocalContentItem>({
       );
 
       // Determine if we can navigate to mod detail page
-      const canNavigateToDetail = item.modrinth_info?.project_id || item.curseforge_info?.project_id;
-      const handleTitleClick = canNavigateToDetail ? () => {
-        if (item.modrinth_info?.project_id) {
-          navigate(`/mods/modrinth/${item.modrinth_info.project_id}`);
-        } else if (item.curseforge_info?.project_id) {
-          navigate(`/mods/curseforge/${item.curseforge_info.project_id}`);
-        }
-      } : undefined;
+      const canNavigateToDetail =
+        item.modrinth_info?.project_id || item.curseforge_info?.project_id;
+      const handleTitleClick = canNavigateToDetail
+        ? () => {
+            if (item.modrinth_info?.project_id) {
+              navigate(`/mods/modrinth/${item.modrinth_info.project_id}`);
+            } else if (item.curseforge_info?.project_id) {
+              navigate(`/mods/curseforge/${item.curseforge_info.project_id}`);
+            }
+          }
+        : undefined;
 
       return (
         <GenericDetailListItem
@@ -1244,14 +1381,20 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   const getUpdatesToggleConfig = useCallback(() => {
     if (selectedItemIds.size === 0) return null;
 
-    const selectedItems = items.filter(item => selectedItemIds.has(item.filename));
-    const validItems = selectedItems.filter(item => item.id);
+    const selectedItems = items.filter((item) =>
+      selectedItemIds.has(item.filename),
+    );
+    const validItems = selectedItems.filter((item) => item.id);
 
     if (validItems.length === 0) return null;
 
     // Count how many items have updates enabled vs disabled
-    const enabledCount = validItems.filter(item => item.updates_enabled ?? true).length;
-    const disabledCount = validItems.filter(item => !(item.updates_enabled ?? true)).length;
+    const enabledCount = validItems.filter(
+      (item) => item.updates_enabled ?? true,
+    ).length;
+    const disabledCount = validItems.filter(
+      (item) => !(item.updates_enabled ?? true),
+    ).length;
 
     // If more items have updates enabled, suggest disabling
     // If more items have updates disabled, suggest enabling
@@ -1370,8 +1513,9 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                         size="sm"
                       />
                       {profile?.selected_norisk_pack_id &&
-                        noriskPacksConfig?.packs[profile.selected_norisk_pack_id]
-                          ?.isExperimental && (
+                        noriskPacksConfig?.packs[
+                          profile.selected_norisk_pack_id
+                        ]?.isExperimental && (
                           <div className="text-xs text-yellow-500/80 font-minecraft">
                             {t('content.experimental')}
                           </div>
@@ -1652,9 +1796,13 @@ export function LocalContentTabV2<T extends LocalContentItem>({
         emptyStateAction={
           // Show browse button for empty states (except when NoRisk pack not selected and when loading)
           (isTrulyEmptyState ||
-           (searchQuery && filteredItems.length === 0 && selectedItemIds.size === 0) ||
-           (error && !isLoading)) &&
-          !(contentType === "NoRiskMod" && !profile?.selected_norisk_pack_id) ? (
+            (searchQuery &&
+              filteredItems.length === 0 &&
+              selectedItemIds.size === 0) ||
+            (error && !isLoading)) &&
+          !(
+            contentType === "NoRiskMod" && !profile?.selected_norisk_pack_id
+          ) ? (
             <ContentActionButtons
               actions={[
                 {

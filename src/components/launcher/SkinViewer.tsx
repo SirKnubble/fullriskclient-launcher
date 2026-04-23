@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { cn } from "../../lib/utils";
+import { useThemeStore } from "../../store/useThemeStore";
 
 interface SkinViewerProps {
   skinUrl: string; // This will now be the direct URL (file:// or http:// or /path)
@@ -21,6 +22,8 @@ export function SkinViewer({
   style,
 }: SkinViewerProps) {
   const [hasError, setHasError] = useState(false);
+  const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
+  const isFullRiskStyle = uiStylePreset === "fullrisk";
 
   // Reset error state if skinUrl changes, to allow retrying if a new valid URL is provided
   useEffect(() => {
@@ -37,7 +40,7 @@ export function SkinViewer({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gray-700/50 rounded-md",
+          "flex items-center justify-center bg-gray-700/50",
           className,
         )}
         style={{ width, height, ...style }}
@@ -57,6 +60,7 @@ export function SkinViewer({
       style={{
         imageRendering: "pixelated",
         userSelect: "none",
+        transform: isFullRiskStyle ? "translateY(10px)" : undefined,
         ...style,
       }}
       draggable={false}

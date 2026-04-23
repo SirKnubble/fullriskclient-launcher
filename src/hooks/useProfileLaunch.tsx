@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { listen, Event as TauriEvent } from "@tauri-apps/api/event";
-import { EventPayload as FrontendEventPayload, EventType as FrontendEventType } from "../types/events";
+import {
+  EventPayload as FrontendEventPayload,
+  EventType as FrontendEventType,
+} from "../types/events";
 import { invoke } from "@tauri-apps/api/core";
 import { LaunchState } from "../store/launch-state-store";
 import { useLaunchStateStore } from "../store/launch-state-store";
@@ -24,11 +27,17 @@ interface UseProfileLaunchOptions {
 }
 
 export function useProfileLaunch(options: UseProfileLaunchOptions) {
-  const { profileId, quickPlaySingleplayer, quickPlayMultiplayer, onLaunchSuccess, onLaunchError, skipLastPlayedUpdate } = options;
+  const {
+    profileId,
+    quickPlaySingleplayer,
+    quickPlayMultiplayer,
+    onLaunchSuccess,
+    onLaunchError,
+    skipLastPlayedUpdate,
+  } = options;
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { showModal, hideModal } = useGlobalModal();
-
 
   const {
     getProfileState,
@@ -39,7 +48,8 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     setLaunchError,
   } = useLaunchStateStore();
 
-  const { isButtonLaunching, buttonStatusMessage, launchState } = getProfileState(profileId);
+  const { isButtonLaunching, buttonStatusMessage, launchState } =
+    getProfileState(profileId);
 
   // Initialize profile on mount
   useEffect(() => {
@@ -51,7 +61,9 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     let unlistenStateEvent: (() => void) | undefined;
 
     const setupDetailedListener = async () => {
-      console.log(`[useProfileLaunch] Setting up detailed status listener for ${profileId}`);
+      console.log(
+        `[useProfileLaunch] Setting up detailed status listener for ${profileId}`,
+      );
       unlistenStateEvent = await listen<FrontendEventPayload>(
         "state_event",
         (event: TauriEvent<FrontendEventPayload>) => {
@@ -60,17 +72,24 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
             const eventMessage = event.payload.message;
 
             if (eventTypeFromPayload === FrontendEventType.LaunchSuccessful) {
-              console.log(`[useProfileLaunch] LaunchSuccessful event for ${profileId}`);
+              console.log(
+                `[useProfileLaunch] LaunchSuccessful event for ${profileId}`,
+              );
               finalizeButtonLaunch(profileId);
-              setButtonStatusMessage(profileId, i18n.t('launch.starting'));
+              setButtonStatusMessage(profileId, i18n.t("launch.starting"));
               setTimeout(() => {
                 setButtonStatusMessage(profileId, null);
               }, 3000);
               onLaunchSuccess?.();
             } else if (eventTypeFromPayload === FrontendEventType.Error) {
-              console.log(`[useProfileLaunch] Error event via state_event for ${profileId}`);
-              const eventErrorMsg = eventMessage || i18n.t('launch.error.unknown');
-              toast.error(i18n.t('launch.error', { error: eventErrorMsg }), { id: `launch-error-${profileId}` });
+              console.log(
+                `[useProfileLaunch] Error event via state_event for ${profileId}`,
+              );
+              const eventErrorMsg =
+                eventMessage || i18n.t("launch.error.unknown");
+              toast.error(i18n.t("launch.error", { error: eventErrorMsg }), {
+                id: `launch-error-${profileId}`,
+              });
               setLaunchError(profileId, eventErrorMsg);
               onLaunchError?.(eventErrorMsg);
             } else {
@@ -79,7 +98,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               }
             }
           }
-        }
+        },
       );
     };
 
@@ -92,7 +111,17 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
         unlistenStateEvent();
       }
     };
-  }, [profileId, isButtonLaunching, finalizeButtonLaunch, setButtonStatusMessage, setLaunchError, onLaunchSuccess, onLaunchError, quickPlaySingleplayer, quickPlayMultiplayer]);
+  }, [
+    profileId,
+    isButtonLaunching,
+    finalizeButtonLaunch,
+    setButtonStatusMessage,
+    setLaunchError,
+    onLaunchSuccess,
+    onLaunchError,
+    quickPlaySingleplayer,
+    quickPlayMultiplayer,
+  ]);
 
   // Polling for launch status
   useEffect(() => {
@@ -105,17 +134,21 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     };
 
     if (isButtonLaunching && profileId) {
-      console.log(`[useProfileLaunch] Starting polling for launcher task finished for ${profileId}`);
+      console.log(
+        `[useProfileLaunch] Starting polling for launcher task finished for ${profileId}`,
+      );
       pollingIntervalRef.current = setInterval(async () => {
         try {
           const isStillPhysicallyLaunching = await invoke<boolean>(
             "is_profile_launching",
-            { profileId }
+            { profileId },
           );
           const launcherTaskFinished = !isStillPhysicallyLaunching;
 
           if (launcherTaskFinished) {
-            console.log(`[useProfileLaunch] Polling determined launcher task finished for ${profileId}`);
+            console.log(
+              `[useProfileLaunch] Polling determined launcher task finished for ${profileId}`,
+            );
             clearPolling();
 
             const currentProfileStateAfterPoll = getProfileState(profileId);
@@ -123,25 +156,37 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               currentProfileStateAfterPoll.launchState === LaunchState.ERROR ||
               currentProfileStateAfterPoll.error
             ) {
-              console.log(`[useProfileLaunch] Polling: Launch task finished, but an error was detected in store.`);
+              console.log(
+                `[useProfileLaunch] Polling: Launch task finished, but an error was detected in store.`,
+              );
               if (currentProfileStateAfterPoll.isButtonLaunching) {
                 finalizeButtonLaunch(
                   profileId,
-                  currentProfileStateAfterPoll.error || "Unknown error after completion."
+                  currentProfileStateAfterPoll.error ||
+                    "Unknown error after completion.",
                 );
               }
             } else {
-              console.log(`[useProfileLaunch] Polling: Launch task finished successfully.`);
+              console.log(
+                `[useProfileLaunch] Polling: Launch task finished successfully.`,
+              );
               if (currentProfileStateAfterPoll.isButtonLaunching) {
                 finalizeButtonLaunch(profileId);
               }
             }
           }
         } catch (err: any) {
-          console.error(`[useProfileLaunch] Error during polling is_profile_launching:`, err);
+          console.error(
+            `[useProfileLaunch] Error during polling is_profile_launching:`,
+            err,
+          );
           const pollErrorMsg =
-            err.message || err.toString() || "Error while checking profile status.";
-          toast.error(i18n.t('launch.polling_error', { error: pollErrorMsg }), { id: `launch-error-${profileId}` });
+            err.message ||
+            err.toString() ||
+            "Error while checking profile status.";
+          toast.error(i18n.t("launch.polling_error", { error: pollErrorMsg }), {
+            id: `launch-error-${profileId}`,
+          });
           finalizeButtonLaunch(profileId, pollErrorMsg);
           clearPolling();
         }
@@ -151,21 +196,36 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     }
 
     return clearPolling;
-  }, [profileId, isButtonLaunching, finalizeButtonLaunch, getProfileState, quickPlaySingleplayer, quickPlayMultiplayer]);
+  }, [
+    profileId,
+    isButtonLaunching,
+    finalizeButtonLaunch,
+    getProfileState,
+    quickPlaySingleplayer,
+    quickPlayMultiplayer,
+  ]);
 
   // Actual launch function
   const performLaunch = async (migrationInfo?: MigrationInfo) => {
     initiateButtonLaunch(profileId);
 
     try {
-      await ProcessService.launch(profileId, quickPlaySingleplayer, quickPlayMultiplayer, migrationInfo, skipLastPlayedUpdate);
+      await ProcessService.launch(
+        profileId,
+        quickPlaySingleplayer,
+        quickPlayMultiplayer,
+        migrationInfo,
+        skipLastPlayedUpdate,
+      );
     } catch (err: any) {
       console.error("Failed to launch profile:", err);
       const launchErrorMsg =
         typeof err === "string"
           ? err
           : err.message || err.toString() || "Unknown error during launch.";
-      toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
+      toast.error(i18n.t("launch.failed", { error: launchErrorMsg }), {
+        id: `launch-error-${profileId}`,
+      });
       setLaunchError(profileId, launchErrorMsg);
       onLaunchError?.(launchErrorMsg);
     }
@@ -173,7 +233,10 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
   // Migration handler
   const handleMigration = async (migrationInfo: MigrationInfo) => {
-    console.log(`[useProfileLaunch] Starting migration for profile ${profileId}`, migrationInfo);
+    console.log(
+      `[useProfileLaunch] Starting migration for profile ${profileId}`,
+      migrationInfo,
+    );
 
     // Close modal and launch with migration info (migration will happen in installer)
     hideModal(`group-migration-${profileId}`);
@@ -186,11 +249,11 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
     if (currentProfile.isButtonLaunching) {
       try {
-        setButtonStatusMessage(profileId, i18n.t('launch.stopping'));
+        setButtonStatusMessage(profileId, i18n.t("launch.stopping"));
         // Yield to allow React to render the status update before blocking on abort
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
         await ProcessService.abort(profileId);
-        toast.success(i18n.t('launch.stopped'));
+        toast.success(i18n.t("launch.stopped"));
         finalizeButtonLaunch(profileId);
       } catch (err: any) {
         console.error("Failed to abort launch:", err);
@@ -198,7 +261,9 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
           typeof err === "string"
             ? err
             : err.message || err.toString() || "Error during abort.";
-        toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }), { id: `launch-error-${profileId}` });
+        toast.error(i18n.t("launch.stop_failed", { message: abortErrorMsg }), {
+          id: `launch-error-${profileId}`,
+        });
         finalizeButtonLaunch(profileId, abortErrorMsg);
       }
       return;
@@ -206,9 +271,10 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
     // Check if migration is needed
     try {
-      const migrationInfo: MigrationInfo = await checkForGroupMigration(profileId);
+      const migrationInfo: MigrationInfo =
+        await checkForGroupMigration(profileId);
 
-      if (migrationInfo.direction === 'None') {
+      if (migrationInfo.direction === "None") {
         // No migration needed, launch directly
         performLaunch(undefined);
         return;
@@ -226,7 +292,7 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
           }}
           onMigrate={() => handleMigration(migrationInfo)}
           profileId={profileId}
-        />
+        />,
       );
     } catch (err: any) {
       console.error("Failed to check migration status:", err);
@@ -240,16 +306,19 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
     statusMessage: buttonStatusMessage,
     launchState,
     handleLaunch,
-    handleQuickPlayLaunch: async (singleplayer?: string, multiplayer?: string) => {
+    handleQuickPlayLaunch: async (
+      singleplayer?: string,
+      multiplayer?: string,
+    ) => {
       const currentProfile = getProfileState(profileId);
 
       if (currentProfile.isButtonLaunching) {
         try {
-          setButtonStatusMessage(profileId, i18n.t('launch.stopping'));
+          setButtonStatusMessage(profileId, i18n.t("launch.stopping"));
           // Yield to allow React to render the status update before blocking on abort
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise((resolve) => setTimeout(resolve, 0));
           await ProcessService.abort(profileId);
-          toast.success(i18n.t('launch.stopped'));
+          toast.success(i18n.t("launch.stopped"));
           finalizeButtonLaunch(profileId);
         } catch (err: any) {
           console.error("Failed to abort launch:", err);
@@ -257,7 +326,10 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
             typeof err === "string"
               ? err
               : err.message || err.toString() || "Error during abort.";
-          toast.error(i18n.t('launch.stop_failed', { message: abortErrorMsg }), { id: `launch-error-${profileId}` });
+          toast.error(
+            i18n.t("launch.stop_failed", { message: abortErrorMsg }),
+            { id: `launch-error-${profileId}` },
+          );
           finalizeButtonLaunch(profileId, abortErrorMsg);
         }
         return;
@@ -265,20 +337,31 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
 
       // Check if migration is needed
       try {
-        const migrationInfo: MigrationInfo = await checkForGroupMigration(profileId);
+        const migrationInfo: MigrationInfo =
+          await checkForGroupMigration(profileId);
 
-        if (migrationInfo.direction === 'None') {
+        if (migrationInfo.direction === "None") {
           // No migration needed, launch directly
           initiateButtonLaunch(profileId);
           try {
-            await ProcessService.launch(profileId, singleplayer, multiplayer, undefined, skipLastPlayedUpdate);
+            await ProcessService.launch(
+              profileId,
+              singleplayer,
+              multiplayer,
+              undefined,
+              skipLastPlayedUpdate,
+            );
           } catch (err: any) {
             console.error("Failed to launch profile:", err);
             const launchErrorMsg =
               typeof err === "string"
                 ? err
-                : err.message || err.toString() || "Unknown error during launch.";
-            toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
+                : err.message ||
+                  err.toString() ||
+                  "Unknown error during launch.";
+            toast.error(i18n.t("launch.failed", { error: launchErrorMsg }), {
+              id: `launch-error-${profileId}`,
+            });
             setLaunchError(profileId, launchErrorMsg);
             onLaunchError?.(launchErrorMsg);
           }
@@ -296,20 +379,34 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               initiateButtonLaunch(profileId);
 
               try {
-                ProcessService.launch(profileId, singleplayer, multiplayer, undefined, skipLastPlayedUpdate);
+                ProcessService.launch(
+                  profileId,
+                  singleplayer,
+                  multiplayer,
+                  undefined,
+                  skipLastPlayedUpdate,
+                );
               } catch (err: any) {
                 console.error("Failed to launch profile:", err);
                 const launchErrorMsg =
                   typeof err === "string"
                     ? err
-                    : err.message || err.toString() || "Unknown error during launch.";
-                toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
+                    : err.message ||
+                      err.toString() ||
+                      "Unknown error during launch.";
+                toast.error(
+                  i18n.t("launch.failed", { error: launchErrorMsg }),
+                  { id: `launch-error-${profileId}` },
+                );
                 setLaunchError(profileId, launchErrorMsg);
                 onLaunchError?.(launchErrorMsg);
               }
             }}
             onMigrate={() => {
-              console.log(`[useProfileLaunch] Starting migration for quickplay ${profileId}`, migrationInfo);
+              console.log(
+                `[useProfileLaunch] Starting migration for quickplay ${profileId}`,
+                migrationInfo,
+              );
 
               // Close modal and launch with migration info
               hideModal(`group-migration-${profileId}-quickplay`);
@@ -317,26 +414,40 @@ export function useProfileLaunch(options: UseProfileLaunchOptions) {
               // Launch with migration info (will handle migration in install_minecraft_version)
               const performQuickPlayLaunch = async () => {
                 initiateButtonLaunch(profileId);
-                await ProcessService.launch(profileId, singleplayer, multiplayer, migrationInfo, skipLastPlayedUpdate);
+                await ProcessService.launch(
+                  profileId,
+                  singleplayer,
+                  multiplayer,
+                  migrationInfo,
+                  skipLastPlayedUpdate,
+                );
               };
               performQuickPlayLaunch();
             }}
             profileId={profileId}
-          />
+          />,
         );
       } catch (err: any) {
         console.error("Failed to check migration status:", err);
         // If migration check fails, proceed with normal launch
         initiateButtonLaunch(profileId);
         try {
-          await ProcessService.launch(profileId, singleplayer, multiplayer, undefined, skipLastPlayedUpdate);
+          await ProcessService.launch(
+            profileId,
+            singleplayer,
+            multiplayer,
+            undefined,
+            skipLastPlayedUpdate,
+          );
         } catch (err: any) {
           console.error("Failed to launch profile:", err);
           const launchErrorMsg =
             typeof err === "string"
               ? err
               : err.message || err.toString() || "Unknown error during launch.";
-          toast.error(i18n.t('launch.failed', { error: launchErrorMsg }), { id: `launch-error-${profileId}` });
+          toast.error(i18n.t("launch.failed", { error: launchErrorMsg }), {
+            id: `launch-error-${profileId}`,
+          });
           setLaunchError(profileId, launchErrorMsg);
           onLaunchError?.(launchErrorMsg);
         }

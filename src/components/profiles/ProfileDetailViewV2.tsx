@@ -16,7 +16,10 @@ import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { ActionButton as SingleActionButton } from "../ui/ActionButton";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { LocalContentTabV2 } from "./detail/v2/LocalContentTabV2";
-import { SettingsContextMenu, type ContextMenuItem } from "../ui/SettingsContextMenu";
+import {
+  SettingsContextMenu,
+  type ContextMenuItem,
+} from "../ui/SettingsContextMenu";
 import { ConfirmDeleteDialog } from "../modals/ConfirmDeleteDialog";
 import { ExportProfileModal } from "./ExportProfileModal";
 import { ModpackVersionsModal } from "../modals/ModpackVersionsModal";
@@ -41,7 +44,12 @@ import { parseMotdToHtml } from "../../utils/motd-utils";
 import { useTranslation } from "react-i18next";
 
 type MainTabType = "content" | "worlds" | "logs" | "screenshots";
-type ContentTabType = "mods" | "resourcepacks" | "datapacks" | "shaderpacks" | "nrc";
+type ContentTabType =
+  | "mods"
+  | "resourcepacks"
+  | "datapacks"
+  | "shaderpacks"
+  | "nrc";
 
 interface ProfileDetailViewV2Props {
   profile: Profile;
@@ -59,15 +67,21 @@ export function ProfileDetailViewV2({
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
   const resolvedLoaderVersion = useResolvedLoaderVersion(profile);
   const [activeMainTab, setActiveMainTab] = useState<MainTabType>("content");
-  const [activeContentTab, setActiveContentTab] = useState<ContentTabType>("mods");
+  const [activeContentTab, setActiveContentTab] =
+    useState<ContentTabType>("mods");
   const accentColor = useThemeStore((state) => state.accentColor);
 
-  useEffect(() => { setDiscordState("Editing a Profile"); }, []);
+  useEffect(() => {
+    setDiscordState("Editing a Profile");
+  }, []);
 
   // Context menu state
   const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
   const contextMenuId = `profile-detail-${profile.id}`;
-  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuPosition, setContextMenuPosition] = useState({
+    x: 0,
+    y: 0,
+  });
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   // Delete modal state
@@ -75,7 +89,8 @@ export function ProfileDetailViewV2({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Modpack versions state
-  const [modpackVersions, setModpackVersions] = useState<UnifiedModpackVersionsResponse | null>(null);
+  const [modpackVersions, setModpackVersions] =
+    useState<UnifiedModpackVersionsResponse | null>(null);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
   // Global modal system
@@ -97,8 +112,8 @@ export function ProfileDetailViewV2({
   const accounts = useMinecraftAuthStore((state) => state.accounts);
 
   // Find preferred account if one is set
-  const preferredAccount = currentProfile.preferred_account_id 
-    ? accounts.find(acc => acc.id === currentProfile.preferred_account_id)
+  const preferredAccount = currentProfile.preferred_account_id
+    ? accounts.find((acc) => acc.id === currentProfile.preferred_account_id)
     : null;
 
   // Load preferred account avatar
@@ -108,77 +123,97 @@ export function ProfileDetailViewV2({
   });
 
   // Profile launch hook
-  const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } = useProfileLaunch({
-    profileId: profile.id,
-    onLaunchSuccess: () => {
-      console.log("Profile launched successfully:", profile.name);
-    },
-    onLaunchError: (error) => {
-      console.error("Profile launch error:", error);
-    },
-  });
+  const { isLaunching, statusMessage, handleLaunch, handleQuickPlayLaunch } =
+    useProfileLaunch({
+      profileId: profile.id,
+      onLaunchSuccess: () => {
+        console.log("Profile launched successfully:", profile.name);
+      },
+      onLaunchError: (error) => {
+        console.error("Profile launch error:", error);
+      },
+    });
 
   // Handler for world/server launch requests from WorldsTab
-  const handleLaunchRequest = useCallback(async (params: {
-    profileId: string;
-    quickPlaySingleplayer?: string;
-    quickPlayMultiplayer?: string;
-  }) => {
-    console.log("🚀 Launch request received:", params);
+  const handleLaunchRequest = useCallback(
+    async (params: {
+      profileId: string;
+      quickPlaySingleplayer?: string;
+      quickPlayMultiplayer?: string;
+    }) => {
+      console.log("🚀 Launch request received:", params);
 
-    if (params.quickPlaySingleplayer) {
-      // Launch with specific world using QuickPlay
-      console.log(`🚀 QuickPlay Singleplayer: Launching world: ${params.quickPlaySingleplayer}`);
-      toast.success(t('profiles.toast.launching_world', { name: params.quickPlaySingleplayer }));
-      handleQuickPlayLaunch(params.quickPlaySingleplayer, undefined);
-    } else if (params.quickPlayMultiplayer) {
-      // Launch with specific server using QuickPlay
-      console.log(`🌐 QuickPlay Multiplayer: Joining server: ${params.quickPlayMultiplayer}`);
-      toast.success(t('profiles.toast.joining_server', { name: params.quickPlayMultiplayer }));
-      handleQuickPlayLaunch(undefined, params.quickPlayMultiplayer);
-    } else {
-      // Regular launch
-      console.log("Regular launch");
-      handleQuickPlayLaunch(undefined, undefined);
-    }
-  }, [handleQuickPlayLaunch]);
+      if (params.quickPlaySingleplayer) {
+        // Launch with specific world using QuickPlay
+        console.log(
+          `🚀 QuickPlay Singleplayer: Launching world: ${params.quickPlaySingleplayer}`,
+        );
+        toast.success(
+          t("profiles.toast.launching_world", {
+            name: params.quickPlaySingleplayer,
+          }),
+        );
+        handleQuickPlayLaunch(params.quickPlaySingleplayer, undefined);
+      } else if (params.quickPlayMultiplayer) {
+        // Launch with specific server using QuickPlay
+        console.log(
+          `🌐 QuickPlay Multiplayer: Joining server: ${params.quickPlayMultiplayer}`,
+        );
+        toast.success(
+          t("profiles.toast.joining_server", {
+            name: params.quickPlayMultiplayer,
+          }),
+        );
+        handleQuickPlayLaunch(undefined, params.quickPlayMultiplayer);
+      } else {
+        // Regular launch
+        console.log("Regular launch");
+        handleQuickPlayLaunch(undefined, undefined);
+      }
+    },
+    [handleQuickPlayLaunch],
+  );
 
   // Settings context menu items
   const contextMenuItems: ContextMenuItem[] = [
     {
       id: "edit",
-      label: t('profiles.editProfile'),
+      label: t("profiles.editProfile"),
       icon: "solar:settings-bold",
       onClick: () => onEdit(),
     },
     {
       id: "duplicate",
-      label: t('profiles.duplicate'),
+      label: t("profiles.duplicate"),
       icon: "solar:copy-bold",
       onClick: () => handleDuplicateProfile(),
     },
     {
       id: "export",
-      label: t('profiles.export'),
+      label: t("profiles.export"),
       icon: "solar:download-bold",
       onClick: () => handleOpenExportModal(),
     },
     // Show modpack versions only if modpack info exists and versions are loaded
-    ...(currentProfile.modpack_info && modpackVersions ? [{
-      id: "modpack-versions",
-      label: t('profiles.modpackVersions'),
-      icon: "solar:archive-bold",
-      onClick: () => handleOpenModpackVersionsModal(),
-    }] : []),
+    ...(currentProfile.modpack_info && modpackVersions
+      ? [
+          {
+            id: "modpack-versions",
+            label: t("profiles.modpackVersions"),
+            icon: "solar:archive-bold",
+            onClick: () => handleOpenModpackVersionsModal(),
+          },
+        ]
+      : []),
     {
       id: "open-folder",
-      label: t('profiles.openFolder'),
+      label: t("profiles.openFolder"),
       icon: "solar:folder-bold",
       onClick: () => handleOpenFolder(),
     },
     {
       id: "delete",
-      label: t('profiles.delete'),
+      label: t("profiles.delete"),
       icon: "solar:trash-bin-trash-bold",
       destructive: true,
       separator: true,
@@ -187,7 +222,10 @@ export function ProfileDetailViewV2({
   ];
 
   // Memoized callback for getDisplayFileName
-  const getGenericDisplayFileName = useCallback((item: LocalContentItem) => item.filename, []);
+  const getGenericDisplayFileName = useCallback(
+    (item: LocalContentItem) => item.filename,
+    [],
+  );
 
   // Handler for refreshing profile data
   const handleRefresh = useCallback(() => {
@@ -196,19 +234,26 @@ export function ProfileDetailViewV2({
   }, []);
 
   // Handler for browse content requests
-  const handleBrowseContent = useCallback((contentType: string) => {
-    console.log("Browse content requested for:", contentType);
-    // Navigate to the browse route instead of just changing the tab
-    navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
-  }, [navigate, profile.id]);
+  const handleBrowseContent = useCallback(
+    (contentType: string) => {
+      console.log("Browse content requested for:", contentType);
+      // Navigate to the browse route instead of just changing the tab
+      navigate(`/profilesv2/${profile.id}/browse/${contentType}`);
+    },
+    [navigate, profile.id],
+  );
 
   // Handler for deleting profile
   const handleDeleteProfile = useCallback(() => {
-    console.log("[ProfileDetailViewV2] handleDeleteProfile called for:", currentProfile.id, currentProfile.name);
+    console.log(
+      "[ProfileDetailViewV2] handleDeleteProfile called for:",
+      currentProfile.id,
+      currentProfile.name,
+    );
 
     // Check if it's a standard version
     if (currentProfile.is_standard_version) {
-      toast.error(t('profiles.cannotDeleteStandard'));
+      toast.error(t("profiles.cannotDeleteStandard"));
       return;
     }
 
@@ -221,17 +266,21 @@ export function ProfileDetailViewV2({
     setIsDeleting(true);
 
     try {
-      const deletePromise = useProfileStore.getState().deleteProfile(currentProfile.id);
+      const deletePromise = useProfileStore
+        .getState()
+        .deleteProfile(currentProfile.id);
       await toast.promise(deletePromise, {
-        loading: t('profiles.deletingProfile', { name: currentProfile.name }),
+        loading: t("profiles.deletingProfile", { name: currentProfile.name }),
         success: () => {
           fetchProfiles();
           navigate("/profiles");
           setIsDeleteModalOpen(false);
-          return t('profiles.deleteSuccess', { name: currentProfile.name });
+          return t("profiles.deleteSuccess", { name: currentProfile.name });
         },
         error: (err) =>
-          t('profiles.deleteError', { error: err instanceof Error ? err.message : String(err.message) }),
+          t("profiles.deleteError", {
+            error: err instanceof Error ? err.message : String(err.message),
+          }),
       });
     } catch (error) {
       console.error("Delete failed:", error);
@@ -245,44 +294,54 @@ export function ProfileDetailViewV2({
     setIsDeleteModalOpen(false);
   }, []);
 
-
-
   // Handler for opening export modal
   const handleOpenExportModal = useCallback(() => {
-    showModal(`export-profile-${currentProfile.id}`, (
+    showModal(
+      `export-profile-${currentProfile.id}`,
       <ExportProfileModal
         profile={currentProfile}
         isOpen={true}
         onClose={() => hideModal(`export-profile-${currentProfile.id}`)}
-      />
-    ));
+      />,
+    );
   }, [currentProfile, showModal, hideModal]);
 
   // Handler for opening profile folder
   const handleOpenFolder = useCallback(async () => {
-    console.log("[ProfileDetailViewV2] handleOpenFolder called for:", currentProfile.name);
+    console.log(
+      "[ProfileDetailViewV2] handleOpenFolder called for:",
+      currentProfile.name,
+    );
     const openPromise = ProfileService.openProfileFolder(currentProfile.id);
     toast.promise(openPromise, {
-      loading: t('profiles.openingFolder', { name: currentProfile.name }),
-      success: t('profiles.openFolderSuccess', { name: currentProfile.name }),
+      loading: t("profiles.openingFolder", { name: currentProfile.name }),
+      success: t("profiles.openFolderSuccess", { name: currentProfile.name }),
       error: (err) => {
-        const message = err instanceof Error ? err.message : String(err.message);
+        const message =
+          err instanceof Error ? err.message : String(err.message);
         console.error(`Failed to open folder for ${currentProfile.name}:`, err);
-        return t('profiles.openFolderError', { error: message });
+        return t("profiles.openFolderError", { error: message });
       },
     });
   }, [currentProfile, profile.id]);
 
   // Handler for duplicating profile
   const handleDuplicateProfile = useCallback(() => {
-    console.log("[ProfileDetailViewV2] handleDuplicateProfile called for:", currentProfile.name);
+    console.log(
+      "[ProfileDetailViewV2] handleDuplicateProfile called for:",
+      currentProfile.name,
+    );
     openDuplicateModal(currentProfile);
   }, [currentProfile, openDuplicateModal]);
 
   // Handler for opening modpack versions modal
   const handleOpenModpackVersionsModal = useCallback(() => {
-    console.log("[ProfileDetailViewV2] handleOpenModpackVersionsModal called for:", currentProfile.name);
-    showModal(`modpack-versions-${currentProfile.id}`, (
+    console.log(
+      "[ProfileDetailViewV2] handleOpenModpackVersionsModal called for:",
+      currentProfile.name,
+    );
+    showModal(
+      `modpack-versions-${currentProfile.id}`,
       <ModpackVersionsModal
         isOpen={true}
         onClose={() => hideModal(`modpack-versions-${currentProfile.id}`)}
@@ -295,19 +354,27 @@ export function ProfileDetailViewV2({
             await fetchProfiles();
             // Force reload the current profile from the updated profiles list
             const updatedProfiles = useProfileStore.getState().profiles;
-            const updatedProfile = updatedProfiles.find(p => p.id === currentProfile.id);
+            const updatedProfile = updatedProfiles.find(
+              (p) => p.id === currentProfile.id,
+            );
             if (updatedProfile) {
               setCurrentProfile(updatedProfile);
-              console.log("Profile refreshed after modpack version switch:", updatedProfile.modpack_info);
+              console.log(
+                "Profile refreshed after modpack version switch:",
+                updatedProfile.modpack_info,
+              );
             } else {
               console.error("Could not find updated profile after switch");
             }
           } catch (err) {
-            console.error("Failed to refresh profile data after modpack switch:", err);
+            console.error(
+              "Failed to refresh profile data after modpack switch:",
+              err,
+            );
           }
         }}
-      />
-    ));
+      />,
+    );
   }, [currentProfile, showModal, hideModal, modpackVersions, fetchProfiles]);
 
   // Effect to synchronize the internal currentProfile state with the profile prop
@@ -329,7 +396,9 @@ export function ProfileDetailViewV2({
     if (currentProfile.modpack_info) {
       setIsLoadingVersions(true);
       try {
-        const versions = await UnifiedService.getModpackVersions(currentProfile.modpack_info.source);
+        const versions = await UnifiedService.getModpackVersions(
+          currentProfile.modpack_info.source,
+        );
         setModpackVersions(versions);
       } catch (err) {
         console.error("Failed to refresh modpack versions:", err);
@@ -347,16 +416,16 @@ export function ProfileDetailViewV2({
     refreshModpackVersions();
   }, [refreshModpackVersions]);
 
-
-
   // Close this menu if another context menu opens globally
   useEffect(() => {
-    if (openContextMenuId && openContextMenuId !== contextMenuId && isContextMenuOpen) {
+    if (
+      openContextMenuId &&
+      openContextMenuId !== contextMenuId &&
+      isContextMenuOpen
+    ) {
       setIsContextMenuOpen(false);
     }
   }, [openContextMenuId, contextMenuId, isContextMenuOpen]);
-
-
 
   // Get mod loader icon
   const getModLoaderIcon = () => {
@@ -376,42 +445,66 @@ export function ProfileDetailViewV2({
 
   // Main tabs configuration
   const mainTabs: GroupTab[] = [
-    { id: "content", name: t('profiles.tabs.content'), count: 0, icon: "solar:widget-bold" },
-    { id: "worlds", name: t('profiles.tabs.worlds'), count: 0, icon: "solar:planet-bold" },
-    { id: "screenshots", name: t('profiles.tabs.screenshots'), count: 0, icon: "solar:camera-bold" },
-    { id: "logs", name: t('profiles.tabs.logs'), count: 0, icon: "solar:code-bold" },
+    {
+      id: "content",
+      name: t("profiles.tabs.content"),
+      count: 0,
+      icon: "solar:widget-bold",
+    },
+    {
+      id: "worlds",
+      name: t("profiles.tabs.worlds"),
+      count: 0,
+      icon: "solar:planet-bold",
+    },
+    {
+      id: "screenshots",
+      name: t("profiles.tabs.screenshots"),
+      count: 0,
+      icon: "solar:camera-bold",
+    },
+    {
+      id: "logs",
+      name: t("profiles.tabs.logs"),
+      count: 0,
+      icon: "solar:code-bold",
+    },
   ];
-
-
 
   // Action buttons configuration similar to ProfilesTabV2
   const actionButtons: ActionButton[] = [
     {
       id: "back",
-      label: t('profiles.back').toUpperCase(),
+      label: t("profiles.back").toUpperCase(),
       icon: "solar:arrow-left-bold",
-      tooltip: t('profiles.backToProfiles'),
+      tooltip: t("profiles.backToProfiles"),
       onClick: () => onClose(),
     },
     {
       id: "play",
-      label: isLaunching ? t('profiles.stop').toUpperCase() : t('profiles.play').toUpperCase(),
+      label: isLaunching
+        ? t("profiles.stop").toUpperCase()
+        : t("profiles.play").toUpperCase(),
       icon: isLaunching ? "solar:stop-bold" : "solar:play-bold",
-      tooltip: isLaunching ? t('profiles.stopPlaying') : t('profiles.startPlaying'),
+      tooltip: isLaunching
+        ? t("profiles.stopPlaying")
+        : t("profiles.startPlaying"),
       onClick: handleLaunch,
     },
     {
       id: "settings",
-      label: t('profiles.settingsLabel').toUpperCase(),
+      label: t("profiles.settingsLabel").toUpperCase(),
       icon: "solar:settings-bold",
-      tooltip: profile.is_standard_version ? t('profiles.javaSettings') : t('profiles.editProfile'),
+      tooltip: profile.is_standard_version
+        ? t("profiles.javaSettings")
+        : t("profiles.editProfile"),
       onClick: () => onEdit(),
     },
     {
       id: "more",
       label: null,
       icon: "solar:menu-dots-bold",
-      tooltip: t('profiles.moreOptions'),
+      tooltip: t("profiles.moreOptions"),
       onClick: (event?: React.MouseEvent<HTMLButtonElement>) => {
         event?.preventDefault();
         event?.stopPropagation();
@@ -429,12 +522,14 @@ export function ProfileDetailViewV2({
         // Calculate position when opening
         if (!isContextMenuOpen && event?.currentTarget) {
           const buttonRect = event.currentTarget.getBoundingClientRect();
-          const containerRect = event.currentTarget.closest('.relative')?.getBoundingClientRect();
+          const containerRect = event.currentTarget
+            .closest(".relative")
+            ?.getBoundingClientRect();
 
           if (containerRect) {
             setContextMenuPosition({
               x: buttonRect.right - containerRect.left - 200, // Position menu to the left of the button
-              y: buttonRect.bottom - containerRect.top + 4,   // Position below the button
+              y: buttonRect.bottom - containerRect.top + 4, // Position below the button
             });
           }
         }
@@ -444,7 +539,9 @@ export function ProfileDetailViewV2({
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
-      <div className={`flex-1 flex flex-col min-h-0 ${activeMainTab === "logs" ? "" : "overflow-hidden"}`}>
+      <div
+        className={`flex-1 flex flex-col min-h-0 ${activeMainTab === "logs" ? "" : "overflow-hidden"}`}
+      >
         {/* Profile Header Section */}
         <div className="mb-1 flex-shrink-0">
           <div className="flex items-center gap-4 mb-4">
@@ -462,38 +559,50 @@ export function ProfileDetailViewV2({
               {/* Profile Name with Account Indicator */}
               <div className="flex items-center gap-2">
                 <h1 className="font-minecraft-ten text-2xl text-white normal-case">
-                  <span dangerouslySetInnerHTML={{ __html: parseMotdToHtml(profile.name || profile.id) }} />
+                  <span
+                    dangerouslySetInnerHTML={{
+                      __html: parseMotdToHtml(profile.name || profile.id),
+                    }}
+                  />
                 </h1>
-                
+
                 {/* Preferred Account Indicator next to title */}
                 {preferredAccount && (
-                  <Tooltip content={t('profiles.launchWith', { account: preferredAccount.username })}>
+                  <Tooltip
+                    content={t("profiles.launchWith", {
+                      account: preferredAccount.username,
+                    })}
+                  >
                     <div className="flex items-center gap-1 text-white/60">
                       {preferredAccountAvatarUrl && (
                         <img
                           src={preferredAccountAvatarUrl}
                           alt={preferredAccount.username}
                           className="w-5 h-5 rounded-sm pixelated flex-shrink-0"
-                          style={{ imageRendering: 'pixelated' }}
+                          style={{ imageRendering: "pixelated" }}
                           onError={(e) => {
-                            e.currentTarget.src = 'https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true';
+                            e.currentTarget.src =
+                              "https://crafatar.com/avatars/8667ba71b85a4004af54457a9734eed7?overlay=true";
                           }}
                         />
                       )}
-                      <span className="truncate max-w-[100px] text-base lowercase">{preferredAccount.username}</span>
+                      <span className="truncate max-w-[100px] text-base lowercase">
+                        {preferredAccount.username}
+                      </span>
                     </div>
                   </Tooltip>
                 )}
               </div>
-
-
 
               {/* Game Info / Launch Status */}
               <div className="text-sm font-minecraft-ten">
                 {isLaunching && statusMessage ? (
                   /* Launch Status Message */
                   <div className="text-white/60 flex items-center gap-2 min-w-0 max-w-lg">
-                    <span className="truncate text-sm font-minecraft-ten" title={statusMessage}>
+                    <span
+                      className="truncate text-sm font-minecraft-ten"
+                      title={statusMessage}
+                    >
                       {statusMessage}
                     </span>
                   </div>
@@ -524,9 +633,11 @@ export function ProfileDetailViewV2({
                             }}
                           />
                           <span className="capitalize">{profile.loader}</span>
-                          {(resolvedLoaderVersion?.version || profile.loader_version) && (
+                          {(resolvedLoaderVersion?.version ||
+                            profile.loader_version) && (
                             <span className="text-white/50">
-                              {resolvedLoaderVersion?.version || profile.loader_version}
+                              {resolvedLoaderVersion?.version ||
+                                profile.loader_version}
                             </span>
                           )}
                         </div>
@@ -553,7 +664,7 @@ export function ProfileDetailViewV2({
             {/* Action Buttons - Right side of the header row */}
             <div className="flex items-center gap-3 relative">
               <ActionButtons
-                actions={actionButtons.filter(btn => btn.id !== 'back')}
+                actions={actionButtons.filter((btn) => btn.id !== "back")}
                 buttonRefs={{ more: moreButtonRef }}
               />
 
@@ -577,15 +688,15 @@ export function ProfileDetailViewV2({
                 onClose={handleCancelDelete}
                 onConfirm={handleConfirmDelete}
                 isDeleting={isDeleting}
-                title={t('profiles.deleteProfileTitle')}
+                title={t("profiles.deleteProfileTitle")}
                 message={
                   <p className="text-white/80 font-minecraft-ten">
-                    {t('profiles.deleteConfirmMessage', { name: currentProfile.name })}
+                    {t("profiles.deleteConfirmMessage", {
+                      name: currentProfile.name,
+                    })}
                   </p>
                 }
               />
-
-
             </div>
           </div>
 
@@ -603,8 +714,6 @@ export function ProfileDetailViewV2({
           </div>
         </div>
 
-
-
         {/* Content Area */}
         <div className="flex-1 min-h-0 flex flex-col">
           {activeMainTab === "content" && (
@@ -616,9 +725,9 @@ export function ProfileDetailViewV2({
                     profile={currentProfile}
                     contentType="Mod"
                     getDisplayFileName={getGenericDisplayFileName}
-                    itemTypeName={t('profiles.content.mod')}
-                    itemTypeNamePlural={t('profiles.content.mods')}
-                    addContentButtonText={t('profiles.content.addMods')}
+                    itemTypeName={t("profiles.content.mod")}
+                    itemTypeNamePlural={t("profiles.content.mods")}
+                    addContentButtonText={t("profiles.content.addMods")}
                     emptyStateIconOverride="solar:bolt-bold-duotone"
                     onRefreshRequired={handleRefresh}
                     onBrowseContentRequest={handleBrowseContent}
@@ -630,9 +739,11 @@ export function ProfileDetailViewV2({
                     profile={currentProfile}
                     contentType="ResourcePack"
                     getDisplayFileName={getGenericDisplayFileName}
-                    itemTypeName={t('profiles.content.resourcePack')}
-                    itemTypeNamePlural={t('profiles.content.resourcePacks')}
-                    addContentButtonText={t('profiles.content.addResourcePacks')}
+                    itemTypeName={t("profiles.content.resourcePack")}
+                    itemTypeNamePlural={t("profiles.content.resourcePacks")}
+                    addContentButtonText={t(
+                      "profiles.content.addResourcePacks",
+                    )}
                     emptyStateIconOverride="solar:gallery-bold-duotone"
                     onRefreshRequired={handleRefresh}
                     onBrowseContentRequest={handleBrowseContent}
@@ -644,9 +755,9 @@ export function ProfileDetailViewV2({
                     profile={currentProfile}
                     contentType="DataPack"
                     getDisplayFileName={getGenericDisplayFileName}
-                    itemTypeName={t('profiles.content.dataPack')}
-                    itemTypeNamePlural={t('profiles.content.dataPacks')}
-                    addContentButtonText={t('profiles.content.addDataPacks')}
+                    itemTypeName={t("profiles.content.dataPack")}
+                    itemTypeNamePlural={t("profiles.content.dataPacks")}
+                    addContentButtonText={t("profiles.content.addDataPacks")}
                     emptyStateIconOverride="solar:database-bold-duotone"
                     onRefreshRequired={handleRefresh}
                     onBrowseContentRequest={handleBrowseContent}
@@ -658,9 +769,9 @@ export function ProfileDetailViewV2({
                     profile={currentProfile}
                     contentType="ShaderPack"
                     getDisplayFileName={getGenericDisplayFileName}
-                    itemTypeName={t('profiles.content.shaderPack')}
-                    itemTypeNamePlural={t('profiles.content.shaderPacks')}
-                    addContentButtonText={t('profiles.content.addShaderPacks')}
+                    itemTypeName={t("profiles.content.shaderPack")}
+                    itemTypeNamePlural={t("profiles.content.shaderPacks")}
+                    addContentButtonText={t("profiles.content.addShaderPacks")}
                     emptyStateIconOverride="solar:sun-bold-duotone"
                     onRefreshRequired={handleRefresh}
                     onBrowseContentRequest={handleBrowseContent}
@@ -672,9 +783,9 @@ export function ProfileDetailViewV2({
                     profile={currentProfile}
                     contentType="NoRiskMod"
                     getDisplayFileName={getGenericDisplayFileName}
-                    itemTypeName={t('profiles.content.noriskMod')}
-                    itemTypeNamePlural={t('profiles.content.noriskMods')}
-                    addContentButtonText={t('profiles.content.addNoriskMods')}
+                    itemTypeName={t("profiles.content.noriskMod")}
+                    itemTypeNamePlural={t("profiles.content.noriskMods")}
+                    addContentButtonText={t("profiles.content.addNoriskMods")}
                     emptyStateIconOverride="solar:shield-check-bold-duotone"
                     onRefreshRequired={async () => {
                       // Force refresh of profile data when NoRisk pack changes
@@ -682,7 +793,7 @@ export function ProfileDetailViewV2({
                         // Fetch the updated profile from the store
                         await fetchProfiles();
                         // Force re-render by creating a new object reference
-                        setCurrentProfile(prev => ({ ...prev }));
+                        setCurrentProfile((prev) => ({ ...prev }));
                       } catch (err) {
                         console.error("Failed to refresh profile data:", err);
                       }
@@ -697,71 +808,91 @@ export function ProfileDetailViewV2({
               <div className="w-64 flex-shrink-0 border-l border-white/10 pl-4">
                 <div className="space-y-2">
                   <div className="text-white/70 text-sm font-minecraft-ten uppercase tracking-wide mb-4">
-                    {t('profiles.contentTypes')}
+                    {t("profiles.contentTypes")}
                   </div>
 
                   <button
                     onClick={() => setActiveContentTab("mods")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "mods"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "mods"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
+                    }`}
                   >
-                    <Icon icon="solar:widget-bold" className="w-5 h-5 flex-shrink-0" />
+                    <Icon
+                      icon="solar:widget-bold"
+                      className="w-5 h-5 flex-shrink-0"
+                    />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
-                      {t('profiles.content.mods')}
+                      {t("profiles.content.mods")}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveContentTab("resourcepacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "resourcepacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "resourcepacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
+                    }`}
                   >
-                    <Icon icon="solar:palette-bold" className="w-5 h-5 flex-shrink-0" />
+                    <Icon
+                      icon="solar:palette-bold"
+                      className="w-5 h-5 flex-shrink-0"
+                    />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
-                      {t('profiles.content.resourcePacks')}
+                      {t("profiles.content.resourcePacks")}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveContentTab("datapacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "datapacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "datapacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
+                    }`}
                   >
-                    <Icon icon="solar:database-bold" className="w-5 h-5 flex-shrink-0" />
+                    <Icon
+                      icon="solar:database-bold"
+                      className="w-5 h-5 flex-shrink-0"
+                    />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
-                      {t('profiles.content.dataPacks')}
+                      {t("profiles.content.dataPacks")}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveContentTab("shaderpacks")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "shaderpacks"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "shaderpacks"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
+                    }`}
                   >
-                    <Icon icon="solar:sun-bold" className="w-5 h-5 flex-shrink-0" />
+                    <Icon
+                      icon="solar:sun-bold"
+                      className="w-5 h-5 flex-shrink-0"
+                    />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
-                      {t('profiles.content.shaderPacks')}
+                      {t("profiles.content.shaderPacks")}
                     </span>
                   </button>
 
                   <button
                     onClick={() => setActiveContentTab("nrc")}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${activeContentTab === "nrc"
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded transition-colors text-left ${
+                      activeContentTab === "nrc"
                         ? "bg-white/10 text-white border border-white/20"
                         : "text-white/60 hover:text-white hover:bg-white/5"
-                      }`}
+                    }`}
                   >
-                    <Icon icon="solar:shield-check-bold" className="w-5 h-5 flex-shrink-0" />
+                    <Icon
+                      icon="solar:shield-check-bold"
+                      className="w-5 h-5 flex-shrink-0"
+                    />
                     <span className="font-minecraft-ten text-sm uppercase tracking-wide">
-                      {t('profiles.content.noriskClient')}
+                      {t("profiles.content.noriskClient")}
                     </span>
                   </button>
                 </div>

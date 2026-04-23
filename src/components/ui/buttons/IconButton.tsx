@@ -53,9 +53,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     const [ripples, setRipples] = useState<RippleType[]>([]);
     const rippleCounter = useRef(0);
     const accentColor = useThemeStore((state) => state.accentColor);
+    const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
     const isBackgroundAnimationEnabled = useThemeStore(
       (state) => state.isBackgroundAnimationEnabled,
     );
+    const isFullRiskStyle = uiStylePreset === "fullrisk";
     const [isPressed, setIsPressed] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
 
@@ -172,6 +174,13 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         return `${colors.main}30`;
       }
 
+      if (variant === "3d") {
+        if (!isFullRiskStyle) {
+          return `${colors.main}${isHovered ? "50" : "30"}`;
+        }
+        return isHovered ? `${colors.light}` : `${colors.main}`;
+      }
+
       const baseOpacity = isHovered ? "50" : "30";
       return `${colors.main}${baseOpacity}`;
     };
@@ -233,10 +242,13 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
       }
 
       if (variant === "3d") {
+        if (isFullRiskStyle) {
+          return shadowDepth === "none" ? "border-[3px]" : "border-[3px] border-b-[7px]";
+        }
         return shadowDepth === "none" ? "border-2" : "border-2 border-b-4";
       }
 
-      return "border border-b-2";
+      return isFullRiskStyle ? "border-[2px] border-b-[4px]" : "border border-b-2";
     };
 
     const getShadowClasses = () => {
@@ -264,8 +276,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          "font-minecraft relative overflow-hidden backdrop-blur-md",
-          "rounded-md text-white tracking-wider",
+          isFullRiskStyle ? "font-minecraft relative overflow-hidden" : "font-minecraft relative overflow-hidden backdrop-blur-md",
+          isFullRiskStyle ? "text-white tracking-wider" : "rounded-md text-white tracking-wider",
           "flex items-center justify-center",
           "text-shadow-sm",
           getBorderClasses(),
@@ -276,9 +288,9 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
           className,
         )}
         style={{
-          backgroundColor: getBackgroundColor(),
+          ...(isFullRiskStyle ? { background: getBackgroundColor() } : { backgroundColor: getBackgroundColor() }),
           borderColor: getBorderColor(),
-          borderBottomColor: getBorderBottomColor(),
+          borderBottomColor: variant === "3d" && isFullRiskStyle ? "#094f86" : getBorderBottomColor(),
           boxShadow: getBoxShadow(),
           color: colors.text,
           filter: isHovered && !disabled ? "brightness(1.1)" : "brightness(1)",

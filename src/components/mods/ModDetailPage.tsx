@@ -9,7 +9,13 @@ import { setDiscordState } from "../../utils/discordRpc";
 import { CurseForgeService } from "../../services/curseforge-service";
 import type { ModrinthProject } from "../../types/modrinth";
 import type { CurseForgeMod } from "../../types/curseforge";
-import type { UnifiedProjectDetails, UnifiedGalleryImage, UnifiedProjectLinks, UnifiedTeamMember, UnifiedProjectDependency } from "../../types/unified";
+import type {
+  UnifiedProjectDetails,
+  UnifiedGalleryImage,
+  UnifiedProjectLinks,
+  UnifiedTeamMember,
+  UnifiedProjectDependency,
+} from "../../types/unified";
 import { UnifiedDependencyType } from "../../types/unified";
 import { ModPlatform } from "../../types/unified";
 import { ModDetailHeader } from "./ModDetailHeader";
@@ -25,7 +31,7 @@ function modrinthToUnified(
   authorName?: string,
   authorAvatarUrl?: string | null,
   teamMembers?: UnifiedTeamMember[],
-  dependencies?: UnifiedProjectDependency[]
+  dependencies?: UnifiedProjectDependency[],
 ): UnifiedProjectDetails {
   return {
     id: project.id,
@@ -59,12 +65,14 @@ function modrinthToUnified(
     project_url: `https://modrinth.com/${project.project_type}/${project.slug}`,
     date_created: project.published,
     date_modified: project.updated,
-    license: project.license ? {
-      id: project.license.id,
-      name: project.license.name,
-      url: project.license.url,
-    } : null,
-    donation_urls: (project.donation_urls || []).map(d => ({
+    license: project.license
+      ? {
+          id: project.license.id,
+          name: project.license.name,
+          url: project.license.url,
+        }
+      : null,
+    donation_urls: (project.donation_urls || []).map((d) => ({
       platform: d.platform,
       url: d.url,
     })),
@@ -80,11 +88,16 @@ function modrinthToUnified(
 // Helper to convert CurseForge modLoader ID to name
 function getCurseForgeLoaderName(loaderId: number | undefined): string | null {
   switch (loaderId) {
-    case 1: return "Forge";
-    case 4: return "Fabric";
-    case 5: return "Quilt";
-    case 6: return "NeoForge";
-    default: return null;
+    case 1:
+      return "Forge";
+    case 4:
+      return "Fabric";
+    case 5:
+      return "Quilt";
+    case 6:
+      return "NeoForge";
+    default:
+      return null;
   }
 }
 
@@ -92,21 +105,23 @@ function getCurseForgeLoaderName(loaderId: number | undefined): string | null {
 function curseforgeToUnified(
   mod: CurseForgeMod,
   fullDescription?: string,
-  dependencies?: UnifiedProjectDependency[]
+  dependencies?: UnifiedProjectDependency[],
 ): UnifiedProjectDetails {
   // Convert CurseForge authors to team members
-  const teamMembers: UnifiedTeamMember[] = (mod.authors || []).map(author => ({
-    username: author.name,
-    avatar_url: null, // CurseForge doesn't provide author avatars
-    role: "Author",
-    profile_url: author.url,
-  }));
+  const teamMembers: UnifiedTeamMember[] = (mod.authors || []).map(
+    (author) => ({
+      username: author.name,
+      avatar_url: null, // CurseForge doesn't provide author avatars
+      role: "Author",
+      profile_url: author.url,
+    }),
+  );
 
   // Extract unique game versions and loaders from latestFilesIndexes
   const gameVersionsSet = new Set<string>();
   const loadersSet = new Set<string>();
 
-  (mod.latestFilesIndexes || []).forEach(fileIndex => {
+  (mod.latestFilesIndexes || []).forEach((fileIndex) => {
     if (fileIndex.gameVersion) {
       gameVersionsSet.add(fileIndex.gameVersion);
     }
@@ -128,7 +143,7 @@ function curseforgeToUnified(
     icon_url: mod.logo?.url || null,
     downloads: mod.downloadCount,
     followers: mod.thumbsUpCount || 0,
-    categories: mod.categories?.map(c => c.name) || [],
+    categories: mod.categories?.map((c) => c.name) || [],
     gallery: (mod.screenshots || []).map((img, index) => ({
       url: img.url,
       thumbnail_url: img.thumbnailUrl,
@@ -161,12 +176,18 @@ function curseforgeToUnified(
 
 function getProjectTypeFromClassId(classId: number | undefined): string {
   switch (classId) {
-    case 6: return "mod";
-    case 4471: return "modpack";
-    case 12: return "resourcepack";
-    case 6552: return "shader";
-    case 6945: return "datapack";
-    default: return "mod";
+    case 6:
+      return "mod";
+    case 4471:
+      return "modpack";
+    case 12:
+      return "resourcepack";
+    case 6552:
+      return "shader";
+    case 6945:
+      return "datapack";
+    default:
+      return "mod";
   }
 }
 
@@ -213,12 +234,14 @@ export function ModDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
 
-  useEffect(() => { setDiscordState("Viewing a Mod"); }, []);
+  useEffect(() => {
+    setDiscordState("Viewing a Mod");
+  }, []);
 
   useEffect(() => {
     async function loadProject() {
       if (!source || !projectId) {
-        setError(t('mod_detail.invalid_url_params'));
+        setError(t("mod_detail.invalid_url_params"));
         setIsLoading(false);
         return;
       }
@@ -244,9 +267,12 @@ export function ModDetailPage({
                 modrinthProject.project_type,
                 undefined,
                 undefined,
-                1
+                1,
               );
-              if (searchResponse.hits.length > 0 && searchResponse.hits[0].project_id === modrinthProject.id) {
+              if (
+                searchResponse.hits.length > 0 &&
+                searchResponse.hits[0].project_id === modrinthProject.id
+              ) {
                 authorName = searchResponse.hits[0].author || undefined;
               }
             } catch (searchErr) {
@@ -255,27 +281,34 @@ export function ModDetailPage({
 
             // Also fetch team members for the team list in sidebar
             try {
-              const members = await ModrinthService.getProjectMembers(projectId);
+              const members =
+                await ModrinthService.getProjectMembers(projectId);
               if (members.length > 0) {
                 // Sort by ordering for display
-                const sortedMembers = [...members].sort((a, b) => a.ordering - b.ordering);
+                const sortedMembers = [...members].sort(
+                  (a, b) => a.ordering - b.ordering,
+                );
 
                 // If we didn't get author from search, use owner from team
                 if (!authorName) {
-                  const owner = members.find(m => m.role.toLowerCase() === "owner");
+                  const owner = members.find(
+                    (m) => m.role.toLowerCase() === "owner",
+                  );
                   const projectLead = owner || sortedMembers[0];
                   authorName = projectLead.user.username;
                   authorAvatarUrl = projectLead.user.avatar_url;
                 } else {
                   // Get avatar from owner for display
-                  const owner = members.find(m => m.role.toLowerCase() === "owner");
+                  const owner = members.find(
+                    (m) => m.role.toLowerCase() === "owner",
+                  );
                   if (owner) {
                     authorAvatarUrl = owner.user.avatar_url;
                   }
                 }
 
                 // Convert all members to unified format
-                teamMembers = sortedMembers.map(m => ({
+                teamMembers = sortedMembers.map((m) => ({
                   username: m.user.username,
                   avatar_url: m.user.avatar_url,
                   role: m.role,
@@ -298,25 +331,34 @@ export function ModDetailPage({
 
                 // Filter to only required/optional dependencies with project_ids
                 const depsWithProjects = deps.filter(
-                  d => d.project_id && (d.dependency_type === 'required' || d.dependency_type === 'optional')
+                  (d) =>
+                    d.project_id &&
+                    (d.dependency_type === "required" ||
+                      d.dependency_type === "optional"),
                 );
 
                 if (depsWithProjects.length > 0) {
                   // Fetch project details for all dependencies
-                  const depProjectIds = depsWithProjects.map(d => d.project_id!);
-                  const depProjects = await ModrinthService.getProjectDetails(depProjectIds);
+                  const depProjectIds = depsWithProjects.map(
+                    (d) => d.project_id!,
+                  );
+                  const depProjects =
+                    await ModrinthService.getProjectDetails(depProjectIds);
 
                   // Map to unified format
-                  dependencies = depsWithProjects.map(dep => {
-                    const project = depProjects.find(p => p.id === dep.project_id);
+                  dependencies = depsWithProjects.map((dep) => {
+                    const project = depProjects.find(
+                      (p) => p.id === dep.project_id,
+                    );
                     return {
                       project_id: dep.project_id!,
                       title: project?.title || dep.project_id!,
                       slug: project?.slug || dep.project_id!,
                       icon_url: project?.icon_url || null,
-                      dependency_type: dep.dependency_type === 'required'
-                        ? UnifiedDependencyType.Required
-                        : UnifiedDependencyType.Optional,
+                      dependency_type:
+                        dep.dependency_type === "required"
+                          ? UnifiedDependencyType.Required
+                          : UnifiedDependencyType.Optional,
                       source: ModPlatform.Modrinth,
                     };
                   });
@@ -327,14 +369,22 @@ export function ModDetailPage({
               // Continue without dependencies
             }
 
-            setProject(modrinthToUnified(modrinthProject, authorName, authorAvatarUrl, teamMembers, dependencies));
+            setProject(
+              modrinthToUnified(
+                modrinthProject,
+                authorName,
+                authorAvatarUrl,
+                teamMembers,
+                dependencies,
+              ),
+            );
           } else {
-            setError(t('mod_detail.project_not_found'));
+            setError(t("mod_detail.project_not_found"));
           }
         } else if (source.toLowerCase() === "curseforge") {
           const modId = parseInt(projectId, 10);
           if (isNaN(modId)) {
-            setError(t('mod_detail.invalid_curseforge_id'));
+            setError(t("mod_detail.invalid_curseforge_id"));
             return;
           }
           const response = await CurseForgeService.getModsByIds([modId]);
@@ -344,7 +394,8 @@ export function ModDetailPage({
             // Fetch full description (HTML) from CurseForge API
             let fullDescription: string | undefined;
             try {
-              fullDescription = await CurseForgeService.getModDescription(modId);
+              fullDescription =
+                await CurseForgeService.getModDescription(modId);
             } catch (descErr) {
               console.warn("Failed to fetch CurseForge description:", descErr);
               // Continue without full description - will fallback to summary
@@ -352,7 +403,7 @@ export function ModDetailPage({
 
             setProject(curseforgeToUnified(mod, fullDescription));
           } else {
-            setError(t('mod_detail.mod_not_found'));
+            setError(t("mod_detail.mod_not_found"));
           }
         } else {
           setError(`Unknown source: ${source}`);
@@ -386,13 +437,18 @@ export function ModDetailPage({
             className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
           >
             <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-            <span>{t('common.back')}</span>
+            <span>{t("common.back")}</span>
           </button>
         )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Icon icon="solar:refresh-bold" className="w-12 h-12 text-white/50 animate-spin" />
-            <span className="text-white/50 font-minecraft-ten">{t('mod_detail.loading_project')}</span>
+            <Icon
+              icon="solar:refresh-bold"
+              className="w-12 h-12 text-white/50 animate-spin"
+            />
+            <span className="text-white/50 font-minecraft-ten">
+              {t("mod_detail.loading_project")}
+            </span>
           </div>
         </div>
       </div>
@@ -409,18 +465,23 @@ export function ModDetailPage({
             className="flex items-center gap-2 text-white/70 hover:text-white mb-6 font-minecraft-ten transition-colors"
           >
             <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-            <span>{t('common.back')}</span>
+            <span>{t("common.back")}</span>
           </button>
         )}
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Icon icon="solar:danger-triangle-bold" className="w-12 h-12 text-red-500" />
-            <span className="text-red-400 font-minecraft-ten">{error || t('mod_detail.project_not_found')}</span>
+            <Icon
+              icon="solar:danger-triangle-bold"
+              className="w-12 h-12 text-red-500"
+            />
+            <span className="text-red-400 font-minecraft-ten">
+              {error || t("mod_detail.project_not_found")}
+            </span>
             <button
               onClick={handleBack}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-minecraft-ten transition-colors"
             >
-              {t('mod_detail.go_back')}
+              {t("mod_detail.go_back")}
             </button>
           </div>
         </div>
@@ -439,7 +500,7 @@ export function ModDetailPage({
             className="flex items-center gap-2 text-white/70 hover:text-white font-minecraft-ten transition-colors"
           >
             <Icon icon="solar:arrow-left-bold" className="w-5 h-5" />
-            <span>{t('common.back')}</span>
+            <span>{t("common.back")}</span>
           </button>
         </div>
       )}
@@ -447,7 +508,9 @@ export function ModDetailPage({
       {/* Scrollable Content — `custom-scrollbar` gives this area the same
           accent-themed scrollbar as the rest of the V3 UI; without it the
           native Chromium default shows up here and reads as foreign. */}
-      <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 ${hideBackButton ? "pt-6" : ""}`}>
+      <div
+        className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 ${hideBackButton ? "pt-6" : ""}`}
+      >
         {/* Header */}
         <ModDetailHeader
           project={project}
@@ -483,10 +546,7 @@ export function ModDetailPage({
 
               {/* Sidebar - fixed max width */}
               <div className="w-full lg:w-72 xl:w-80 flex-shrink-0">
-                <ModDetailSidebar
-                  project={project}
-                  accentColor={accentColor}
-                />
+                <ModDetailSidebar project={project} accentColor={accentColor} />
               </div>
             </div>
           </>

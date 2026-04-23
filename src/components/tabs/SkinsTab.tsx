@@ -168,7 +168,7 @@ const SkinPreview = memo(
         className={cn(
           "relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-white/10 hover:border-white/20 transition-all duration-200 cursor-pointer",
           animationClasses,
-          isDisabled ? "opacity-60 pointer-events-none" : ""
+          isDisabled ? "opacity-60 pointer-events-none" : "",
         )}
         onClick={() =>
           !isDisabled && !isApplied && !isSelected && onClick(skin)
@@ -186,7 +186,7 @@ const SkinPreview = memo(
                 onEditSkin(skin, event);
               }}
               className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/50 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
-              title={t('skins.editProperties')}
+              title={t("skins.editProperties")}
               disabled={isDisabled}
             >
               <Icon icon="solar:pen-bold" className="w-4 h-4" />
@@ -201,13 +201,10 @@ const SkinPreview = memo(
                 onDeleteSkin(skin.id, skin.name, event);
               }}
               className="w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-red-700/80 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded transition-all duration-200"
-              title={t('skins.deleteSkin')}
+              title={t("skins.deleteSkin")}
               disabled={isDisabled}
             >
-              <Icon
-                icon="solar:trash-bin-trash-bold"
-                className="w-4 h-4"
-              />
+              <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -225,7 +222,9 @@ const SkinPreview = memo(
             {isRenderLoading && canShowSpinner ? (
               <div className="flex flex-col items-center justify-center space-y-2">
                 <div className="w-8 h-8 border-4 border-t-transparent border-[var(--accent)] rounded-full animate-spin"></div>
-                <p className="font-minecraft text-xs text-white/70 lowercase">{t('skins.loading')}</p>
+                <p className="font-minecraft text-xs text-white/70 lowercase">
+                  {t("skins.loading")}
+                </p>
               </div>
             ) : !isRenderLoading ? (
               <SkinViewer
@@ -245,7 +244,7 @@ const SkinPreview = memo(
                   style={{ color: accentColor.value }}
                 />
                 <span className="font-minecraft text-xs text-white lowercase">
-                  {t('skins.applying')}
+                  {t("skins.applying")}
                 </span>
               </div>
             )}
@@ -268,18 +267,19 @@ const SkinPreview = memo(
                   icon="solar:palette-bold"
                   className="w-3 h-3 text-white/50"
                 />
-                <span>{skin.variant === "slim" ? t('skins.slim') : t('skins.classic')}</span>
+                <span>
+                  {skin.variant === "slim"
+                    ? t("skins.slim")
+                    : t("skins.classic")}
+                </span>
               </div>
 
               {isApplied && (
                 <>
                   <div className="w-px h-3 bg-white/30"></div>
                   <div className="text-green-400 flex items-center gap-1">
-                    <Icon
-                      icon="solar:check-circle-bold"
-                      className="w-3 h-3"
-                    />
-                    <span>{t('skins.applied')}</span>
+                    <Icon icon="solar:check-circle-bold" className="w-3 h-3" />
+                    <span>{t("skins.applied")}</span>
                   </div>
                 </>
               )}
@@ -313,7 +313,7 @@ const AddSkinCard = memo(
         style={animationStyle}
         className={cn(
           "relative flex flex-col gap-3 p-4 rounded-lg bg-black/20 border border-dashed border-white/10 hover:border-white/30 transition-all duration-200 cursor-pointer",
-          animationClasses
+          animationClasses,
         )}
         onClick={onClick}
         onMouseEnter={() => setIsHovered(true)}
@@ -351,9 +351,9 @@ const AddSkinCard = memo(
             {/* Skin Name */}
             <h3
               className="font-minecraft-ten text-white text-base whitespace-nowrap overflow-hidden text-ellipsis max-w-full normal-case mb-1"
-              title={t('skins.addNewSkin')}
+              title={t("skins.addNewSkin")}
             >
-              {t('skins.addNewSkin')}
+              {t("skins.addNewSkin")}
             </h3>
 
             {/* Description */}
@@ -363,7 +363,7 @@ const AddSkinCard = memo(
                   icon="solar:upload-bold"
                   className="w-3 h-3 text-white/50"
                 />
-                <span>{t('skins.uploadOrImport')}</span>
+                <span>{t("skins.uploadOrImport")}</span>
               </div>
             </div>
           </div>
@@ -372,7 +372,6 @@ const AddSkinCard = memo(
     );
   },
 );
-
 
 export function SkinsTab() {
   const {
@@ -385,7 +384,9 @@ export function SkinsTab() {
   const { t } = useTranslation();
   const { selectedSkinId, setSelectedSkinId } = useSkinStore();
 
-  useEffect(() => { setDiscordState("Browsing Skins"); }, []);
+  useEffect(() => {
+    setDiscordState("Browsing Skins");
+  }, []);
   const [skinData, setSkinData] = useState<MinecraftProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [localSkins, setLocalSkins] = useState<MinecraftSkin[]>([]);
@@ -436,7 +437,7 @@ export function SkinsTab() {
             }
           } catch (e) {
             console.error("Error parsing skin textures:", e);
-            toast.error(t('skins.failedToParseSkinDetails'));
+            toast.error(t("skins.failedToParseSkinDetails"));
           }
         }
       }
@@ -495,14 +496,15 @@ export function SkinsTab() {
     event?: React.MouseEvent<HTMLButtonElement>,
   ) => {
     event?.stopPropagation();
-    showModal('add-skin-modal', (
+    showModal(
+      "add-skin-modal",
       <AddSkinModal
         skin={skin}
         onSave={saveSkin}
         onAdd={addSkin}
         isLoading={localSkinsLoading}
-      />
-    ));
+      />,
+    );
   };
 
   const saveSkin = async (skin: MinecraftSkin) => {
@@ -522,9 +524,9 @@ export function SkinsTab() {
         if (selectedLocalSkin?.id === updatedSkin.id) {
           setSelectedLocalSkin(updatedSkin);
         }
-        hideModal('add-skin-modal');
+        hideModal("add-skin-modal");
       } else {
-        toast.error(t('skins.skinNotFound'));
+        toast.error(t("skins.skinNotFound"));
       }
     } catch (err) {
       console.error("Error updating skin properties:", err);
@@ -548,12 +550,12 @@ export function SkinsTab() {
       setLocalSkins((prevSkins) =>
         [...prevSkins, newSkin].sort((a, b) => a.name.localeCompare(b.name)),
       );
-      hideModal('add-skin-modal');
+      hideModal("add-skin-modal");
     } catch (err) {
       console.error("Error adding new skin:", err);
       const errorMessage =
         err instanceof Error ? err.message : String(err.message);
-      toast.error(t('skins.failedToAddSkin', { error: errorMessage }));
+      toast.error(t("skins.failedToAddSkin", { error: errorMessage }));
     }
   };
 
@@ -571,7 +573,7 @@ export function SkinsTab() {
     toast.promise(
       deletePromise(),
       {
-        loading: t('skins.deletingSkin', { name: skinName }),
+        loading: t("skins.deletingSkin", { name: skinName }),
         success: () => {
           setLocalSkins((prevSkins) =>
             prevSkins.filter((s) => s.id !== skinId),
@@ -580,7 +582,7 @@ export function SkinsTab() {
             setSelectedLocalSkin(null);
             setSelectedSkinId(null);
           }
-          return t('skins.deletedSkinSuccess', { name: skinName });
+          return t("skins.deletedSkinSuccess", { name: skinName });
         },
         error: (err) => {
           console.error("Error deleting skin:", err);
@@ -596,12 +598,12 @@ export function SkinsTab() {
 
   const applyLocalSkin = async (skin: MinecraftSkin) => {
     if (!activeAccount) {
-      toast.error(t('skins.mustBeLoggedIn'));
+      toast.error(t("skins.mustBeLoggedIn"));
       return;
     }
 
     if (isSkinApplied(skin)) {
-      toast.error(t('skins.skinAlreadyApplied', { name: skin.name }));
+      toast.error(t("skins.skinAlreadyApplied", { name: skin.name }));
       return;
     }
 
@@ -618,7 +620,10 @@ export function SkinsTab() {
       );
 
       toast.success(
-        t('skins.appliedSkinSuccess', { name: skin.name, variant: skin.variant }),
+        t("skins.appliedSkinSuccess", {
+          name: skin.name,
+          variant: skin.variant,
+        }),
       );
       await loadSkinData();
     } catch (err) {
@@ -639,13 +644,13 @@ export function SkinsTab() {
     <button
       onClick={() => startEditSkin(null)}
       className="flex items-center gap-2 px-4 py-2 bg-black/30 hover:bg-black/40 text-white/70 hover:text-white border border-white/10 hover:border-white/20 rounded-lg font-minecraft text-2xl lowercase transition-all duration-200"
-      title={t('skins.addSkin')}
+      title={t("skins.addSkin")}
       disabled={!activeAccount}
     >
       <div className="w-4 h-4 flex items-center justify-center">
         <Icon icon="solar:add-circle-bold" className="w-4 h-4" />
       </div>
-      <span>{t('skins.addSkin')}</span>
+      <span>{t("skins.addSkin")}</span>
     </button>
   );
 
@@ -657,7 +662,7 @@ export function SkinsTab() {
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <SearchWithFilters
-                placeholder={t('skins.searchPlaceholder')}
+                placeholder={t("skins.searchPlaceholder")}
                 searchValue={search}
                 onSearchChange={setSearch}
                 onSearchEnter={() => {}} // Optional: implement instant search
@@ -673,67 +678,66 @@ export function SkinsTab() {
 
         {/* Content */}
         <div className="space-y-8">
-        {accountLoading ? (
-          <p className="text-white/70 font-minecraft text-xl text-center py-4">
-            {t('skins.loadingAccount')}
-          </p>
-        ) : accountError ? (
-          <StatusMessage
-            type="error"
-            className="font-minecraft text-lg"
-            message={t('skins.accountError', { error: accountError })}
-          />
-        ) : !activeAccount ? (
-          <p className="text-white/70 italic font-minecraft text-xl text-center py-10">
-            {t('skins.pleaseLogIn')}
-          </p>
-        ) : (
-          <>
-            <div className="space-y-5 text-center">
-              {localSkinsLoading ? (
-                <p className="text-white/70 font-minecraft text-xl text-center py-4">
-                  {t('skins.loadingSkins')}
-                </p>
-              ) : localSkinsError ? (
-                <StatusMessage
-                  type="error"
-                  className="font-minecraft text-lg"
-                  message={localSkinsError}
-                />
-              ) : !localSkinsLoading &&
-                localSkins.length > 0 &&
-                filteredSkins.length === 0 &&
-                !localSkinsError ? (
-                <p className="text-white/70 italic font-minecraft text-lg">
-                  {t('skins.noSkinsMatchSearch')}
-                </p>
-              ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-                  <AddSkinCard
-                    index={0}
-                    onClick={() => startEditSkin(null, undefined)}
+          {accountLoading ? (
+            <p className="text-white/70 font-minecraft text-xl text-center py-4">
+              {t("skins.loadingAccount")}
+            </p>
+          ) : accountError ? (
+            <StatusMessage
+              type="error"
+              className="font-minecraft text-lg"
+              message={t("skins.accountError", { error: accountError })}
+            />
+          ) : !activeAccount ? (
+            <p className="text-white/70 italic font-minecraft text-xl text-center py-10">
+              {t("skins.pleaseLogIn")}
+            </p>
+          ) : (
+            <>
+              <div className="space-y-5 text-center">
+                {localSkinsLoading ? (
+                  <p className="text-white/70 font-minecraft text-xl text-center py-4">
+                    {t("skins.loadingSkins")}
+                  </p>
+                ) : localSkinsError ? (
+                  <StatusMessage
+                    type="error"
+                    className="font-minecraft text-lg"
+                    message={localSkinsError}
                   />
-                  {filteredSkins.map((skin, index) => (
-                    <SkinPreview
-                      key={skin.id}
-                      skin={skin}
-                      index={index + 1}
-                      loading={loading}
-                      localSkinsLoading={localSkinsLoading}
-                      selectedLocalSkin={selectedLocalSkin}
-                      isApplied={isSkinApplied(skin)}
-                      onClick={applyLocalSkin}
-                      onEditSkin={startEditSkin}
-                      onDeleteSkin={handleDeleteSkin}
+                ) : !localSkinsLoading &&
+                  localSkins.length > 0 &&
+                  filteredSkins.length === 0 &&
+                  !localSkinsError ? (
+                  <p className="text-white/70 italic font-minecraft text-lg">
+                    {t("skins.noSkinsMatchSearch")}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                    <AddSkinCard
+                      index={0}
+                      onClick={() => startEditSkin(null, undefined)}
                     />
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
+                    {filteredSkins.map((skin, index) => (
+                      <SkinPreview
+                        key={skin.id}
+                        skin={skin}
+                        index={index + 1}
+                        loading={loading}
+                        localSkinsLoading={localSkinsLoading}
+                        selectedLocalSkin={selectedLocalSkin}
+                        isApplied={isSkinApplied(skin)}
+                        onClick={applyLocalSkin}
+                        onEditSkin={startEditSkin}
+                        onDeleteSkin={handleDeleteSkin}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
-
       </div>
     </div>
   );
