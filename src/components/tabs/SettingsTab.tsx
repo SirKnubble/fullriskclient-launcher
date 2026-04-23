@@ -805,19 +805,6 @@ export function SettingsTab() {
                   cache_natives_extraction: checked,
                 }),
             },
-            {
-              id: "cache-natives-extraction",
-              label: t("settings.cache_natives"),
-              tooltip: t("settings.cache_natives.tooltip"),
-              type: "toggle",
-              value: tempConfig?.cache_natives_extraction ?? true,
-              onChange: (checked) =>
-                tempConfig &&
-                setTempConfig({
-                  ...tempConfig,
-                  cache_natives_extraction: checked,
-                }),
-            },
           ]}
           disabled={saving}
         />
