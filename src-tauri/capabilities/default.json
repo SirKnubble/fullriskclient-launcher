@@ -12,6 +12,7 @@
   ],
   "permissions": [
     "core:default",
+    "deep-link:default",
     "opener:default",
     "core:window:default",
     "core:window:allow-start-dragging",
@@ -23,6 +24,7 @@
     "core:window:allow-set-focus",
     "dialog:default",
     "opener:allow-open-path",
+    "opener:allow-reveal-item-in-dir",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-write-image",
     "dialog:allow-open",
@@ -71,6 +73,14 @@
     },
     {
       "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "opener:allow-reveal-item-in-dir",
       "allow": [
         {
           "path": "**/*"

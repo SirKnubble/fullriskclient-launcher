@@ -363,6 +363,9 @@ impl MinecraftLauncher {
             command.arg(format!("-Dnorisk.profile.name={}", p.name));
         }
 
+        // Pass meta dir to game client for shared Discord state file
+        command.arg(format!("-Dnorisk.meta.dir={}", crate::config::LAUNCHER_DIRECTORY.meta_dir().display()));
+
         if let Some(creds) = &self.credentials {
             if has_norisk_pack {
                 // Get the appropriate NoRisk token based on experimental mode setting
@@ -540,6 +543,16 @@ impl MinecraftLauncher {
         // Get post-exit hook from config at launch time (not at exit time)
         let launcher_config = state.config_manager.get_config().await;
         let post_exit_hook = launcher_config.hooks.post_exit.clone();
+
+        // Clear latest.log before launch to avoid mixing logs from previous sessions
+        let latest_log = self.game_directory.join("logs").join("latest.log");
+        if latest_log.exists() {
+            if let Err(e) = std::fs::remove_file(&latest_log) {
+                log::warn!("Failed to clear latest.log before launch: {}", e);
+            } else {
+                log::info!("Cleared previous latest.log before launch");
+            }
+        }
 
         // Start the process using ProcessManager with additional metadata
         process_manager

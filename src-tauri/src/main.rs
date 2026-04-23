@@ -4,6 +4,8 @@
     windows_subsystem = "windows"
 )]
 
+#[macro_use]
+mod utils;
 mod commands;
 mod config;
 mod error;
@@ -12,7 +14,6 @@ pub mod integrations;
 mod logging;
 mod minecraft;
 mod state;
-mod utils;
 
 use crate::integrations::norisk_packs;
 use crate::integrations::norisk_versions;
@@ -21,9 +22,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Listener;
 use tauri::Manager;
+use tauri_plugin_deep_link::DeepLinkExt;
 use utils::debug_utils;
 use utils::updater_utils;
 
+use crate::commands::analytics_command::track_analytics_event;
 use crate::commands::process_command::{
     fetch_crash_report, focus_main_window, get_full_log, get_process, get_processes,
     get_processes_by_profile, open_minecraft_log_window, open_single_log_window,
@@ -102,8 +105,9 @@ use commands::path_commands::{get_launcher_directory, resolve_image_path};
 
 // Import cape commands
 use commands::cape_command::{
-    browse_capes, delete_cape, download_template_and_open_explorer, equip_cape, get_player_capes,
-    unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape, get_capes_by_hashes,
+    browse_capes, check_is_moderator, delete_cape, download_template_and_open_explorer, equip_cape,
+    get_player_capes, unequip_cape, upload_cape, add_favorite_cape, remove_favorite_cape,
+    get_capes_by_hashes, get_owned_capes_list,
 };
 
 // Import vanilla cape commands
@@ -170,28 +174,12 @@ async fn main() {
                     info!("SingleInstance: Brought existing window to front.");
                 }
                 None => {
-                    // Main window doesn't exist - first instance is a zombie
-                    error!("SingleInstance: CRITICAL - Main window does not exist!");
-                    error!("SingleInstance: First instance is a zombie. Exiting to release lock.");
-
-                    #[cfg(target_os = "windows")]
-                    {
-                        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
-                        let _ = app
-                            .dialog()
-                            .message("The NoRisk Launcher encountered a critical error.\n\n\
-                                Please join our Discord for support:\n\
-                                https://discord.norisk.gg")
-                            .kind(MessageDialogKind::Error)
-                            .title("NoRisk Launcher - Critical Error")
-                            .blocking_show();
-                    }
-
-                    std::process::exit(1);
+                    info!("SingleInstance: Main window not yet available, still starting up. Ignoring.");
                 }
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
@@ -290,6 +278,37 @@ async fn main() {
                 })
                 .build(app)?;
 
+            // --- Deep Link Setup ---
+            // Register deep link schemes (needed for dev mode on Windows/Linux)
+            if let Err(e) = app.deep_link().register_all() {
+                error!("Failed to register deep link schemes: {}", e);
+            } else {
+                info!("Deep link schemes registered successfully.");
+            }
+
+            // Handle deep links received while app is running
+            let deep_link_app_handle = app_handle.clone();
+            app.deep_link().on_open_url(move |event| {
+                let handle = deep_link_app_handle.clone();
+                let urls = event.urls();
+                info!("Deep link received: {:?}", urls);
+                tauri::async_runtime::spawn(async move {
+                    utils::deep_link_utils::handle_deep_link(&handle, urls).await;
+                });
+            });
+
+            // Handle cold-start deep links (app was launched via deep link)
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                info!("Cold-start deep link detected: {:?}", urls);
+                let cold_start_handle = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    // Small delay to ensure state initialization has started
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                    utils::deep_link_utils::handle_deep_link(&cold_start_handle, urls).await;
+                });
+            }
+            // --- End Deep Link Setup ---
+
             // --- Handle .noriskpack file opening on initial startup (all platforms) ---
             // The single-instance plugin does not handle the *very first* launch with arguments.
             // We still need to check std::env::args() here for that first launch.
@@ -319,7 +338,7 @@ async fn main() {
                     }
                 };
 
-                // --- State Initialization --- 
+                // --- State Initialization ---
                 info!("Initiating state initialization...");
                 if let Err(e) = state::state_manager::State::init(Arc::new(state_init_app_handle.clone())).await {
                     error!("CRITICAL: Failed to initialize state: {}. Update check and main window might not proceed correctly.", e);
@@ -365,7 +384,7 @@ async fn main() {
                     }
                     Err(e) => {
                         error!("Failed to get global state for update check: {}.", e);
-                        if let Some(win) = updater_window { 
+                        if let Some(win) = updater_window {
                             updater_utils::emit_status(&state_init_app_handle, "close", "Closing due to state fetch error.".to_string(), None);
                             tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
                             if let Err(close_err) = win.close() {
@@ -429,15 +448,15 @@ async fn main() {
                 //debug_utils::debug_unified_mod_versions().await;
             });
 
-            // --- Register Focus Event Listener for Discord RPC --- 
-            if let Some(main_window) = app.get_webview_window("main") { 
-                let focus_app_handle = app_handle.clone(); 
+            // --- Register Focus Event Listener for Discord RPC ---
+            if let Some(main_window) = app.get_webview_window("main") {
+                let focus_app_handle = app_handle.clone();
                 main_window.listen("tauri://focus", move |_event| {
-                    let listener_app_handle = focus_app_handle.clone(); 
+                    let listener_app_handle = focus_app_handle.clone();
                     tokio::spawn(async move {
                         debug!("Main window focus event received. Triggering DiscordManager handler.");
                         match state::state_manager::State::get().await {
-                            Ok(state_manager_instance) => { 
+                            Ok(state_manager_instance) => {
                                 if let Err(e) = state_manager_instance.discord_manager.handle_focus_event().await {
                                     error!("Error during DiscordManager focus handling: {}", e);
                                 }
@@ -525,7 +544,7 @@ async fn main() {
             delete_custom_mod,
             open_profile_folder,
             import_profile_from_file,
-            import_profile, 
+            import_profile,
             upload_log_to_mclogs_command,
             get_fabric_loader_versions,
             get_forge_versions,
@@ -560,8 +579,10 @@ async fn main() {
             set_discord_state,
             browse_capes,
             get_player_capes,
+            get_owned_capes_list,
             equip_cape,
             delete_cape,
+            check_is_moderator,
             upload_cape,
             unequip_cape,
             add_favorite_cape,
@@ -646,11 +667,14 @@ async fn main() {
             equip_vanilla_cape,
             get_vanilla_cape_info,
             refresh_vanilla_cape_data,
+            track_analytics_event,
+            commands::analytics_command::get_system_os_info,
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,
             commands::profile_command::get_profile_instance_path,
             commands::profile_command::get_default_profile_path,
+            commands::profile_command::get_profile_disk_size,
             get_or_download_asset_model,
             get_friends,
             get_pending_requests,
@@ -673,7 +697,8 @@ async fn main() {
             delete_chat_message,
             send_typing_indicator,
             add_message_reaction,
-            remove_message_reaction
+            remove_message_reaction,
+            commands::deep_link_handler::confirm_auth_bridge,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

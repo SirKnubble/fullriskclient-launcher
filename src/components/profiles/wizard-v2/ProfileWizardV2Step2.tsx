@@ -11,15 +11,17 @@ import { useThemeStore } from "../../../store/useThemeStore";
 import { Select } from "../../ui/Select";
 import { Tooltip } from "../../ui/Tooltip";
 import type { NrcCompatibilityData } from "../../../utils/nrc-compatibility";
+import { useTranslation } from "react-i18next";
 
 function NrcLoaderCompatibleTooltipContent() {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
-      <div className="text-sm text-white">This loader supports NoRisk Client</div>
+      <div className="text-sm text-white">{t('profiles.wizard.nrcLoaderCompatible')}</div>
       <div className="flex items-start gap-2">
         <Icon icon="solar:lightbulb-bold" className="text-yellow-400 text-base flex-shrink-0" />
         <div className="text-gray-300 text-xs italic">
-          NRC features will work with this mod loader.
+          {t('profiles.wizard.nrcLoaderFeatures')}
         </div>
       </div>
     </div>
@@ -48,6 +50,7 @@ export function ProfileWizardV2Step2({
   selectedMinecraftVersion,
   nrcCompatibility
 }: ProfileWizardV2Step2Props) {
+  const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,7 +273,7 @@ export function ProfileWizardV2Step2({
           setError(null);
         } else {
           // Real error - show error message
-          setError(`Failed to load ${selectedLoader} versions. Please try again.`);
+          setError(t('profiles.wizard.loadLoaderVersionsError', { loader: selectedLoader }));
           setLoaderVersions([]);
           setSelectedLoaderVersion(null);
           setShowNoVersionsFound(false);
@@ -295,7 +298,7 @@ export function ProfileWizardV2Step2({
       return (
         <div className="flex flex-col items-center justify-center h-64">
           <Icon icon="solar:refresh-bold" className="w-12 h-12 text-white animate-spin mb-4" />
-          <p className="text-xl font-minecraft text-white lowercase">loading...</p>
+          <p className="text-xl font-minecraft text-white lowercase">{t('profiles.wizard.loading')}</p>
         </div>
       );
     }
@@ -365,7 +368,7 @@ export function ProfileWizardV2Step2({
                   </h4>
                   {isDisabled && (
                     <p className="font-minecraft text-2xl text-white/70 lowercase mt-1">
-                      not available
+                      {t('profiles.wizard.notAvailable')}
                     </p>
                   )}
                 </div>
@@ -379,13 +382,13 @@ export function ProfileWizardV2Step2({
           {selectedLoader === "vanilla" ? (
             <div className="text-center w-full">
               <p className="text-lg font-minecraft text-white/50 lowercase">
-                no additional version required
+                {t('profiles.wizard.noAdditionalVersion')}
               </p>
             </div>
           ) : showLoadingIndicator ? (
             <div className="flex items-center justify-center w-full">
               <Icon icon="solar:refresh-bold" className="w-6 h-6 text-white animate-spin mr-3" />
-              <p className="text-lg font-minecraft text-white lowercase">loading versions...</p>
+              <p className="text-lg font-minecraft text-white lowercase">{t('profiles.wizard.loadingVersions')}</p>
             </div>
           ) : loaderVersions.length > 0 ? (
             <Select
@@ -395,7 +398,7 @@ export function ProfileWizardV2Step2({
                 value: version,
                 label: version
               }))}
-              placeholder={`Select ${modLoaders.find(l => l.key === selectedLoader)?.label} version...`}
+              placeholder={t('profiles.wizard.selectLoaderVersion', { loader: modLoaders.find(l => l.key === selectedLoader)?.label })}
               size="md"
               className="w-full"
             />
@@ -403,7 +406,7 @@ export function ProfileWizardV2Step2({
             <div className="text-center w-full">
               <Icon icon="solar:danger-triangle-bold" className="w-8 h-8 text-white/50 mx-auto mb-2" />
               <p className="text-base font-minecraft text-white/70 lowercase">
-                no {selectedLoader} versions available for {selectedMinecraftVersion}
+                {t('profiles.wizard.noLoaderVersions', { loader: selectedLoader, version: selectedMinecraftVersion })}
               </p>
             </div>
           ) : null}
@@ -423,7 +426,7 @@ export function ProfileWizardV2Step2({
         icon={<Icon icon="solar:arrow-left-bold" className="w-5 h-5" />}
         iconPosition="left"
       >
-        back
+        {t('profiles.wizard.back')}
       </Button>
 
       <Button
@@ -435,14 +438,14 @@ export function ProfileWizardV2Step2({
         icon={<Icon icon="solar:arrow-right-bold" className="w-5 h-5" />}
         iconPosition="right"
       >
-        next
+        {t('profiles.wizard.next')}
       </Button>
     </div>
   );
 
   return (
     <Modal
-      title="create profile - select mod loader"
+      title={t('profiles.wizard.step2Title')}
       onClose={onClose}
       width="lg"
       footer={renderFooter()}

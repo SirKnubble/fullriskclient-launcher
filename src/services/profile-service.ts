@@ -373,6 +373,10 @@ export async function getDefaultProfilePath(): Promise<string> {
   return invoke<string>("get_default_profile_path");
 }
 
+export async function getProfileDiskSize(profileId: string): Promise<number> {
+  return invoke<number>("get_profile_disk_size", { profileId });
+}
+
 export interface AddSymlinkParams {
   profile_id: string;
   relative_path: string;

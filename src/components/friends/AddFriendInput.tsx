@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useFriendsStore } from "../../store/friends-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { cn } from "../../lib/utils";
 
 export function AddFriendInput() {
+  const { t } = useTranslation();
   const { sendRequest } = useFriendsStore();
   const { accentColor } = useThemeStore();
   const [username, setUsername] = useState("");
@@ -27,7 +29,7 @@ export function AddFriendInput() {
       setUsername("");
       setTimeout(() => setSuccess(false), 3000);
     } catch (e: any) {
-      setError(e?.message || "Failed to send request");
+      setError(e?.message || t('friends.send_request_failed'));
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +58,7 @@ export function AddFriendInput() {
           }}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          placeholder="Enter username..."
+          placeholder={t('friends.enter_username')}
           className={cn(
             "flex-1 bg-transparent py-3 pr-3 text-white font-minecraft-ten",
             "placeholder:text-white/30 focus:outline-none"
@@ -87,16 +89,16 @@ export function AddFriendInput() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft text-xs text-red-400 bg-red-500/10 border border-red-500/20">
-          <Icon icon="solar:danger-circle-bold" className="w-4 h-4 flex-shrink-0" />
-          {error}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg font-minecraft-ten text-xs text-red-400 bg-red-500/10 border border-red-500/20">
+          <Icon icon="solar:danger-circle-bold" className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span className="break-words min-w-0">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft text-xs text-green-400 bg-green-500/10 border border-green-500/20">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg font-minecraft-ten text-xs text-green-400 bg-green-500/10 border border-green-500/20">
           <Icon icon="solar:check-circle-bold" className="w-4 h-4 flex-shrink-0" />
-          friend request sent!
+          {t('friends.request_sent')}
         </div>
       )}
     </form>

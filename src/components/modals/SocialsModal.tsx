@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
 import { Modal } from "../ui/Modal";
@@ -44,6 +45,7 @@ function AccountLinkRow({
   onUnlink,
   visitUrl,
 }: AccountLinkRowProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between px-3 bg-black/20 rounded-md h-[58px]">
       <div className="flex items-center">
@@ -60,7 +62,7 @@ function AccountLinkRow({
             icon={<Icon icon={isLoading ? "mdi:loading" : "mdi:link-off"} className={isLoading ? "animate-spin" : ""} />}
             widthClassName="w-[140px]"
           >
-            Unlink
+            {t('socials.button.unlink')}
           </Button>
         ) : (
           <Button
@@ -71,7 +73,7 @@ function AccountLinkRow({
             icon={<Icon icon={isLoading ? "mdi:loading" : "mdi:link-variant"} className={isLoading ? "animate-spin" : ""} />}
             widthClassName="w-[140px]"
           >
-            Link
+            {t('socials.button.link')}
           </Button>
         )}
         <IconButton
@@ -88,6 +90,7 @@ function AccountLinkRow({
 }
 
 export function SocialsModal() {
+  const { t } = useTranslation();
   const { isModalOpen, closeModal } = useSocialsModalStore();
   const { activeAccount } = useMinecraftAuthStore();
   const { accentColor } = useThemeStore();
@@ -184,7 +187,7 @@ export function SocialsModal() {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);
-    toast.success("Link copied!");
+    toast.success(t('socials.toast.link_copied'));
   };
 
   const handleDiscordLink = async () => {
@@ -193,11 +196,11 @@ export function SocialsModal() {
       await discordAuthLink();
       const success = await fetchDiscordStatus();
       if (success) {
-        toast.success("Discord account linked!");
+        toast.success(t('socials.toast.discord_linked'));
       }
     } catch (error) {
       console.error("Failed to link Discord:", error);
-      toast.error("Could not link Discord.");
+      toast.error(t('socials.toast.discord_link_failed'));
     } finally {
       setIsProcessingDiscord(false);
     }
@@ -207,11 +210,11 @@ export function SocialsModal() {
     setIsProcessingDiscord(true);
     try {
       await discordAuthUnlink();
-      toast.success("Discord account unlinked.");
+      toast.success(t('socials.toast.discord_unlinked'));
       setIsDiscordLinked(false);
     } catch (error) {
       console.error("Failed to unlink Discord:", error);
-      toast.error("Could not unlink Discord.");
+      toast.error(t('socials.toast.discord_unlink_failed'));
     } finally {
       setIsProcessingDiscord(false);
     }
@@ -223,11 +226,11 @@ export function SocialsModal() {
       await githubAuthLink();
       const success = await fetchGithubStatus();
       if (success) {
-        toast.success("GitHub account linked!");
+        toast.success(t('socials.toast.github_linked'));
       }
     } catch (error) {
       console.error("Failed to link GitHub:", error);
-      toast.error("Could not link GitHub.");
+      toast.error(t('socials.toast.github_link_failed'));
     } finally {
       setIsProcessingGithub(false);
     }
@@ -237,11 +240,11 @@ export function SocialsModal() {
     setIsProcessingGithub(true);
     try {
       await githubAuthUnlink();
-      toast.success("GitHub account unlinked.");
+      toast.success(t('socials.toast.github_unlinked'));
       setIsGithubLinked(false);
     } catch (error) {
       console.error("Failed to unlink GitHub:", error);
-      toast.error("Could not unlink GitHub.");
+      toast.error(t('socials.toast.github_unlink_failed'));
     } finally {
       setIsProcessingGithub(false);
     }
@@ -249,11 +252,10 @@ export function SocialsModal() {
 
   const handleShowQrCode = async () => {
     const confirmed = await confirm({
-      title: "Show QR Code",
-      message:
-        "This QR code contains your norisk token. Do not share it on stream or with others as it could compromise your account security.",
-      confirmText: "Show QR Code",
-      cancelText: "Cancel",
+      title: t('socials.qr_confirm.title'),
+      message: t('socials.qr_confirm.message'),
+      confirmText: t('socials.qr_confirm.confirm'),
+      cancelText: t('common.cancel'),
       type: "warning",
     });
     if (confirmed) {
@@ -267,10 +269,10 @@ export function SocialsModal() {
       const newToken = await resetMobileAppToken();
       setMobileAppToken(newToken);
       setShowQrCode(false);
-      toast.success("Mobile app token reset.");
+      toast.success(t('socials.toast.token_reset'));
     } catch (error) {
       console.error("Failed to reset mobile app token:", error);
-      toast.error("Could not reset token.");
+      toast.error(t('socials.toast.token_reset_failed'));
     } finally {
       setIsProcessingMobileApp(false);
     }
@@ -294,7 +296,7 @@ export function SocialsModal() {
   return (
     <>
     <Modal
-      title="Social Accounts"
+      title={t('socials.title')}
       titleIcon={
         <Icon icon="fluent:people-community-20-filled" className="w-7 h-7" />
       }
@@ -309,12 +311,12 @@ export function SocialsModal() {
             className="w-16 h-16 text-accent"
           />
           <p className="text-white/90 font-minecraft-ten text-sm select-none">
-            Refer your friends, get 3 Days of NRC+ and{" "}
+            {t('socials.referral_text')}{" "}
             <span
               className="text-accent underline cursor-pointer hover:text-accent/80"
-              onClick={() => openExternalUrl("https://blog.norisk.gg/friend-referral")}
+              onClick={() => openExternalUrl(navigator.language.startsWith("de") ? "https://nrc.gg/freunde-werben" : "https://nrc.gg/invite-friends")}
             >
-              more...
+              {t('socials.referral_more')}
             </span>
           </p>
 
@@ -344,7 +346,7 @@ export function SocialsModal() {
               <div className="flex items-center justify-between px-3 bg-black/20 rounded-md h-[58px]">
                 <div className="flex items-center">
                   <Icon icon="material-symbols:phone-android" className="w-6 h-6 mr-3 text-white/80" />
-                  <span className="text-white/90 font-minecraft-ten text-xs">Mobile App</span>
+                  <span className="text-white/90 font-minecraft-ten text-xs">{t('socials.mobile_app')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {mobileAppToken || isLoadingMobileApp ? (
@@ -357,7 +359,7 @@ export function SocialsModal() {
                         icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:refresh"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
                         widthClassName="w-[140px]"
                       >
-                        Reset
+                        {t('socials.button.reset')}
                       </Button>
                     ) : (
                       <Button
@@ -368,7 +370,7 @@ export function SocialsModal() {
                         icon={<Icon icon={isLoadingMobileApp ? "mdi:loading" : "mdi:qrcode"} className={isLoadingMobileApp ? "animate-spin" : ""} />}
                         widthClassName="w-[140px]"
                       >
-                        Show QR
+                        {t('socials.button.show_qr')}
                       </Button>
                     )
                   ) : (
@@ -378,7 +380,7 @@ export function SocialsModal() {
                       disabled
                       widthClassName="w-[140px]"
                     >
-                      Failed
+                      {t('socials.button.failed')}
                     </Button>
                   )}
                   <IconButton
@@ -394,7 +396,7 @@ export function SocialsModal() {
                 <div className="flex justify-center p-3 bg-black/10 rounded-md">
                   <div className="text-center space-y-2">
                     <p className="text-white/70 font-minecraft-ten text-xs select-none">
-                      Scan with McReal App
+                      {t('socials.scan_qr')}
                     </p>
                     <img
                       src={generateQrCodeUrl()}

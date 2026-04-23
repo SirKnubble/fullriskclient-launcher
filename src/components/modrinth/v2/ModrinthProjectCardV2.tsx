@@ -18,6 +18,7 @@ import { ModrinthVersionListV2 } from "./ModrinthVersionListV2";
 import { openExternalUrl } from "../../../services/tauri-service";
 import { toast } from "react-hot-toast";
 import { preloadIcons } from "../../../lib/icon-utils";
+import { useTranslation } from "react-i18next";
 import { ThemedSurface } from "../../ui/ThemedSurface";
 import { Tooltip } from "../../ui/Tooltip";
 import { useNavigate } from "react-router-dom";
@@ -156,6 +157,16 @@ export interface ModrinthProjectCardV2Props
     sha1Hash: string,
   ) => void;
   itemIndex?: number;
+  /**
+   * Override the default title-click behavior. Used by in-place detail
+   * views (e.g. the V3 Add-content sheet) to render the mod detail as a
+   * stacked layer instead of navigating away from the current surface.
+   * The router-based full-page fallback is used when not provided.
+   */
+  onProjectClick?: (
+    project: UnifiedModSearchResult | any,
+    source: "modrinth" | "curseforge",
+  ) => void;
 }
 
 export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
@@ -197,7 +208,9 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
     itemIndex,
     isBlocked = false, // Deprecated
     projectNoRiskStatus = null,
+    onProjectClick,
   }) => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -210,8 +223,15 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
 
     const handleTitleClick = (e: React.MouseEvent) => {
       e.preventDefault();
-      // Navigate to the mod detail page
-      const source = hit.source === 'Modrinth' ? 'modrinth' : 'curseforge';
+      const source: "modrinth" | "curseforge" =
+        hit.source === "Modrinth" ? "modrinth" : "curseforge";
+      // When a consumer owns the surface (e.g. the Add-content sheet),
+      // let them handle the click in-place instead of hard-navigating
+      // away from their overlay.
+      if (onProjectClick) {
+        onProjectClick(hit, source);
+        return;
+      }
       navigate(`/mods/${source}/${hit.project_id}`);
     };
 
@@ -335,7 +355,7 @@ export const ModrinthProjectCardV2 = React.memo<ModrinthProjectCardV2Props>(
                     );
                   } catch (error) {
                     console.error("Failed to open external URL:", error);
-                    toast.error("Could not open link in browser.");
+                    toast.error(t('common.open_link_failed'));
                   }
                 }}
                 target="_blank"
