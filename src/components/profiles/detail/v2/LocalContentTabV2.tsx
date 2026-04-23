@@ -8,7 +8,6 @@ import React, {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../ui/buttons/Button";
@@ -191,9 +190,6 @@ interface LocalContentTabV2Props<T extends LocalContentItem> {
   onBrowseContentRequest?: (browseContentType: string) => void; // Added new prop
 }
 
-// Hook for formatted update text
-const { getUpdateText } = useModUpdateText();
-
 export function LocalContentTabV2<T extends LocalContentItem>({
   profile,
   contentType,
@@ -207,7 +203,7 @@ export function LocalContentTabV2<T extends LocalContentItem>({
   onBrowseContentRequest, // Destructure new prop
 }: LocalContentTabV2Props<T>) {
   const { t } = useTranslation();
-  const { t } = useTranslation();
+  const { getUpdateText } = useModUpdateText();
   const navigate = useNavigate();
   const accentColor = useThemeStore((state) => state.accentColor);
   const { confirm, confirmDialog } = useConfirmDialog(); // Added hook
@@ -396,7 +392,6 @@ export function LocalContentTabV2<T extends LocalContentItem>({
     } finally {
       setIsRefreshingPacksList(false);
     }
-  }, [contentType, t]);
   }, [contentType, t]);
 
   const noriskPackOptions = useMemo((): SelectOption[] => {
@@ -848,8 +843,6 @@ export function LocalContentTabV2<T extends LocalContentItem>({
                 <div>
                   <Icon
                     icon="solar:danger-triangle-bold"
-                  <Icon
-                    icon="solar:danger-triangle-bold"
                     className="w-4 h-4 text-red-500 drop-shadow-lg"
                   />
                 </div>
@@ -860,8 +853,6 @@ export function LocalContentTabV2<T extends LocalContentItem>({
             <div className="absolute top-0.5 left-0.5 z-10 pointer-events-auto">
               <Tooltip content={t('modrinth.warning_mod_tooltip')}>
                 <div>
-                  <Icon
-                    icon="solar:danger-triangle-bold"
                   <Icon
                     icon="solar:danger-triangle-bold"
                     className="w-4 h-4 text-yellow-500 drop-shadow-lg"

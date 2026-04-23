@@ -281,14 +281,15 @@ export function JavaSettingsTab({
     ? (globalMemorySettings || { min: 1024, max: recommendedMaxRam })
     : (editedProfile.settings?.memory || { min: 1024, max: recommendedMaxRam });
 
-  const handleMemoryChange = (value: number) => {
+  const handleMemoryChange = async (value: number) => {
     if (editedProfile.is_standard_version) {
       // For standard profiles, only update local UI state.
       // Persisting happens in ProfileSettings handleSave.
-      setGlobalMemorySettingsState({
+      const newGlobalSettings = {
         min: memory.min,
         max: value,
       };
+      setGlobalMemorySettingsState(newGlobalSettings);
       
       try {
         await setGlobalMemorySettings(newGlobalSettings);

@@ -327,6 +327,11 @@ export const useThemeStore = create<ThemeState>()(
         );
       },
 
+      setUIStylePreset: (preset: UIStylePreset) => {
+        set({ uiStylePreset: preset });
+        get().applyUIStylePresetToDOM();
+      },
+
       setBorderRadius: (radius: number) => {
         const clampedRadius = Math.max(
           MIN_BORDER_RADIUS,

@@ -3,10 +3,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-<<<<<<< Updated upstream
 import { useNavigate } from "react-router-dom";
-=======
->>>>>>> Stashed changes
+
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 import { LaunchState } from "../../store/launch-state-store";
@@ -50,10 +48,6 @@ export function MainLaunchButton({
   mainButtonHeight,
 }: MainLaunchButtonProps) {
   const { t } = useTranslation();
-<<<<<<< Updated upstream
-  // Local state for transient success message styling (can be further integrated if needed)
-=======
->>>>>>> Stashed changes
   const [transientSuccessActive, setTransientSuccessActive] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [profileBackdropUrl, setProfileBackdropUrl] = useState<string | null>(null);
@@ -252,8 +246,6 @@ export function MainLaunchButton({
               >
                 {renderLaunchButtonContent()}
               </Button>
-
-              />
             </div>
           </div>
         ) : (
