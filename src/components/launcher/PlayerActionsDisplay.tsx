@@ -27,14 +27,10 @@ const STARLIGHT_RENDER_TYPES = [
   "ultimate",
   "relaxing",
   "pointing",
-  "dungeons",
-  "dead",
   "sleeping",
   "kicking",
-  "archer",
   "mojavatar",
   "reading",
-  "clown",
 ] as const;
 
 function getRandomRenderType() {

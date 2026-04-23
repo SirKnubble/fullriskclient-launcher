@@ -356,14 +356,13 @@ export function SettingsTab() {
             {
               id: "default",
               name: "Default",
-              description:
-                "Das aktuelle Launcher Design. Hier wurden Tierversuche durchgeführt.",
+              description: "Default design of the launcher.",
             },
             {
               id: "fullrisk",
               name: "FullRisk",
               description:
-                "Behalt deine Seele und gib mir den alten Lountscher.",
+                "Overhauled design inspired by the old launcher. (@TimLohrer)",
             },
           ] satisfies Array<{
             id: UIStylePreset;
