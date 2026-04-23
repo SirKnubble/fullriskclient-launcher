@@ -3,9 +3,9 @@ name: Build and Release
 on:
   push:
     branches:
-      - '**' # Build on push to v3 branch
+      - "**" # Build on push to v3 branch
     tags:
-      - "v*"  # Release on v* tags
+      - "v*" # Release on v* tags
   workflow_dispatch: {} # Allow manual dispatch
 
 jobs:
@@ -15,20 +15,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
+          - platform: "macos-latest"
             target: aarch64-apple-darwin
             output_path: ./src-tauri/target/aarch64-apple-darwin/release/bundle
             asset_name_base: NoRiskClient-MacOS-arm64
-          - platform: 'macos-latest'
+          - platform: "macos-latest"
             target: x86_64-apple-darwin
             output_path: ./src-tauri/target/x86_64-apple-darwin/release/bundle
             asset_name_base: NoRiskClient-MacOS-x86_64
-          - platform: 'ubuntu-22.04'
-            target: '' # Kein explizites Target für Linux x86_64
+          - platform: "ubuntu-22.04"
+            target: "" # Kein explizites Target für Linux x86_64
             output_path: ./src-tauri/target/release/bundle
             asset_name_base: NoRiskClient-Linux
-          - platform: 'windows-latest'
-            target: '' # Kein explizites Target für Windows x86_64
+          - platform: "windows-latest"
+            target: "" # Kein explizites Target für Windows x86_64
             output_path: ./src-tauri/target/release/bundle
             asset_name_base: NoRiskClient-Windows-setup
 
@@ -47,7 +47,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'yarn' # Switch cache to yarn
+          cache: "yarn" # Switch cache to yarn
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -60,7 +60,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
@@ -73,12 +73,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Wird evtl. intern von Tauri benötigt
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          RUSTFLAGS: ${{ matrix.platform == 'ubuntu-22.04' && '-C link-arg=-Wl,--no-as-needed -C link-arg=-layatana-appindicator3 -C link-arg=-Wl,--as-needed' || '' }}
+          RUSTFLAGS: ${{ matrix.platform == 'ubuntu-22.04' && '-C
+            link-arg=-Wl,--no-as-needed -C link-arg=-layatana-appindicator3 -C
+            link-arg=-Wl,--as-needed' || '' }}
         with:
           # Revert to using packageManager and args
-          args: --verbose ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }} # Füge --target hinzu, wenn es gesetzt ist
+          args: --verbose ${{ matrix.target != '' && format('--target {0}', matrix.target)
+            || '' }} # Füge --target hinzu, wenn es gesetzt ist
           packageManager: yarn # Set packageManager to yarn
-      
+
       - name: Fix AppImage (Remove Wayland libs & Resign)
         if: matrix.platform == 'ubuntu-22.04'
         env:
@@ -87,33 +90,33 @@ jobs:
           TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           echo "--- Fix AppImage Started ---"
-          
+
           BUNDLE_DIR="$(pwd)/${{ matrix.output_path }}/appimage"
           cd "$BUNDLE_DIR"
           APPIMAGE=$(ls *.AppImage | head -n 1)
           echo "Target: $APPIMAGE"
-          
+
           chmod +x "$APPIMAGE"
           ./"$APPIMAGE" --appimage-extract > /dev/null
-          
+
           echo "Removing conflicting libraries..."
           find squashfs-root -name "*wayland*" -delete
-          
+
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
-          
+
           export ARCH=x86_64
           ./appimagetool-x86_64.AppImage squashfs-root/ "$APPIMAGE"
-          
+
           echo "Re-signing..."
-          
+
           cd - > /dev/null
-          
+
           yarn tauri signer sign "$BUNDLE_DIR/$APPIMAGE"
-          
+
           cd "$BUNDLE_DIR"
           rm -rf squashfs-root appimagetool-x86_64.AppImage
-          
+
           echo "--- Fix Complete ---"
 
       # --- EV Code Signing (Windows) ---
@@ -129,7 +132,8 @@ jobs:
         shell: pwsh
 
       - name: Sign Windows EXE with SSL.com EV Certificate
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-beta')
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+          && !contains(github.ref_name, '-beta')
         uses: sslcom/esigner-codesign@develop
         with:
           command: sign
@@ -143,7 +147,8 @@ jobs:
           override: true
 
       - name: Re-sign Windows EXE for Tauri Updater
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-beta')
+        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+          && !contains(github.ref_name, '-beta')
         env:
           TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -161,36 +166,36 @@ jobs:
           echo "Output path: ${{ matrix.output_path }}"
           ls -R "${{ matrix.output_path }}" || true
           echo "-----------------------------------"
-          
+
           APP_BASE_NAME="NoRisk Launcher" # Dein productName
           APPIMAGE_DIR=${{ matrix.output_path }}/appimage
           DEB_DIR=${{ matrix.output_path }}/deb
-          
+
           echo "Listing content of $APPIMAGE_DIR and $DEB_DIR"
           ls -R "$APPIMAGE_DIR" || true
           ls -R "$DEB_DIR" || true
-          
+
           # Verschiebe und benenne AppImage um (verwende einfachen Wildcard)
           mv "$APPIMAGE_DIR"/*.AppImage "$APPIMAGE_DIR"/${{ matrix.asset_name_base }}.AppImage
-          
+
           # Verschiebe und benenne AppImage Signatur um (verwende einfachen Wildcard)
           mv "$APPIMAGE_DIR"/*.AppImage.sig "$APPIMAGE_DIR"/${{ matrix.asset_name_base }}.AppImage.sig
-          
+
           # Verschiebe und benenne Deb Paket um
           mv "$DEB_DIR"/*.deb "$APPIMAGE_DIR"/${{ matrix.asset_name_base }}.deb
-          
+
           # Verschiebe und benenne Deb Signatur um
           mv "$DEB_DIR"/*.deb.sig "$APPIMAGE_DIR"/${{ matrix.asset_name_base }}.deb.sig
-          
+
           echo "Final content of $APPIMAGE_DIR after moves"
           ls -R "$APPIMAGE_DIR" || true
-          
+
           echo "--- Listing content AFTER rename ---"
           echo "Output path: ${{ matrix.output_path }}"
           ls -R "${{ matrix.output_path }}" || true
           echo "-----------------------------------"
         shell: bash
-        
+
       - name: Rename Windows Artifacts
         if: matrix.platform == 'windows-latest'
         run: |
@@ -198,7 +203,7 @@ jobs:
           echo "Output path: ${{ matrix.output_path }}"
           Get-ChildItem -Path "${{ matrix.output_path }}\release\bundle" -Recurse -ErrorAction SilentlyContinue
           echo "-----------------------------------"
-          
+
           $ARTIFACT_DIR = "${{ matrix.output_path }}\nsis"
           echo "Listing content of $ARTIFACT_DIR"
           Get-ChildItem -Path $ARTIFACT_DIR -Recurse
@@ -213,13 +218,13 @@ jobs:
 
           echo "Final content of $ARTIFACT_DIR after move"
           Get-ChildItem -Path $ARTIFACT_DIR -Recurse
-          
+
           echo "--- Listing content AFTER rename ---"
           echo "Output path: ${{ matrix.output_path }}"
           Get-ChildItem -Path "${{ matrix.output_path }}" -Recurse -ErrorAction SilentlyContinue
           echo "-----------------------------------"
         shell: pwsh
-        
+
       - name: Rename macOS Artifacts
         if: matrix.platform == 'macos-latest'
         run: |
@@ -227,29 +232,29 @@ jobs:
           echo "Output path: ${{ matrix.output_path }}"
           ls -R "${{ matrix.output_path }}" || true 
           echo "-----------------------------------"
-          
+
           APP_BASE_NAME="NoRisk Launcher" # Dein productName
           ARTIFACT_DIR_DMG=${{ matrix.output_path }}/dmg
           ARTIFACT_DIR_APP=${{ matrix.output_path }}/macos
           RENAMED_DIR="$ARTIFACT_DIR_APP/renamed"
-          
+
           echo "Listing content of $ARTIFACT_DIR_DMG and $ARTIFACT_DIR_APP"
           ls -R "$ARTIFACT_DIR_DMG" || true
           ls -R "$ARTIFACT_DIR_APP" || true
           mkdir -p "$RENAMED_DIR"
-          
+
           # Verschiebe DMG (Wildcard sollte ok sein)
           mv "$ARTIFACT_DIR_DMG"/*.dmg "$RENAMED_DIR"/${{ matrix.asset_name_base }}.dmg
-          
+
           # Verschiebe App Tarball (expliziter Name)
           mv "$ARTIFACT_DIR_APP/${APP_BASE_NAME}.app.tar.gz" "$RENAMED_DIR"/${{ matrix.asset_name_base }}.app.tar.gz
-          
+
           # Verschiebe App Tarball Signatur (expliziter Name, ignoriere Fehler)
           mv "$ARTIFACT_DIR_APP/${APP_BASE_NAME}.app.tar.gz.sig" "$RENAMED_DIR"/${{ matrix.asset_name_base }}.app.tar.gz.sig
-          
+
           echo "Final content of $RENAMED_DIR after move"
           ls -R "$RENAMED_DIR" || true
-          
+
           echo "--- Listing content AFTER rename ---"
           echo "Output path: ${{ matrix.output_path }}"
           ls -R "${{ matrix.output_path }}" || true
@@ -272,7 +277,7 @@ jobs:
           name: artifact-${{ matrix.platform }}
           path: ${{ matrix.output_path }}\nsis\${{ matrix.asset_name_base }}.*
           if-no-files-found: error
-          
+
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'macos-latest'
@@ -290,8 +295,8 @@ jobs:
       contents: write # Benötigt für Release-Erstellung
     steps:
       - name: Checkout repository (needed for release notes maybe)
-        uses: actions/checkout@v4 
-        
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -300,11 +305,11 @@ jobs:
 
       - name: List downloaded artifacts
         run: ls -R artifacts
-        
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }} # Verwendet den Tag, der den Workflow ausgelöst hat
           name: Release ${{ github.ref_name }} # Name des Releases
@@ -313,32 +318,6 @@ jobs:
             See assets below.
           draft: false
           # Setze auf true, wenn der Tag '-alpha', '-beta' oder '-rc' enthält
-          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name,
+            '-beta') || contains(github.ref_name, '-rc') }}
           files: artifacts/**/* # Lädt alle heruntergeladenen Artefakte hoch
-
-      # --- Schritt: Produktions-Backend benachrichtigen --- 
-      - name: Notify Production Backend
-        if: success() # Nur wenn Release-Erstellung erfolgreich war
-        run: |
-          echo "Sending notification to PRODUCTION backend for tag ${{ github.ref_name }}"
-          curl -X POST \
-               -H "Content-Type: application/json" \
-               -H "Authorization: Bearer ${{ secrets.BACKEND_API_KEY }}" \
-               https://api.norisk.gg/api/v1/launcher/releases/update
-        shell: bash
-
-  # --- JOB 3: Staging-Backend benachrichtigen ---
-  notify_staging: # Neuer Job für Staging/Manual
-    # Läuft bei Push zu staging ODER bei manuellem Start
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/staging') || (github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    needs: build # Stellt sicher, dass Builds abgeschlossen sind (oder fehlgeschlagen sind)
-    steps:
-      - name: Notify Staging Backend
-        run: |
-          echo "Sending notification to STAGING backend for ref ${{ github.ref_name }}"
-          curl -X POST \
-               -H "Content-Type: application/json" \
-               -H "Authorization: Bearer ${{ secrets.BACKEND_API_KEY }}" \
-               https://api-staging.norisk.gg/api/v1/launcher/releases/update
-        shell: bash
