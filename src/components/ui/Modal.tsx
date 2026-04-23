@@ -2,6 +2,7 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
@@ -116,7 +117,7 @@ export function Modal({
     }
     return "none";
   };
-  return (
+  const modal = (
     <div
       ref={modalRef}
       className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md-anyos"
@@ -199,4 +200,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return typeof document === "undefined"
+    ? modal
+    : createPortal(modal, document.body);
 }
