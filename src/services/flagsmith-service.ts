@@ -39,6 +39,55 @@ const initializeFlagsmith = async () => {
 // Initialize flagsmith when the module is loaded
 const initPromise = initializeFlagsmith();
 
+export interface PackRolloutConfig {
+  aliases: Record<string, string>;
+}
+
+let cachedPackRollout: PackRolloutConfig | null = null;
+let packRolloutFetchPromise: Promise<PackRolloutConfig> | null = null;
+
+export const getPackRolloutConfig = async (): Promise<PackRolloutConfig> => {
+  if (cachedPackRollout) return cachedPackRollout;
+  if (packRolloutFetchPromise) return packRolloutFetchPromise;
+
+  packRolloutFetchPromise = (async () => {
+    try {
+      if (!flagsmithInitialized) await initPromise;
+
+      const flagValue = flagsmith.getValue('pack_rollout_aliases');
+      let config: PackRolloutConfig = { aliases: {} };
+
+      if (flagValue) {
+        try {
+          const parsed = JSON.parse(flagValue as string);
+          if (parsed && typeof parsed === 'object') {
+            config = { aliases: parsed.aliases ?? parsed };
+          }
+        } catch (e) {
+          log('warn', `Failed to parse pack_rollout_aliases flag: ${e}`);
+        }
+      }
+
+      log('info', `Pack rollout aliases: ${JSON.stringify(config.aliases)}`);
+      cachedPackRollout = config;
+
+      try {
+        await invoke('set_pack_rollout_config', { config });
+      } catch (error) {
+        log('error', `Failed to push pack rollout config to backend: ${error}`);
+      }
+
+      return config;
+    } catch (error) {
+      log('error', `Failed to fetch pack rollout config from Flagsmith: ${error}`);
+      packRolloutFetchPromise = null;
+      throw error;
+    }
+  })();
+
+  return packRolloutFetchPromise;
+};
+
 /**
  * Fetches the blocked mods configuration from Flagsmith.
  *

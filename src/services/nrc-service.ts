@@ -5,7 +5,8 @@ import type { Profile } from '../types/profile';
 import type { AdventCalendarDay, Reward } from '../types/advent';
 import type { UserNotification } from '../types/notification';
 import { useProfileStore } from '../store/profile-store';
-import { getBlockedModsConfig } from './flagsmith-service';
+import { getBlockedModsConfig, getPackRolloutConfig } from './flagsmith-service';
+import { logInfo, logError } from '../utils/logging-utils';
 
 /**
  * Fetches the latest news and changelog posts from the backend.
@@ -62,6 +63,15 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
       })
       .catch((error) => {
         console.error("Failed to load blocked mods config:", error);
+      });
+
+    // Fire and forget: Load pack rollout aliases from Flagsmith
+    getPackRolloutConfig()
+      .then((config) => {
+        logInfo(`Pack rollout config loaded: ${JSON.stringify(config)}`);
+      })
+      .catch((error) => {
+        logError(`Failed to load pack rollout config: ${error}`);
       });
 
     try {

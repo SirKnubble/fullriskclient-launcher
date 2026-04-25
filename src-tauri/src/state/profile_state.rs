@@ -170,6 +170,15 @@ pub struct Profile {
     pub playtime_seconds: u64,
 }
 
+impl Profile {
+    pub async fn effective_norisk_pack_id(&self) -> Option<String> {
+        let original = self.selected_norisk_pack_id.as_deref()?;
+        Some(
+            crate::commands::pack_rollout_commands::resolve_effective_pack_id(original).await,
+        )
+    }
+}
+
 fn default_true() -> bool {
     true
 }

@@ -320,9 +320,9 @@ pub async fn install_minecraft_version(
     info!("\nChecking for StartUpHelper data to import...");
 
     // Load NoriskPackDefinition if a pack is selected
-    let norisk_pack = if let Some(pack_id) = &profile.selected_norisk_pack_id {
+    let norisk_pack = if let Some(pack_id) = profile.effective_norisk_pack_id().await {
         let config = state.norisk_pack_manager.get_config().await;
-        config.get_resolved_pack_definition(pack_id).ok()
+        config.get_resolved_pack_definition(&pack_id).ok()
     } else {
         None
     };
