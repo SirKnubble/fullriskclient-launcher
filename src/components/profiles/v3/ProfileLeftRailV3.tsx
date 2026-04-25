@@ -62,7 +62,7 @@ export function ProfileLeftRailV3({ profile, activeNavItem, onNavChange }: Profi
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r border-white/10 overflow-y-auto no-scrollbar py-4 flex flex-col">
+    <aside className="w-64 flex-shrink-0 border-l border-white/10 overflow-y-auto no-scrollbar py-4 flex flex-col">
       {groups.map((group, gi) => (
         <div key={gi} className="mb-5">
           <div className="px-4 mb-2 text-xs uppercase tracking-wider text-white/60 font-minecraft-ten">
