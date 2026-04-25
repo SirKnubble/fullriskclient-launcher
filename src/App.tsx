@@ -63,6 +63,7 @@ export function App() {
   const {
     hasAcceptedTermsOfService,
     analyticsConsent,
+    language,
     setAnalyticsConsent,
     shouldShowAnalyticsBanner,
     incrementLaunchCount,
@@ -284,13 +285,14 @@ export function App() {
           os: osInfo.os,
           os_version: osInfo.os_version,
           arch: osInfo.arch,
+          language,
         });
       } catch (error) {
         launcherStartTracked = false;
         console.error('[App] launcher_started tracking failed:', error);
       }
     })();
-  }, [analyticsConsent.decision]);
+  }, [analyticsConsent.decision, language]);
 
   // Fetch notifications when user is logged in
   useEffect(() => {

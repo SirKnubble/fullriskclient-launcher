@@ -501,6 +501,9 @@ export const useThemeStore = create<ThemeState>()(
       setLanguage: (lang: SupportedLanguage) => {
         set({ language: lang });
         import("../i18n/i18n").then((mod) => mod.default.changeLanguage(lang));
+        void import("../services/analytics-service").then(({ trackEvent }) => {
+          trackEvent("language_changed", { language: lang }).catch(console.error);
+        });
       },
 
       // Analytics consent functions
