@@ -5,7 +5,7 @@
   "identifier": "gg.norisk.NoRiskClientLauncherV3",
   "build": {
     "beforeDevCommand": "yarn dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1430",
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist"
   },
