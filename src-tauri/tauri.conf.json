@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "NoRisk Launcher",
-  "version": "0.6.21-beta.1",
+  "version": "0.6.21-beta.3",
   "identifier": "gg.norisk.NoRiskClientLauncherV3",
   "build": {
     "beforeDevCommand": "yarn dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1430",
     "beforeBuildCommand": "yarn build",
     "frontendDist": "../dist"
   },
