@@ -6,6 +6,7 @@ import type { AdventCalendarDay, Reward } from '../types/advent';
 import type { UserNotification } from '../types/notification';
 import { useProfileStore } from '../store/profile-store';
 import { getBlockedModsConfig, getPackRolloutConfig } from './flagsmith-service';
+import { refreshPermissions } from './permission-service';
 import { logInfo, logError } from '../utils/logging-utils';
 
 /**
@@ -73,6 +74,11 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
       .catch((error) => {
         logError(`Failed to load pack rollout config: ${error}`);
       });
+
+    // Fire and forget: Refresh user permissions from NoRisk backend
+    refreshPermissions()
+      .then(() => logInfo("User permissions refreshed on mount"))
+      .catch((error) => logError(`Failed to refresh permissions: ${error}`));
 
     try {
       await refreshNoriskPacks();

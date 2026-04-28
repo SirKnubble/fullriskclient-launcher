@@ -4,6 +4,7 @@ import type { MinecraftAccount } from "../types/minecraft";
 import flagsmith from 'flagsmith';
 import { toast } from "react-hot-toast";
 import { getLauncherConfig } from "../services/launcher-config-service";
+import { refreshPermissions } from "../services/permission-service";
 import i18n from '../i18n/i18n';
 
 const setMojangTraits = (account: MinecraftAccount | null) => {
@@ -23,6 +24,11 @@ const setMojangTraits = (account: MinecraftAccount | null) => {
     .catch((error) => {
       console.error("[AuthStore] Error updating Flagsmith mojang traits:", error);
     });
+
+  // Re-fetch permissions whenever the active account changes (token & uuid differ).
+  refreshPermissions().catch((error) => {
+    console.error("[AuthStore] Error refreshing permissions:", error);
+  });
 };
 
 interface MinecraftAuthState {
