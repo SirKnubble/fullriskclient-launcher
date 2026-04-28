@@ -575,7 +575,7 @@ pub async fn install_minecraft_version(
     }).await?;
 
     // --- Step: Download mods from selected Norisk Pack (if any) ---
-    if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
+    if let Some(selected_pack_id) = profile.effective_norisk_pack_id().await {
         // Use the already loaded config
         if let Some(config) = loaded_norisk_config.as_ref() {
             let norisk_mods_event_id = emit_progress_event(
@@ -604,7 +604,7 @@ pub async fn install_minecraft_version(
                 norisk_downloader_service
                     .download_pack_mods_to_cache(
                         config,
-                        selected_pack_id,
+                        &selected_pack_id,
                         version_id,
                         loader_str,
                     )
