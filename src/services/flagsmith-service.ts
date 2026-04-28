@@ -1,6 +1,7 @@
 import flagsmith from 'flagsmith';
 import { invoke } from '@tauri-apps/api/core';
 import { log } from '../utils/logging-utils';
+import { getOrCreateInstallId } from './install-id-service';
 
 /**
  * Configuration for blocked mods that cause crashes or compatibility issues.
@@ -23,10 +24,12 @@ let configFetchPromise: Promise<BlockedModsConfig> | null = null;
 
 const initializeFlagsmith = async () => {
   try {
-    log('info', 'Initializing Flagsmith service...');
+    const installId = getOrCreateInstallId();
+    log('info', `Initializing Flagsmith service with install id ${installId}...`);
     await flagsmith.init({
       environmentID: FLAGSMITH_ENVIRONMENT_ID,
       api: 'https://flagsmith-staging.norisk.gg/api/v1/',
+      identity: installId,
     });
     flagsmithInitialized = true;
     log('info', 'Flagsmith service initialized successfully');
@@ -41,6 +44,7 @@ const initPromise = initializeFlagsmith();
 
 export interface PackRolloutConfig {
   aliases: Record<string, string>;
+  rollout_pct?: number;
 }
 
 let cachedPackRollout: PackRolloutConfig | null = null;
@@ -61,18 +65,22 @@ export const getPackRolloutConfig = async (): Promise<PackRolloutConfig> => {
         try {
           const parsed = JSON.parse(flagValue as string);
           if (parsed && typeof parsed === 'object') {
-            config = { aliases: parsed.aliases ?? parsed };
+            config = {
+              aliases: parsed.aliases ?? parsed,
+              rollout_pct: typeof parsed.rollout_pct === 'number' ? parsed.rollout_pct : undefined,
+            };
           }
         } catch (e) {
           log('warn', `Failed to parse pack_rollout_aliases flag: ${e}`);
         }
       }
 
-      log('info', `Pack rollout aliases: ${JSON.stringify(config.aliases)}`);
+      log('info', `Pack rollout config: ${JSON.stringify(config)}`);
       cachedPackRollout = config;
 
       try {
-        await invoke('set_pack_rollout_config', { config });
+        // Backend only cares about aliases; rollout_pct is UI-only metadata.
+        await invoke('set_pack_rollout_config', { config: { aliases: config.aliases } });
       } catch (error) {
         log('error', `Failed to push pack rollout config to backend: ${error}`);
       }

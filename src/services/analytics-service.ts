@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { getOrCreateInstallId } from './install-id-service';
 
 interface AnalyticsEvent {
     event_type: string;
@@ -14,7 +15,7 @@ let analyticsEnabled: boolean | null = null;
 
 export const initializeAnalytics = async (): Promise<void> => {
     sessionId = generateSessionId();
-    userId = await getOrCreateUserId();
+    userId = getOrCreateInstallId();
 };
 
 export const invalidateAnalyticsCache = (): void => {
@@ -36,15 +37,6 @@ const checkAnalyticsEnabled = async (): Promise<boolean> => {
 
 const generateSessionId = (): string =>
     `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-const getOrCreateUserId = async (): Promise<string> => {
-    let stored = localStorage.getItem('analytics_user_id');
-    if (!stored) {
-        stored = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem('analytics_user_id', stored);
-    }
-    return stored;
-};
 
 export const trackEvent = async (
     eventType: string,
