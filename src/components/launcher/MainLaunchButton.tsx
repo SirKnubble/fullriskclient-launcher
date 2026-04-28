@@ -9,6 +9,7 @@ import { cn } from "../../lib/utils";
 import { LaunchState } from "../../store/launch-state-store";
 import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
+import { RolloutIndicator } from "./RolloutIndicator";
 
 import { useThemeStore } from "../../store/useThemeStore";
 import { useVersionSelectionStore } from "../../store/version-selection-store";
@@ -220,6 +221,10 @@ export function MainLaunchButton({
             }
             aria-label={t('launcher.select_version')}
           />
+
+          <div className="absolute -top-2 -left-2 w-7 h-7 z-10 pointer-events-auto">
+            <RolloutIndicator />
+          </div>
         </div>
       </div>
     </div>

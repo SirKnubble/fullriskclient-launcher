@@ -52,9 +52,16 @@ pub async fn resolve_effective_pack_id(original: &str) -> String {
     original.to_string()
 }
 
-pub async fn is_pack_rollout_active(original: &str) -> bool {
-    let effective = resolve_effective_pack_id(original).await;
-    effective != original
+#[tauri::command]
+pub async fn is_pack_rollout_active() -> Result<bool, CommandError> {
+    let aliases = storage().await.read().await.aliases.clone();
+    Ok(!aliases.is_empty())
+}
+
+#[tauri::command]
+pub async fn is_pack_aliased(pack_id: String) -> Result<bool, CommandError> {
+    let effective = resolve_effective_pack_id(&pack_id).await;
+    Ok(effective != pack_id)
 }
 
 #[tauri::command]

@@ -657,6 +657,8 @@ async fn main() {
             commands::pack_rollout_commands::get_pack_rollout_config,
             commands::pack_rollout_commands::get_pack_rollout_status,
             commands::pack_rollout_commands::get_effective_pack_id,
+            commands::pack_rollout_commands::is_pack_rollout_active,
+            commands::pack_rollout_commands::is_pack_aliased,
             commands::nrc_commands::get_mobile_app_token,
             commands::nrc_commands::reset_mobile_app_token,
             commands::nrc_commands::get_advent_calendar_command,
