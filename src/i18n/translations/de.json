@@ -1476,6 +1476,13 @@
   "debug.copy_failed": "Kopieren fehlgeschlagen: {{error}}",
   "debug.copy_content": "Inhalt kopieren",
   "debug.upload_mclogs": "Zu mclo.gs hochladen",
+  "debug.permissions.tab": "Berechtigungen",
+  "debug.permissions.count": "{{n}} Berechtigung(en) gecacht",
+  "debug.permissions.last_refreshed": "Zuletzt aktualisiert: {{time}}",
+  "debug.permissions.refresh": "Berechtigungen aktualisieren",
+  "debug.permissions.refreshed": "Berechtigungen aktualisiert",
+  "debug.permissions.refresh_failed": "Aktualisieren fehlgeschlagen: {{error}}",
+  "debug.permissions.empty": "Keine Berechtigungen gecacht. Aktualisieren klicken zum Laden.",
 
   "logs.no_logs_to_upload": "Keine Logs zum Hochladen",
   "logs.uploaded_url_copied": "Hochgeladen! URL in Zwischenablage kopiert",
@@ -1617,6 +1624,18 @@
   "placeholders.group_name": "z.B. modpacks, vanilla+",
 
   "referral.loading": "Empfehlung wird geladen...",
+
+  "rollout.popover.title": "Du testest die neue NRC-Version",
+  "rollout.popover.title_opted_out": "Test deaktiviert",
+  "rollout.popover.body_intro_before": "Du gehörst zu den",
+  "rollout.popover.body_intro_after": "die die neue NRC-Version testen.",
+  "rollout.popover.body_bug": "Fehler oder Feedback bitte auf Discord reporten.",
+  "rollout.popover.body_opted_out": "Du spielst die stabile Version weiter, bis das Update alle erreicht.",
+  "rollout.popover.report_on_discord": "Auf Discord reporten",
+  "rollout.popover.opt_out": "Test disablen",
+  "rollout.popover.opt_back_in": "Test enablen",
+  "rollout.popover.click_to_opt_out": "Klick aufs Icon zum Disablen",
+  "rollout.popover.click_to_opt_in": "Klick aufs Icon zum Enablen",
 
   "modrinth.project_types.mods": "Mods",
   "modrinth.project_types.modpacks": "Modpacks",
