@@ -83,15 +83,9 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUSTFLAGS: ${{ matrix.os == 'ubuntu-22.04' && '-C link-arg=-Wl,--no-as-needed -C
-            link-arg=-layatana-appindicator3 -C link-arg=-Wl,--as-needed' || ''
-            }}
-        with:
-          args: --verbose ${{ matrix.args }}
-          packageManager: yarn
+          RUSTFLAGS: ${{ matrix.os == 'ubuntu-22.04' && '-C link-arg=-Wl,--no-as-needed -C link-arg=-layatana-appindicator3 -C link-arg=-Wl,--as-needed' || '' }}
+        run: yarn tauri build --verbose ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
