@@ -19,5 +19,6 @@ pub mod oauth_success_html;
 pub mod path_commands;
 pub mod process_command;
 pub mod profile_command;
+pub mod tester_command;
 pub mod vanilla_cape_command;
 pub mod analytics_command;

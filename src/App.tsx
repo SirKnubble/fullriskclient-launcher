@@ -48,6 +48,11 @@ import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 import { NotificationModal } from "./components/modals/NotificationModal";
 import { useNotificationStore } from "./store/notification-store";
 import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
+import { hasPermission, refreshPermissions } from "./services/permission-service";
+import {
+  fetchTesterQueueCount,
+  openTesterWindow,
+} from "./services/tester-service";
 import { useTranslation } from "react-i18next";
 
 export type ProfilesTabContext = {
@@ -301,6 +306,27 @@ export function App() {
       });
     }
   }, [activeAccount, fetchNotifications]);
+
+  useEffect(() => {
+    if (!activeAccount) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await refreshPermissions();
+        if (cancelled) return;
+        const allowed = await hasPermission("norisk.tester");
+        if (cancelled || !allowed) return;
+        const { count } = await fetchTesterQueueCount();
+        if (cancelled || count <= 0) return;
+        await openTesterWindow();
+      } catch (err) {
+        console.warn("[App.tsx] tester queue check skipped:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccount]);
 
   // Icons beim App-Start vorladen
   useEffect(() => {
