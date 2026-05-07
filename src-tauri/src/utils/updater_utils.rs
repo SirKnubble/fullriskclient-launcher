@@ -5,6 +5,42 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use tauri_plugin_updater::UpdaterExt;
 use tokio::time::{sleep, Duration};
 
+const DEFAULT_STABLE_UPDATE_ENDPOINT: &str = "https://fullrisk.net/api/v1/launcher/releases-v2";
+const DEFAULT_BETA_UPDATE_ENDPOINT: &str = "https://fullrisk.net/api/v1/launcher/releases-v2-beta";
+
+fn update_endpoint_base(is_beta_channel: bool) -> String {
+    let env_key = if is_beta_channel {
+        "FULLRISK_BETA_UPDATE_ENDPOINT"
+    } else {
+        "FULLRISK_UPDATE_ENDPOINT"
+    };
+    std::env::var(env_key)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            if is_beta_channel {
+                DEFAULT_BETA_UPDATE_ENDPOINT.to_string()
+            } else {
+                DEFAULT_STABLE_UPDATE_ENDPOINT.to_string()
+            }
+        })
+}
+
+fn update_endpoint_template(is_beta_channel: bool) -> String {
+    let base_repo_url = update_endpoint_base(is_beta_channel);
+    let mut platform_specific_target = "{{target}}".to_string();
+
+    if cfg!(target_os = "linux") && std::env::var("APPIMAGE").is_err() {
+        platform_specific_target = "debian".to_string();
+    }
+
+    format!(
+        "{}/{}/{{{{arch}}}}/{{{{current_version}}}}",
+        base_repo_url.trim_end_matches('/'),
+        platform_specific_target
+    )
+}
+
 /// Checks if the application is running inside a Flatpak environment.
 ///
 /// Flatpak sets the environment variable FLATPAK_ID to the application ID of the running app.
@@ -47,42 +83,20 @@ pub async fn check_update_available_detailed(
         current_version, channel
     );
 
-    // Determine the base part of the URL and the platform-specific segment template
-    let base_repo_url = if is_beta_channel {
-        "https://api-staging.norisk.gg/api/v1/launcher/releases-v2"
-    } else {
-        "https://api.norisk.gg/api/v1/launcher/releases-v2"
-    };
-
-    let mut platform_specific_target = "{{target}}".to_string(); // Default: Tauri replaces {{target}}
-
-    if cfg!(target_os = "linux") {
-        if std::env::var("APPIMAGE").is_ok() {
-            info!("Linux AppImage detected. Updater will use default target for manifest URL.");
-            // platform_specific_target remains "{{target}}" for AppImage
-        } else {
-            // Not an AppImage, assume .deb or similar package manager context.
-            let deb_target_identifier = "debian";
-            info!(
-                "Linux non-AppImage (e.g., .deb) detected. Modifying manifest URL to use target: {}",
-                deb_target_identifier
-            );
-            platform_specific_target = deb_target_identifier.to_string();
-        }
-    }
-
-    // Construct the final update URL string
-    let update_url_str = format!(
-        "{}/{}/{{{{arch}}}}/{{{{current_version}}}}",
-        base_repo_url, platform_specific_target
-    );
+    let update_url_str = update_endpoint_template(is_beta_channel);
 
     info!("Using update endpoint template: {}", update_url_str);
 
-    let update_url = update_url_str.parse()
-        .map_err(|e| AppError::Other(format!("Failed to parse update URL '{}': {}", update_url_str, e)))?;
+    let update_url = update_url_str.parse().map_err(|e| {
+        AppError::Other(format!(
+            "Failed to parse update URL '{}': {}",
+            update_url_str, e
+        ))
+    })?;
 
-    let updater_builder = app_handle.updater_builder().endpoints(vec![update_url])
+    let updater_builder = app_handle
+        .updater_builder()
+        .endpoints(vec![update_url])
         .map_err(|e| AppError::Other(format!("Failed to set updater endpoints: {}", e)))?;
 
     let updater = updater_builder
@@ -102,8 +116,7 @@ pub async fn check_update_available_detailed(
 
             info!(
                 "Update available: Version {}, Released: {:?}",
-                update.version,
-                update.date
+                update.version, update.date
             );
 
             let result = UpdateCheckResult {
@@ -186,7 +199,7 @@ pub fn emit_status(
     let payload = UpdaterStatusPayload {
         message,
         status: status.to_string(),
-        progress: progress_info.map(|(chunk, total)| (chunk * 100 / total.max(1))),
+        progress: progress_info.map(|(chunk, total)| chunk * 100 / total.max(1)),
         total: progress_info.map(|(_, total)| total),
         chunk: progress_info.map(|(chunk, _)| chunk),
     };
@@ -245,7 +258,10 @@ pub async fn download_and_install_update(
     // Check for available updates with detailed information
     match check_update_available_detailed(app_handle, is_beta_channel).await? {
         Some(update_check_result) => {
-            info!("Update available: {}. Proceeding with download...", update_check_result.update_info.version);
+            info!(
+                "Update available: {}. Proceeding with download...",
+                update_check_result.update_info.version
+            );
 
             // Use the update object directly from the check result
             handle_update(update_check_result.update, app_handle.clone()).await
@@ -345,30 +361,11 @@ async fn handle_update(
     }
     // --- End Debug Delay ---
 
-    // --- Step 2: Install the update ---
-    // This block can be commented out for testing to prevent actual installation
-    /* START INSTALL BLOCK */
     info!("Starting update installation...");
-    update
-        .install(bytes) // Use the install method with the downloaded bytes
-        .map_err(|e| {
-            error!("Update installation failed: {}", e);
-            // Convert updater::Error to AppError::Other for install step
-            AppError::Other(format!("Updater install error: {}", e))
-        })?;
-    // Simulate install time if commented out
-    #[cfg(debug_assertions)]
-    if true {
-        // Change to check if install block IS commented out if needed
-        info!("DEBUG: Simulating installation time...");
-        sleep(Duration::from_secs(2)).await;
-        info!("DEBUG: Simulated installation finished.");
-    } else {
-        info!("DEBUG: Installation block active (no extra delay added here).");
-    }
-    // Remove the line below if install block is active
-    info!("Skipping actual installation (commented out).");
-    /* END INSTALL BLOCK */
+    update.install(bytes).map_err(|e| {
+        error!("Update installation failed: {}", e);
+        AppError::Other(format!("Updater install error: {}", e))
+    })?;
 
     // Emit final statuses after successful install (or after download if install is commented out)
     emit_status(
@@ -384,11 +381,8 @@ async fn handle_update(
         None,
     );
 
-    #[cfg(not(target_os = "windows"))]
-    {
-        info!("Attempting to restart the application (non-Windows)...");
-        app_handle.restart();
-    }
+    info!("Attempting to restart the application after update installation...");
+    app_handle.restart();
 
     Ok(())
 }
@@ -421,41 +415,7 @@ pub async fn check_for_updates(
         None,
     );
 
-    // Determine the base part of the URL and the platform-specific segment template
-    let base_repo_url = if is_beta_channel {
-        "https://api-staging.norisk.gg/api/v1/launcher/releases-v2"
-    } else {
-        "https://api.norisk.gg/api/v1/launcher/releases-v2"
-    };
-
-    let mut platform_specific_target = "{{target}}".to_string(); // Default: Tauri replaces {{target}}
-
-    if cfg!(target_os = "linux") {
-        if std::env::var("APPIMAGE").is_ok() {
-            info!("Linux AppImage detected. Updater will use default target for manifest URL.");
-            // platform_specific_target remains "{{target}}" for AppImage
-        } else {
-            // Not an AppImage, assume .deb or similar package manager context.
-            // The server must be configured to serve a .deb manifest for this specific target string.
-            // IMPORTANT: "debian" is a placeholder. Confirm with your backend/server team
-            // what target string they expect for .deb packages (e.g., "debian", "linux-deb").
-            let deb_target_identifier = "debian";
-            info!(
-                "Linux non-AppImage (e.g., .deb) detected. Modifying manifest URL to use target: {}",
-                deb_target_identifier
-            );
-            platform_specific_target = deb_target_identifier.to_string();
-        }
-    }
-
-    // Construct the final update URL string
-    // Tauri will replace {{arch}} and {{current_version}}.
-    // {{target}} will also be replaced by Tauri *if* platform_specific_target is "{{target}}".
-    // Otherwise, our specific target (e.g., "debian") is used directly.
-    let update_url_str = format!(
-        "{}/{}/{{{{arch}}}}/{{{{current_version}}}}",
-        base_repo_url, platform_specific_target
-    );
+    let update_url_str = update_endpoint_template(is_beta_channel);
 
     info!("Using update endpoint template: {}", update_url_str);
 

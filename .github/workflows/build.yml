@@ -38,10 +38,10 @@ jobs:
         id: matrix
         shell: bash
         run: |
-          windows='{"name":"windows","os":"windows-latest","target":"","args":"","artifact_name":"NoRiskClient-Windows","artifact_paths":"src-tauri/target/release/bundle/nsis/*.exe"}'
-          linux='{"name":"linux","os":"ubuntu-22.04","target":"","args":"","artifact_name":"NoRiskClient-Linux","artifact_paths":"src-tauri/target/release/bundle/appimage/*.AppImage\nsrc-tauri/target/release/bundle/deb/*.deb"}'
-          macos_arm64='{"name":"macos-arm64","os":"macos-latest","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin","artifact_name":"NoRiskClient-MacOS-arm64","artifact_paths":"src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg\nsrc-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz"}'
-          macos_x86_64='{"name":"macos-x86_64","os":"macos-latest","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin","artifact_name":"NoRiskClient-MacOS-x86_64","artifact_paths":"src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg\nsrc-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app.tar.gz"}'
+          windows='{"name":"windows","os":"windows-latest","target":"","args":"","artifact_name":"NoRiskClient-Windows","artifact_paths":"src-tauri/target/release/bundle/nsis/*.exe\nsrc-tauri/target/release/bundle/nsis/*.exe.sig"}'
+          linux='{"name":"linux","os":"ubuntu-22.04","target":"","args":"","artifact_name":"NoRiskClient-Linux","artifact_paths":"src-tauri/target/release/bundle/appimage/*.AppImage\nsrc-tauri/target/release/bundle/appimage/*.AppImage.sig\nsrc-tauri/target/release/bundle/appimage/*.AppImage.tar.gz\nsrc-tauri/target/release/bundle/appimage/*.AppImage.tar.gz.sig\nsrc-tauri/target/release/bundle/deb/*.deb\nsrc-tauri/target/release/bundle/deb/*.deb.sig\nsrc-tauri/target/release/bundle/deb/*.deb.tar.gz\nsrc-tauri/target/release/bundle/deb/*.deb.tar.gz.sig"}'
+          macos_arm64='{"name":"macos-arm64","os":"macos-latest","target":"aarch64-apple-darwin","args":"--target aarch64-apple-darwin","artifact_name":"NoRiskClient-MacOS-arm64","artifact_paths":"src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg\nsrc-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg.sig\nsrc-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz\nsrc-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig"}'
+          macos_x86_64='{"name":"macos-x86_64","os":"macos-latest","target":"x86_64-apple-darwin","args":"--target x86_64-apple-darwin","artifact_name":"NoRiskClient-MacOS-x86_64","artifact_paths":"src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg\nsrc-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg.sig\nsrc-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app.tar.gz\nsrc-tauri/target/x86_64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig"}'
 
           platform="${{ github.event_name == 'workflow_dispatch' && inputs.platform || 'all' }}"
 
@@ -113,9 +113,27 @@ jobs:
       - name: Install frontend dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Set app version from release tag
+        if: github.event_name == 'push' || inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const configPath = "src-tauri/tauri.conf.json";
+          const version = process.env.RELEASE_TAG.replace(/^v/i, "");
+          const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+          config.version = version;
+          fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+          console.log(`Set Tauri app version to ${version}`);
+          NODE
+
       - name: Build Tauri app
         env:
           RUSTFLAGS: ${{ matrix.os == 'ubuntu-22.04' && '-C link-arg=-Wl,--no-as-needed -C link-arg=-layatana-appindicator3 -C link-arg=-Wl,--as-needed' || '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: yarn tauri build --verbose ${{ matrix.args }}
 
       - name: Rename artifacts
@@ -135,8 +153,14 @@ jobs:
                 windows:*.exe)
                   renamed="FullriskLauncher-Windows-Setup.exe"
                   ;;
+                linux:*.AppImage.tar.gz)
+                  renamed="FullriskLauncher-Linux.AppImage.tar.gz"
+                  ;;
                 linux:*.AppImage)
                   renamed="FullriskLauncher-Linux.AppImage"
+                  ;;
+                linux:*.deb.tar.gz)
+                  renamed="FullriskLauncher-Linux.deb.tar.gz"
                   ;;
                 linux:*.deb)
                   renamed="FullriskLauncher-Linux.deb"
@@ -159,8 +183,15 @@ jobs:
                   ;;
               esac
 
+              if [[ "$name" == *.sig ]]; then
+                continue
+              fi
+
               if [[ "$name" != "$renamed" ]]; then
                 mv "$file" "$dir/$renamed"
+                if [[ -f "$file.sig" ]]; then
+                  mv "$file.sig" "$dir/$renamed.sig"
+                fi
               fi
             done
           done <<< "${{ matrix.artifact_paths }}"
@@ -218,6 +249,81 @@ jobs:
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Generate updater manifest
+        id: updater_manifest
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          UPDATE_ASSET_REPO: SirKnubble/fullriskclient-launcher
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const tag = process.env.RELEASE_TAG;
+          const version = tag.replace(/^v/i, "");
+          const channel = /(?:^|-)beta/i.test(version) ? "beta" : "stable";
+          const assetRepo = process.env.UPDATE_ASSET_REPO;
+          const artifactRoot = "artifacts";
+
+          const mappings = [
+            ["windows-x86_64", "FullriskLauncher-Windows-Setup.exe"],
+            ["linux-x86_64", "FullriskLauncher-Linux.AppImage.tar.gz"],
+            ["linux-x86_64", "FullriskLauncher-Linux.AppImage"],
+            ["debian-x86_64", "FullriskLauncher-Linux.deb.tar.gz"],
+            ["debian-x86_64", "FullriskLauncher-Linux.deb"],
+            ["darwin-aarch64", "FullriskLauncher-macOS-arm64.app.tar.gz"],
+            ["darwin-x86_64", "FullriskLauncher-macOS-x86_64.app.tar.gz"],
+          ];
+
+          function walk(dir) {
+            if (!fs.existsSync(dir)) return [];
+            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+              const fullPath = path.join(dir, entry.name);
+              return entry.isDirectory() ? walk(fullPath) : [fullPath];
+            });
+          }
+
+          const files = walk(artifactRoot);
+          const byName = new Map(files.map((file) => [path.basename(file), file]));
+          const platforms = {};
+
+          for (const [platformKey, assetName] of mappings) {
+            if (platforms[platformKey]) continue;
+
+            const artifact = byName.get(assetName);
+            const signature = byName.get(`${assetName}.sig`);
+            if (!artifact || !signature) continue;
+
+            platforms[platformKey] = {
+              url: `https://github.com/${assetRepo}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(assetName)}`,
+              signature: fs.readFileSync(signature, "utf8").trim(),
+            };
+          }
+
+          if (Object.keys(platforms).length === 0) {
+            throw new Error("No updater platform artifacts with .sig files were found.");
+          }
+
+          const manifest = {
+            [channel]: {
+              version,
+              notes: `Automated release for tag ${tag}.`,
+              pub_date: new Date().toISOString(),
+              platforms,
+            },
+          };
+
+          fs.mkdirSync("artifacts/_updater-manifest", { recursive: true });
+          fs.writeFileSync(
+            `artifacts/_updater-manifest/update-manifest-${channel}.json`,
+            `${JSON.stringify(manifest, null, 2)}\n`,
+          );
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `channel=${channel}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          NODE
+
       - name: Upload artifacts to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -231,3 +337,53 @@ jobs:
           fi
 
           gh release upload "${{ steps.release.outputs.tag }}" "${files[@]}" --clobber
+
+      - name: Deploy updater manifest to fullrisk.net
+        if: github.event_name == 'push' || inputs.platform == 'all'
+        env:
+          FULLRISK_DEPLOY_HOST: ${{ secrets.FULLRISK_DEPLOY_HOST }}
+          FULLRISK_DEPLOY_USER: ${{ secrets.FULLRISK_DEPLOY_USER }}
+          FULLRISK_DEPLOY_SSH_KEY: ${{ secrets.FULLRISK_DEPLOY_SSH_KEY }}
+          FULLRISK_UPDATE_MANIFEST_PATH: ${{ secrets.FULLRISK_UPDATE_MANIFEST_PATH }}
+          FULLRISK_API_SERVICE: ${{ secrets.FULLRISK_API_SERVICE }}
+          UPDATE_CHANNEL: ${{ steps.updater_manifest.outputs.channel }}
+        shell: bash
+        run: |
+          if [[ -z "$FULLRISK_DEPLOY_HOST" || -z "$FULLRISK_DEPLOY_USER" || -z "$FULLRISK_DEPLOY_SSH_KEY" || -z "$FULLRISK_UPDATE_MANIFEST_PATH" ]]; then
+            echo "Skipping updater manifest deploy because one or more FULLRISK_* deploy secrets are missing."
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$FULLRISK_DEPLOY_SSH_KEY" > ~/.ssh/fullrisk_deploy_key
+          chmod 600 ~/.ssh/fullrisk_deploy_key
+
+          remote="$FULLRISK_DEPLOY_USER@$FULLRISK_DEPLOY_HOST"
+          ssh_opts=(-i ~/.ssh/fullrisk_deploy_key -o StrictHostKeyChecking=accept-new)
+
+          ssh "${ssh_opts[@]}" "$remote" "mkdir -p \"\$(dirname \"$FULLRISK_UPDATE_MANIFEST_PATH\")\""
+          ssh "${ssh_opts[@]}" "$remote" "test -f \"$FULLRISK_UPDATE_MANIFEST_PATH\" && cat \"$FULLRISK_UPDATE_MANIFEST_PATH\" || true" > existing-update-manifest.json
+
+          node <<'NODE'
+          const fs = require("node:fs");
+          const channel = process.env.UPDATE_CHANNEL;
+          const incoming = JSON.parse(fs.readFileSync(`artifacts/_updater-manifest/update-manifest-${channel}.json`, "utf8"));
+          let existing = {};
+
+          try {
+            const raw = fs.readFileSync("existing-update-manifest.json", "utf8").trim();
+            if (raw) existing = JSON.parse(raw);
+          } catch {
+            existing = {};
+          }
+
+          existing[channel] = incoming[channel];
+          fs.writeFileSync("update-manifest-merged.json", `${JSON.stringify(existing, null, 2)}\n`);
+          NODE
+
+          scp "${ssh_opts[@]}" update-manifest-merged.json "$remote:$FULLRISK_UPDATE_MANIFEST_PATH"
+
+          if [[ -n "$FULLRISK_API_SERVICE" ]]; then
+            ssh "${ssh_opts[@]}" "$remote" "sudo systemctl restart \"$FULLRISK_API_SERVICE\""
+          fi

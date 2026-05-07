@@ -13,9 +13,11 @@
     "minecraft_auth": {},
     "updater": {
       "active": true,
-      "endpoints": [],
+      "endpoints": [
+        "https://fullrisk.net/api/v1/launcher/releases-v2/{{target}}/{{arch}}/{{current_version}}"
+      ],
       "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk5QkZBNTBGNjhDQTBGOEYKUldTUEQ4cG9ENlcvbVpVTVdnVkNNSGlXWXVXRklqcGFxNnBuRW1LM3VDTXpKcXU2MmdCNVc5S2IK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4OUIyMTNGRDBCQTg0QUQKUldTdGhMclFQeUdiNkdVNVEvdDc2UGdYQkxsMjZIWEpSQmdYcXFWTFBEbzduczhLRDYvcjJkeloK"
     },
     "singleInstance": {
       "active": true
@@ -54,6 +56,10 @@
           "https://api.iconify.design",
           "https://*.modrinth.com",
           "https://sessionserver.mojang.com",
+          "https://fullrisk.net",
+          "https://*.fullrisk.net",
+          "wss://fullrisk.net",
+          "wss://*.fullrisk.net",
           "https://*.norisk.gg"
         ],
         "img-src": [
@@ -136,7 +142,7 @@
       }
     },
     "active": true,
-    "targets": ["app", "dmg", "deb", "appimage", "nsis"],
+    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -144,7 +150,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "fileAssociations": [
       {
         "ext": ["noriskpack"],
