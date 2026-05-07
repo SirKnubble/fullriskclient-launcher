@@ -22,7 +22,7 @@ import {
   type ContextMenuItem,
 } from "../ui/SettingsContextMenu";
 import { cn } from "../../lib/utils";
-import type { VersionManifest } from "../../types/minecraft";
+import type { MinecraftProfile, VersionManifest } from "../../types/minecraft";
 import UnifiedService from "../../services/unified-service";
 import { getAllProfilesAndLastPlayed } from "../../services/profile-service";
 import {
@@ -224,6 +224,41 @@ function isBlockedServerError(error: unknown): boolean {
 
 function normalizeUuidForCompare(uuid: string): string {
   return uuid.replace(/-/g, "").toLowerCase();
+}
+
+function formatOwnerDisplayName(
+  owner: string,
+  ownerNames: Record<string, string>,
+) {
+  return ownerNames[normalizeUuidForCompare(owner)] ?? owner;
+}
+
+function formatAdminDateTime(timestamp?: number | null) {
+  if (!timestamp) {
+    return "never";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp * 1000));
+}
+
+function getAdminServerStatus(server: CustomServer, ownerBlocked: boolean) {
+  if (server.deletedAt) {
+    return "deleted";
+  }
+  if (ownerBlocked) {
+    return "owner blocked";
+  }
+  if (server.lastOnline) {
+    const inactiveSeconds = Date.now() / 1000 - server.lastOnline;
+    return inactiveSeconds < 15 * 60 ? "recently active" : "inactive";
+  }
+  return "created";
 }
 
 function pickRandomLocalServerPort() {
@@ -702,12 +737,19 @@ export function ServersTab() {
   };
 
   const handleStop = async (server: CustomServer) => {
+    const forceKill = (serverLogs[server._id] ?? [])
+      .slice(-10)
+      .join(" ")
+      .toLowerCase()
+      .includes("stopping server");
     setBusyServerId(server._id);
     setServerLogs((current) => ({
       ...current,
       [server._id]: [
         ...(current[server._id] ?? []),
-        `[${new Date().toLocaleTimeString()}] [INFO]: Stopping server`,
+        `[${new Date().toLocaleTimeString()}] [INFO]: ${
+          forceKill ? "Killing server" : "Stopping server"
+        }`,
       ],
     }));
 
@@ -719,7 +761,10 @@ export function ServersTab() {
       await loadServers();
     } catch (error) {
       console.error(error);
-      const message = serverErrorMessage("Failed to stop server", error);
+      const message = serverErrorMessage(
+        forceKill ? "Failed to kill server" : "Failed to stop server",
+        error,
+      );
       toast.error(message);
       setServerLogs((current) => ({
         ...current,
@@ -953,9 +998,55 @@ function AdminCustomServerModeration({
   onBlockOwner: (server: CustomServer) => void;
   onUnblockOwner: (owner: string) => void;
 }) {
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const ownerNameRequestsRef = useRef(new Set<string>());
   const blockedOwners = new Set(
     blacklist.map((entry) => normalizeUuidForCompare(entry.uuid)),
   );
+
+  useEffect(() => {
+    const ownersToLoad = Array.from(
+      new Set(servers.map((server) => normalizeUuidForCompare(server.owner))),
+    ).filter(
+      (owner) =>
+        owner && !ownerNames[owner] && !ownerNameRequestsRef.current.has(owner),
+    );
+
+    if (ownersToLoad.length === 0) {
+      return;
+    }
+
+    let active = true;
+    ownersToLoad.forEach((owner) => {
+      ownerNameRequestsRef.current.add(owner);
+      invoke<MinecraftProfile>("get_profile_by_name_or_uuid", {
+        nameOrUuidQuery: owner,
+      })
+        .then((profile) => {
+          if (!active) return;
+          setOwnerNames((current) => ({
+            ...current,
+            [owner]: profile.name || owner,
+          }));
+        })
+        .catch(() => {
+          if (!active) return;
+          setOwnerNames((current) => ({
+            ...current,
+            [owner]: owner,
+          }));
+        });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [servers, ownerNames]);
+
+  const copyOwnerUuid = async (owner: string) => {
+    await writeText(owner);
+    toast.success("owner uuid copied");
+  };
 
   if (loading) {
     return (
@@ -1000,6 +1091,8 @@ function AdminCustomServerModeration({
             const ownerBlocked = blockedOwners.has(
               normalizeUuidForCompare(server.owner),
             );
+            const ownerName = formatOwnerDisplayName(server.owner, ownerNames);
+            const status = getAdminServerStatus(server, ownerBlocked);
             const deleted = Boolean(server.deletedAt);
             return (
               <article
@@ -1032,10 +1125,65 @@ function AdminCustomServerModeration({
                   </div>
                 </div>
 
-                <div className="grid gap-2 font-minecraft-ten text-base text-white/65 sm:grid-cols-2">
-                  <span className="min-w-0 truncate border border-white/10 bg-black/30 px-2 py-1">
-                    owner: {server.owner}
-                  </span>
+                <div className="grid gap-2 font-minecraft-ten text-base text-white/65 sm:grid-cols-2 xl:grid-cols-3">
+                  <button
+                    type="button"
+                    className="flex min-w-0 items-center gap-2 border border-white/10 bg-black/30 px-2 py-1 text-left transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                    title={`copy uuid: ${server.owner}`}
+                    onClick={() => copyOwnerUuid(server.owner)}
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      owner: {ownerName}
+                    </span>
+                    <Icon
+                      icon="solar:copy-bold"
+                      className="h-4 w-4 shrink-0 text-white/45"
+                    />
+                  </button>
+                  <AdminServerInfo label="status" value={status} />
+                  <AdminServerInfo
+                    label="last active"
+                    value={formatAdminDateTime(server.lastOnline)}
+                  />
+                  <AdminServerInfo
+                    label="created"
+                    value={formatAdminDateTime(server.createdAt)}
+                  />
+                  <AdminServerInfo
+                    label="loader"
+                    value={server.loaderVersion || "none"}
+                  />
+                  <AdminServerInfo
+                    label="server id"
+                    value={server._id.slice(-8)}
+                    title={server._id}
+                  />
+                  {deleted && (
+                    <>
+                      <AdminServerInfo
+                        label="deleted"
+                        value={formatAdminDateTime(server.deletedAt)}
+                      />
+                      {server.deletedBy && (
+                        <AdminServerInfo
+                          label="deleted by"
+                          value={server.deletedBy}
+                        />
+                      )}
+                      {server.deletionReason && (
+                        <AdminServerInfo
+                          label="reason"
+                          value={server.deletionReason}
+                        />
+                      )}
+                      {server.originalName && (
+                        <AdminServerInfo
+                          label="original"
+                          value={server.originalName}
+                        />
+                      )}
+                    </>
+                  )}
                   <span className="border border-white/10 bg-black/30 px-2 py-1">
                     {server.type} · {server.mcVersion}
                   </span>
@@ -1090,6 +1238,25 @@ function AdminCustomServerModeration({
         </div>
       )}
     </div>
+  );
+}
+
+function AdminServerInfo({
+  label,
+  value,
+  title,
+}: {
+  label: string;
+  value: string;
+  title?: string;
+}) {
+  return (
+    <span
+      className="min-w-0 truncate border border-white/10 bg-black/30 px-2 py-1"
+      title={title ?? value}
+    >
+      {label}: {value}
+    </span>
   );
 }
 
@@ -1163,6 +1330,7 @@ function CustomServerCard({
   const isDeleted = Boolean(server.deletedAt);
   const isOnlineish = status === "online" || status === "starting";
   const isRunningish = isOnlineish || status === "stopping";
+  const isForceKill = status === "stopping";
   const contextMenuItems: ContextMenuItem[] = [
     {
       id: "open",
@@ -1204,9 +1372,13 @@ function CustomServerCard({
     },
     {
       id: isRunningish ? "stop" : "start",
-      label: isRunningish ? "Stop" : "Start",
-      icon: isRunningish ? "solar:stop-circle-bold" : "solar:play-circle-bold",
-      disabled: isDeleted || status === "stopping",
+      label: isForceKill ? "Kill" : isRunningish ? "Stop" : "Start",
+      icon: isForceKill
+        ? "solar:bolt-bold"
+        : isRunningish
+          ? "solar:stop-circle-bold"
+          : "solar:play-circle-bold",
+      disabled: isDeleted,
       onClick: isRunningish ? onStop : onStart,
     },
     {
@@ -1498,17 +1670,22 @@ function CustomServerDetails({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isRunning || isStarting ? (
+            {isRunning || isStarting || isStopping ? (
               <Button
                 variant="flat-secondary"
                 size="sm"
                 disabled={busy}
                 icon={
-                  <Icon icon="solar:stop-circle-bold" className="h-5 w-5" />
+                  <Icon
+                    icon={
+                      isStopping ? "solar:bolt-bold" : "solar:stop-circle-bold"
+                    }
+                    className="h-5 w-5"
+                  />
                 }
                 onClick={onStop}
               >
-                stop
+                {isStopping ? "kill" : "stop"}
               </Button>
             ) : (
               <Button

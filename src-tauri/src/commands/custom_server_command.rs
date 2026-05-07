@@ -41,6 +41,8 @@ static FULLRISK_AUTH_SESSION: Lazy<Mutex<Option<FullRiskAuthSession>>> =
 
 struct RunningCustomServer {
     stdin: tokio::process::ChildStdin,
+    process_id: Option<u32>,
+    stop_requested: bool,
     started_at: Instant,
     forwarding_session_id: Option<String>,
     forwarding_agent: Option<JoinHandle<()>>,
@@ -686,6 +688,7 @@ pub async fn update_custom_server(
 #[tauri::command]
 pub async fn delete_custom_server(id: String) -> Result<(), CommandError> {
     let account = active_account().await?;
+    stop_running_custom_server_immediately(&id).await?;
     authenticated_api_success(&account, "Failed to delete custom server", |token| {
         HTTP_CLIENT
             .delete(endpoint(&format!("launcher/custom-servers/{}", id)))
@@ -714,6 +717,7 @@ pub async fn get_admin_custom_servers() -> Result<AdminCustomServersResponse, Co
 #[tauri::command]
 pub async fn admin_delete_custom_server(id: String) -> Result<CustomServer, CommandError> {
     let account = active_account().await?;
+    stop_running_custom_server_immediately(&id).await?;
     authenticated_api_response::<CustomServer, _>(
         &account,
         "Failed to delete custom server as admin",
@@ -877,7 +881,8 @@ pub async fn run_custom_server(
         ),
     );
 
-    let mut child = Command::new(java_path)
+    let mut command = Command::new(java_path);
+    command
         .arg("-Xms1G")
         .arg("-Xmx2G")
         .arg("-jar")
@@ -886,9 +891,15 @@ pub async fn run_custom_server(
         .current_dir(&server_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(AppError::from)?;
+        .stderr(Stdio::piped());
+
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let mut child = command.spawn().map_err(AppError::from)?;
     emit_custom_server_log(
         &app,
         &custom_server.id,
@@ -973,6 +984,8 @@ pub async fn run_custom_server(
         custom_server.id.clone(),
         RunningCustomServer {
             stdin,
+            process_id: child.id(),
+            stop_requested: false,
             started_at: Instant::now(),
             forwarding_session_id: forwarding_session,
             forwarding_agent,
@@ -998,7 +1011,6 @@ pub async fn run_custom_server(
 
     let app_for_wait = app.clone();
     let server_id = custom_server.id.clone();
-    let custom_server_for_wait = custom_server.clone();
     tokio::spawn(async move {
         match child.wait().await {
             Ok(status) => emit_custom_server_log(
@@ -1022,9 +1034,7 @@ pub async fn run_custom_server(
         }
         let forwarding_session_id = removed_server.and_then(|server| server.forwarding_session_id);
         if let Some(session_id) = forwarding_session_id {
-            if let Err(error) =
-                stop_custom_server_forwarding(&custom_server_for_wait, &session_id).await
-            {
+            if let Err(error) = stop_custom_server_forwarding(&server_id, &session_id).await {
                 emit_custom_server_log(
                     &app_for_wait,
                     &server_id,
@@ -1037,42 +1047,142 @@ pub async fn run_custom_server(
     Ok(())
 }
 
+async fn stop_running_custom_server_immediately(server_id: &str) -> Result<(), CommandError> {
+    let removed_server = RUNNING_CUSTOM_SERVERS.lock().await.remove(server_id);
+    let Some(server) = removed_server else {
+        return Ok(());
+    };
+
+    shutdown_removed_custom_server(server_id, server, true).await
+}
+
 #[tauri::command]
 pub async fn terminate_custom_server(
     server_id: Option<String>,
     launcher_was_closed: bool,
 ) -> Result<(), CommandError> {
-    let mut running = RUNNING_CUSTOM_SERVERS.lock().await;
+    let mut to_kill = Vec::new();
 
-    if running.is_empty() {
-        return Ok(());
+    {
+        let mut running = RUNNING_CUSTOM_SERVERS.lock().await;
+
+        if running.is_empty() {
+            return Ok(());
+        }
+
+        let ids = if let Some(server_id) = server_id {
+            vec![server_id]
+        } else {
+            running.keys().cloned().collect()
+        };
+
+        for id in ids {
+            let should_kill = launcher_was_closed
+                || running
+                    .get(&id)
+                    .is_some_and(|server| server.stop_requested);
+
+            if should_kill {
+                if let Some(server) = running.remove(&id) {
+                    to_kill.push((id, server));
+                }
+                continue;
+            }
+
+            let Some(server) = running.get_mut(&id) else {
+                continue;
+            };
+            server
+                .stdin
+                .write_all(b"stop\n")
+                .await
+                .map_err(AppError::from)?;
+            server.stdin.flush().await.map_err(AppError::from)?;
+            server.stop_requested = true;
+        }
     }
 
-    let ids = if let Some(server_id) = server_id {
-        vec![server_id]
-    } else {
-        running.keys().cloned().collect()
-    };
-
-    for id in ids {
-        let Some(server) = running.get_mut(&id) else {
-            continue;
-        };
-        let command = if launcher_was_closed {
-            "stop\n"
-        } else {
-            "stop\n"
-        };
-        server
-            .stdin
-            .write_all(command.as_bytes())
-            .await
-            .map_err(AppError::from)?;
-        server.stdin.flush().await.map_err(AppError::from)?;
-        let _ = launcher_was_closed;
+    for (id, server) in to_kill {
+        shutdown_removed_custom_server(&id, server, true).await?;
     }
 
     Ok(())
+}
+
+async fn shutdown_removed_custom_server(
+    server_id: &str,
+    mut server: RunningCustomServer,
+    kill_process: bool,
+) -> Result<(), CommandError> {
+    if kill_process {
+        if let Some(process_id) = server.process_id {
+            kill_process_tree(process_id)
+                .await
+                .map_err(CommandError::from)?;
+        }
+    } else {
+        let _ = server.stdin.write_all(b"stop\n").await;
+        let _ = server.stdin.flush().await;
+    }
+
+    if let Some(agent) = server.forwarding_agent {
+        agent.abort();
+    }
+
+    if let Some(session_id) = server.forwarding_session_id {
+        stop_custom_server_forwarding(server_id, &session_id)
+            .await
+            .map_err(CommandError::from)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn kill_process_tree(process_id: u32) -> Result<(), AppError> {
+    let mut command = Command::new("taskkill");
+    command
+        .arg("/PID")
+        .arg(process_id.to_string())
+        .arg("/T")
+        .arg("/F")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    let status = command.status().await.map_err(AppError::from)?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::ProcessError(format!(
+            "taskkill failed for pid {} with status {}",
+            process_id, status
+        )))
+    }
+}
+
+#[cfg(not(windows))]
+async fn kill_process_tree(process_id: u32) -> Result<(), AppError> {
+    let status = Command::new("kill")
+        .arg("-9")
+        .arg(process_id.to_string())
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .map_err(AppError::from)?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::ProcessError(format!(
+            "kill failed for pid {} with status {}",
+            process_id, status
+        )))
+    }
 }
 
 async fn start_custom_server_forwarding(
@@ -1104,10 +1214,7 @@ async fn start_custom_server_forwarding(
     .map_err(|error| AppError::Other(error.message))
 }
 
-async fn stop_custom_server_forwarding(
-    custom_server: &CustomServer,
-    session_id: &str,
-) -> Result<(), AppError> {
+async fn stop_custom_server_forwarding(server_id: &str, session_id: &str) -> Result<(), AppError> {
     let account = active_account()
         .await
         .map_err(|error| AppError::Other(error.message))?;
@@ -1116,7 +1223,7 @@ async fn stop_custom_server_forwarding(
         HTTP_CLIENT
             .post(endpoint(&format!(
                 "launcher/custom-servers/{}/forwarding/stop",
-                custom_server.id
+                server_id
             )))
             .header("Authorization", format!("Bearer {}", token))
             .query(&[("uuid", account.id.to_string())])
