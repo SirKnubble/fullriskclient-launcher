@@ -110,6 +110,7 @@ export function AppLayout({
           label: t("nav.skins"),
         },
         { id: "capes", icon: "solar:shop-bold", label: t("nav.capes") },
+        { id: "servers", icon: "solar:server-bold", label: "servers" },
         {
           id: "profiles",
           icon: "solar:user-id-bold",

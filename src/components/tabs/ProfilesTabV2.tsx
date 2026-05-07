@@ -208,7 +208,7 @@ export function ProfilesTabV2() {
 
     const confirmed = await confirm({
       title: t("profiles.deleteProfileTitle"),
-      message: t("profiles.deleteConfirmMessageSimple", { name: profileName }),
+      message: `${t("profiles.deleteConfirmQuestion")}\n- ${profileName}\n\n${t("profiles.deleteConfirmCannotUndo")}`,
       confirmText: t("profiles.deleteConfirm"),
       cancelText: t("profiles.cancelAction"),
       type: "danger",

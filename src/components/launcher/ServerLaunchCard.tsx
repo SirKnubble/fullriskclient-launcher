@@ -14,6 +14,7 @@ interface ServerLaunchCardProps {
   serverAddress: string;
   serverName: string;
   profileId: string | null;
+  disabled?: boolean;
   onMods?: () => void;
   className?: string;
 }
@@ -22,6 +23,7 @@ export function ServerLaunchCard({
   serverAddress,
   serverName,
   profileId,
+  disabled = false,
   onMods,
   className = "",
 }: ServerLaunchCardProps) {
@@ -70,10 +72,14 @@ export function ServerLaunchCard({
     const interval = setInterval(() => {
       triggerBackgroundPing(serverAddress);
     }, 30000);
+    const loadingFallback = setTimeout(() => {
+      setIsLoading(false);
+    }, 7000);
 
     return () => {
       unsubscribe();
       clearInterval(interval);
+      clearTimeout(loadingFallback);
     };
   }, [serverAddress, getPing, subscribe, triggerBackgroundPing]);
 
@@ -194,7 +200,7 @@ export function ServerLaunchCard({
     );
   };
 
-  const isDisabled = !profileId;
+  const isDisabled = disabled || !profileId;
 
   return (
     <div

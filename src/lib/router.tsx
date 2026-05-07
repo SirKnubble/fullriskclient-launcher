@@ -2,7 +2,6 @@ import { createHashRouter, Navigate } from "react-router-dom";
 import { App } from "../App";
 import { RouteErrorBoundary } from "../components/RouteErrorBoundary";
 import { PlayTab } from "../components/tabs/PlayTab";
-import { ProfilesTab } from "../components/tabs/ProfilesTab";
 import ModrinthTabV2 from "../components/tabs/ModrinthTabV2";
 import { SkinsTab } from "../components/tabs/SkinsTab";
 import { StoreTab } from "../components/tabs/StoreTab";
@@ -32,7 +31,7 @@ export const router = createHashRouter([
       },
       {
         path: "profiles/:profileId",
-        element: <ProfilesTab />,
+        element: <ProfileDetailViewV2Wrapper />,
       },
       {
         path: "profilesv2/:profileId",
@@ -48,7 +47,7 @@ export const router = createHashRouter([
       },
       {
         path: "profiles/:profileId/browse/:contentType",
-        element: <BrowseTab />,
+        element: <BrowseTabWrapper />,
       },
       {
         path: "mods",

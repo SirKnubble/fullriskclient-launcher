@@ -127,6 +127,8 @@ export function SettingsContextMenu({
     <div
       ref={menuRef}
       className="absolute bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden"
+      onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
       style={{
         position: positionMode,
         left: position.x,
@@ -141,7 +143,9 @@ export function SettingsContextMenu({
             {item.separator && <div className="h-px bg-white/10 mx-2 my-2" />}
 
             <button
-              onClick={() => {
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
                 if (!item.disabled) {
                   item.onClick(profile);
                   onClose();

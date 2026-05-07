@@ -15,6 +15,22 @@ import {
   type ComponentVariant
 } from "../design-system";
 
+const darkenHex = (hex: string, amount: number) => {
+  const normalized = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return hex;
+  }
+
+  const value = Number.parseInt(normalized, 16);
+  const r = Math.max(0, Math.round(((value >> 16) & 255) * (1 - amount)));
+  const g = Math.max(0, Math.round(((value >> 8) & 255) * (1 - amount)));
+  const b = Math.max(0, Math.round((value & 255) * (1 - amount)));
+
+  return `#${[r, g, b]
+    .map((channel) => channel.toString(16).padStart(2, "0"))
+    .join("")}`;
+};
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ComponentVariant;
   size?: ComponentSize;
@@ -166,7 +182,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         if (!isFullRiskStyle) {
           return `${colors.main}${isHovered ? "50" : "30"}`;
         }
-        return isHovered ? `${colors.light}` : `${colors.main}`;
+        return colors.main;
       }
 
       const baseOpacity = isHovered ? "55" : "35";
@@ -182,6 +198,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         return `${colors.main}80`;
       }
 
+      if (variant === "3d" && isFullRiskStyle) {
+        return colors.light;
+      }
+
       return isHovered ? colors.light : `${colors.main}80`;
     };
 
@@ -192,6 +212,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
       if (variant === "flat" || variant === "flat-secondary") {
         return isHovered ? colors.light : colors.dark;
+      }
+
+      if (variant === "3d" && isFullRiskStyle) {
+        return darkenHex(colors.main, 0.42);
       }
 
       return isHovered ? colors.light : colors.dark;
@@ -251,7 +275,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         style={{
           ...(isFullRiskStyle ? { background: getBackgroundColor() } : { backgroundColor: getBackgroundColor() }),
           borderColor: getBorderColor(),
-          borderBottomColor: variant === "3d" && isFullRiskStyle ? "#094f86" : getBorderBottomColor(),
+          borderBottomColor: getBorderBottomColor(),
           boxShadow: getBoxShadow(),
           color: getTextColor(),
           transform: isPressed ? "translateY(1px)" : "translateY(0)",

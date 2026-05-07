@@ -285,11 +285,11 @@ export function FullRiskProfileCard({
       </div>
 
       <div
-        className="absolute left-[10px] bottom-[12px] z-[2] lowercase leading-none whitespace-nowrap"
+        className="absolute left-[10px] bottom-[7px] z-[2] lowercase leading-none whitespace-nowrap"
         style={{
           color: "var(--panel-border-strong)",
           fontSize: `${nameFontSize}px`,
-          transform: isHovered ? "translateY(-52px)" : undefined,
+          transform: isHovered ? "translateY(-47px)" : undefined,
           textShadow: "2px 2px rgba(0,0,0,0.9)",
         }}
       >
@@ -297,9 +297,9 @@ export function FullRiskProfileCard({
       </div>
 
       <div
-        className="absolute bottom-[12px] right-[12px] z-[2] font-minecraft text-[22px] lowercase leading-none text-white/95"
+        className="absolute bottom-[7px] right-[12px] z-[2] font-minecraft text-[22px] lowercase leading-none text-white/95"
         style={{
-          transform: isHovered ? "translateY(-52px)" : undefined,
+          transform: isHovered ? "translateY(-47px)" : undefined,
           textShadow: "2px 2px rgba(0,0,0,0.9)",
         }}
       >

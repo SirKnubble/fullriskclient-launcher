@@ -4,6 +4,7 @@ pub mod cape_command;
 pub mod config_commands;
 pub mod content_command;
 pub mod curseforge_commands;
+pub mod custom_server_command;
 pub mod file_command;
 pub mod flagsmith_commands;
 pub mod friends_command;
