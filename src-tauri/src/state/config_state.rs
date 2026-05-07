@@ -80,6 +80,9 @@ pub struct LauncherConfig {
     /// Referral tracking state - code stays even after redemption
     #[serde(default)]
     pub referral_state: Option<ReferralState>,
+    /// Pack rollout override: "auto" | "off" | "on"
+    #[serde(default = "default_pack_rollout_override")]
+    pub pack_rollout_override: String,
 }
 
 fn default_config_version() -> u32 {
@@ -129,6 +132,10 @@ fn default_cache_natives_extraction() -> bool {
     true
 }
 
+fn default_pack_rollout_override() -> String {
+    "auto".to_string()
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -151,6 +158,7 @@ impl Default for LauncherConfig {
             use_browser_based_login: default_use_browser_based_login(),
             cache_natives_extraction: default_cache_natives_extraction(),
             referral_state: None,
+            pack_rollout_override: default_pack_rollout_override(),
         }
     }
 }
@@ -387,6 +395,7 @@ impl ConfigManager {
                 && current.use_browser_based_login == new_config.use_browser_based_login
                 && current.cache_natives_extraction == new_config.cache_natives_extraction
                 && current.referral_state == new_config.referral_state
+                && current.pack_rollout_override == new_config.pack_rollout_override
             {
                 debug!("No config changes detected, skipping save");
                 false
@@ -519,6 +528,7 @@ impl ConfigManager {
                     use_browser_based_login: new_config.use_browser_based_login,
                     cache_natives_extraction: new_config.cache_natives_extraction,
                     referral_state: new_config.referral_state.clone(),
+                    pack_rollout_override: new_config.pack_rollout_override.clone(),
                 };
 
                 true

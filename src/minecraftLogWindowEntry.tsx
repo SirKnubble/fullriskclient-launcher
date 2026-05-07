@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { MinecraftLogWindow } from "./components/log/MinecraftLogWindow";
 import { GlobalToaster } from "./components/ui/GlobalToaster";
 import i18n from "./i18n/i18n";
@@ -29,3 +30,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </I18nextProvider>
   </React.StrictMode>,
 );
+
+// Reveal the window only after the first paint to avoid the white flash.
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    getCurrentWindow().show().catch(() => {});
+  });
+});

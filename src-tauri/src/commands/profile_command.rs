@@ -410,6 +410,15 @@ pub async fn launch_profile(
                     props.insert("version".to_string(), serde_json::Value::String(version.clone()));
                     props.insert("loader".to_string(), serde_json::Value::String(modloader.as_str().to_string()));
                     track_analytics("minecraft_started", props);
+
+                    if let Some(pack_id) = profile_clone.selected_norisk_pack_id.clone() {
+                        let mut pack_props = std::collections::HashMap::new();
+                        pack_props.insert("profile_id".to_string(), serde_json::Value::String(profile_id.to_string()));
+                        pack_props.insert("version".to_string(), serde_json::Value::String(version.clone()));
+                        pack_props.insert("loader".to_string(), serde_json::Value::String(modloader.as_str().to_string()));
+                        pack_props.insert("pack_id".to_string(), serde_json::Value::String(pack_id));
+                        track_analytics("play_norisk_pack", pack_props);
+                    }
                     // Emit the new LaunchSuccessful event
                     let success_payload = EventPayload {
                         event_id: uuid::Uuid::new_v4(),

@@ -5,7 +5,9 @@ import type { Profile } from '../types/profile';
 import type { AdventCalendarDay, Reward } from '../types/advent';
 import type { UserNotification } from '../types/notification';
 import { useProfileStore } from '../store/profile-store';
-import { getBlockedModsConfig } from './flagsmith-service';
+import { getBlockedModsConfig, getPackRolloutConfig } from './flagsmith-service';
+import { refreshPermissions } from './permission-service';
+import { logInfo, logError } from '../utils/logging-utils';
 
 /**
  * Fetches the latest news and changelog posts from the backend.
@@ -63,6 +65,20 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
       .catch((error) => {
         console.error("Failed to load blocked mods config:", error);
       });
+
+    // Fire and forget: Load pack rollout aliases from Flagsmith
+    getPackRolloutConfig()
+      .then((config) => {
+        logInfo(`Pack rollout config loaded: ${JSON.stringify(config)}`);
+      })
+      .catch((error) => {
+        logError(`Failed to load pack rollout config: ${error}`);
+      });
+
+    // Fire and forget: Refresh user permissions from NoRisk backend
+    refreshPermissions()
+      .then(() => logInfo("User permissions refreshed on mount"))
+      .catch((error) => logError(`Failed to refresh permissions: ${error}`));
 
     try {
       await refreshNoriskPacks();
@@ -262,6 +278,20 @@ export const markAllNotificationsRead = (): Promise<void> => {
  */
 export const markNotificationRead = (notificationId: string): Promise<void> => {
   return invoke('mark_notification_read', { notificationId });
+};
+
+export interface UniquePlayersResponse {
+  count: number;
+  windowHours: number;
+  computedAtMs: number;
+}
+
+/**
+ * Fetches the unique-players-in-the-last-24h stat from the backend
+ * (cached server-side for 30 minutes).
+ */
+export const getUniquePlayers24h = (): Promise<UniquePlayersResponse> => {
+  return invoke('get_unique_players_24h_command');
 };
 
 

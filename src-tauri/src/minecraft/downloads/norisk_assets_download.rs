@@ -68,14 +68,14 @@ impl NoriskClientAssetsDownloadService {
             info!("[NRC Assets Download] Keep local assets flag is enabled for this profile");
         }
 
-        // Use profile's selected pack as the *main* pack ID
-        let main_pack_id = match &profile.selected_norisk_pack_id {
+        // Use profile's effective pack as the *main* pack ID (honors rollout alias)
+        let main_pack_id = match profile.effective_norisk_pack_id().await {
             Some(pack_id) if !pack_id.is_empty() => {
                 info!(
                     "[NRC Assets Download] Using main pack ID from profile: {}",
                     pack_id
                 );
-                pack_id.clone()
+                pack_id
             }
             _ => {
                 info!(
