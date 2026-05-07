@@ -31,6 +31,7 @@ import {
 } from "../../services/world-service";
 import type { Profile } from "../../types/profile";
 import type { WorldInfo } from "../../types/minecraft";
+import { openExternalUrl } from "../../services/tauri-service";
 import {
   ModPlatform,
   UnifiedProjectType,
@@ -65,6 +66,10 @@ interface CustomServer {
   forwarding?: ForwardingInfo | null;
   lastOnline: number;
   createdAt: number;
+  deletedAt?: number | null;
+  deletedBy?: string | null;
+  deletionReason?: string | null;
+  originalName?: string | null;
 }
 
 interface ForwardingInfo {
@@ -81,6 +86,17 @@ interface CustomServersResponse {
   limit: number;
   baseUrl: string;
   servers: CustomServer[];
+}
+
+interface CustomServerBlacklistEntry {
+  uuid: string;
+  reason: string;
+  blockedAt: number;
+  blockedBy: string;
+}
+
+interface AdminCustomServersResponse extends CustomServersResponse {
+  blacklist: CustomServerBlacklistEntry[];
 }
 
 interface CustomServerEventPayload {
@@ -159,9 +175,7 @@ const needsLoaderVersion = new Set<ServerType>([
 ]);
 const SAFETY_INFO_KEY = "fullrisk-custom-server-safety-info-v2";
 const TUNNEL_ENABLED_KEY = "fullrisk-custom-server-tunnel-enabled";
-const FULLRISK_SERVER_REPO_URL = "https://github.com/SirKnubble/fullrisk-api";
-const PORT_FORWARDING_TUTORIAL_URL =
-  "https://minecraft.wiki/w/Tutorial:Setting_up_a_Java_Edition_server#Port_forwarding";
+const SUPPORT_SERVER_URL = "https://fullrisk.net/support";
 
 function formatServerError(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -202,6 +216,16 @@ function serverErrorMessage(action: string, error: unknown): string {
   return `${action}: ${detail}`;
 }
 
+function isBlockedServerError(error: unknown): boolean {
+  return formatServerError(error)
+    .toLowerCase()
+    .includes("blocked from fullrisk custom servers");
+}
+
+function normalizeUuidForCompare(uuid: string): string {
+  return uuid.replace(/-/g, "").toLowerCase();
+}
+
 function pickRandomLocalServerPort() {
   return Math.floor(20000 + Math.random() * 5000);
 }
@@ -230,6 +254,14 @@ export function ServersTab() {
     null,
   );
   const [deletingServerId, setDeletingServerId] = useState<string | null>(null);
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminServers, setAdminServers] = useState<CustomServer[]>([]);
+  const [adminBlacklist, setAdminBlacklist] = useState<
+    CustomServerBlacklistEntry[]
+  >([]);
+  const [canUseAdminMode, setCanUseAdminMode] = useState(false);
+  const [blockedReason, setBlockedReason] = useState<string | null>(null);
 
   const selectedServer = selectedServerId
     ? (servers.find((server) => server._id === selectedServerId) ?? null)
@@ -239,15 +271,59 @@ export function ServersTab() {
     setLoading(true);
     try {
       const result = await invoke<CustomServersResponse>("get_custom_servers");
+      setBlockedReason(null);
       setServers(result.servers ?? []);
       setLimit(result.limit ?? 0);
       setBaseUrl(result.baseUrl || "fullrisk.net");
     } catch (error) {
       console.error(error);
+      if (isBlockedServerError(error)) {
+        setBlockedReason(formatServerError(error));
+        setServers([]);
+        return;
+      }
       toast.error(serverErrorMessage("Connection error", error));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const loadAdminServers = useCallback(async () => {
+    setAdminLoading(true);
+    try {
+      const result = await invoke<AdminCustomServersResponse>(
+        "get_admin_custom_servers",
+      );
+      setAdminServers(result.servers ?? []);
+      setAdminBlacklist(result.blacklist ?? []);
+      setBaseUrl(result.baseUrl || "fullrisk.net");
+    } catch (error) {
+      console.error(error);
+      setAdminMode(false);
+      toast.error(serverErrorMessage("Admin access denied", error));
+    } finally {
+      setAdminLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    invoke<AdminCustomServersResponse>("get_admin_custom_servers")
+      .then((result) => {
+        if (!active) return;
+        setCanUseAdminMode(true);
+        setAdminServers(result.servers ?? []);
+        setAdminBlacklist(result.blacklist ?? []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCanUseAdminMode(false);
+        setAdminMode(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -387,7 +463,19 @@ export function ServersTab() {
       );
   }, []);
 
-  const canCreate = limit <= 0 || servers.length < limit;
+  const canCreate =
+    !blockedReason &&
+    (canUseAdminMode ||
+      limit <= 0 ||
+      servers.filter((server) => !server.deletedAt).length < limit);
+
+  const toggleAdminMode = async () => {
+    const next = !adminMode;
+    setAdminMode(next);
+    if (next) {
+      await loadAdminServers();
+    }
+  };
 
   const handleCreate = async (payload: {
     name: string;
@@ -474,6 +562,78 @@ export function ServersTab() {
     } finally {
       setDeletingServerId(null);
       setServerToDelete(null);
+    }
+  };
+
+  const handleAdminDelete = async (server: CustomServer) => {
+    setDeletingServerId(server._id);
+    try {
+      const deleted = await invoke<CustomServer>("admin_delete_custom_server", {
+        id: server._id,
+      });
+      setAdminServers((current) =>
+        current.map((item) => (item._id === deleted._id ? deleted : item)),
+      );
+      setServers((current) =>
+        current.map((item) => (item._id === deleted._id ? deleted : item)),
+      );
+      toast.success("server marked as deleted");
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        serverErrorMessage("Failed to delete server as admin", error),
+      );
+    } finally {
+      setDeletingServerId(null);
+    }
+  };
+
+  const handleAdminRestore = async (server: CustomServer) => {
+    setDeletingServerId(server._id);
+    try {
+      const restored = await invoke<CustomServer>(
+        "admin_restore_custom_server",
+        { id: server._id },
+      );
+      setAdminServers((current) =>
+        current.map((item) => (item._id === restored._id ? restored : item)),
+      );
+      setServers((current) =>
+        current.map((item) => (item._id === restored._id ? restored : item)),
+      );
+      toast.success("server restored");
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        serverErrorMessage("Failed to restore server as admin", error),
+      );
+    } finally {
+      setDeletingServerId(null);
+    }
+  };
+
+  const handleAdminBlockOwner = async (server: CustomServer) => {
+    try {
+      await invoke("admin_block_custom_server_owner", {
+        id: server._id,
+        reason: `Blocked because of custom server ${server.subdomain}.${server.domain}`,
+      });
+      await loadAdminServers();
+      toast.success("owner blocked");
+    } catch (error) {
+      console.error(error);
+      toast.error(serverErrorMessage("Failed to block owner", error));
+    }
+  };
+
+  const handleAdminUnblockOwner = async (owner: string) => {
+    try {
+      await invoke("admin_unblock_custom_server_owner", { owner });
+      await loadAdminServers();
+      toast.success("owner unblocked");
+    } catch (error) {
+      console.error(error);
+      toast.error(serverErrorMessage("Failed to unblock owner", error));
     }
   };
 
@@ -612,10 +772,22 @@ export function ServersTab() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              {canUseAdminMode && (
+                <Button
+                  variant={adminMode ? "3d" : "flat-secondary"}
+                  size="sm"
+                  icon={
+                    <Icon icon="solar:shield-user-bold" className="h-5 w-5" />
+                  }
+                  onClick={toggleAdminMode}
+                >
+                  admin
+                </Button>
+              )}
               <Button
                 variant="3d"
                 size="sm"
-                disabled={!canCreate}
+                disabled={!canCreate || adminMode}
                 icon={<Icon icon="solar:add-square-bold" className="h-5 w-5" />}
                 onClick={() => setCreateOpen(true)}
               >
@@ -635,7 +807,19 @@ export function ServersTab() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
-            {loading ? (
+            {adminMode ? (
+              <AdminCustomServerModeration
+                servers={adminServers}
+                blacklist={adminBlacklist}
+                loading={adminLoading}
+                deletingServerId={deletingServerId}
+                onRefresh={loadAdminServers}
+                onDelete={handleAdminDelete}
+                onRestore={handleAdminRestore}
+                onBlockOwner={handleAdminBlockOwner}
+                onUnblockOwner={handleAdminUnblockOwner}
+              />
+            ) : loading ? (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
@@ -644,6 +828,8 @@ export function ServersTab() {
                   />
                 ))}
               </div>
+            ) : blockedReason ? (
+              <BlockedCustomServerState reason={blockedReason} />
             ) : servers.length === 0 ? (
               <EmptyState
                 icon="solar:server-square-cloud-bold"
@@ -720,6 +906,193 @@ export function ServersTab() {
   );
 }
 
+function BlockedCustomServerState({ reason }: { reason: string }) {
+  return (
+    <div className="fullrisk-panel flex min-h-[260px] flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex h-16 w-16 items-center justify-center border border-red-400/30 bg-red-500/15 text-red-200">
+        <Icon icon="solar:shield-cross-bold" className="h-9 w-9" />
+      </div>
+      <div className="max-w-xl">
+        <h2 className="font-minecraft text-4xl lowercase text-white">
+          your account has been blocked
+        </h2>
+        <p className="mt-2 font-minecraft-ten text-lg text-white/65">
+          {reason || "You have been blocked from FullRisk custom servers."}
+        </p>
+      </div>
+      <Button
+        variant="3d"
+        size="sm"
+        icon={<Icon icon="ic:baseline-discord" className="h-5 w-5" />}
+        onClick={() => openExternalUrl(SUPPORT_SERVER_URL)}
+      >
+        contact support
+      </Button>
+    </div>
+  );
+}
+
+function AdminCustomServerModeration({
+  servers,
+  blacklist,
+  loading,
+  deletingServerId,
+  onRefresh,
+  onDelete,
+  onRestore,
+  onBlockOwner,
+  onUnblockOwner,
+}: {
+  servers: CustomServer[];
+  blacklist: CustomServerBlacklistEntry[];
+  loading: boolean;
+  deletingServerId: string | null;
+  onRefresh: () => void;
+  onDelete: (server: CustomServer) => void;
+  onRestore: (server: CustomServer) => void;
+  onBlockOwner: (server: CustomServer) => void;
+  onUnblockOwner: (owner: string) => void;
+}) {
+  const blockedOwners = new Set(
+    blacklist.map((entry) => normalizeUuidForCompare(entry.uuid)),
+  );
+
+  if (loading) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="fullrisk-panel h-36 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="fullrisk-panel flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+          <h2 className="font-minecraft text-3xl lowercase text-white">
+            moderation
+          </h2>
+          <p className="font-minecraft-ten text-base text-white/55">
+            {servers.length} server · {blacklist.length} blocked users
+          </p>
+        </div>
+        <Button
+          variant="flat-secondary"
+          size="sm"
+          icon={<Icon icon="solar:refresh-bold" className="h-5 w-5" />}
+          onClick={onRefresh}
+        >
+          refresh
+        </Button>
+      </div>
+
+      {servers.length === 0 ? (
+        <EmptyState
+          icon="solar:server-square-cloud-bold"
+          message="moderation"
+          description="no servers found"
+        />
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {servers.map((server) => {
+            const ownerBlocked = blockedOwners.has(
+              normalizeUuidForCompare(server.owner),
+            );
+            const deleted = Boolean(server.deletedAt);
+            return (
+              <article
+                key={server._id}
+                className={cn(
+                  "fullrisk-panel flex min-w-0 flex-col gap-4 p-4",
+                  deleted && "opacity-70",
+                )}
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-minecraft text-3xl lowercase text-white">
+                      {deleted ? "deleted" : server.name}
+                    </h2>
+                    <p className="truncate font-minecraft-ten text-base text-white/60">
+                      {server.subdomain}.{server.domain}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2 font-minecraft-ten text-base">
+                    {deleted && (
+                      <span className="border border-red-400/30 bg-red-500/15 px-2 py-1 text-red-200">
+                        deleted
+                      </span>
+                    )}
+                    {ownerBlocked && (
+                      <span className="border border-amber-300/30 bg-amber-400/15 px-2 py-1 text-amber-100">
+                        blocked
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 font-minecraft-ten text-base text-white/65 sm:grid-cols-2">
+                  <span className="min-w-0 truncate border border-white/10 bg-black/30 px-2 py-1">
+                    owner: {server.owner}
+                  </span>
+                  <span className="border border-white/10 bg-black/30 px-2 py-1">
+                    {server.type} · {server.mcVersion}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="flat-secondary"
+                    size="sm"
+                    disabled={deletingServerId === server._id}
+                    icon={
+                      <Icon
+                        icon={
+                          deleted
+                            ? "solar:restart-bold"
+                            : "solar:trash-bin-trash-bold"
+                        }
+                        className="h-5 w-5"
+                      />
+                    }
+                    onClick={() =>
+                      deleted ? onRestore(server) : onDelete(server)
+                    }
+                  >
+                    {deleted ? "restore" : "delete"}
+                  </Button>
+                  <Button
+                    variant="flat-secondary"
+                    size="sm"
+                    icon={
+                      <Icon
+                        icon={
+                          ownerBlocked
+                            ? "solar:shield-check-bold"
+                            : "solar:shield-cross-bold"
+                        }
+                        className="h-5 w-5"
+                      />
+                    }
+                    onClick={() =>
+                      ownerBlocked
+                        ? onUnblockOwner(server.owner)
+                        : onBlockOwner(server)
+                    }
+                  >
+                    {ownerBlocked ? "unblock" : "block owner"}
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ServerDeleteDialog({
   server,
   deletingServerId,
@@ -787,6 +1160,7 @@ function CustomServerCard({
   const type =
     SERVER_TYPES.find((item) => item.value === server.type) ?? SERVER_TYPES[0];
   const address = getServerDisplayAddress(server, [], tunnelEnabled);
+  const isDeleted = Boolean(server.deletedAt);
   const isOnlineish = status === "online" || status === "starting";
   const isRunningish = isOnlineish || status === "stopping";
   const contextMenuItems: ContextMenuItem[] = [
@@ -794,13 +1168,14 @@ function CustomServerCard({
       id: "open",
       label: "Open",
       icon: "solar:server-square-cloud-bold",
+      disabled: isDeleted,
       onClick: onOpen,
     },
     {
       id: "edit",
       label: "Edit",
       icon: "solar:pen-new-square-bold",
-      disabled: isOnlineish,
+      disabled: isDeleted || isOnlineish,
       onClick: onEdit,
     },
     {
@@ -824,14 +1199,14 @@ function CustomServerCard({
       icon: tunnelEnabled
         ? "solar:shield-check-bold"
         : "solar:shield-cross-bold",
-      disabled: isOnlineish,
+      disabled: isDeleted || isOnlineish,
       onClick: () => onTunnelChange(!tunnelEnabled),
     },
     {
       id: isRunningish ? "stop" : "start",
       label: isRunningish ? "Stop" : "Start",
       icon: isRunningish ? "solar:stop-circle-bold" : "solar:play-circle-bold",
-      disabled: status === "stopping",
+      disabled: isDeleted || status === "stopping",
       onClick: isRunningish ? onStop : onStart,
     },
     {
@@ -857,7 +1232,7 @@ function CustomServerCard({
   return (
     <article
       className="fullrisk-panel flex min-h-36 min-w-0 cursor-pointer flex-col justify-between gap-4 p-4 transition hover:border-white/25"
-      onClick={onOpen}
+      onClick={isDeleted ? undefined : onOpen}
       onContextMenu={openContextMenu}
     >
       <div className="flex items-start gap-3">
@@ -869,7 +1244,7 @@ function CustomServerCard({
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="truncate font-minecraft text-3xl lowercase text-white">
-            {server.name}
+            {isDeleted ? "deleted" : server.name}
           </h2>
           <p className="truncate font-minecraft-ten text-base text-white/60">
             {address}
@@ -894,7 +1269,13 @@ function CustomServerCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <ServerStatusBadge status={status} />
-          <TunnelBadge enabled={tunnelEnabled} compact />
+          {isDeleted ? (
+            <span className="border border-red-400/30 bg-red-500/15 px-2 py-1 font-minecraft-ten text-base text-red-200">
+              deleted
+            </span>
+          ) : (
+            <TunnelBadge enabled={tunnelEnabled} compact />
+          )}
         </div>
         <button
           ref={menuButtonRef}
@@ -1120,10 +1501,10 @@ function CustomServerDetails({
             {isRunning || isStarting ? (
               <Button
                 variant="flat-secondary"
-                size="xs"
+                size="sm"
                 disabled={busy}
                 icon={
-                  <Icon icon="solar:stop-circle-bold" className="h-4 w-4" />
+                  <Icon icon="solar:stop-circle-bold" className="h-5 w-5" />
                 }
                 onClick={onStop}
               >
@@ -1132,10 +1513,10 @@ function CustomServerDetails({
             ) : (
               <Button
                 variant="3d"
-                size="xs"
+                size="sm"
                 disabled={busy}
                 icon={
-                  <Icon icon="solar:play-circle-bold" className="h-4 w-4" />
+                  <Icon icon="solar:play-circle-bold" className="h-5 w-5" />
                 }
                 onClick={onStart}
               >
@@ -1152,22 +1533,22 @@ function CustomServerDetails({
           <div className="flex h-full flex-col gap-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-2">
-                {(
-                  ["all", "info", "warn", "error", "debug", "console"] as const
-                ).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    className={cn(
-                      "border border-white/10 bg-black/25 px-3 py-1.5 font-minecraft-ten text-base lowercase text-white/55 transition",
-                      logLevel === level &&
-                        "border-[var(--panel-highlight)] text-white",
-                    )}
-                    onClick={() => setLogLevel(level)}
-                  >
-                    {level}
-                  </button>
-                ))}
+                {(["all", "info", "warn", "error", "debug"] as const).map(
+                  (level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      className={cn(
+                        "border border-white/10 bg-black/25 px-3 py-1.5 font-minecraft-ten text-base lowercase text-white/55 transition",
+                        logLevel === level &&
+                          "border-[var(--panel-highlight)] text-white",
+                      )}
+                      onClick={() => setLogLevel(level)}
+                    >
+                      {level}
+                    </button>
+                  ),
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -1196,7 +1577,7 @@ function CustomServerDetails({
             </div>
             <div
               ref={logContainerRef}
-              className="min-h-0 flex-1 overflow-y-auto border border-white/10 bg-black/40 p-3 font-mono text-xs text-white/75 custom-scrollbar"
+              className="min-h-0 flex-1 overflow-y-auto border border-white/10 bg-black/40 p-3 text-left font-mono text-xs leading-5 text-white/75 custom-scrollbar"
               onScroll={(event) => {
                 const target = event.currentTarget;
                 const distanceFromBottom =
@@ -1219,7 +1600,7 @@ function CustomServerDetails({
                   </p>
                 ))
               ) : (
-                <div className="flex h-full items-center justify-center font-minecraft-ten text-lg text-white/45">
+                <div className="py-2 font-minecraft-ten text-base text-white/45">
                   no logs yet
                 </div>
               )}
@@ -1581,191 +1962,11 @@ function ServerSafetyInfoModalV2({
             instead of silently falling back to Direct mode.
           </InfoBox>
 
-          <InfoBox title="ports">
-            Your server gets a random local Minecraft port, for example 22982.
-            That is where the Minecraft server process listens on your PC. With
-            tunnel on, friends do not connect to that local port directly;
-            FullRisk opens a public tunnel port on our server and DNS SRV tells
-            Minecraft which port belongs to your subdomain. Usually players can
-            enter only your domain. If SRV is not used by the client, the
-            fallback address includes the public tunnel port.
-            <br />
-            <br />
-            With tunnel off, the local port is the port you must forward in your
-            router/firewall, because DNS points players to your own public IP.
-          </InfoBox>
-
           <InfoBox title="operator access">
             Backend access is limited to the service operator (SirKnubble). Data
             is used for operating the service, support and abuse prevention; it
             is not sold, published or used to access your Minecraft account.
           </InfoBox>
-        </div>
-
-        <p className="text-base text-white/60">
-          If you do not want to route through FullRisk, you usually need router
-          port forwarding and a firewall rule for external players. Guide:{" "}
-          <a
-            href={PORT_FORWARDING_TUTORIAL_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--panel-highlight)] underline underline-offset-4 hover:text-white"
-          >
-            Minecraft Wiki
-          </a>
-          .
-        </p>
-      </div>
-
-      <div className="flex justify-end gap-3 pt-2">
-        {!forced && (
-          <Button variant="flat-secondary" size="sm" onClick={onClose}>
-            close
-          </Button>
-        )}
-        <Button variant="3d" size="sm" onClick={onAccept}>
-          understood
-        </Button>
-      </div>
-    </Modal>
-  );
-}
-
-function ServerSafetyInfoModal({
-  open,
-  forced,
-  onClose,
-  onAccept,
-}: {
-  open: boolean;
-  forced: boolean;
-  onClose: () => void;
-  onAccept: () => void;
-}) {
-  if (!open) return null;
-
-  const paragraphs: string[] = [];
-  const storedItems = [
-    "Account-ID/UUID zur Besitzer-Pruefung",
-    "Servername, Version, Typ, Subdomain und Port",
-    "bei Direct: aktuelle public IP fuer DNS/SRV",
-    "bei Tunnel: Session-ID, public Port und technische Verbindungsdaten",
-  ];
-  const notStoredItems = [
-    "keine Minecraft-Chatinhalte",
-    "keine Weltdateien oder Serverdateien",
-    "keine RCON-Befehle als Backend-Datenbankinhalt",
-    "keine Weitergabe oder Verkauf deiner Daten",
-  ];
-
-  return (
-    <Modal
-      onClose={forced ? () => undefined : onClose}
-      title="server info"
-      width="lg"
-      contentClassName="space-y-5 px-7 py-6"
-    >
-      <div className="space-y-4 font-minecraft-ten text-lg leading-relaxed text-white/75">
-        <div className="border border-amber-400/45 bg-amber-500/15 px-4 py-3">
-          <h2 className="font-minecraft text-5xl lowercase text-amber-100">
-            achtung
-          </h2>
-          <p className="mt-2 text-amber-50/85">
-            Der Tunnel leitet Minecraft-Verbindungen ueber unseren Server. Deine
-            IP ist fuer Spieler versteckt, aber unser Backend muss die
-            Verbindung technisch kennen, damit Forwarding funktioniert.
-          </p>
-        </div>
-
-        <div className="grid gap-3 text-base leading-relaxed md:grid-cols-2">
-          <InfoBox title="sicherheit">
-            Requests nutzen einen kurzlebigen FullRisk Session Token. Dein
-            Minecraft Access Token wird nur an Mojang gesendet, nicht an unser
-            Backend. Adminzugriff auf den Backend-Server liegt nur beim
-            Betreiber; Daten werden nicht verkauft oder oeffentlich angezeigt.
-          </InfoBox>
-          <InfoBox title="ip & tunnel">
-            Tunnel an: Spieler sehen die FullRisk-Adresse, nicht deine IP.
-            Tunnel aus/Direct: DNS zeigt auf deine public IP; sie wird bei jedem
-            Start neu erkannt und aktualisiert.
-          </InfoBox>
-          <InfoBox title="gespeichert">
-            <ul className="space-y-1">
-              {storedItems.map((item) => (
-                <li key={item}>- {item}</li>
-              ))}
-            </ul>
-          </InfoBox>
-          <InfoBox title="nicht gespeichert">
-            <ul className="space-y-1">
-              {notStoredItems.map((item) => (
-                <li key={item}>- {item}</li>
-              ))}
-            </ul>
-          </InfoBox>
-        </div>
-
-        <p className="text-base text-white/60">
-          Der Tunnel ist nur aktiv, solange dein Server laeuft. Wenn das Backend
-          nicht erreichbar ist, bricht der Start mit Tunnel an ab, statt
-          heimlich auf Direct zu wechseln.
-        </p>
-        {paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
-        <p>
-          Unser Public-Server-Code ist einsehbar unter{" "}
-          <a
-            href={FULLRISK_SERVER_REPO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--panel-highlight)] underline underline-offset-4 hover:text-white"
-          >
-            github.com/SirKnubble/fullrisk-api
-          </a>
-          . Das hilft beim Vertrauen, ersetzt aber keine korrekte
-          Server-Konfiguration: Secrets, Tokens und DNS-Zugriff liegen nur in
-          der Deployment-Umgebung, nicht im Repo.
-        </p>
-        <p>
-          Eine Portforwarding-Anleitung findest du im{" "}
-          <a
-            href={PORT_FORWARDING_TUTORIAL_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[var(--panel-highlight)] underline underline-offset-4 hover:text-white"
-          >
-            Minecraft Wiki
-          </a>
-          .
-        </p>
-        <div className="hidden">
-          <p>
-            Wenn du einen Server erstellst, bekommt er eine Subdomain wie
-            `deinserver.fullrisk.net`, damit andere einfacher joinen können.
-          </p>
-          <p>
-            Im normalen Direct-Modus zeigt diese Subdomain auf deine aktuelle
-            öffentliche IP. Andere Spieler können diese IP dann technisch sehen,
-            weil Minecraft direkt zu deinem Anschluss verbindet.
-          </p>
-          <p>
-            Im WebSocket-Forwarding-Modus verbindet Minecraft stattdessen zum
-            FullRisk-Server. Deine IP wird dabei gegenüber Spielern versteckt,
-            weil sie nur die FullRisk-Adresse sehen. Der FullRisk-Backendserver
-            muss deine Verbindung natürlich kennen, damit der Tunnel
-            funktioniert.
-          </p>
-          <p>
-            Der Tunnel ist nur aktiv, solange dein Server läuft. Beim Start wird
-            Forwarding aktiviert und die DNS/SRV-Daten werden neu gesetzt. Beim
-            Stoppen oder Schließen wird der Tunnel deaktiviert.
-          </p>
-          <p>
-            Wenn deine öffentliche IP wechselt, wird sie bei jedem neuen
-            Serverstart neu ermittelt. Im Tunnelmodus ist dieser Wechsel für
-            Spieler egal, weil die Verbindung über den FullRisk-Server läuft.
-          </p>
         </div>
       </div>
 

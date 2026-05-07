@@ -1,8 +1,8 @@
 use crate::config::{ProjectDirsExt, HTTP_CLIENT, LAUNCHER_DIRECTORY};
 use crate::error::{AppError, CommandError};
+use crate::minecraft::auth::minecraft_auth::Credentials;
 use crate::minecraft::downloads::java_download::JavaDownloadService;
 use crate::minecraft::dto::java_distribution::JavaDistribution;
-use crate::minecraft::auth::minecraft_auth::Credentials;
 use crate::state::state_manager::State;
 use crate::utils::java_detector::detect_java_installations;
 use crate::utils::path_utils::calculate_dir_size_recursively;
@@ -88,6 +88,14 @@ pub struct CustomServer {
     pub last_online: u64,
     #[serde(rename = "createdAt")]
     pub created_at: u64,
+    #[serde(rename = "deletedAt")]
+    pub deleted_at: Option<u64>,
+    #[serde(rename = "deletedBy")]
+    pub deleted_by: Option<String>,
+    #[serde(rename = "deletionReason")]
+    pub deletion_reason: Option<String>,
+    #[serde(rename = "originalName")]
+    pub original_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +104,29 @@ pub struct CustomServersResponse {
     #[serde(rename = "baseUrl")]
     pub base_url: String,
     pub servers: Vec<CustomServer>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomServerBlacklistEntry {
+    pub uuid: String,
+    pub reason: String,
+    pub blocked_at: u64,
+    pub blocked_by: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminCustomServersResponse {
+    pub limit: i32,
+    #[serde(rename = "baseUrl")]
+    pub base_url: String,
+    pub servers: Vec<CustomServer>,
+    pub blacklist: Vec<CustomServerBlacklistEntry>,
+}
+
+#[derive(Debug, Serialize)]
+struct BlockCustomServerOwnerRequest<'a> {
+    reason: &'a str,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -341,9 +372,12 @@ async fn active_account() -> Result<Credentials, CommandError> {
     Ok(account)
 }
 
-async fn custom_server_auth_token(account: &Credentials) -> Result<String, CommandError> {
+async fn custom_server_auth_token(
+    account: &Credentials,
+    force_refresh: bool,
+) -> Result<String, CommandError> {
     let owner = account.id.to_string();
-    {
+    if !force_refresh {
         let cached = FULLRISK_AUTH_SESSION.lock().await;
         if let Some(session) = cached.as_ref() {
             if session.owner == owner
@@ -409,6 +443,10 @@ async fn custom_server_auth_token(account: &Credentials) -> Result<String, Comma
     Ok(verify.token)
 }
 
+async fn invalidate_custom_server_auth_token() {
+    *FULLRISK_AUTH_SESSION.lock().await = None;
+}
+
 fn endpoint(path: &str) -> String {
     format!("{}/{}", CUSTOM_SERVER_API_BASE.trim_end_matches('/'), path)
 }
@@ -419,7 +457,11 @@ async fn read_api_response<T: for<'de> Deserialize<'de>>(
 ) -> Result<T, CommandError> {
     let status = response.status();
     if status.is_success() {
-        return response.json::<T>().await.map_err(AppError::from).map_err(Into::into);
+        return response
+            .json::<T>()
+            .await
+            .map_err(AppError::from)
+            .map_err(Into::into);
     }
     if status == reqwest::StatusCode::UNAUTHORIZED {
         *FULLRISK_AUTH_SESSION.lock().await = None;
@@ -439,6 +481,29 @@ async fn read_api_response<T: for<'de> Deserialize<'de>>(
         });
 
     Err(AppError::Other(format!("{}: {}", context, detail)).into())
+}
+
+async fn authenticated_api_response<T, F>(
+    account: &Credentials,
+    context: &str,
+    build_request: F,
+) -> Result<T, CommandError>
+where
+    T: for<'de> Deserialize<'de>,
+    F: Fn(&str) -> reqwest::RequestBuilder,
+{
+    let token = custom_server_auth_token(account, false).await?;
+    let response = build_request(&token).send().await.map_err(AppError::from)?;
+
+    if response.status() != reqwest::StatusCode::UNAUTHORIZED {
+        return read_api_response::<T>(response, context).await;
+    }
+
+    invalidate_custom_server_auth_token().await;
+    let token = custom_server_auth_token(account, true).await?;
+    let response = build_request(&token).send().await.map_err(AppError::from)?;
+
+    read_api_response::<T>(response, context).await
 }
 
 async fn ensure_api_success(
@@ -469,37 +534,57 @@ async fn ensure_api_success(
     Err(AppError::Other(format!("{}: {}", context, detail)).into())
 }
 
+async fn authenticated_api_success<F>(
+    account: &Credentials,
+    context: &str,
+    build_request: F,
+) -> Result<(), CommandError>
+where
+    F: Fn(&str) -> reqwest::RequestBuilder,
+{
+    let token = custom_server_auth_token(account, false).await?;
+    let response = build_request(&token).send().await.map_err(AppError::from)?;
+
+    if response.status() != reqwest::StatusCode::UNAUTHORIZED {
+        return ensure_api_success(response, context).await;
+    }
+
+    invalidate_custom_server_auth_token().await;
+    let token = custom_server_auth_token(account, true).await?;
+    let response = build_request(&token).send().await.map_err(AppError::from)?;
+
+    ensure_api_success(response, context).await
+}
+
 #[tauri::command]
 pub async fn get_custom_servers() -> Result<CustomServersResponse, CommandError> {
     let account = active_account().await?;
-    let token = custom_server_auth_token(&account).await?;
-    let response = HTTP_CLIENT
-        .get(endpoint("launcher/custom-servers"))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .send()
-        .await
-        .map_err(AppError::from)?;
-
-    read_api_response::<CustomServersResponse>(response, "Failed to load custom servers").await
+    authenticated_api_response::<CustomServersResponse, _>(
+        &account,
+        "Failed to load custom servers",
+        |token| {
+            HTTP_CLIENT
+                .get(endpoint("launcher/custom-servers"))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+        },
+    )
+    .await
 }
 
 #[tauri::command]
 pub async fn check_custom_server_subdomain(subdomain: String) -> Result<bool, CommandError> {
     let account = active_account().await?;
-    let token = custom_server_auth_token(&account).await?;
-    let response = HTTP_CLIENT
-        .get(endpoint("launcher/custom-servers/check-subdomain"))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[
-            ("uuid", account.id.to_string()),
-            ("subdomain", subdomain),
-        ])
-        .send()
-        .await
-        .map_err(AppError::from)?;
-
-    read_api_response::<bool>(response, "Failed to check subdomain").await
+    authenticated_api_response::<bool, _>(&account, "Failed to check subdomain", |token| {
+        HTTP_CLIENT
+            .get(endpoint("launcher/custom-servers/check-subdomain"))
+            .header("Authorization", format!("Bearer {}", token))
+            .query(&[
+                ("uuid", account.id.to_string()),
+                ("subdomain", subdomain.clone()),
+            ])
+    })
+    .await
 }
 
 #[tauri::command]
@@ -512,7 +597,6 @@ pub async fn create_custom_server(
     port: u16,
 ) -> Result<CustomServer, CommandError> {
     let account = active_account().await?;
-    let token = custom_server_auth_token(&account).await?;
     let body = CreateCustomServerRequest {
         name: &name,
         mc_version: &mc_version,
@@ -521,17 +605,18 @@ pub async fn create_custom_server(
         subdomain: &subdomain,
         port,
     };
-
-    let response = HTTP_CLIENT
-        .post(endpoint("launcher/custom-servers"))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .json(&body)
-        .send()
-        .await
-        .map_err(AppError::from)?;
-
-    read_api_response::<CustomServer>(response, "Failed to create custom server").await
+    authenticated_api_response::<CustomServer, _>(
+        &account,
+        "Failed to create custom server",
+        |token| {
+            HTTP_CLIENT
+                .post(endpoint("launcher/custom-servers"))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+                .json(&body)
+        },
+    )
+    .await
 }
 
 #[tauri::command]
@@ -545,7 +630,6 @@ pub async fn update_custom_server(
     port: u16,
 ) -> Result<CustomServer, CommandError> {
     let account = active_account().await?;
-    let token = custom_server_auth_token(&account).await?;
     let body = UpdateCustomServerRequest {
         name: &name,
         mc_version: &mc_version,
@@ -554,32 +638,113 @@ pub async fn update_custom_server(
         subdomain: &subdomain,
         port,
     };
-
-    let response = HTTP_CLIENT
-        .patch(endpoint(&format!("launcher/custom-servers/{}", id)))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .json(&body)
-        .send()
-        .await
-        .map_err(AppError::from)?;
-
-    read_api_response::<CustomServer>(response, "Failed to update custom server").await
+    authenticated_api_response::<CustomServer, _>(
+        &account,
+        "Failed to update custom server",
+        |token| {
+            HTTP_CLIENT
+                .patch(endpoint(&format!("launcher/custom-servers/{}", id)))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+                .json(&body)
+        },
+    )
+    .await
 }
 
 #[tauri::command]
 pub async fn delete_custom_server(id: String) -> Result<(), CommandError> {
     let account = active_account().await?;
-    let token = custom_server_auth_token(&account).await?;
-    let response = HTTP_CLIENT
-        .delete(endpoint(&format!("launcher/custom-servers/{}", id)))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .send()
-        .await
-        .map_err(AppError::from)?;
+    authenticated_api_success(&account, "Failed to delete custom server", |token| {
+        HTTP_CLIENT
+            .delete(endpoint(&format!("launcher/custom-servers/{}", id)))
+            .header("Authorization", format!("Bearer {}", token))
+            .query(&[("uuid", account.id.to_string())])
+    })
+    .await
+}
 
-    ensure_api_success(response, "Failed to delete custom server").await
+#[tauri::command]
+pub async fn get_admin_custom_servers() -> Result<AdminCustomServersResponse, CommandError> {
+    let account = active_account().await?;
+    authenticated_api_response::<AdminCustomServersResponse, _>(
+        &account,
+        "Failed to load admin custom servers",
+        |token| {
+            HTTP_CLIENT
+                .get(endpoint("admin/moderation/custom-servers"))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn admin_delete_custom_server(id: String) -> Result<CustomServer, CommandError> {
+    let account = active_account().await?;
+    authenticated_api_response::<CustomServer, _>(
+        &account,
+        "Failed to delete custom server as admin",
+        |token| {
+            HTTP_CLIENT
+                .delete(endpoint(&format!("admin/moderation/custom-servers/{}", id)))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn admin_restore_custom_server(id: String) -> Result<CustomServer, CommandError> {
+    let account = active_account().await?;
+    authenticated_api_response::<CustomServer, _>(
+        &account,
+        "Failed to restore custom server as admin",
+        |token| {
+            HTTP_CLIENT
+                .post(endpoint(&format!(
+                    "admin/moderation/custom-servers/{}/restore",
+                    id
+                )))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn admin_block_custom_server_owner(
+    id: String,
+    reason: Option<String>,
+) -> Result<(), CommandError> {
+    let account = active_account().await?;
+    let reason = reason.unwrap_or_else(|| "Blocked by admin moderation".to_string());
+    authenticated_api_success(&account, "Failed to block custom server owner", |token| {
+        HTTP_CLIENT
+            .post(endpoint(&format!(
+                "admin/moderation/custom-servers/{}/block-owner",
+                id
+            )))
+            .header("Authorization", format!("Bearer {}", token))
+            .query(&[("uuid", account.id.to_string())])
+            .json(&BlockCustomServerOwnerRequest { reason: &reason })
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn admin_unblock_custom_server_owner(owner: String) -> Result<(), CommandError> {
+    let account = active_account().await?;
+    authenticated_api_success(&account, "Failed to unblock custom server owner", |token| {
+        HTTP_CLIENT
+            .delete(endpoint(&format!("admin/moderation/blacklist/{}", owner)))
+            .header("Authorization", format!("Bearer {}", token))
+            .query(&[("uuid", account.id.to_string())])
+    })
+    .await
 }
 
 #[tauri::command]
@@ -626,15 +791,24 @@ pub async fn run_custom_server(
     tokio::fs::create_dir_all(&server_dir)
         .await
         .map_err(AppError::from)?;
-    emit_custom_server_log(&app, &custom_server.id, "[DEBUG] Writing eula.txt and server.properties");
+    emit_custom_server_log(
+        &app,
+        &custom_server.id,
+        "[DEBUG] Writing eula.txt and server.properties",
+    );
     prepare_server_files(&custom_server, &server_dir)
         .await
         .map_err(AppError::from)?;
 
-    emit_custom_server_log(&app, &custom_server.id, "[INFO] Resolving Minecraft server jar");
-    let (jar_path, required_java_major) = ensure_vanilla_server_jar(&app, &custom_server, &server_dir)
-        .await
-        .map_err(AppError::from)?;
+    emit_custom_server_log(
+        &app,
+        &custom_server.id,
+        "[INFO] Resolving Minecraft server jar",
+    );
+    let (jar_path, required_java_major) =
+        ensure_vanilla_server_jar(&app, &custom_server, &server_dir)
+            .await
+            .map_err(AppError::from)?;
     emit_custom_server_log(
         &app,
         &custom_server.id,
@@ -643,7 +817,10 @@ pub async fn run_custom_server(
     emit_custom_server_log(
         &app,
         &custom_server.id,
-        &format!("[INFO] Resolving Java runtime for Java {}", required_java_major),
+        &format!(
+            "[INFO] Resolving Java runtime for Java {}",
+            required_java_major
+        ),
     );
     let java_path = resolve_server_java(&app, &custom_server.id, required_java_major)
         .await
@@ -722,7 +899,9 @@ pub async fn run_custom_server(
                         &format!(
                             "[INFO] Starting websocket forwarding agent for local {}:{}",
                             session.local_host.as_deref().unwrap_or("127.0.0.1"),
-                            session.local_port.unwrap_or(custom_server.port.unwrap_or(25565))
+                            session
+                                .local_port
+                                .unwrap_or(custom_server.port.unwrap_or(25565))
                         ),
                     );
                     forwarding_agent = Some(spawn_forwarding_agent(
@@ -740,11 +919,7 @@ pub async fn run_custom_server(
                     &custom_server.id,
                     &format!("[ERROR] Forwarding tunnel failed: {}", error),
                 );
-                return Err(AppError::Other(format!(
-                    "Forwarding tunnel failed: {}",
-                    error
-                ))
-                .into());
+                return Err(AppError::Other(format!("Forwarding tunnel failed: {}", error)).into());
             }
         }
     } else {
@@ -774,11 +949,19 @@ pub async fn run_custom_server(
     );
 
     if let Some(stdout) = stdout {
-        emit_custom_server_log(&app, &custom_server.id, "[DEBUG] Attached stdout log reader");
+        emit_custom_server_log(
+            &app,
+            &custom_server.id,
+            "[DEBUG] Attached stdout log reader",
+        );
         pipe_process_output(app.clone(), custom_server.id.clone(), stdout);
     }
     if let Some(stderr) = stderr {
-        emit_custom_server_log(&app, &custom_server.id, "[DEBUG] Attached stderr log reader");
+        emit_custom_server_log(
+            &app,
+            &custom_server.id,
+            "[DEBUG] Attached stderr log reader",
+        );
         pipe_process_output(app.clone(), custom_server.id.clone(), stderr);
     }
 
@@ -799,16 +982,18 @@ pub async fn run_custom_server(
             ),
         }
 
-        let removed_server = RUNNING_CUSTOM_SERVERS
-            .lock()
-            .await
-            .remove(&server_id);
-        if let Some(agent) = removed_server.as_ref().and_then(|server| server.forwarding_agent.as_ref()) {
+        let removed_server = RUNNING_CUSTOM_SERVERS.lock().await.remove(&server_id);
+        if let Some(agent) = removed_server
+            .as_ref()
+            .and_then(|server| server.forwarding_agent.as_ref())
+        {
             agent.abort();
         }
         let forwarding_session_id = removed_server.and_then(|server| server.forwarding_session_id);
         if let Some(session_id) = forwarding_session_id {
-            if let Err(error) = stop_custom_server_forwarding(&custom_server_for_wait, &session_id).await {
+            if let Err(error) =
+                stop_custom_server_forwarding(&custom_server_for_wait, &session_id).await
+            {
                 emit_custom_server_log(
                     &app_for_wait,
                     &server_id,
@@ -865,28 +1050,27 @@ async fn start_custom_server_forwarding(
     let account = active_account()
         .await
         .map_err(|error| AppError::Other(error.message))?;
-    let token = custom_server_auth_token(&account)
-        .await
-        .map_err(|error| AppError::Other(error.message))?;
     let body = StartForwardingRequest {
         local_host: "127.0.0.1",
         local_port: custom_server.port.unwrap_or(25565),
     };
 
-    let response = HTTP_CLIENT
-        .post(endpoint(&format!(
-            "launcher/custom-servers/{}/forwarding/start",
-            custom_server.id
-        )))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .json(&body)
-        .send()
-        .await?;
-
-    read_api_response::<ForwardingSession>(response, "Failed to start forwarding")
-        .await
-        .map_err(|error| AppError::Other(error.message))
+    authenticated_api_response::<ForwardingSession, _>(
+        &account,
+        "Failed to start forwarding",
+        |token| {
+            HTTP_CLIENT
+                .post(endpoint(&format!(
+                    "launcher/custom-servers/{}/forwarding/start",
+                    custom_server.id
+                )))
+                .header("Authorization", format!("Bearer {}", token))
+                .query(&[("uuid", account.id.to_string())])
+                .json(&body)
+        },
+    )
+    .await
+    .map_err(|error| AppError::Other(error.message))
 }
 
 async fn stop_custom_server_forwarding(
@@ -896,24 +1080,19 @@ async fn stop_custom_server_forwarding(
     let account = active_account()
         .await
         .map_err(|error| AppError::Other(error.message))?;
-    let token = custom_server_auth_token(&account)
-        .await
-        .map_err(|error| AppError::Other(error.message))?;
 
-    let response = HTTP_CLIENT
-        .post(endpoint(&format!(
-            "launcher/custom-servers/{}/forwarding/stop",
-            custom_server.id
-        )))
-        .header("Authorization", format!("Bearer {}", token))
-        .query(&[("uuid", account.id.to_string())])
-        .json(&serde_json::json!({ "sessionId": session_id }))
-        .send()
-        .await?;
-
-    ensure_api_success(response, "Failed to stop forwarding")
-        .await
-        .map_err(|error| AppError::Other(error.message))
+    authenticated_api_success(&account, "Failed to stop forwarding", |token| {
+        HTTP_CLIENT
+            .post(endpoint(&format!(
+                "launcher/custom-servers/{}/forwarding/stop",
+                custom_server.id
+            )))
+            .header("Authorization", format!("Bearer {}", token))
+            .query(&[("uuid", account.id.to_string())])
+            .json(&serde_json::json!({ "sessionId": session_id }))
+    })
+    .await
+    .map_err(|error| AppError::Other(error.message))
 }
 
 fn spawn_forwarding_agent(app: AppHandle, server_id: String, ws_url: String) -> JoinHandle<()> {
@@ -933,9 +1112,9 @@ async fn run_forwarding_agent(
     server_id: String,
     ws_url: String,
 ) -> Result<(), AppError> {
-    let (ws_stream, _) = connect_async(&ws_url)
-        .await
-        .map_err(|error| AppError::Other(format!("Failed to connect forwarding websocket: {}", error)))?;
+    let (ws_stream, _) = connect_async(&ws_url).await.map_err(|error| {
+        AppError::Other(format!("Failed to connect forwarding websocket: {}", error))
+    })?;
     emit_custom_server_log(&app, &server_id, "[INFO] Forwarding agent connected");
 
     let (mut ws_write, mut ws_read) = ws_stream.split();
@@ -955,8 +1134,9 @@ async fn run_forwarding_agent(
     });
 
     while let Some(message) = ws_read.next().await {
-        let message = message
-            .map_err(|error| AppError::Other(format!("Forwarding websocket read failed: {}", error)))?;
+        let message = message.map_err(|error| {
+            AppError::Other(format!("Forwarding websocket read failed: {}", error))
+        })?;
         let Message::Text(text) = message else {
             if matches!(message, Message::Close(_)) {
                 break;
@@ -1075,7 +1255,10 @@ async fn open_forwarded_connection(
                         Err(_) => break,
                     }
                 }
-                connections_for_reader.lock().await.remove(&conn_id_for_reader);
+                connections_for_reader
+                    .lock()
+                    .await
+                    .remove(&conn_id_for_reader);
                 let _ = out_tx.send(AgentOutgoingMessage {
                     r#type: "close".to_string(),
                     conn_id: Some(conn_id_for_reader),
@@ -1158,9 +1341,7 @@ pub async fn get_custom_server_details_stats(
         0
     };
 
-    let mod_count = list_installed_server_addons(custom_server)
-        .await?
-        .len();
+    let mod_count = list_installed_server_addons(custom_server).await?.len();
 
     Ok(CustomServerStats {
         running: is_running,
@@ -1211,7 +1392,9 @@ pub async fn open_custom_server_path(
     let server_dir = custom_server_dir(&custom_server)?;
     let target = PathBuf::from(path);
     if !target.starts_with(&server_dir) {
-        return Err(AppError::InvalidInput("Path is outside this server folder".to_string()).into());
+        return Err(
+            AppError::InvalidInput("Path is outside this server folder".to_string()).into(),
+        );
     }
     app.opener()
         .open_path(target.to_string_lossy(), None::<&str>)
@@ -1337,7 +1520,9 @@ pub async fn list_custom_server_worlds(
         .map_err(AppError::from)?;
 
     let mut worlds = Vec::new();
-    let mut entries = tokio::fs::read_dir(&server_dir).await.map_err(AppError::from)?;
+    let mut entries = tokio::fs::read_dir(&server_dir)
+        .await
+        .map_err(AppError::from)?;
     while let Some(entry) = entries.next_entry().await.map_err(AppError::from)? {
         let path = entry.path();
         if !path.is_dir() || !path.join("level.dat").is_file() {
@@ -1415,13 +1600,29 @@ pub async fn update_custom_server_properties(
     };
 
     upsert_property(&mut content, "motd", &properties.motd.replace('\n', " "));
-    upsert_property(&mut content, "max-players", &properties.max_players.to_string());
+    upsert_property(
+        &mut content,
+        "max-players",
+        &properties.max_players.to_string(),
+    );
     upsert_property(&mut content, "difficulty", &properties.difficulty);
     upsert_property(&mut content, "gamemode", &properties.gamemode);
-    upsert_property(&mut content, "online-mode", bool_property(properties.online_mode));
+    upsert_property(
+        &mut content,
+        "online-mode",
+        bool_property(properties.online_mode),
+    );
     upsert_property(&mut content, "pvp", bool_property(properties.pvp));
-    upsert_property(&mut content, "allow-flight", bool_property(properties.allow_flight));
-    upsert_property(&mut content, "view-distance", &properties.view_distance.to_string());
+    upsert_property(
+        &mut content,
+        "allow-flight",
+        bool_property(properties.allow_flight),
+    );
+    upsert_property(
+        &mut content,
+        "view-distance",
+        &properties.view_distance.to_string(),
+    );
     upsert_property(
         &mut content,
         "simulation-distance",
@@ -1449,7 +1650,9 @@ pub async fn list_installed_server_addons(
     }
 
     let mut addons = Vec::new();
-    let mut entries = tokio::fs::read_dir(mods_dir).await.map_err(AppError::from)?;
+    let mut entries = tokio::fs::read_dir(mods_dir)
+        .await
+        .map_err(AppError::from)?;
     while let Some(entry) = entries.next_entry().await.map_err(AppError::from)? {
         let path = entry.path();
         let is_jar = path
@@ -1485,7 +1688,9 @@ pub async fn install_modrinth_server_addon(
 
     let safe_file_name = sanitize_filename::sanitize(file_name);
     if !safe_file_name.ends_with(".jar") {
-        return Err(AppError::InvalidInput("Only .jar server addons are supported".to_string()).into());
+        return Err(
+            AppError::InvalidInput("Only .jar server addons are supported".to_string()).into(),
+        );
     }
 
     emit_custom_server_log(
@@ -1581,10 +1786,8 @@ pub async fn import_custom_server_files(
 }
 
 fn custom_server_dir(custom_server: &CustomServer) -> Result<PathBuf, CommandError> {
-    let folder = sanitize_filename::sanitize(format!(
-        "{}-{}",
-        custom_server.subdomain, custom_server.id
-    ));
+    let folder =
+        sanitize_filename::sanitize(format!("{}-{}", custom_server.subdomain, custom_server.id));
     let root_dir = LAUNCHER_DIRECTORY.root_dir();
     let new_base_dir = root_dir.join("data").join("custom-servers");
     let new_dir = new_base_dir.join(&folder);
@@ -1628,9 +1831,18 @@ fn export_server_zip_sync(
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
 
     zip.start_file("fullrisk-server.json", options)
-        .map_err(|error| AppError::Other(format!("Failed to write server archive manifest: {}", error)))?;
-    let manifest_json = serde_json::to_vec_pretty(manifest)
-        .map_err(|error| AppError::Other(format!("Failed to serialize server archive manifest: {}", error)))?;
+        .map_err(|error| {
+            AppError::Other(format!(
+                "Failed to write server archive manifest: {}",
+                error
+            ))
+        })?;
+    let manifest_json = serde_json::to_vec_pretty(manifest).map_err(|error| {
+        AppError::Other(format!(
+            "Failed to serialize server archive manifest: {}",
+            error
+        ))
+    })?;
     zip.write_all(&manifest_json)?;
 
     add_dir_to_zip(&mut zip, server_dir, server_dir, options)?;
@@ -1650,18 +1862,23 @@ fn add_dir_to_zip(
         let path = entry.path();
         let relative = path
             .strip_prefix(root)
-            .map_err(|error| AppError::Other(format!("Failed to calculate archive path: {}", error)))?
+            .map_err(|error| {
+                AppError::Other(format!("Failed to calculate archive path: {}", error))
+            })?
             .to_string_lossy()
             .replace('\\', "/");
         let archive_name = format!("server/{}", relative);
 
         if path.is_dir() {
             zip.add_directory(format!("{}/", archive_name), options)
-                .map_err(|error| AppError::Other(format!("Failed to add archive folder: {}", error)))?;
+                .map_err(|error| {
+                    AppError::Other(format!("Failed to add archive folder: {}", error))
+                })?;
             add_dir_to_zip(zip, root, &path, options)?;
         } else if path.is_file() {
-            zip.start_file(archive_name, options)
-                .map_err(|error| AppError::Other(format!("Failed to add archive file: {}", error)))?;
+            zip.start_file(archive_name, options).map_err(|error| {
+                AppError::Other(format!("Failed to add archive file: {}", error))
+            })?;
             let mut file = fs::File::open(&path)?;
             std::io::copy(&mut file, zip)?;
         }
@@ -1717,7 +1934,9 @@ fn analyze_server_import_sync(source: &Path) -> Result<CustomServerImportPreview
             .as_ref()
             .map(|manifest| manifest.mc_version.clone())
             .unwrap_or_else(|| "1.21.5".to_string()),
-        loader_version: manifest.as_ref().and_then(|manifest| manifest.loader_version.clone()),
+        loader_version: manifest
+            .as_ref()
+            .and_then(|manifest| manifest.loader_version.clone()),
         r#type: manifest
             .as_ref()
             .map(|manifest| manifest.r#type.clone())
@@ -1738,7 +1957,12 @@ fn read_server_archive_manifest(
     manifest_file.read_to_string(&mut content)?;
     serde_json::from_str::<CustomServerArchiveManifest>(&content)
         .map(Some)
-        .map_err(|error| AppError::Other(format!("Failed to parse server archive manifest: {}", error)))
+        .map_err(|error| {
+            AppError::Other(format!(
+                "Failed to parse server archive manifest: {}",
+                error
+            ))
+        })
 }
 
 fn analyze_server_folder_sync(
@@ -1765,7 +1989,12 @@ fn analyze_server_folder_sync(
             .as_ref()
             .map(|manifest| manifest.name.clone())
             .or_else(|| properties.get("motd").cloned())
-            .or_else(|| source.file_name().and_then(|name| name.to_str()).map(str::to_string))
+            .or_else(|| {
+                source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_string)
+            })
             .unwrap_or_else(|| "Imported Server".to_string()),
         mc_version: inferred_version,
         loader_version: manifest.and_then(|manifest| manifest.loader_version),
@@ -1910,7 +2139,11 @@ fn find_mc_version_in_text(text: &str) -> Option<String> {
     re.find(text).map(|item| item.as_str().to_string())
 }
 
-fn list_dir_entries(root: &Path, dir: &Path, depth: usize) -> Result<Vec<ServerFileTreeEntry>, AppError> {
+fn list_dir_entries(
+    root: &Path,
+    dir: &Path,
+    depth: usize,
+) -> Result<Vec<ServerFileTreeEntry>, AppError> {
     if depth > 6 {
         return Ok(Vec::new());
     }
@@ -1984,7 +2217,10 @@ fn parse_custom_server_properties(
 ) -> CustomServerProperties {
     let map = parse_properties(content);
     CustomServerProperties {
-        motd: map.get("motd").cloned().unwrap_or_else(|| default.motd.clone()),
+        motd: map
+            .get("motd")
+            .cloned()
+            .unwrap_or_else(|| default.motd.clone()),
         max_players: parse_u32_property(&map, "max-players", default.max_players),
         difficulty: map
             .get("difficulty")
@@ -2041,7 +2277,10 @@ fn bool_property(value: bool) -> &'static str {
     }
 }
 
-async fn prepare_server_files(custom_server: &CustomServer, server_dir: &PathBuf) -> Result<(), AppError> {
+async fn prepare_server_files(
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+) -> Result<(), AppError> {
     let eula_path = server_dir.join("eula.txt");
     if !eula_path.exists() {
         tokio::fs::write(&eula_path, "eula=true\n").await?;
@@ -2060,12 +2299,20 @@ async fn prepare_server_files(custom_server: &CustomServer, server_dir: &PathBuf
         "server-port",
         &custom_server.port.unwrap_or(25565).to_string(),
     );
-    upsert_property(&mut properties, "motd", &custom_server.name.replace('\n', " "));
+    upsert_property(
+        &mut properties,
+        "motd",
+        &custom_server.name.replace('\n', " "),
+    );
     upsert_property(&mut properties, "enable-rcon", "false");
     upsert_property(
         &mut properties,
         "rcon.port",
-        &custom_server.port.unwrap_or(25565).saturating_add(1000).to_string(),
+        &custom_server
+            .port
+            .unwrap_or(25565)
+            .saturating_add(1000)
+            .to_string(),
     );
     upsert_property(&mut properties, "rcon.password", "minecraft");
     upsert_property(&mut properties, "broadcast-rcon-to-ops", "false");
@@ -2145,13 +2392,15 @@ async fn ensure_vanilla_server_jar(
     emit_custom_server_log(
         app,
         &custom_server.id,
-        &format!("[INFO] Downloading Minecraft server jar {}", custom_server.mc_version),
+        &format!(
+            "[INFO] Downloading Minecraft server jar {}",
+            custom_server.mc_version
+        ),
     );
 
-    let download = metadata
-        .downloads
-        .server
-        .ok_or_else(|| AppError::Download("This Minecraft version has no server jar".to_string()))?;
+    let download = metadata.downloads.server.ok_or_else(|| {
+        AppError::Download("This Minecraft version has no server jar".to_string())
+    })?;
 
     let bytes = HTTP_CLIENT
         .get(download.url)
@@ -2182,7 +2431,10 @@ async fn resolve_server_java(
     emit_custom_server_log(
         app,
         server_id,
-        &format!("[INFO] Downloading Java {} for this Minecraft server", required_major),
+        &format!(
+            "[INFO] Downloading Java {} for this Minecraft server",
+            required_major
+        ),
     );
 
     let service = JavaDownloadService::new();

@@ -77,10 +77,12 @@ use commands::profile_command::{
 // Use statements for registered commands only
 use commands::curseforge_commands::{get_curseforge_mods_by_ids, import_curseforge_pack, download_and_install_curseforge_modpack_command, get_curseforge_file_changelog_command, get_curseforge_mod_description_command};
 use commands::custom_server_command::{
+    admin_block_custom_server_owner, admin_delete_custom_server, admin_restore_custom_server,
+    admin_unblock_custom_server_owner,
     backup_custom_server_world, check_custom_server_subdomain, create_custom_server, delete_custom_server,
     execute_rcon_command, get_custom_server_details_stats, get_custom_server_logs,
     get_custom_server_folder, get_custom_server_properties, get_custom_server_stats,
-    get_custom_servers, analyze_custom_server_import, export_custom_server,
+    get_custom_servers, get_admin_custom_servers, analyze_custom_server_import, export_custom_server,
     import_custom_server_files, import_custom_server_world, install_modrinth_server_addon,
     import_custom_server_world_from_profile, list_custom_server_files,
     list_custom_server_worlds, list_installed_server_addons, open_custom_server_folder,
@@ -663,6 +665,11 @@ let default_panic_hook = std::panic::take_hook();
             get_news_and_changelogs_command,
             check_update_available_command,
             download_and_install_update_command,
+            get_admin_custom_servers,
+            admin_delete_custom_server,
+            admin_restore_custom_server,
+            admin_block_custom_server_owner,
+            admin_unblock_custom_server_owner,
             get_modrinth_categories_command,
             get_modrinth_loaders_command,
             get_modrinth_game_versions_command,
