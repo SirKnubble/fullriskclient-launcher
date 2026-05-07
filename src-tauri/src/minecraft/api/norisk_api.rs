@@ -124,6 +124,14 @@ pub struct AdventCalendarDay {
     pub shop_item_model_url: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UniquePlayersResponse {
+    pub count: i64,
+    pub window_hours: i32,
+    pub computed_at_ms: i64,
+}
+
 pub struct NoRiskApi;
 
 impl NoRiskApi {
@@ -1201,6 +1209,23 @@ impl NoRiskApi {
 
         info!("[NoRisk API] Auth bridge confirmation successful");
         Ok(())
+    }
+
+    /// Fetches the unique players (last 24h) stat from the NoRisk API.
+    /// Public stats endpoint — no authentication required. Backend caches the
+    /// underlying Mongo count for 30 minutes.
+    pub async fn get_unique_players_24h(is_experimental: bool) -> Result<UniquePlayersResponse> {
+        let base_url = Self::get_api_base(is_experimental);
+        let url = format!("{}/core/stats/uniquePlayers24h", base_url);
+
+        debug!("[NoRisk API] GET {}", url);
+
+        let response = HTTP_CLIENT.get(&url).send().await.map_err(|e| {
+            error!("[NoRisk API] uniquePlayers24h request failed: {}", e);
+            AppError::RequestError(format!("Failed to GET {}: {}", url, e))
+        })?;
+
+        crate::utils::api_utils::parse_response_with_logging(response, "UniquePlayers24h").await
     }
 }
 

@@ -137,6 +137,7 @@
   "header.update.failed": "Échec de la mise à jour: {{error}}",
   "header.update.tooltip_updating": "Téléchargement de la mise à jour...",
   "header.update.tooltip_available": "Cliquez pour mettre à jour: {{version}}",
+  "header.stats.players_24h_tooltip": "Joueurs uniques qui étaient en ligne au cours des dernières 24 heures.",
   "window.minimize": "Réduire",
   "window.maximize": "Agrandir",
   "window.close": "Fermer",

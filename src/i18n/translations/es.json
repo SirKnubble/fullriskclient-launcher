@@ -137,6 +137,7 @@
   "header.update.failed": "Actualización fallida: {{error}}",
   "header.update.tooltip_updating": "Descargando actualización...",
   "header.update.tooltip_available": "Clic para actualizar: {{version}}",
+  "header.stats.players_24h_tooltip": "Jugadores únicos que estuvieron en línea en las últimas 24 horas.",
   "window.minimize": "Minimizar",
   "window.maximize": "Maximizar",
   "window.close": "Cerrar",

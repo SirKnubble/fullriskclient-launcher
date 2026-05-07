@@ -137,6 +137,7 @@
   "header.update.failed": "Güncelleme başarısız: {{error}}",
   "header.update.tooltip_updating": "Güncelleme indiriliyor...",
   "header.update.tooltip_available": "Güncellemek için tıklayın: {{version}}",
+  "header.stats.players_24h_tooltip": "Son 24 saat içinde çevrimiçi olan benzersiz oyuncular.",
   "window.minimize": "Simge Durumuna Küçült",
   "window.maximize": "Ekranı Kapla",
   "window.close": "Kapat",

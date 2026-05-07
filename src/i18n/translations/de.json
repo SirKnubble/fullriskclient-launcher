@@ -163,6 +163,7 @@
   "header.update.failed": "Update fehlgeschlagen: {{error}}",
   "header.update.tooltip_updating": "Update wird heruntergeladen...",
   "header.update.tooltip_available": "Klicke zum Aktualisieren: {{version}}",
+  "header.stats.players_24h_tooltip": "Einzigartige Spieler, die in den letzten 24 Stunden online waren.",
 
   "window.minimize": "Minimieren",
   "window.maximize": "Maximieren",

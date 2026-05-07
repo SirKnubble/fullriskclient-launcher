@@ -137,6 +137,7 @@
   "header.update.failed": "Обновление не удалось: {{error}}",
   "header.update.tooltip_updating": "Загрузка обновления...",
   "header.update.tooltip_available": "Нажмите для обновления: {{version}}",
+  "header.stats.players_24h_tooltip": "Уникальные игроки, которые были онлайн за последние 24 часа.",
   "window.minimize": "Свернуть",
   "window.maximize": "Развернуть",
   "window.close": "Закрыть",

@@ -280,6 +280,20 @@ export const markNotificationRead = (notificationId: string): Promise<void> => {
   return invoke('mark_notification_read', { notificationId });
 };
 
+export interface UniquePlayersResponse {
+  count: number;
+  windowHours: number;
+  computedAtMs: number;
+}
+
+/**
+ * Fetches the unique-players-in-the-last-24h stat from the backend
+ * (cached server-side for 30 minutes).
+ */
+export const getUniquePlayers24h = (): Promise<UniquePlayersResponse> => {
+  return invoke('get_unique_players_24h_command');
+};
+
 
 // Re-export logging utilities for backward compatibility
 export { log as logMessage, logDebug as logMessageDebug, logInfo as logMessageInfo, logWarn as logMessageWarn, logError as logMessageError } from '../utils/logging-utils';

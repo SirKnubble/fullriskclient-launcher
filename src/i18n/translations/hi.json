@@ -139,6 +139,7 @@
   "header.update.failed": "अपडेट विफल: {{error}}",
   "header.update.tooltip_updating": "अपडेट डाउनलोड हो रहा है...",
   "header.update.tooltip_available": "अपडेट करने के लिए क्लिक करें: {{version}}",
+  "header.stats.players_24h_tooltip": "पिछले 24 घंटों में ऑनलाइन रहे अद्वितीय खिलाड़ी।",
   "window.minimize": "न्यूनतम करें",
   "window.maximize": "अधिकतम करें",
   "window.close": "बंद करें",
