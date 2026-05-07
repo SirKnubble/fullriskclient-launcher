@@ -388,9 +388,43 @@ async fn custom_server_auth_token(
         }
     }
 
+    let mut last_error: Option<CommandError> = None;
+    for _ in 0..2 {
+        match request_custom_server_auth_token(account, &owner).await {
+            Ok(verify) => {
+                let expires_in = verify.expires_in.saturating_sub(30).max(30);
+                let mut cached = FULLRISK_AUTH_SESSION.lock().await;
+                *cached = Some(FullRiskAuthSession {
+                    owner,
+                    token: verify.token.clone(),
+                    expires_at: Instant::now() + std::time::Duration::from_secs(expires_in),
+                });
+
+                return Ok(verify.token);
+            }
+            Err(error) => {
+                let retryable = error.message.contains("Unexpected end of JSON input")
+                    || error.message.contains("empty response");
+                last_error = Some(error);
+                if !retryable {
+                    break;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| {
+        AppError::Other("Failed to verify Minecraft account.".to_string()).into()
+    }))
+}
+
+async fn request_custom_server_auth_token(
+    account: &Credentials,
+    owner: &str,
+) -> Result<AuthVerifyResponse, CommandError> {
     let challenge = HTTP_CLIENT
         .post(endpoint("launcher/auth/challenge"))
-        .query(&[("uuid", owner.as_str())])
+        .query(&[("uuid", owner)])
         .send()
         .await
         .map_err(AppError::from)?;
@@ -419,7 +453,7 @@ async fn custom_server_auth_token(
 
     let verify = HTTP_CLIENT
         .post(endpoint("launcher/auth/verify"))
-        .query(&[("uuid", owner.as_str())])
+        .query(&[("uuid", owner)])
         .json(&AuthVerifyRequest {
             challenge_id: &challenge.challenge_id,
             username: &account.username,
@@ -431,16 +465,7 @@ async fn custom_server_auth_token(
     let verify =
         read_api_response::<AuthVerifyResponse>(verify, "Failed to verify Minecraft account")
             .await?;
-
-    let expires_in = verify.expires_in.saturating_sub(30).max(30);
-    let mut cached = FULLRISK_AUTH_SESSION.lock().await;
-    *cached = Some(FullRiskAuthSession {
-        owner,
-        token: verify.token.clone(),
-        expires_at: Instant::now() + std::time::Duration::from_secs(expires_in),
-    });
-
-    Ok(verify.token)
+    Ok(verify)
 }
 
 async fn invalidate_custom_server_auth_token() {
@@ -457,10 +482,16 @@ async fn read_api_response<T: for<'de> Deserialize<'de>>(
 ) -> Result<T, CommandError> {
     let status = response.status();
     if status.is_success() {
-        return response
-            .json::<T>()
-            .await
-            .map_err(AppError::from)
+        let body = response.text().await.map_err(AppError::from)?;
+        if body.trim().is_empty() {
+            return Err(AppError::Other(format!(
+                "{}: empty response from FullRisk API",
+                context
+            ))
+            .into());
+        }
+        return serde_json::from_str::<T>(&body)
+            .map_err(|error| AppError::Other(format!("{}: {}", context, error)))
             .map_err(Into::into);
     }
     if status == reqwest::StatusCode::UNAUTHORIZED {
