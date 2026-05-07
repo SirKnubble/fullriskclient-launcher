@@ -361,6 +361,9 @@ impl MinecraftLauncher {
         // Add profile name for ingame display
         if let Some(p) = &profile {
             command.arg(format!("-Dnorisk.profile.name={}", p.name));
+            if let Some(pack_id) = p.selected_norisk_pack_id.as_ref() {
+                command.arg(format!("-Dnorisk.pack={}", pack_id));
+            }
         }
 
         // Pass meta dir to game client for shared Discord state file
