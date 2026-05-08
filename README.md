@@ -7,7 +7,7 @@
 This Repository includes all bugfixes and suggested features of NoRiskClient/issues by @SirKnubble, aswell as custom servers & the FullRisk Theme in Launcher Settings, which is based on an overhaul of the original NoRiskClient look by @TimLohrer.
 
 ⚠️ I´m aware of most appearing issues (like artifacts by newssection & background), as they will be fixed in the future.
-This is only meant to be a pre-release version. I do not take responsibility for any data loss. (shouldn´t appear if you install without uninstalling, using it myself)
+This is only meant to be a pre-release version. I do not take responsibility for any data loss. Using it myself, wouldn´t be nice. (shouldn´t appear if you install without uninstalling)
 
 <3
 
@@ -20,9 +20,9 @@ All links point to the newest GitHub release.
 | OS                  | Support                   | Download                                                                                                                                                                                                                                                                    |
 | ------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Windows 10/11       | :green_heart:             | [Installer (.exe)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-Windows-Setup.exe)                                                                                                                                        |
-| Linux x64           | :broken_heart: not tested | [AppImage](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-Linux.AppImage) / [Debian package (.deb)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-Linux.deb)              |
-| macOS Apple Silicon | :broken_heart: not tested | [Disk image (.dmg)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-macOS-arm64.dmg)                                                                                                                                         |
-| macOS Intel         | :broken_heart: not tested | [Disk image (.dmg)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-macOS-x86_64.dmg)                                                                                                                                        |
+| Linux x64           | :green_heart:             | [AppImage](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-Linux.AppImage) / [Debian package (.deb)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-Linux.deb)              |
+| macOS Apple Silicon | :green_heart:             | [Disk image (.dmg)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-macOS-arm64.dmg)                                                                                                                                         |
+| macOS Intel         | :green_heart:             | [Disk image (.dmg)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest/download/FullriskLauncher-macOS-x86_64.dmg)                                                                                                                                        |
 
 ## Compile it yourself!
 
