@@ -17,7 +17,8 @@ import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { useThemeStore } from "../../store/useThemeStore";
 import { toast } from "react-hot-toast";
-import { useFlags } from "flagsmith/react";
+import { usePermission } from "../../hooks/usePermission";
+import { PERMISSION } from "../../constants/permissions";
 import { useTranslation } from "react-i18next";
 import { DesignerSettingsTab } from "./settings/DesignerSettingsTab";
 import { cn } from "../../lib/utils";
@@ -39,22 +40,6 @@ type SettingsTab =
   | "nrc"
   | "designer"
   | "symlinks";
-
-const DESIGNER_FEATURE_FLAG_NAME = "show_keep_local_assets";
-
-function normalizeForCompare(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(normalizeForCompare);
-  }
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => [k, normalizeForCompare(v)] as const)
-      .sort(([a], [b]) => a.localeCompare(b));
-    return Object.fromEntries(entries);
-  }
-  return value;
-}
 
 export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const { t } = useTranslation();
@@ -80,8 +65,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
     (state) => state.isBackgroundAnimationEnabled,
   );
 
-  const flags = useFlags([DESIGNER_FEATURE_FLAG_NAME]);
-  const showDesignerTab = flags[DESIGNER_FEATURE_FLAG_NAME]?.enabled === true;
+  const showDesignerTab = usePermission(PERMISSION.DESIGNER_TAB);
   const [tempRamMb, setTempRamMb] = useState(
     profile.settings?.memory?.max ?? 3072,
   );

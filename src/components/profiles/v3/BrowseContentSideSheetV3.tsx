@@ -267,6 +267,7 @@ export function BrowseContentSideSheetV3({
                 projectIdOverride={detail.projectId}
                 onBack={() => setDetail(null)}
                 hideBackButton
+                targetProfile={profile}
               />
             </div>
           )}

@@ -1,11 +1,16 @@
-import { invoke } from '@tauri-apps/api/core';
-import type { BlogPost } from '../types/wordPress';
-import type { UpdateInfo } from '../types/updater';
-import type { Profile } from '../types/profile';
-import type { AdventCalendarDay, Reward } from '../types/advent';
-import type { UserNotification } from '../types/notification';
-import { useProfileStore } from '../store/profile-store';
-import { getBlockedModsConfig } from './flagsmith-service';
+import { invoke } from "@tauri-apps/api/core";
+import type { BlogPost } from "../types/wordPress";
+import type { UpdateInfo } from "../types/updater";
+import type { Profile } from "../types/profile";
+import type { AdventCalendarDay, Reward } from "../types/advent";
+import type { UserNotification } from "../types/notification";
+import { useProfileStore } from "../store/profile-store";
+import {
+  getBlockedModsConfig,
+  getPackRolloutConfig,
+} from "./flagsmith-service";
+import { refreshPermissions } from "./permission-service";
+import { logInfo, logError } from "../utils/logging-utils";
 
 /**
  * Fetches the latest news and changelog posts from the backend.
@@ -15,7 +20,7 @@ import { getBlockedModsConfig } from './flagsmith-service';
  */
 export const fetchNewsAndChangelogs = (): Promise<BlogPost[]> => {
   // Directly invoke and return the promise. Errors will propagate to the caller.
-  return invoke('get_news_and_changelogs_command');
+  return invoke("get_news_and_changelogs_command");
 };
 
 /**
@@ -25,7 +30,7 @@ export const fetchNewsAndChangelogs = (): Promise<BlogPost[]> => {
  * @throws If the backend command fails.
  */
 export const refreshNoriskPacks = (): Promise<void> => {
-  return invoke('refresh_norisk_packs');
+  return invoke("refresh_norisk_packs");
 };
 
 /**
@@ -35,7 +40,7 @@ export const refreshNoriskPacks = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const refreshStandardVersions = (): Promise<Profile[]> => {
-  return invoke('refresh_standard_versions');
+  return invoke("refresh_standard_versions");
 };
 
 /**
@@ -64,6 +69,20 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
         console.error("Failed to load blocked mods config:", error);
       });
 
+    // Fire and forget: Load pack rollout aliases from Flagsmith
+    getPackRolloutConfig()
+      .then((config) => {
+        logInfo(`Pack rollout config loaded: ${JSON.stringify(config)}`);
+      })
+      .catch((error) => {
+        logError(`Failed to load pack rollout config: ${error}`);
+      });
+
+    // Fire and forget: Refresh user permissions from NoRisk backend
+    refreshPermissions()
+      .then(() => logInfo("User permissions refreshed on mount"))
+      .catch((error) => logError(`Failed to refresh permissions: ${error}`));
+
     try {
       await refreshNoriskPacks();
       console.log("Norisk Packs updated successfully on mount!");
@@ -84,14 +103,18 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
 
     // Fetch profiles from the store after NRC data is refreshed
     // This ensures the profile list (including standard versions) and last played are up-to-date.
-    if (nrcPacksSuccess || standardVersionsSuccess) { // Or simply always call it if appropriate
+    if (nrcPacksSuccess || standardVersionsSuccess) {
+      // Or simply always call it if appropriate
       try {
         console.log("Refreshing profiles state after NRC data update...");
         await useProfileStore.getState().fetchProfiles();
         console.log("Profiles state refreshed successfully.");
         // fetchProfiles setzt loading: false bei Erfolg oder Fehler
       } catch (error) {
-        console.error("Failed to refresh profiles state after NRC data update:", error);
+        console.error(
+          "Failed to refresh profiles state after NRC data update:",
+          error,
+        );
         // fetchProfiles sollte seinen eigenen Ladezustand und Fehler behandeln.
         // Wenn fetchProfiles hier einen Fehler wirft, wird er vom äußeren Catch behandelt.
       }
@@ -99,7 +122,10 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
   } catch (error) {
     // Dieser Catch fängt Fehler von refreshNoriskPacks, refreshStandardVersions
     // oder wenn fetchProfiles selbst einen Fehler wirft, der nicht intern zu loading:false führt.
-    console.error("Error during NRC data refresh or profile fetching process:", error);
+    console.error(
+      "Error during NRC data refresh or profile fetching process:",
+      error,
+    );
     useProfileStore.setState({
       error: "Failed to initialize or refresh app data.",
       loading: false, // Sicherstellen, dass der Ladezustand beendet wird
@@ -116,7 +142,7 @@ export const refreshNrcDataOnMount = async (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const discordAuthLink = (): Promise<void> => {
-  return invoke('discord_auth_link');
+  return invoke("discord_auth_link");
 };
 
 /**
@@ -126,7 +152,7 @@ export const discordAuthLink = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const discordAuthStatus = (): Promise<boolean> => {
-  return invoke('discord_auth_status');
+  return invoke("discord_auth_status");
 };
 
 /**
@@ -136,7 +162,7 @@ export const discordAuthStatus = (): Promise<boolean> => {
  * @throws If the backend command fails.
  */
 export const discordAuthUnlink = (): Promise<void> => {
-  return invoke('discord_auth_unlink');
+  return invoke("discord_auth_unlink");
 };
 
 /**
@@ -146,7 +172,7 @@ export const discordAuthUnlink = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const githubAuthLink = (): Promise<void> => {
-  return invoke('github_auth_link');
+  return invoke("github_auth_link");
 };
 
 /**
@@ -156,7 +182,7 @@ export const githubAuthLink = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const githubAuthStatus = (): Promise<boolean> => {
-  return invoke('github_auth_status');
+  return invoke("github_auth_status");
 };
 
 /**
@@ -166,7 +192,7 @@ export const githubAuthStatus = (): Promise<boolean> => {
  * @throws If the backend command fails.
  */
 export const githubAuthUnlink = (): Promise<void> => {
-  return invoke('github_auth_unlink');
+  return invoke("github_auth_unlink");
 };
 
 /**
@@ -176,7 +202,7 @@ export const githubAuthUnlink = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const getMobileAppToken = (): Promise<string> => {
-  return invoke('get_mobile_app_token');
+  return invoke("get_mobile_app_token");
 };
 
 /**
@@ -186,7 +212,7 @@ export const getMobileAppToken = (): Promise<string> => {
  * @throws If the backend command fails.
  */
 export const resetMobileAppToken = (): Promise<string> => {
-  return invoke('reset_mobile_app_token');
+  return invoke("reset_mobile_app_token");
 };
 
 /**
@@ -197,7 +223,7 @@ export const resetMobileAppToken = (): Promise<string> => {
  * @throws If the backend command fails.
  */
 export const checkUpdateAvailable = (): Promise<UpdateInfo | null> => {
-  return invoke('check_update_available_command');
+  return invoke("check_update_available_command");
 };
 
 /**
@@ -209,7 +235,7 @@ export const checkUpdateAvailable = (): Promise<UpdateInfo | null> => {
  * @throws If the backend command fails or no update is available.
  */
 export const downloadAndInstallUpdate = (): Promise<void> => {
-  return invoke('download_and_install_update_command');
+  return invoke("download_and_install_update_command");
 };
 
 /**
@@ -219,7 +245,7 @@ export const downloadAndInstallUpdate = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const getAdventCalendar = (): Promise<AdventCalendarDay[]> => {
-  return invoke('get_advent_calendar_command');
+  return invoke("get_advent_calendar_command");
 };
 
 /**
@@ -229,8 +255,10 @@ export const getAdventCalendar = (): Promise<AdventCalendarDay[]> => {
  * @returns A promise that resolves to the claimed AdventCalendarDay.
  * @throws If the backend command fails.
  */
-export const claimAdventCalendarDay = (tag: number): Promise<AdventCalendarDay> => {
-  return invoke('claim_advent_calendar_day_command', { tag });
+export const claimAdventCalendarDay = (
+  tag: number,
+): Promise<AdventCalendarDay> => {
+  return invoke("claim_advent_calendar_day_command", { tag });
 };
 
 /**
@@ -240,7 +268,7 @@ export const claimAdventCalendarDay = (tag: number): Promise<AdventCalendarDay> 
  * @throws If the backend command fails.
  */
 export const getNotifications = (): Promise<UserNotification[]> => {
-  return invoke('get_notifications');
+  return invoke("get_notifications");
 };
 
 /**
@@ -250,7 +278,7 @@ export const getNotifications = (): Promise<UserNotification[]> => {
  * @throws If the backend command fails.
  */
 export const markAllNotificationsRead = (): Promise<void> => {
-  return invoke('mark_all_notifications_read');
+  return invoke("mark_all_notifications_read");
 };
 
 /**
@@ -261,16 +289,35 @@ export const markAllNotificationsRead = (): Promise<void> => {
  * @throws If the backend command fails.
  */
 export const markNotificationRead = (notificationId: string): Promise<void> => {
-  return invoke('mark_notification_read', { notificationId });
+  return invoke("mark_notification_read", { notificationId });
 };
 
 /**
  * Dumps the in-memory debug log ring buffer to a debug file and returns the file path.
  */
 export const dumpDebugLogs = (reason?: string): Promise<string> => {
-  return invoke('dump_debug_logs_command', { reason });
+  return invoke("dump_debug_logs_command", { reason });
 };
 
+export interface UniquePlayersResponse {
+  count: number;
+  windowHours: number;
+  computedAtMs: number;
+}
+
+/**
+ * Fetches the unique-players-in-the-last-24h stat from the backend
+ * (cached server-side for 30 minutes).
+ */
+export const getUniquePlayers24h = (): Promise<UniquePlayersResponse> => {
+  return invoke("get_unique_players_24h_command");
+};
 
 // Re-export logging utilities for backward compatibility
-export { log as logMessage, logDebug as logMessageDebug, logInfo as logMessageInfo, logWarn as logMessageWarn, logError as logMessageError } from '../utils/logging-utils';
+export {
+  log as logMessage,
+  logDebug as logMessageDebug,
+  logInfo as logMessageInfo,
+  logWarn as logMessageWarn,
+  logError as logMessageError,
+} from "../utils/logging-utils";

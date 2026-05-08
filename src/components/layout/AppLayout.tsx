@@ -45,6 +45,7 @@ import { ProfileSettingsModal } from "../modals/ProfileSettingsModal";
 import { ProfileDuplicateModal } from "../modals/ProfileDuplicateModal";
 import { exit, relaunch } from "@tauri-apps/plugin-process";
 import { Tooltip } from "../ui/Tooltip";
+import { HeaderInfoCarousel } from "../header/HeaderInfoCarousel";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 
@@ -632,15 +633,7 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
               </Tooltip>
             )}
           </div>
-          <span
-            className={
-              isFullRiskStyle
-                ? "text-white/70 font-minecraft-ten text-[9px] font-normal -mt-2"
-                : "text-white/70 font-minecraft-ten text-[8px] font-normal -mt-2.5"
-            }
-          >
-            v{appVersion || "?.?.?"}
-          </span>
+          <HeaderInfoCarousel version={appVersion} />
         </div>
       </div>
 

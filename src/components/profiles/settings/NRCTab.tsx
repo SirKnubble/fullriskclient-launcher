@@ -78,11 +78,17 @@ export function NRCTab({
     loadNoriskPacks();
   }, []);
 
+  const selectedPackId = editedProfile.selected_norisk_pack_id || "";
   const noriskPackOptions = Object.entries(noriskPacks)
     .filter(([packId]) => {
       if (showAllVersions) return true; // Show all versions when checkbox is checked
-      // Show only curated versions when checkbox is unchecked
-      return packId === "norisk-prod" || packId === "norisk-bughunter" || packId === "";
+      // Show only curated versions when checkbox is unchecked, plus keep the currently selected pack visible
+      return (
+        packId === "norisk-prod" ||
+        packId === "norisk-bughunter" ||
+        packId === "" ||
+        packId === selectedPackId
+      );
     })
     .map(([packId, packDef]) => ({
       value: packId,

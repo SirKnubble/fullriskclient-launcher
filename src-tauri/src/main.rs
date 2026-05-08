@@ -135,7 +135,7 @@ use commands::vanilla_cape_command::{
 use commands::assets_command::get_or_download_asset_model;
 
 // Import NRC commands
-use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command, get_advent_calendar_command, claim_advent_calendar_day_command, dump_debug_logs_command};
+use commands::nrc_commands::{check_update_available_command, download_and_install_update_command, get_news_and_changelogs_command, get_advent_calendar_command, claim_advent_calendar_day_command, dump_debug_logs_command, get_unique_players_24h_command};
 
 // Import Content commands
 use commands::content_command::{
@@ -713,10 +713,24 @@ let default_panic_hook = std::panic::take_hook();
             commands::flagsmith_commands::is_mod_id_blocked,
             commands::flagsmith_commands::is_modrinth_project_id_blocked,
             commands::flagsmith_commands::refresh_blocked_mods_config,
+            commands::pack_rollout_commands::set_pack_rollout_config,
+            commands::pack_rollout_commands::get_pack_rollout_config,
+            commands::pack_rollout_commands::get_pack_rollout_status,
+            commands::pack_rollout_commands::get_effective_pack_id,
+            commands::pack_rollout_commands::is_pack_rollout_active,
+            commands::pack_rollout_commands::is_pack_aliased,
+            commands::permission_commands::refresh_permissions,
+            commands::permission_commands::get_cached_permissions,
+            commands::permission_commands::has_permission,
+            commands::tester_command::fetch_tester_queue_count,
+            commands::tester_command::fetch_tester_queue,
+            commands::tester_command::submit_tester_vote,
+            commands::tester_command::open_tester_window,
             commands::nrc_commands::get_mobile_app_token,
             commands::nrc_commands::reset_mobile_app_token,
             commands::nrc_commands::get_advent_calendar_command,
             commands::nrc_commands::claim_advent_calendar_day_command,
+            commands::nrc_commands::get_unique_players_24h_command,
             commands::nrc_commands::get_referral_info,
             commands::nrc_commands::get_notifications,
             commands::nrc_commands::mark_all_notifications_read,

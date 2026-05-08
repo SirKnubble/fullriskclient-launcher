@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 // Import the actual type with corrected path
 import type { ProcessMetadata, CrashlogDto } from "../types/processState";
 import { getLauncherConfig } from "./launcher-config-service";
-import flagsmith from "flagsmith";
+import { hasPermission } from "./permission-service";
+import { PERMISSION } from "../constants/permissions";
 import { toast } from "react-hot-toast";
 import { logInfo, logWarn } from "../utils/logging-utils";
 import i18n from '../i18n/i18n';
@@ -31,13 +32,13 @@ export async function launch(
   migrationInfo?: any,
   skipLastPlayedUpdate?: boolean
 ): Promise<void> {
-  // Guard: If experimental mode is enabled in settings, require feature flag to be enabled
+  // Guard: If experimental mode is enabled in settings, require backend permission
   try {
     const config = await getLauncherConfig();
     if (config?.is_experimental) {
       logInfo("[ProcessService] Experimental mode is enabled in settings");
-      const isAllowed = flagsmith.hasFeature("show_experimental_mode", { fallback: false });
-      logInfo(`[ProcessService] Feature flag check result: ${isAllowed}`);
+      const isAllowed = await hasPermission(PERMISSION.EXPERIMENTAL_MODE);
+      logInfo(`[ProcessService] Permission check result: ${isAllowed}`);
       if (!isAllowed) {
         toast.error(i18n.t('settings.disable_experimental'));
         return; // Block launch
@@ -45,7 +46,7 @@ export async function launch(
     }
   } catch (e) {
     logWarn(
-      `[ProcessService] Failed to check experimental mode flag: ${e instanceof Error ? e.message : String(e)}`,
+      `[ProcessService] Failed to check experimental permission: ${e instanceof Error ? e.message : String(e)}`,
     );
   }
 
