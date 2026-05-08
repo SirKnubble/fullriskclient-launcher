@@ -17,7 +17,7 @@
         "https://fullrisk.net/api/v1/launcher/releases-v2/{{target}}/{{arch}}/{{current_version}}"
       ],
       "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4OUIyMTNGRDBCQTg0QUQKUldTdGhMclFQeUdiNkdVNVEvdDc2UGdYQkxsMjZIWEpSQmdYcXFWTFBEbzduczhLRDYvcjJkeloK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM4MjA4ODFENDI4NkM5MzcKUldRM3lZWkNIWWdnT0haNkRKUzlJVTVicndOcDg3Sy9wb3hhUm5pTW9MdnBPVmNPcWlpY0JTT3EK"
     },
     "singleInstance": {
       "active": true
