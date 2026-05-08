@@ -17,6 +17,7 @@ import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
 import { ConfirmDeleteDialog } from "../modals/ConfirmDeleteDialog";
 import { Select } from "../ui/Select";
+import { RangeSlider } from "../ui/RangeSlider";
 import {
   SettingsContextMenu,
   type ContextMenuItem,
@@ -109,6 +110,10 @@ interface CustomServerStats {
   uptimeSeconds: number;
   sizeBytes: number;
   modCount: number;
+  playerCount?: number | null;
+  cpuPercent?: number | null;
+  memoryBytes?: number | null;
+  worldSizeBytes?: number;
 }
 
 type DetailTab = "logs" | "overview" | "settings" | "addons" | "world";
@@ -138,6 +143,16 @@ interface CustomServerWorldInfo {
   gameDay?: number | null;
   lastPlayed?: number | null;
   versionName?: string | null;
+  isCurrent: boolean;
+}
+
+interface CustomServerWorldBackupInfo {
+  folderName: string;
+  displayName: string;
+  path: string;
+  sizeBytes: number;
+  createdAt?: number | null;
+  sourceWorld?: string | null;
 }
 
 interface CustomServerProperties {
@@ -151,6 +166,11 @@ interface CustomServerProperties {
   viewDistance: number;
   simulationDistance: number;
   spawnProtection: number;
+}
+
+interface CustomServerPerformanceSettings {
+  memoryMb: number;
+  cpuPercent: number;
 }
 
 const SERVER_TYPES: Array<{ value: ServerType; label: string; icon: string }> =
@@ -175,6 +195,12 @@ const needsLoaderVersion = new Set<ServerType>([
 ]);
 const SAFETY_INFO_KEY = "fullrisk-custom-server-safety-info-v2";
 const TUNNEL_ENABLED_KEY = "fullrisk-custom-server-tunnel-enabled";
+const PERFORMANCE_SETTINGS_KEY =
+  "fullrisk-custom-server-performance-settings-v1";
+const DEFAULT_SERVER_PERFORMANCE: CustomServerPerformanceSettings = {
+  memoryMb: 2048,
+  cpuPercent: 100,
+};
 const SUPPORT_SERVER_URL = "https://fullrisk.net/support";
 
 function formatServerError(error: unknown): string {
@@ -265,6 +291,47 @@ function pickRandomLocalServerPort() {
   return Math.floor(20000 + Math.random() * 5000);
 }
 
+function clampServerPerformance(
+  settings: CustomServerPerformanceSettings,
+): CustomServerPerformanceSettings {
+  const memorySteps = Math.round(settings.memoryMb / 1024) * 1024;
+  const cpuSteps = Math.round(settings.cpuPercent / 10) * 10;
+  return {
+    memoryMb: Math.max(1024, Math.min(65536, memorySteps || 2048)),
+    cpuPercent: Math.max(10, Math.min(100, cpuSteps || 100)),
+  };
+}
+
+function parseServerPerformanceSettings() {
+  try {
+    const raw = window.localStorage.getItem(PERFORMANCE_SETTINGS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<
+      string,
+      Partial<CustomServerPerformanceSettings>
+    >;
+    return Object.fromEntries(
+      Object.entries(parsed).map(([serverId, value]) => [
+        serverId,
+        clampServerPerformance({
+          memoryMb: Number(value.memoryMb) || DEFAULT_SERVER_PERFORMANCE.memoryMb,
+          cpuPercent:
+            Number(value.cpuPercent) || DEFAULT_SERVER_PERFORMANCE.cpuPercent,
+        }),
+      ]),
+    ) as Record<string, CustomServerPerformanceSettings>;
+  } catch {
+    return {};
+  }
+}
+
+function getServerPerformance(
+  settings: Record<string, CustomServerPerformanceSettings>,
+  serverId: string,
+) {
+  return settings[serverId] ?? DEFAULT_SERVER_PERFORMANCE;
+}
+
 export function ServersTab() {
   const [servers, setServers] = useState<CustomServer[]>([]);
   const [limit, setLimit] = useState(0);
@@ -283,6 +350,9 @@ export function ServersTab() {
   const [hasAcceptedSafetyInfo, setHasAcceptedSafetyInfo] = useState(true);
   const [tunnelEnabledByServer, setTunnelEnabledByServer] = useState<
     Record<string, boolean>
+  >({});
+  const [performanceByServer, setPerformanceByServer] = useState<
+    Record<string, CustomServerPerformanceSettings>
   >({});
   const [serverToEdit, setServerToEdit] = useState<CustomServer | null>(null);
   const [serverToDelete, setServerToDelete] = useState<CustomServer | null>(
@@ -390,6 +460,10 @@ export function ServersTab() {
     }
   }, []);
 
+  useEffect(() => {
+    setPerformanceByServer(parseServerPerformanceSettings());
+  }, []);
+
   const isTunnelEnabled = useCallback(
     (serverId: string) => tunnelEnabledByServer[serverId] ?? true,
     [tunnelEnabledByServer],
@@ -402,6 +476,23 @@ export function ServersTab() {
       return next;
     });
   }, []);
+
+  const setServerPerformance = useCallback(
+    (serverId: string, settings: CustomServerPerformanceSettings) => {
+      setPerformanceByServer((current) => {
+        const next = {
+          ...current,
+          [serverId]: clampServerPerformance(settings),
+        };
+        window.localStorage.setItem(
+          PERFORMANCE_SETTINGS_KEY,
+          JSON.stringify(next),
+        );
+        return next;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (servers.length === 0) {
@@ -705,12 +796,13 @@ export function ServersTab() {
 
   const handleStart = async (server: CustomServer) => {
     const tunnelEnabled = isTunnelEnabled(server._id);
+    const performance = getServerPerformance(performanceByServer, server._id);
     setBusyServerId(server._id);
     setServerLogs((current) => ({
       ...current,
       [server._id]: [
         ...(current[server._id] ?? []),
-        `[${new Date().toLocaleTimeString()}] [INFO]: Starting server (${tunnelEnabled ? "tunnel on" : "tunnel off"})`,
+        `[${new Date().toLocaleTimeString()}] [INFO]: Starting server (${tunnelEnabled ? "tunnel on" : "tunnel off"}, ${performance.memoryMb} MB RAM, ${performance.cpuPercent}% CPU)`,
       ],
     }));
 
@@ -718,6 +810,8 @@ export function ServersTab() {
       await invoke("run_custom_server", {
         customServer: server,
         forwardingEnabled: tunnelEnabled,
+        memoryMaxMb: performance.memoryMb,
+        cpuLimitPercent: performance.cpuPercent,
       });
       await loadServers();
     } catch (error) {
@@ -796,6 +890,13 @@ export function ServersTab() {
             tunnelEnabled={isTunnelEnabled(selectedServer._id)}
             onTunnelChange={(enabled) =>
               setTunnelEnabled(selectedServer._id, enabled)
+            }
+            performance={getServerPerformance(
+              performanceByServer,
+              selectedServer._id,
+            )}
+            onPerformanceChange={(settings) =>
+              setServerPerformance(selectedServer._id, settings)
             }
           />
           <ServerDeleteDialog
@@ -1485,6 +1586,8 @@ function CustomServerDetails({
   versions,
   tunnelEnabled,
   onTunnelChange,
+  performance,
+  onPerformanceChange,
 }: {
   server: CustomServer;
   logs: string[];
@@ -1505,6 +1608,8 @@ function CustomServerDetails({
   versions: string[];
   tunnelEnabled: boolean;
   onTunnelChange: (enabled: boolean) => void;
+  performance: CustomServerPerformanceSettings;
+  onPerformanceChange: (settings: CustomServerPerformanceSettings) => void;
 }) {
   const [tab, setTab] = useState<DetailTab>("logs");
   const [editOpen, setEditOpen] = useState(false);
@@ -1535,6 +1640,12 @@ function CustomServerDetails({
         : "offline";
   const displayAddress = getServerDisplayAddress(server, logs, tunnelEnabled);
   const fallbackAddress = getServerFallbackAddress(server, logs, tunnelEnabled);
+  const estimatedPlayerCount = estimatePlayerCount(logs);
+  const memoryLimitBytes = performance.memoryMb * 1024 * 1024;
+  const memoryPercent =
+    memoryLimitBytes > 0
+      ? Math.min(100, ((stats.memoryBytes ?? 0) / memoryLimitBytes) * 100)
+      : 0;
   const filteredLogs = logs.filter(
     (line) => logLevel === "all" || getServerLogLevel(line) === logLevel,
   );
@@ -1707,94 +1818,129 @@ function CustomServerDetails({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         {tab === "logs" && (
-          <div className="flex h-full flex-col gap-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {(["all", "info", "warn", "error", "debug"] as const).map(
-                  (level) => (
-                    <button
-                      key={level}
-                      type="button"
+          <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_250px]">
+            <div className="flex min-h-0 flex-col gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {(["all", "info", "warn", "error", "debug"] as const).map(
+                    (level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        className={cn(
+                          "border border-white/10 bg-black/25 px-3 py-1.5 font-minecraft-ten text-base lowercase text-white/55 transition",
+                          logLevel === level &&
+                            "border-[var(--panel-highlight)] text-white",
+                        )}
+                        onClick={() => setLogLevel(level)}
+                      >
+                        {level}
+                      </button>
+                    ),
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-2 border px-3 py-1.5 font-minecraft-ten text-base lowercase transition",
+                      autoScrollLogs
+                        ? "border-[var(--panel-highlight)] bg-white/10 text-white"
+                        : "border-white/10 bg-black/25 text-white/55 hover:text-white",
+                    )}
+                    onClick={() => {
+                      setAutoScrollLogs(true);
+                      window.requestAnimationFrame(scrollLogsToBottom);
+                    }}
+                  >
+                    <Icon
+                      icon="solar:double-alt-arrow-down-bold"
+                      className="h-4 w-4"
+                    />
+                    autoscroll
+                  </button>
+                  <p className="font-minecraft-ten text-base text-white/45">
+                    {filteredLogs.length}/{logs.length} lines
+                  </p>
+                </div>
+              </div>
+              <div
+                ref={logContainerRef}
+                className="min-h-0 flex-1 overflow-y-auto border border-white/10 bg-black/40 px-2 py-2 text-left font-mono text-xs leading-5 text-white/75 custom-scrollbar"
+                onScroll={(event) => {
+                  const target = event.currentTarget;
+                  const distanceFromBottom =
+                    target.scrollHeight - target.scrollTop - target.clientHeight;
+                  if (distanceFromBottom > 48) {
+                    setAutoScrollLogs(false);
+                  }
+                }}
+              >
+                {filteredLogs.length > 0 ? (
+                  filteredLogs.map((line, index) => (
+                    <p
+                      key={`${line}-${index}`}
                       className={cn(
-                        "border border-white/10 bg-black/25 px-3 py-1.5 font-minecraft-ten text-base lowercase text-white/55 transition",
-                        logLevel === level &&
-                          "border-[var(--panel-highlight)] text-white",
+                        "m-0 break-words text-left leading-5",
+                        getServerLogColor(line),
                       )}
-                      onClick={() => setLogLevel(level)}
                     >
-                      {level}
-                    </button>
-                  ),
+                      {line}
+                    </p>
+                  ))
+                ) : (
+                  <div className="py-2 font-minecraft-ten text-base text-white/45">
+                    no logs yet
+                  </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-2 border px-3 py-1.5 font-minecraft-ten text-base lowercase transition",
-                    autoScrollLogs
-                      ? "border-[var(--panel-highlight)] bg-white/10 text-white"
-                      : "border-white/10 bg-black/25 text-white/55 hover:text-white",
-                  )}
-                  onClick={() => {
-                    setAutoScrollLogs(true);
-                    window.requestAnimationFrame(scrollLogsToBottom);
-                  }}
-                >
-                  <Icon
-                    icon="solar:double-alt-arrow-down-bold"
-                    className="h-4 w-4"
-                  />
-                  autoscroll
-                </button>
-                <p className="font-minecraft-ten text-base text-white/45">
-                  {filteredLogs.length}/{logs.length} lines
-                </p>
+              <form onSubmit={sendCommand}>
+                <Input
+                  value={consoleCommand}
+                  disabled={!isRunning}
+                  onChange={(event) => setConsoleCommand(event.target.value)}
+                  placeholder={
+                    isRunning
+                      ? "console command"
+                      : "start the server to use console"
+                  }
+                  size="sm"
+                  icon={<Icon icon="solar:terminal-bold" className="h-4 w-4" />}
+                />
+              </form>
+            </div>
+            <div className="grid content-start gap-2 sm:grid-cols-2 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:content-normal">
+              <GaugeStat
+                label="cpu"
+                percent={stats.cpuPercent ?? 0}
+                value={
+                  stats.cpuPercent == null
+                    ? "0%"
+                    : `${stats.cpuPercent.toFixed(1)}%`
+                }
+                maxLabel={`${performance.cpuPercent}% limit`}
+              />
+              <GaugeStat
+                label="ram"
+                percent={memoryPercent}
+                value={formatBytes(stats.memoryBytes ?? 0)}
+                maxLabel={`${performance.memoryMb} MB max`}
+              />
+              <div className="grid gap-2 sm:col-span-2 sm:grid-cols-3 xl:mt-auto xl:grid-cols-1">
+                <CompactStat
+                  label="players"
+                  value={String(stats.playerCount ?? estimatedPlayerCount)}
+                />
+                <CompactStat
+                  label="world"
+                  value={formatBytes(stats.worldSizeBytes ?? 0)}
+                />
+                <CompactStat
+                  label="uptime"
+                  value={formatUptime(stats.uptimeSeconds)}
+                />
               </div>
             </div>
-            <div
-              ref={logContainerRef}
-              className="min-h-0 flex-1 overflow-y-auto border border-white/10 bg-black/40 p-3 text-left font-mono text-xs leading-5 text-white/75 custom-scrollbar"
-              onScroll={(event) => {
-                const target = event.currentTarget;
-                const distanceFromBottom =
-                  target.scrollHeight - target.scrollTop - target.clientHeight;
-                if (distanceFromBottom > 48) {
-                  setAutoScrollLogs(false);
-                }
-              }}
-            >
-              {filteredLogs.length > 0 ? (
-                filteredLogs.map((line, index) => (
-                  <p
-                    key={`${line}-${index}`}
-                    className={cn(
-                      "mb-1 break-words leading-5",
-                      getServerLogColor(line),
-                    )}
-                  >
-                    {line}
-                  </p>
-                ))
-              ) : (
-                <div className="py-2 font-minecraft-ten text-base text-white/45">
-                  no logs yet
-                </div>
-              )}
-            </div>
-            <form onSubmit={sendCommand}>
-              <Input
-                value={consoleCommand}
-                disabled={!isRunning}
-                onChange={(event) => setConsoleCommand(event.target.value)}
-                placeholder={
-                  isRunning
-                    ? "console command"
-                    : "start the server to use console"
-                }
-                icon={<Icon icon="solar:terminal-bold" className="h-5 w-5" />}
-              />
-            </form>
           </div>
         )}
 
@@ -1827,6 +1973,8 @@ function CustomServerDetails({
             tunnelEnabled={tunnelEnabled}
             tunnelLocked={isRunning || isStarting || busy}
             onTunnelChange={onTunnelChange}
+            performance={performance}
+            onPerformanceChange={onPerformanceChange}
             onEdit={() => setEditOpen(true)}
             onExport={onExport}
             onDelete={onDelete}
@@ -1957,6 +2105,22 @@ function getServerLogColor(line: string) {
   }
 }
 
+function estimatePlayerCount(logs: string[]) {
+  const players = new Set<string>();
+  logs.forEach((line) => {
+    const joined = line.match(/]:\s*([^:\[]+)\s+joined the game/i);
+    if (joined?.[1]) {
+      players.add(joined[1].trim());
+      return;
+    }
+    const left = line.match(/]:\s*([^:\[]+)\s+left the game/i);
+    if (left?.[1]) {
+      players.delete(left[1].trim());
+    }
+  });
+  return players.size;
+}
+
 function formatUptime(seconds: number) {
   if (seconds <= 0) return "0s";
   const hours = Math.floor(seconds / 3600);
@@ -1974,6 +2138,85 @@ function InfoTile({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-2 break-words font-minecraft-ten text-lg text-white">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function GaugeStat({
+  label,
+  percent,
+  value,
+  maxLabel,
+}: {
+  label: string;
+  percent: number;
+  value: string;
+  maxLabel: string;
+}) {
+  const bounded = Math.max(
+    0,
+    Math.min(100, Number.isFinite(percent) ? percent : 0),
+  );
+  const color =
+    bounded >= 80 ? "#f87171" : bounded >= 60 ? "#fbbf24" : "#34d399";
+
+  return (
+    <div className="flex min-h-[132px] min-w-0 flex-col border border-white/10 bg-black/30 px-3 py-3 xl:min-h-0 xl:flex-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate font-minecraft-ten text-sm lowercase text-white/40">
+          {label}
+        </p>
+        <p className="truncate font-minecraft-ten text-xs lowercase text-white/35">
+          {maxLabel}
+        </p>
+      </div>
+      <div className="relative mt-2 flex min-h-0 flex-1 items-end">
+        <svg
+          viewBox="0 0 120 70"
+          className="h-full max-h-32 min-h-20 w-full overflow-visible xl:max-h-none"
+          aria-hidden="true"
+        >
+          <path
+            d="M 12 60 A 48 48 0 0 1 108 60"
+            fill="none"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="10"
+            strokeLinecap="round"
+            pathLength={100}
+          />
+          <path
+            d="M 12 60 A 48 48 0 0 1 108 60"
+            fill="none"
+            stroke={color}
+            strokeWidth="11"
+            strokeLinecap="round"
+            pathLength={100}
+            strokeDasharray="100"
+            strokeDashoffset={100 - bounded}
+          />
+        </svg>
+        <div className="absolute inset-x-0 bottom-1 text-center">
+          <p className="font-minecraft-ten text-xl leading-none text-white">
+            {value}
+          </p>
+          <p className="mt-1 font-minecraft-ten text-xs lowercase text-white/35">
+            {bounded.toFixed(0)}%
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border border-white/10 bg-black/30 px-3 py-2">
+      <p className="truncate font-minecraft-ten text-sm lowercase text-white/40">
+        {label}
+      </p>
+      <p className="truncate font-minecraft-ten text-base text-white">
         {value}
       </p>
     </div>
@@ -2183,6 +2426,8 @@ function ServerSettingsPanel({
   tunnelEnabled,
   tunnelLocked,
   onTunnelChange,
+  performance,
+  onPerformanceChange,
   onEdit,
   onExport,
   onDelete,
@@ -2191,10 +2436,29 @@ function ServerSettingsPanel({
   tunnelEnabled: boolean;
   tunnelLocked: boolean;
   onTunnelChange: (enabled: boolean) => void;
+  performance: CustomServerPerformanceSettings;
+  onPerformanceChange: (settings: CustomServerPerformanceSettings) => void;
   onEdit: () => void;
   onExport: () => void;
   onDelete: () => void;
 }) {
+  const [systemRamMb, setSystemRamMb] = useState(16384);
+  const maxRamMb = Math.max(4096, Math.min(65536, systemRamMb));
+  const sliderMemoryMb = Math.min(performance.memoryMb, maxRamMb);
+
+  useEffect(() => {
+    let active = true;
+    invoke<number>("get_system_ram_mb")
+      .then((ram) => {
+        if (!active) return;
+        setSystemRamMb(Math.max(4096, Math.round(ram / 1024) * 1024));
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -2234,6 +2498,70 @@ function ServerSettingsPanel({
           destructive
           onClick={onDelete}
         />
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-2">
+        <div className="border border-white/10 bg-black/25 p-4">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-violet-300/35 bg-violet-500/15 text-violet-100">
+              <Icon icon="solar:database-bold" className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-minecraft text-2xl lowercase text-white">
+                ram allocation
+              </h3>
+              <p className="font-minecraft-ten text-base text-white/45">
+                Used as the server Java -Xmx value.
+              </p>
+            </div>
+          </div>
+          <RangeSlider
+            value={sliderMemoryMb}
+            onChange={(memoryMb) =>
+              onPerformanceChange({ ...performance, memoryMb })
+            }
+            min={1024}
+            max={maxRamMb}
+            step={1024}
+            valueLabel={`${sliderMemoryMb} MB (${(sliderMemoryMb / 1024).toFixed(0)} GB)`}
+            minLabel="1024 MB"
+            maxLabel={`${maxRamMb} MB`}
+            variant="flat"
+            recommendedRange={[2048, Math.min(8192, maxRamMb)]}
+            unit="MB"
+          />
+        </div>
+
+        <div className="border border-white/10 bg-black/25 p-4">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-sky-300/35 bg-sky-500/15 text-sky-100">
+              <Icon icon="solar:cpu-bolt-bold" className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-minecraft text-2xl lowercase text-white">
+                cpu limit
+              </h3>
+              <p className="font-minecraft-ten text-base text-white/45">
+                Maps to Java's active processor count.
+              </p>
+            </div>
+          </div>
+          <RangeSlider
+            value={performance.cpuPercent}
+            onChange={(cpuPercent) =>
+              onPerformanceChange({ ...performance, cpuPercent })
+            }
+            min={10}
+            max={100}
+            step={10}
+            valueLabel={`${performance.cpuPercent}%`}
+            minLabel="10%"
+            maxLabel="100%"
+            variant="flat"
+            recommendedRange={[50, 100]}
+            unit="%"
+          />
+        </div>
       </div>
 
       <div className="border border-white/10 bg-black/25 p-4">
@@ -2530,11 +2858,14 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState<ServerFileTreeEntry[]>([]);
   const [worlds, setWorlds] = useState<CustomServerWorldInfo[]>([]);
+  const [backups, setBackups] = useState<CustomServerWorldBackupInfo[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileWorlds, setProfileWorlds] = useState<WorldInfo[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState("");
   const [selectedWorldFolder, setSelectedWorldFolder] = useState("");
   const [selectedExportProfileId, setSelectedExportProfileId] = useState("");
+  const [worldToExport, setWorldToExport] =
+    useState<CustomServerWorldInfo | null>(null);
   const [worldAction, setWorldAction] = useState<string | null>(null);
 
   const loadFiles = useCallback(() => {
@@ -2553,13 +2884,22 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
       .catch(() => setWorlds([]));
   }, [server]);
 
+  const loadBackups = useCallback(() => {
+    invoke<CustomServerWorldBackupInfo[]>("list_custom_server_world_backups", {
+      customServer: server,
+    })
+      .then(setBackups)
+      .catch(() => setBackups([]));
+  }, [server]);
+
   useEffect(() => {
     invoke<string>("get_custom_server_folder", { customServer: server })
       .then(setFolder)
       .catch(() => setFolder(""));
     loadFiles();
     loadWorlds();
-  }, [server, loadFiles, loadWorlds]);
+    loadBackups();
+  }, [server, loadFiles, loadWorlds, loadBackups]);
 
   useEffect(() => {
     getAllProfilesAndLastPlayed()
@@ -2593,6 +2933,7 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
   const refreshWorldView = () => {
     loadFiles();
     loadWorlds();
+    loadBackups();
   };
 
   const openServerPath = async (path: string) => {
@@ -2600,6 +2941,17 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
       await invoke("open_custom_server_path", { customServer: server, path });
     } catch (error) {
       toast.error(serverErrorMessage("Failed to open path", error));
+    }
+  };
+
+  const openBackupPath = async (path: string) => {
+    try {
+      await invoke("open_custom_server_backup_path", {
+        customServer: server,
+        path,
+      });
+    } catch (error) {
+      toast.error(serverErrorMessage("Failed to open backup", error));
     }
   };
 
@@ -2689,8 +3041,60 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
     }
   };
 
-  const exportToProfile = async (world: CustomServerWorldInfo) => {
-    if (!selectedExportProfileId) return;
+  const switchWorld = async (world: CustomServerWorldInfo) => {
+    setWorldAction(`switch-${world.folderName}`);
+    try {
+      await invoke("switch_custom_server_world", {
+        customServer: server,
+        worldFolder: world.folderName,
+      });
+      toast.success(`switched to ${world.displayName || world.folderName}`);
+      refreshWorldView();
+    } catch (error) {
+      toast.error(serverErrorMessage("Failed to switch world", error));
+    } finally {
+      setWorldAction(null);
+    }
+  };
+
+  const restoreBackup = async (backup: CustomServerWorldBackupInfo) => {
+    setWorldAction(`restore-${backup.folderName}`);
+    try {
+      const restoredFolder = await invoke<string>(
+        "restore_custom_server_world_backup",
+        {
+          customServer: server,
+          backupPath: backup.path,
+        },
+      );
+      toast.success(`backup restored as ${restoredFolder}`);
+      refreshWorldView();
+    } catch (error) {
+      toast.error(serverErrorMessage("Failed to restore backup", error));
+    } finally {
+      setWorldAction(null);
+    }
+  };
+
+  const deleteBackup = async (backup: CustomServerWorldBackupInfo) => {
+    setWorldAction(`delete-backup-${backup.folderName}`);
+    try {
+      await invoke("delete_custom_server_world_backup", {
+        customServer: server,
+        backupPath: backup.path,
+      });
+      toast.success("backup deleted");
+      refreshWorldView();
+    } catch (error) {
+      toast.error(serverErrorMessage("Failed to delete backup", error));
+    } finally {
+      setWorldAction(null);
+    }
+  };
+
+  const exportToProfile = async () => {
+    if (!selectedExportProfileId || !worldToExport) return;
+    const world = worldToExport;
     setWorldAction(`export-${world.folderName}`);
     try {
       await importWorldToProfile(
@@ -2699,6 +3103,7 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
         world.displayName || world.folderName,
       );
       toast.success("world exported to profile");
+      setWorldToExport(null);
     } catch (error) {
       toast.error(serverErrorMessage("Failed to export world", error));
     } finally {
@@ -2707,6 +3112,7 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
   };
 
   return (
+    <>
     <div className="grid h-full gap-3 overflow-y-auto pr-1 custom-scrollbar xl:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]">
       <div
         className={cn(
@@ -2759,7 +3165,12 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
             worlds.map((world) => (
               <div
                 key={world.path}
-                className="border border-white/10 bg-black/25 p-3"
+                className={cn(
+                  "border bg-black/25 p-3",
+                  world.isCurrent
+                    ? "border-emerald-300/45 bg-emerald-500/10"
+                    : "border-white/10",
+                )}
               >
                 <button
                   type="button"
@@ -2780,8 +3191,23 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
                       {world.versionName ? ` · ${world.versionName}` : ""}
                     </p>
                   </div>
+                  {world.isCurrent && (
+                    <span className="shrink-0 border border-emerald-300/45 bg-emerald-500/15 px-2 py-1 font-minecraft-ten text-sm lowercase text-emerald-100">
+                      current
+                    </span>
+                  )}
                 </button>
                 <div className="mt-3 flex flex-wrap gap-2">
+                  {!world.isCurrent && (
+                    <Button
+                      variant="3d"
+                      size="xs"
+                      disabled={worldAction === `switch-${world.folderName}`}
+                      onClick={() => switchWorld(world)}
+                    >
+                      switch
+                    </Button>
+                  )}
                   <Button
                     variant="flat-secondary"
                     size="xs"
@@ -2793,11 +3219,8 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
                   <Button
                     variant="flat-secondary"
                     size="xs"
-                    disabled={
-                      !selectedExportProfileId ||
-                      worldAction === `export-${world.folderName}`
-                    }
-                    onClick={() => exportToProfile(world)}
+                    disabled={worldAction === `export-${world.folderName}`}
+                    onClick={() => setWorldToExport(world)}
                   >
                     export to profile
                   </Button>
@@ -2851,23 +3274,71 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
           </div>
         </div>
 
-        <div className="mt-4 border border-white/10 bg-black/25 p-3">
-          <Field label="export target">
-            <Select
-              value={selectedExportProfileId}
-              onChange={setSelectedExportProfileId}
-              variant="3d"
-              options={profiles.map((profile) => ({
-                value: profile.id,
-                label: profile.name,
-              }))}
-            />
-          </Field>
-        </div>
       </div>
 
       <div className="min-h-0 overflow-y-auto border border-white/10 bg-black/30 p-4 custom-scrollbar">
         <h3 className="font-minecraft text-2xl lowercase text-white/80">
+          backups
+        </h3>
+        <div className="mt-3 space-y-2">
+          {backups.length > 0 ? (
+            backups.map((backup) => (
+              <div
+                key={backup.path}
+                className="border border-white/10 bg-black/25 p-3"
+              >
+                <button
+                  type="button"
+                  className="flex w-full min-w-0 items-center gap-2 text-left"
+                  onClick={() => openBackupPath(backup.path)}
+                >
+                  <Icon
+                    icon="solar:archive-bold"
+                    className="h-5 w-5 shrink-0 text-amber-200"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-minecraft-ten text-base text-white">
+                      {backup.sourceWorld || backup.displayName}
+                    </p>
+                    <p className="truncate font-minecraft-ten text-sm text-white/45">
+                      {formatBytes(backup.sizeBytes)}
+                      {backup.createdAt
+                        ? ` - ${formatAdminDateTime(backup.createdAt)}`
+                        : ""}
+                    </p>
+                  </div>
+                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    variant="3d"
+                    size="xs"
+                    disabled={worldAction === `restore-${backup.folderName}`}
+                    onClick={() => restoreBackup(backup)}
+                  >
+                    load
+                  </Button>
+                  <Button
+                    variant="flat-secondary"
+                    size="xs"
+                    className="!border-red-400/40 !bg-red-500/15 !text-red-100"
+                    disabled={
+                      worldAction === `delete-backup-${backup.folderName}`
+                    }
+                    onClick={() => deleteBackup(backup)}
+                  >
+                    delete
+                  </Button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="font-minecraft-ten text-base text-white/45">
+              no backups yet
+            </p>
+          )}
+        </div>
+
+        <h3 className="mt-5 font-minecraft text-2xl lowercase text-white/80">
           files
         </h3>
         <div className="mt-3 font-minecraft-ten text-base text-white/65">
@@ -2885,6 +3356,54 @@ function ServerWorldPanel({ server }: { server: CustomServer }) {
         </div>
       </div>
     </div>
+    {worldToExport && (
+      <Modal
+        title="export world"
+        onClose={() => setWorldToExport(null)}
+        width="md"
+        contentClassName="space-y-4 px-6 py-5"
+      >
+        <div className="border border-white/10 bg-black/25 p-3">
+          <p className="font-minecraft-ten text-base text-white/45">world</p>
+          <p className="mt-1 truncate font-minecraft text-2xl lowercase text-white">
+            {worldToExport.displayName || worldToExport.folderName}
+          </p>
+        </div>
+        <Field label="target profile">
+          <Select
+            value={selectedExportProfileId}
+            onChange={setSelectedExportProfileId}
+            variant="3d"
+            options={profiles.map((profile) => ({
+              value: profile.id,
+              label: profile.name,
+            }))}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="flat-secondary"
+            size="sm"
+            onClick={() => setWorldToExport(null)}
+          >
+            cancel
+          </Button>
+          <Button
+            variant="3d"
+            size="sm"
+            disabled={
+              !selectedExportProfileId ||
+              worldAction === `export-${worldToExport.folderName}`
+            }
+            icon={<Icon icon="solar:archive-up-bold" className="h-5 w-5" />}
+            onClick={exportToProfile}
+          >
+            export
+          </Button>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 
@@ -2897,28 +3416,16 @@ function FileTreeEntry({
   depth?: number;
   onOpen: (path: string) => void;
 }) {
-  const [open, setOpen] = useState(depth < 1);
   return (
     <div>
       <button
         type="button"
         className="flex w-full min-w-0 items-center gap-2 py-1 text-left transition hover:text-white"
         style={{ paddingLeft: depth * 14 }}
-        onClick={() => {
-          if (entry.isDir) {
-            setOpen((current) => !current);
-          }
-          onOpen(entry.path);
-        }}
+        onClick={() => onOpen(entry.path)}
       >
         <Icon
-          icon={
-            entry.isDir
-              ? open
-                ? "solar:folder-open-bold"
-                : "solar:folder-bold"
-              : "solar:file-bold"
-          }
+          icon={entry.isDir ? "solar:folder-bold" : "solar:file-bold"}
           className="h-4 w-4 shrink-0 text-white/45"
         />
         <span className="min-w-0 flex-1 truncate">{entry.name}</span>
@@ -2926,18 +3433,6 @@ function FileTreeEntry({
           {formatBytes(entry.sizeBytes)}
         </span>
       </button>
-      {entry.isDir && open && entry.children.length > 0 && (
-        <div>
-          {entry.children.map((child) => (
-            <FileTreeEntry
-              key={child.path}
-              entry={child}
-              depth={depth + 1}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -2958,6 +3453,9 @@ function ServerAddonsPanel({
   );
   const [installed, setInstalled] = useState<InstalledServerAddon[]>([]);
   const [installing, setInstalling] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<"discover" | "installed">(
+    "discover",
+  );
   const loader = getModrinthLoader(server.type);
   const supportsMods = Boolean(loader);
   const providerLabel = getProviderMeta(provider).label;
@@ -3062,142 +3560,172 @@ function ServerAddonsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
-        <div className="flex items-center gap-2">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={`Server-Side Mods on ${providerLabel}`}
-            size="sm"
-            icon={<Icon icon="solar:magnifer-bold" className="h-5 w-5" />}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") search();
-            }}
-          />
-          <Button
-            variant="flat-secondary"
-            size="sm"
-            className="shrink-0"
-            disabled={loading}
-            onClick={search}
-          >
-            {loading ? "Searching" : "Search"}
-          </Button>
-          <ProviderSwitch
-            provider={provider}
-            onChange={(nextProvider) => {
-              setProvider(nextProvider);
-              setVersions({});
-            }}
-          />
+      <div className="flex flex-col gap-3 border-b border-white/10 pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="grid grid-cols-2 border border-white/10 bg-black/25 p-1">
+          {(["discover", "installed"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              className={cn(
+                "h-9 px-4 font-minecraft text-xl lowercase transition",
+                activeView === view
+                  ? "bg-white/15 text-white"
+                  : "text-white/50 hover:bg-white/10 hover:text-white",
+              )}
+              onClick={() => setActiveView(view)}
+            >
+              {view === "installed" ? `installed (${installed.length})` : view}
+            </button>
+          ))}
         </div>
-        <div className="border border-white/10 bg-black/30 px-3 py-2 font-minecraft-ten text-base text-white/65">
-          {installed.length} installed
+        <div className="flex flex-wrap gap-2 font-minecraft-ten text-base text-white/55">
+          <span className="border border-white/10 bg-black/25 px-2 py-1">
+            loader: {loader}
+          </span>
+          <span className="border border-white/10 bg-black/25 px-2 py-1">
+            loader version: {server.loaderVersion || "latest"}
+          </span>
+          <span className="border border-white/10 bg-black/25 px-2 py-1">
+            minecraft: {server.mcVersion}
+          </span>
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,280px)]">
-        <div className="min-h-0 overflow-y-auto custom-scrollbar">
-          {loading ? (
-            <div className="font-minecraft-ten text-lg text-white/50">
-              loading...
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {results.map((hit) => {
-                const loadedVersions = versions[hit.project_id] ?? [];
-                return (
-                  <div
-                    key={hit.project_id}
-                    className="border border-white/10 bg-black/30 p-3"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                      {hit.icon_url ? (
-                        <img
-                          src={hit.icon_url}
-                          alt=""
-                          className="h-12 w-12 border border-white/10 object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40">
-                          <Icon
-                            icon="solar:box-bold"
-                            className="h-6 w-6 text-white/60"
+      {activeView === "discover" && (
+        <>
+          <div className="flex items-center gap-2">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Server-Side Addons on ${providerLabel}`}
+              size="sm"
+              icon={<Icon icon="solar:magnifer-bold" className="h-5 w-5" />}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") search();
+              }}
+            />
+            <Button
+              variant="flat-secondary"
+              size="sm"
+              className="shrink-0"
+              disabled={loading}
+              onClick={search}
+            >
+              {loading ? "Searching" : "Search"}
+            </Button>
+            <ProviderSwitch
+              provider={provider}
+              onChange={(nextProvider) => {
+                setProvider(nextProvider);
+                setVersions({});
+              }}
+            />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+            {loading ? (
+              <div className="font-minecraft-ten text-lg text-white/50">
+                loading...
+              </div>
+            ) : (
+              <div className="grid gap-3 xl:grid-cols-2">
+                {results.map((hit) => {
+                  const loadedVersions = versions[hit.project_id] ?? [];
+                  return (
+                    <div
+                      key={hit.project_id}
+                      className="border border-white/10 bg-black/30 p-3"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        {hit.icon_url ? (
+                          <img
+                            src={hit.icon_url}
+                            alt=""
+                            className="h-12 w-12 border border-white/10 object-cover"
                           />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40">
+                            <Icon
+                              icon="solar:box-bold"
+                              className="h-6 w-6 text-white/60"
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-minecraft text-2xl lowercase text-white">
+                            {hit.title}
+                          </h3>
+                          <p className="line-clamp-2 font-minecraft-ten text-base text-white/55">
+                            {hit.description}
+                          </p>
+                        </div>
+                        <Button
+                          variant="flat-secondary"
+                          size="xs"
+                          className="shrink-0"
+                          onClick={() => loadVersions(hit)}
+                        >
+                          versions
+                        </Button>
+                      </div>
+                      {loadedVersions.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {loadedVersions.slice(0, 5).map((version) => (
+                            <div
+                              key={version.id}
+                              className="flex flex-col gap-3 border border-white/10 bg-black/25 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-minecraft-ten text-base text-white">
+                                  {version.name}
+                                </p>
+                                <p className="font-minecraft-ten text-sm text-white/45">
+                                  {version.version_number} - {server.mcVersion} - {loader}
+                                  {server.loaderVersion
+                                    ? ` ${server.loaderVersion}`
+                                    : " latest"}
+                                </p>
+                              </div>
+                              <Button
+                                variant="3d"
+                                size="xs"
+                                disabled={installing === version.id}
+                                onClick={() => install(hit, version)}
+                              >
+                                {installing === version.id
+                                  ? "installing"
+                                  : "install"}
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate font-minecraft text-2xl lowercase text-white">
-                          {hit.title}
-                        </h3>
-                        <p className="line-clamp-2 font-minecraft-ten text-base text-white/55">
-                          {hit.description}
-                        </p>
-                      </div>
-                      <Button
-                        variant="flat-secondary"
-                        size="xs"
-                        className="shrink-0"
-                        onClick={() => loadVersions(hit)}
-                      >
-                        versions
-                      </Button>
                     </div>
-                    {loadedVersions.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {loadedVersions.slice(0, 5).map((version) => (
-                          <div
-                            key={version.id}
-                            className="flex flex-col gap-3 border border-white/10 bg-black/25 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate font-minecraft-ten text-base text-white">
-                                {version.name}
-                              </p>
-                              <p className="font-minecraft-ten text-sm text-white/45">
-                                {version.version_number}
-                              </p>
-                            </div>
-                            <Button
-                              variant="3d"
-                              size="xs"
-                              disabled={installing === version.id}
-                              onClick={() => install(hit, version)}
-                            >
-                              {installing === version.id
-                                ? "installing"
-                                : "install"}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  );
+                })}
+                {results.length === 0 && (
+                  <div className="font-minecraft-ten text-lg text-white/45">
+                    no server-side addons found
                   </div>
-                );
-              })}
-              {results.length === 0 && (
-                <div className="font-minecraft-ten text-lg text-white/45">
-                  no server-side mods found
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
-        <div className="min-h-0 overflow-y-auto border border-white/10 bg-black/30 p-3 custom-scrollbar">
-          <h3 className="font-minecraft text-2xl lowercase text-white">
-            installed
-          </h3>
-          <div className="mt-3 space-y-2">
+      {activeView === "installed" && (
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {installed.map((addon) => (
               <div
                 key={addon.fileName}
-                className="border border-white/10 bg-black/25 p-2"
+                className="border border-white/10 bg-black/25 p-3"
               >
                 <p className="break-words font-minecraft-ten text-base text-white">
                   {addon.fileName}
                 </p>
-                <p className="font-minecraft-ten text-sm text-white/45">
+                <p className="mt-1 font-minecraft-ten text-sm text-white/45">
                   {formatBytes(addon.sizeBytes)}
                 </p>
               </div>
@@ -3209,7 +3737,8 @@ function ServerAddonsPanel({
             )}
           </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

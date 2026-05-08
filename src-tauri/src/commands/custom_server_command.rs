@@ -18,7 +18,10 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_opener::OpenerExt;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -144,6 +147,10 @@ pub struct CustomServerStats {
     pub uptime_seconds: u64,
     pub size_bytes: u64,
     pub mod_count: usize,
+    pub player_count: Option<u32>,
+    pub cpu_percent: Option<f32>,
+    pub memory_bytes: Option<u64>,
+    pub world_size_bytes: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,6 +218,18 @@ pub struct CustomServerWorldInfo {
     pub game_day: Option<i64>,
     pub last_played: Option<i64>,
     pub version_name: Option<String>,
+    pub is_current: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomServerWorldBackupInfo {
+    pub folder_name: String,
+    pub display_name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    pub created_at: Option<u64>,
+    pub source_world: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,6 +252,41 @@ pub struct CustomServerImportPreview {
     pub addon_count: usize,
     pub world_count: usize,
     pub size_bytes: u64,
+}
+
+struct ServerLaunchPlan {
+    args: Vec<String>,
+    required_java_major: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct PaperVersionBuilds {
+    builds: Vec<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PaperBuild {
+    downloads: PaperBuildDownloads,
+}
+
+#[derive(Debug, Deserialize)]
+struct PaperBuildDownloads {
+    application: PaperBuildDownload,
+}
+
+#[derive(Debug, Deserialize)]
+struct PaperBuildDownload {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PurpurVersionBuilds {
+    builds: PurpurBuilds,
+}
+
+#[derive(Debug, Deserialize)]
+struct PurpurBuilds {
+    latest: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -695,7 +749,8 @@ pub async fn delete_custom_server(id: String) -> Result<(), CommandError> {
             .header("Authorization", format!("Bearer {}", token))
             .query(&[("uuid", account.id.to_string())])
     })
-    .await
+    .await?;
+    delete_custom_server_folder_by_id(&id).await
 }
 
 #[tauri::command]
@@ -718,7 +773,7 @@ pub async fn get_admin_custom_servers() -> Result<AdminCustomServersResponse, Co
 pub async fn admin_delete_custom_server(id: String) -> Result<CustomServer, CommandError> {
     let account = active_account().await?;
     stop_running_custom_server_immediately(&id).await?;
-    authenticated_api_response::<CustomServer, _>(
+    let deleted = authenticated_api_response::<CustomServer, _>(
         &account,
         "Failed to delete custom server as admin",
         |token| {
@@ -728,7 +783,9 @@ pub async fn admin_delete_custom_server(id: String) -> Result<CustomServer, Comm
                 .query(&[("uuid", account.id.to_string())])
         },
     )
-    .await
+    .await?;
+    delete_custom_server_folder_by_id(&id).await?;
+    Ok(deleted)
 }
 
 #[tauri::command]
@@ -787,6 +844,8 @@ pub async fn run_custom_server(
     app: AppHandle,
     custom_server: CustomServer,
     forwarding_enabled: Option<bool>,
+    memory_max_mb: Option<u32>,
+    cpu_limit_percent: Option<u32>,
 ) -> Result<(), CommandError> {
     {
         let running = RUNNING_CUSTOM_SERVERS.lock().await;
@@ -805,17 +864,6 @@ pub async fn run_custom_server(
             custom_server.name
         ),
     );
-
-    if !matches!(&custom_server.r#type, CustomServerType::Vanilla) {
-        emit_custom_server_log(
-            &app,
-            &custom_server.id,
-            &format!(
-                "[WARN] Starting {} as a vanilla jar for now. Loader-specific providers still need to be wired.",
-                custom_server.type_name()
-            ),
-        );
-    }
 
     let server_dir = custom_server_dir(&custom_server)?;
     emit_custom_server_log(
@@ -840,24 +888,23 @@ pub async fn run_custom_server(
         &custom_server.id,
         "[INFO] Resolving Minecraft server jar",
     );
-    let (jar_path, required_java_major) =
-        ensure_vanilla_server_jar(&app, &custom_server, &server_dir)
-            .await
-            .map_err(AppError::from)?;
+    let launch_plan = ensure_custom_server_launch_plan(&app, &custom_server, &server_dir)
+        .await
+        .map_err(AppError::from)?;
     emit_custom_server_log(
         &app,
         &custom_server.id,
-        &format!("[DEBUG] Server jar: {}", jar_path.display()),
+        &format!("[DEBUG] Server launch args: {}", launch_plan.args.join(" ")),
     );
     emit_custom_server_log(
         &app,
         &custom_server.id,
         &format!(
             "[INFO] Resolving Java runtime for Java {}",
-            required_java_major
+            launch_plan.required_java_major
         ),
     );
-    let java_path = resolve_server_java(&app, &custom_server.id, required_java_major)
+    let java_path = resolve_server_java(&app, &custom_server.id, launch_plan.required_java_major)
         .await
         .map_err(AppError::from)?;
 
@@ -866,7 +913,7 @@ pub async fn run_custom_server(
         &custom_server.id,
         &format!(
             "[INFO] Launching Minecraft server process with Java {} ({})",
-            required_java_major,
+            launch_plan.required_java_major,
             java_path.display()
         ),
     );
@@ -881,17 +928,33 @@ pub async fn run_custom_server(
         ),
     );
 
+    let memory_max_mb = memory_max_mb.unwrap_or(2048).clamp(1024, 65536);
+    let cpu_limit_percent = cpu_limit_percent.unwrap_or(100).clamp(10, 100);
+    let available_processors = std::thread::available_parallelism()
+        .map(|count| count.get() as u32)
+        .unwrap_or(1);
+    let active_processors = ((available_processors as f32) * (cpu_limit_percent as f32 / 100.0))
+        .ceil()
+        .max(1.0) as u32;
+    emit_custom_server_log(
+        &app,
+        &custom_server.id,
+        &format!(
+            "[INFO] Performance settings: {} MB RAM, {}% CPU ({} Java processors)",
+            memory_max_mb, cpu_limit_percent, active_processors
+        ),
+    );
+
     let mut command = Command::new(java_path);
     command
-        .arg("-Xms1G")
-        .arg("-Xmx2G")
-        .arg("-jar")
-        .arg(jar_path)
-        .arg("nogui")
+        .arg("-Xms1024M")
+        .arg(format!("-Xmx{}M", memory_max_mb))
+        .arg(format!("-XX:ActiveProcessorCount={}", active_processors))
         .current_dir(&server_dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    command.args(&launch_plan.args);
 
     #[cfg(windows)]
     {
@@ -1448,16 +1511,22 @@ pub async fn execute_rcon_command(
 #[tauri::command]
 pub async fn get_custom_server_stats(server_id: String) -> Result<CustomServerStats, CommandError> {
     let running = RUNNING_CUSTOM_SERVERS.lock().await;
-    let (is_running, uptime_seconds) = running
+    let (is_running, uptime_seconds, process_id) = running
         .get(&server_id)
-        .map(|server| (true, server.started_at.elapsed().as_secs()))
-        .unwrap_or((false, 0));
+        .map(|server| (true, server.started_at.elapsed().as_secs(), server.process_id))
+        .unwrap_or((false, 0, None));
+    drop(running);
+    let (cpu_percent, memory_bytes) = custom_server_process_metrics(process_id);
 
     Ok(CustomServerStats {
         running: is_running,
         uptime_seconds,
         size_bytes: 0,
         mod_count: 0,
+        player_count: None,
+        cpu_percent,
+        memory_bytes,
+        world_size_bytes: 0,
     })
 }
 
@@ -1466,10 +1535,10 @@ pub async fn get_custom_server_details_stats(
     custom_server: CustomServer,
 ) -> Result<CustomServerStats, CommandError> {
     let running = RUNNING_CUSTOM_SERVERS.lock().await;
-    let (is_running, uptime_seconds) = running
+    let (is_running, uptime_seconds, process_id) = running
         .get(&custom_server.id)
-        .map(|server| (true, server.started_at.elapsed().as_secs()))
-        .unwrap_or((false, 0));
+        .map(|server| (true, server.started_at.elapsed().as_secs(), server.process_id))
+        .unwrap_or((false, 0, None));
     drop(running);
 
     let server_dir = custom_server_dir(&custom_server)?;
@@ -1479,13 +1548,19 @@ pub async fn get_custom_server_details_stats(
         0
     };
 
-    let mod_count = list_installed_server_addons(custom_server).await?.len();
+    let mod_count = list_installed_server_addons(custom_server.clone()).await?.len();
+    let world_size_bytes = calculate_worlds_size(&server_dir).await?;
+    let (cpu_percent, memory_bytes) = custom_server_process_metrics(process_id);
 
     Ok(CustomServerStats {
         running: is_running,
         uptime_seconds,
         size_bytes,
         mod_count,
+        player_count: None,
+        cpu_percent,
+        memory_bytes,
+        world_size_bytes,
     })
 }
 
@@ -1552,6 +1627,7 @@ pub async fn import_custom_server_world(
     }
 
     let target = server_dir.join("world");
+    let backup_dir = custom_server_specific_backups_dir(&custom_server)?;
     tokio::fs::create_dir_all(&server_dir)
         .await
         .map_err(AppError::from)?;
@@ -1562,7 +1638,12 @@ pub async fn import_custom_server_world(
                 .duration_since(UNIX_EPOCH)
                 .map(|duration| duration.as_secs())
                 .unwrap_or(0);
-            let backup = target.with_file_name(format!("world.backup-{}", timestamp));
+            let backup = backup_dir.join(format!(
+                "{}-world-replaced-{}",
+                sanitize_filename::sanitize(&server_dir.file_name().unwrap_or_default().to_string_lossy()),
+                timestamp
+            ));
+            fs::create_dir_all(backup.parent().unwrap_or_else(|| Path::new(".")))?;
             fs::rename(&target, backup)?;
         }
 
@@ -1621,7 +1702,19 @@ pub async fn backup_custom_server_world(
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs())
         .unwrap_or(0);
-    let target = server_dir.join(format!("{}.backup-{}", world_folder, timestamp));
+    let target = custom_server_specific_backups_dir(&custom_server)?.join(format!(
+        "{}-{}-world-{}",
+        sanitize_filename::sanitize(&custom_server.subdomain),
+        sanitize_filename::sanitize(&world_folder),
+        timestamp
+    ));
+    tokio::fs::create_dir_all(
+        target
+            .parent()
+            .ok_or_else(|| AppError::Other("Invalid backup target".to_string()))?,
+    )
+    .await
+    .map_err(AppError::from)?;
 
     tokio::task::spawn_blocking({
         let source = source.clone();
@@ -1632,6 +1725,115 @@ pub async fn backup_custom_server_world(
     .map_err(|error| AppError::Other(format!("World backup task failed: {}", error)))??;
 
     Ok(target.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn list_custom_server_world_backups(
+    custom_server: CustomServer,
+) -> Result<Vec<CustomServerWorldBackupInfo>, CommandError> {
+    let backups_dir = custom_server_backups_dir()?;
+    let server_backups_dir = custom_server_specific_backups_dir(&custom_server)?;
+    tokio::fs::create_dir_all(&server_backups_dir)
+        .await
+        .map_err(AppError::from)?;
+
+    let mut backups = Vec::new();
+    collect_world_backups_for_server(&custom_server, &server_backups_dir, &mut backups).await?;
+
+    if backups_dir.exists() {
+        collect_world_backups_for_server(&custom_server, &backups_dir, &mut backups).await?;
+    }
+
+    backups.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    Ok(backups)
+}
+
+#[tauri::command]
+pub async fn restore_custom_server_world_backup(
+    custom_server: CustomServer,
+    backup_path: String,
+) -> Result<String, CommandError> {
+    let backup = validate_custom_server_backup_path(&custom_server, &backup_path)?;
+    if !backup.is_dir() {
+        return Err(AppError::InvalidInput("Backup folder does not exist".to_string()).into());
+    }
+
+    let server_dir = custom_server_dir(&custom_server)?;
+    tokio::fs::create_dir_all(&server_dir)
+        .await
+        .map_err(AppError::from)?;
+    let target_name = unique_world_restore_folder(&custom_server, &server_dir, &backup)?;
+    let target = server_dir.join(&target_name);
+
+    tokio::task::spawn_blocking({
+        let backup = backup.clone();
+        let target = target.clone();
+        move || copy_dir_all_sync(&backup, &target)
+    })
+    .await
+    .map_err(|error| AppError::Other(format!("World restore task failed: {}", error)))??;
+
+    Ok(target_name)
+}
+
+#[tauri::command]
+pub async fn delete_custom_server_world_backup(
+    custom_server: CustomServer,
+    backup_path: String,
+) -> Result<(), CommandError> {
+    let backup = validate_custom_server_backup_path(&custom_server, &backup_path)?;
+    if backup.is_dir() {
+        tokio::fs::remove_dir_all(backup)
+            .await
+            .map_err(AppError::from)?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn switch_custom_server_world(
+    custom_server: CustomServer,
+    world_folder: String,
+) -> Result<(), CommandError> {
+    if world_folder.is_empty() || world_folder.contains('/') || world_folder.contains('\\') {
+        return Err(AppError::InvalidInput("Invalid world folder".to_string()).into());
+    }
+
+    let server_dir = custom_server_dir(&custom_server)?;
+    let target = server_dir.join(&world_folder);
+    if !target.is_dir() || !target.join("level.dat").is_file() {
+        return Err(AppError::InvalidInput("Selected world is not a valid server world".to_string()).into());
+    }
+
+    tokio::fs::create_dir_all(&server_dir)
+        .await
+        .map_err(AppError::from)?;
+    let properties_path = server_dir.join("server.properties");
+    let mut content = if properties_path.exists() {
+        tokio::fs::read_to_string(&properties_path)
+            .await
+            .map_err(AppError::from)?
+    } else {
+        String::new()
+    };
+    upsert_property(&mut content, "level-name", &world_folder);
+    tokio::fs::write(properties_path, content)
+        .await
+        .map_err(AppError::from)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_custom_server_backup_path(
+    app: AppHandle,
+    custom_server: CustomServer,
+    path: String,
+) -> Result<(), CommandError> {
+    let backup = validate_custom_server_backup_path(&custom_server, &path)?;
+    app.opener()
+        .open_path(backup.to_string_lossy(), None::<&str>)
+        .map_err(|error| AppError::Other(format!("Failed to open backup path: {}", error)))?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1656,6 +1858,9 @@ pub async fn list_custom_server_worlds(
     tokio::fs::create_dir_all(&server_dir)
         .await
         .map_err(AppError::from)?;
+    let current_world_folder = read_current_custom_server_world_folder(&server_dir)
+        .await
+        .unwrap_or_else(|_| "world".to_string());
 
     let mut worlds = Vec::new();
     let mut entries = tokio::fs::read_dir(&server_dir)
@@ -1676,8 +1881,9 @@ pub async fn list_custom_server_worlds(
             .unwrap_or_else(|| folder_name.clone());
         let game_day = metadata
             .as_ref()
-            .and_then(|data| data.data.day_time.or(data.data.time))
-            .map(|ticks| ticks / 24000);
+            .and_then(|data| data.data.time.or(data.data.day_time))
+            .map(|ticks| ticks / 24000)
+            .filter(|day| *day > 0);
         let last_played = metadata.as_ref().and_then(|data| data.data.last_played);
         let version_name = metadata
             .as_ref()
@@ -1685,6 +1891,7 @@ pub async fn list_custom_server_worlds(
             .and_then(|version| version.name.clone());
 
         worlds.push(CustomServerWorldInfo {
+            is_current: folder_name == current_world_folder,
             folder_name,
             display_name,
             path: path.to_string_lossy().to_string(),
@@ -1716,6 +1923,31 @@ pub async fn get_custom_server_properties(
         &properties,
         &default_custom_server_properties(&custom_server),
     ))
+}
+
+async fn read_current_custom_server_world_folder(server_dir: &Path) -> Result<String, AppError> {
+    let properties_path = server_dir.join("server.properties");
+    if !properties_path.exists() {
+        return Ok("world".to_string());
+    }
+
+    let properties = tokio::fs::read_to_string(properties_path).await?;
+    for line in properties.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(value) = trimmed.strip_prefix("level-name=") {
+            let value = value.trim();
+            return Ok(if value.is_empty() {
+                "world".to_string()
+            } else {
+                value.to_string()
+            });
+        }
+    }
+
+    Ok("world".to_string())
 }
 
 #[tauri::command]
@@ -1782,7 +2014,7 @@ pub async fn update_custom_server_properties(
 pub async fn list_installed_server_addons(
     custom_server: CustomServer,
 ) -> Result<Vec<InstalledServerAddon>, CommandError> {
-    let mods_dir = custom_server_dir(&custom_server)?.join("mods");
+    let mods_dir = server_addons_dir(&custom_server)?;
     if !mods_dir.exists() {
         return Ok(Vec::new());
     }
@@ -1819,7 +2051,7 @@ pub async fn install_modrinth_server_addon(
     file_name: String,
     download_url: String,
 ) -> Result<(), CommandError> {
-    let mods_dir = custom_server_dir(&custom_server)?.join("mods");
+    let mods_dir = server_addons_dir(&custom_server)?;
     tokio::fs::create_dir_all(&mods_dir)
         .await
         .map_err(AppError::from)?;
@@ -1937,6 +2169,205 @@ fn custom_server_dir(custom_server: &CustomServer) -> Result<PathBuf, CommandErr
     }
 
     Ok(new_dir)
+}
+
+fn custom_server_backups_dir() -> Result<PathBuf, AppError> {
+    Ok(LAUNCHER_DIRECTORY
+        .root_dir()
+        .join("data")
+        .join("custom-servers")
+        .join("backups"))
+}
+
+fn custom_server_specific_backups_dir(custom_server: &CustomServer) -> Result<PathBuf, AppError> {
+    Ok(custom_server_backups_dir()?.join(&custom_server.id))
+}
+
+async fn collect_world_backups_for_server(
+    custom_server: &CustomServer,
+    dir: &Path,
+    backups: &mut Vec<CustomServerWorldBackupInfo>,
+) -> Result<(), AppError> {
+    if !dir.exists() {
+        return Ok(());
+    }
+
+    let mut entries = tokio::fs::read_dir(dir).await?;
+    while let Some(entry) = entries.next_entry().await? {
+        let path = entry.path();
+        if !path.is_dir() || !path.join("level.dat").is_file() {
+            continue;
+        }
+        if !backup_name_belongs_to_server(custom_server, &path)? {
+            continue;
+        }
+
+        let folder_name = entry.file_name().to_string_lossy().to_string();
+        let metadata = entry.metadata().await?;
+        let created_at = metadata
+            .created()
+            .or_else(|_| metadata.modified())
+            .ok()
+            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+            .map(|duration| duration.as_secs());
+        let size_bytes = calculate_dir_size_recursively(&path).await.unwrap_or(0);
+        backups.push(CustomServerWorldBackupInfo {
+            display_name: folder_name.clone(),
+            source_world: infer_backup_source_world(custom_server, &folder_name),
+            folder_name,
+            path: path.to_string_lossy().to_string(),
+            size_bytes,
+            created_at,
+        });
+    }
+
+    Ok(())
+}
+
+fn backup_name_belongs_to_server(
+    custom_server: &CustomServer,
+    path: &Path,
+) -> Result<bool, AppError> {
+    let server_backup_dir = custom_server_specific_backups_dir(custom_server)?;
+    if path.starts_with(&server_backup_dir) {
+        return Ok(true);
+    }
+
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return Ok(false);
+    };
+    let subdomain_prefix = format!("{}-", sanitize_filename::sanitize(&custom_server.subdomain));
+    let server_folder_prefix = format!(
+        "{}-",
+        sanitize_filename::sanitize(format!("{}-{}", custom_server.subdomain, custom_server.id))
+    );
+    Ok(name.starts_with(&subdomain_prefix)
+        || (!server_folder_prefix.is_empty() && name.starts_with(&server_folder_prefix)))
+}
+
+fn infer_backup_source_world(custom_server: &CustomServer, folder_name: &str) -> Option<String> {
+    let subdomain_prefix = format!("{}-", sanitize_filename::sanitize(&custom_server.subdomain));
+    if let Some(rest) = folder_name.strip_prefix(&subdomain_prefix) {
+        if let Some((world, _)) = rest.rsplit_once("-world-") {
+            return Some(world.to_string());
+        }
+    }
+    if folder_name.contains("-world-replaced-") {
+        return Some("world".to_string());
+    }
+    None
+}
+
+fn validate_custom_server_backup_path(
+    custom_server: &CustomServer,
+    backup_path: &str,
+) -> Result<PathBuf, AppError> {
+    let backup = fs::canonicalize(PathBuf::from(backup_path))?;
+    let backups_root = fs::canonicalize(custom_server_backups_dir()?)?;
+    if !backup.starts_with(&backups_root) || !backup_name_belongs_to_server(custom_server, &backup)?
+    {
+        return Err(AppError::InvalidInput(
+            "Backup path is outside this server's backups".to_string(),
+        ));
+    }
+    Ok(backup)
+}
+
+fn unique_world_restore_folder(
+    custom_server: &CustomServer,
+    server_dir: &Path,
+    backup: &Path,
+) -> Result<String, AppError> {
+    let backup_name = backup
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| AppError::InvalidInput("Invalid backup folder".to_string()))?;
+    let base = infer_backup_source_world(custom_server, backup_name)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| backup_name.to_string());
+
+    let safe_base = sanitize_filename::sanitize(base);
+    let mut candidate = format!("{}-restored", safe_base);
+    let mut index = 2;
+    while server_dir.join(&candidate).exists() {
+        candidate = format!("{}-restored-{}", safe_base, index);
+        index += 1;
+    }
+    Ok(candidate)
+}
+
+fn server_addons_dir(custom_server: &CustomServer) -> Result<PathBuf, CommandError> {
+    let server_dir = custom_server_dir(custom_server)?;
+    Ok(match custom_server.r#type {
+        CustomServerType::Paper
+        | CustomServerType::Spigot
+        | CustomServerType::Bukkit
+        | CustomServerType::Folia
+        | CustomServerType::Purpur => server_dir.join("plugins"),
+        _ => server_dir.join("mods"),
+    })
+}
+
+async fn delete_custom_server_folder_by_id(server_id: &str) -> Result<(), CommandError> {
+    let base_dir = LAUNCHER_DIRECTORY
+        .root_dir()
+        .join("data")
+        .join("custom-servers");
+    let old_base_dir = LAUNCHER_DIRECTORY.root_dir().join("custom-servers");
+    for root in [base_dir, old_base_dir] {
+        if !root.exists() {
+            continue;
+        }
+        let mut entries = tokio::fs::read_dir(&root).await.map_err(AppError::from)?;
+        while let Some(entry) = entries.next_entry().await.map_err(AppError::from)? {
+            let path = entry.path();
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(server_id))
+                && path.is_dir()
+            {
+                tokio::fs::remove_dir_all(path).await.map_err(AppError::from)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn calculate_worlds_size(server_dir: &Path) -> Result<u64, AppError> {
+    let mut total = 0;
+    if !server_dir.exists() {
+        return Ok(total);
+    }
+    let mut entries = tokio::fs::read_dir(server_dir).await.map_err(AppError::from)?;
+    while let Some(entry) = entries.next_entry().await.map_err(AppError::from)? {
+        let path = entry.path();
+        if path.is_dir() && path.join("level.dat").exists() {
+            total += calculate_dir_size_recursively(&path).await?;
+        }
+    }
+    Ok(total)
+}
+
+fn custom_server_process_metrics(process_id: Option<u32>) -> (Option<f32>, Option<u64>) {
+    let Some(process_id) = process_id else {
+        return (None, None);
+    };
+    let mut sys = System::new();
+    let pid = Pid::from(process_id as usize);
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+    std::thread::sleep(Duration::from_millis(120));
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), true);
+    let Some(process) = sys.process(pid) else {
+        return (None, None);
+    };
+    let cpu_count = std::thread::available_parallelism()
+        .map(|count| count.get() as f32)
+        .unwrap_or(1.0);
+    (
+        Some((process.cpu_usage() / cpu_count).min(100.0)),
+        Some(process.memory()),
+    )
 }
 
 fn copy_dir_all_sync(source: &PathBuf, target: &PathBuf) -> Result<(), AppError> {
@@ -2490,12 +2921,98 @@ fn upsert_property(properties: &mut String, key: &str, value: &str) {
     *properties = format!("{}\n", lines.join("\n"));
 }
 
-async fn ensure_vanilla_server_jar(
+async fn ensure_custom_server_launch_plan(
     app: &AppHandle,
     custom_server: &CustomServer,
     server_dir: &PathBuf,
-) -> Result<(PathBuf, u32), AppError> {
-    let jar_path = server_dir.join(format!("minecraft-server-{}.jar", custom_server.mc_version));
+) -> Result<ServerLaunchPlan, AppError> {
+    match custom_server.r#type {
+        CustomServerType::Vanilla => {
+            let (jar_path, required_java_major) =
+                ensure_vanilla_server_jar(app, custom_server, server_dir).await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Fabric => {
+            let required_java_major = minecraft_required_java_major(custom_server).await?;
+            let jar_path = ensure_fabric_like_server_jar(
+                app,
+                custom_server,
+                server_dir,
+                "fabric",
+                "https://meta.fabricmc.net/v2",
+            )
+            .await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Quilt => {
+            let required_java_major = minecraft_required_java_major(custom_server).await?;
+            let jar_path = ensure_fabric_like_server_jar(
+                app,
+                custom_server,
+                server_dir,
+                "quilt",
+                "https://meta.quiltmc.org/v3",
+            )
+            .await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Paper | CustomServerType::Spigot | CustomServerType::Bukkit => {
+            let required_java_major = minecraft_required_java_major(custom_server).await?;
+            let jar_path =
+                ensure_papermc_server_jar(app, custom_server, server_dir, "paper").await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Folia => {
+            let required_java_major = minecraft_required_java_major(custom_server).await?;
+            let jar_path =
+                ensure_papermc_server_jar(app, custom_server, server_dir, "folia").await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Purpur => {
+            let required_java_major = minecraft_required_java_major(custom_server).await?;
+            let jar_path = ensure_purpur_server_jar(app, custom_server, server_dir).await?;
+            Ok(jar_launch_plan(jar_path, required_java_major))
+        }
+        CustomServerType::Forge => ensure_installer_server_launch_plan(
+            app,
+            custom_server,
+            server_dir,
+            "forge",
+            "net/minecraftforge/forge",
+        )
+        .await,
+        CustomServerType::NeoForge => ensure_installer_server_launch_plan(
+            app,
+            custom_server,
+            server_dir,
+            "neoforge",
+            "net/neoforged/neoforge",
+        )
+        .await,
+    }
+}
+
+fn jar_launch_plan(jar_path: PathBuf, required_java_major: u32) -> ServerLaunchPlan {
+    ServerLaunchPlan {
+        args: vec![
+            "-jar".to_string(),
+            jar_path.to_string_lossy().to_string(),
+            "nogui".to_string(),
+        ],
+        required_java_major,
+    }
+}
+
+async fn minecraft_required_java_major(custom_server: &CustomServer) -> Result<u32, AppError> {
+    Ok(fetch_minecraft_version_metadata(&custom_server.mc_version)
+        .await?
+        .java_version
+        .as_ref()
+        .map(|java| java.major_version)
+        .unwrap_or(21))
+}
+
+async fn fetch_minecraft_version_metadata(mc_version: &str) -> Result<VersionMetadata, AppError> {
     let manifest = HTTP_CLIENT
         .get("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
         .send()
@@ -2507,16 +3024,26 @@ async fn ensure_vanilla_server_jar(
     let version = manifest
         .versions
         .into_iter()
-        .find(|entry| entry.id == custom_server.mc_version)
-        .ok_or_else(|| AppError::VersionNotFound(custom_server.mc_version.clone()))?;
+        .find(|entry| entry.id == mc_version)
+        .ok_or_else(|| AppError::VersionNotFound(mc_version.to_string()))?;
 
-    let metadata = HTTP_CLIENT
+    HTTP_CLIENT
         .get(version.url)
         .send()
         .await?
         .error_for_status()?
         .json::<VersionMetadata>()
-        .await?;
+        .await
+        .map_err(AppError::from)
+}
+
+async fn ensure_vanilla_server_jar(
+    app: &AppHandle,
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+) -> Result<(PathBuf, u32), AppError> {
+    let jar_path = server_dir.join(format!("minecraft-server-{}.jar", custom_server.mc_version));
+    let metadata = fetch_minecraft_version_metadata(&custom_server.mc_version).await?;
     let required_java_major = metadata
         .java_version
         .as_ref()
@@ -2550,6 +3077,290 @@ async fn ensure_vanilla_server_jar(
 
     tokio::fs::write(&jar_path, bytes).await?;
     Ok((jar_path, required_java_major))
+}
+
+async fn ensure_fabric_like_server_jar(
+    app: &AppHandle,
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+    loader_name: &str,
+    base_url: &str,
+) -> Result<PathBuf, AppError> {
+    let versions_url = format!("{}/versions/loader/{}", base_url, custom_server.mc_version);
+    let versions = HTTP_CLIENT
+        .get(&versions_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Vec<serde_json::Value>>()
+        .await?;
+    let requested = custom_server.loader_version.as_deref();
+    let selected = versions
+        .iter()
+        .find(|entry| {
+            requested.is_some_and(|requested| {
+                entry
+                    .get("loader")
+                    .and_then(|loader| loader.get("version"))
+                    .and_then(|version| version.as_str())
+                    .is_some_and(|version| version == requested)
+            })
+        })
+        .or_else(|| versions.first())
+        .ok_or_else(|| {
+            AppError::Download(format!(
+                "No {} loader found for Minecraft {}",
+                loader_name, custom_server.mc_version
+            ))
+        })?;
+    let loader_version = selected
+        .get("loader")
+        .and_then(|loader| loader.get("version"))
+        .and_then(|version| version.as_str())
+        .ok_or_else(|| AppError::Download(format!("Invalid {} loader metadata", loader_name)))?;
+    let installer_version = selected
+        .get("installer")
+        .and_then(|installer| installer.get("version"))
+        .and_then(|version| version.as_str())
+        .unwrap_or("1.0.1");
+    let jar_path = server_dir.join(format!(
+        "{}-server-{}-{}.jar",
+        loader_name, custom_server.mc_version, loader_version
+    ));
+    if jar_path.exists() {
+        return Ok(jar_path);
+    }
+
+    emit_custom_server_log(
+        app,
+        &custom_server.id,
+        &format!(
+            "[INFO] Downloading {} server loader {}",
+            loader_name, loader_version
+        ),
+    );
+    let jar_url = format!(
+        "{}/versions/loader/{}/{}/{}/server/jar",
+        base_url, custom_server.mc_version, loader_version, installer_version
+    );
+    download_to_file(&jar_url, &jar_path).await?;
+    Ok(jar_path)
+}
+
+async fn ensure_papermc_server_jar(
+    app: &AppHandle,
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+    project: &str,
+) -> Result<PathBuf, AppError> {
+    let builds_url = format!(
+        "https://api.papermc.io/v2/projects/{}/versions/{}",
+        project, custom_server.mc_version
+    );
+    let builds = HTTP_CLIENT
+        .get(&builds_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<PaperVersionBuilds>()
+        .await?;
+    let build = builds
+        .builds
+        .last()
+        .copied()
+        .ok_or_else(|| AppError::Download(format!("No {} build found", project)))?;
+    let build_url = format!(
+        "https://api.papermc.io/v2/projects/{}/versions/{}/builds/{}",
+        project, custom_server.mc_version, build
+    );
+    let build_info = HTTP_CLIENT
+        .get(&build_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<PaperBuild>()
+        .await?;
+    let jar_path = server_dir.join(format!(
+        "{}-{}-{}.jar",
+        project, custom_server.mc_version, build
+    ));
+    if jar_path.exists() {
+        return Ok(jar_path);
+    }
+    emit_custom_server_log(
+        app,
+        &custom_server.id,
+        &format!("[INFO] Downloading {} server build {}", project, build),
+    );
+    let download_url = format!(
+        "{}/downloads/{}",
+        build_url, build_info.downloads.application.name
+    );
+    download_to_file(&download_url, &jar_path).await?;
+    Ok(jar_path)
+}
+
+async fn ensure_purpur_server_jar(
+    app: &AppHandle,
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+) -> Result<PathBuf, AppError> {
+    let version_url = format!(
+        "https://api.purpurmc.org/v2/purpur/{}",
+        custom_server.mc_version
+    );
+    let builds = HTTP_CLIENT
+        .get(&version_url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<PurpurVersionBuilds>()
+        .await?;
+    let jar_path = server_dir.join(format!(
+        "purpur-{}-{}.jar",
+        custom_server.mc_version, builds.builds.latest
+    ));
+    if jar_path.exists() {
+        return Ok(jar_path);
+    }
+    emit_custom_server_log(
+        app,
+        &custom_server.id,
+        &format!("[INFO] Downloading Purpur build {}", builds.builds.latest),
+    );
+    let download_url = format!("{}/latest/download", version_url);
+    download_to_file(&download_url, &jar_path).await?;
+    Ok(jar_path)
+}
+
+async fn ensure_installer_server_launch_plan(
+    app: &AppHandle,
+    custom_server: &CustomServer,
+    server_dir: &PathBuf,
+    loader_name: &str,
+    maven_path: &str,
+) -> Result<ServerLaunchPlan, AppError> {
+    let required_java_major = minecraft_required_java_major(custom_server).await?;
+    let loader_version = custom_server.loader_version.as_deref().ok_or_else(|| {
+        AppError::InvalidInput(format!("{} needs a loader version", loader_name))
+    })?;
+    let artifact_version = if loader_name == "forge" && !loader_version.contains('-') {
+        format!("{}-{}", custom_server.mc_version, loader_version)
+    } else {
+        loader_version.to_string()
+    };
+    let args_file = find_server_args_file(server_dir, loader_name)?;
+    let args_file = if let Some(args_file) = args_file {
+        args_file
+    } else {
+        let installer_name = format!("{}-{}-installer.jar", loader_name, artifact_version);
+        let installer_path = server_dir.join(&installer_name);
+        if !installer_path.exists() {
+            emit_custom_server_log(
+                app,
+                &custom_server.id,
+                &format!(
+                    "[INFO] Downloading {} installer {}",
+                    loader_name, artifact_version
+                ),
+            );
+            let installer_url = format!(
+                "https://maven{}org/{}/{}/{}",
+                if loader_name == "forge" { ".minecraftforge." } else { ".neoforged." },
+                maven_path,
+                artifact_version,
+                installer_name
+            );
+            download_to_file(&installer_url, &installer_path).await?;
+        }
+
+        emit_custom_server_log(
+            app,
+            &custom_server.id,
+            &format!("[INFO] Installing {} server files", loader_name),
+        );
+        let java_path = resolve_server_java(app, &custom_server.id, required_java_major).await?;
+        run_java_installer(&java_path, &installer_path, server_dir).await?;
+        find_server_args_file(server_dir, loader_name)?.ok_or_else(|| {
+            AppError::Download(format!("{} installer did not create server args", loader_name))
+        })?
+    };
+
+    Ok(ServerLaunchPlan {
+        args: vec![format!("@{}", args_file.to_string_lossy()), "nogui".to_string()],
+        required_java_major,
+    })
+}
+
+async fn run_java_installer(
+    java_path: &Path,
+    installer_path: &Path,
+    server_dir: &Path,
+) -> Result<(), AppError> {
+    let mut command = Command::new(java_path);
+    command
+        .arg("-jar")
+        .arg(installer_path)
+        .arg("--installServer")
+        .current_dir(server_dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let status = command.status().await.map_err(AppError::from)?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::ProcessError(format!(
+            "Installer failed with status {}",
+            status
+        )))
+    }
+}
+
+fn find_server_args_file(server_dir: &Path, loader_name: &str) -> Result<Option<PathBuf>, AppError> {
+    fn walk(dir: &Path, loader_name: &str) -> Result<Option<PathBuf>, AppError> {
+        for entry in fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                if let Some(found) = walk(&path, loader_name)? {
+                    return Ok(Some(found));
+                }
+            } else if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name == "win_args.txt" || name == "unix_args.txt")
+                && path.to_string_lossy().to_lowercase().contains(loader_name)
+            {
+                return Ok(Some(path));
+            }
+        }
+        Ok(None)
+    }
+    if server_dir.exists() {
+        walk(server_dir, loader_name)
+    } else {
+        Ok(None)
+    }
+}
+
+async fn download_to_file(url: &str, target: &Path) -> Result<(), AppError> {
+    let bytes = HTTP_CLIENT
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+    if let Some(parent) = target.parent() {
+        tokio::fs::create_dir_all(parent).await?;
+    }
+    tokio::fs::write(target, bytes).await?;
+    Ok(())
 }
 
 async fn resolve_server_java(
