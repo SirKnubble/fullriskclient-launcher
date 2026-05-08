@@ -117,16 +117,31 @@ jobs:
         if: github.event_name == 'push' || inputs.release_tag != ''
         env:
           RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         shell: bash
         run: |
           node <<'NODE'
           const fs = require("node:fs");
+
           const configPath = "src-tauri/tauri.conf.json";
-          const version = process.env.RELEASE_TAG.replace(/^v/i, "");
+          const rawVersion = process.env.RELEASE_TAG.replace(/^v/i, "");
+
+          let tauriVersion = rawVersion;
+
+          // MSI erlaubt keine text pre-release identifier wie beta/alpha/rc.
+          // Beispiel: v1.0.0-beta -> 1.0.0-123
+          if (/[a-z]/i.test(rawVersion)) {
+            const base = rawVersion.split("-")[0];
+            const build = Number(process.env.GITHUB_RUN_NUMBER) % 65535 || 1;
+            tauriVersion = `${base}-${build}`;
+          }
+
           const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-          config.version = version;
+          config.version = tauriVersion;
           fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
-          console.log(`Set Tauri app version to ${version}`);
+
+          console.log(`Release tag: ${rawVersion}`);
+          console.log(`MSI-safe Tauri version: ${tauriVersion}`);
           NODE
 
       - name: Build Tauri app
