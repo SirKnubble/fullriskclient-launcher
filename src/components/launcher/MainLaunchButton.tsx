@@ -19,8 +19,6 @@ import { useProfileStore } from "../../store/profile-store";
 import { ProfileSelectionModal } from "./ProfileSelectionModal";
 import { resolveImagePath } from "../../services/profile-service";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Button } from "../ui/buttons/Button";
-import { IconButton } from "../ui/buttons/IconButton";
 
 interface Version {
   id: string;
