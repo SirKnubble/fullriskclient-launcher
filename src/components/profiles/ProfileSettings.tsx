@@ -41,6 +41,20 @@ type SettingsTab =
   | "designer"
   | "symlinks";
 
+function normalizeForCompare(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeForCompare);
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [k, normalizeForCompare(v)] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
 export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
   const { t } = useTranslation();
   const { updateProfile, deleteProfile } = useProfileStore();
