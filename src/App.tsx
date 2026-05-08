@@ -51,6 +51,14 @@ import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 import { NotificationModal } from "./components/modals/NotificationModal";
 import { useNotificationStore } from "./store/notification-store";
 import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
+import {
+  hasPermission,
+  refreshPermissions,
+} from "./services/permission-service";
+import {
+  fetchTesterQueueCount,
+  openTesterWindow,
+} from "./services/tester-service";
 import { useTranslation } from "react-i18next";
 
 export type ProfilesTabContext = {
@@ -66,6 +74,7 @@ export function App() {
   const {
     hasAcceptedTermsOfService,
     analyticsConsent,
+    language,
     setAnalyticsConsent,
     shouldShowAnalyticsBanner,
     incrementLaunchCount,
@@ -79,7 +88,6 @@ export function App() {
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
     useState<string>("none");
 
-  const FLAGSMITH_ENVIRONMENT_ID = "eNSibjDaDW2nNJQvJnjj9y"; // User confirmed this is set
   useEffect(() => {
     const root = document.documentElement;
     const storedTheme = localStorage.getItem("norisk-theme-storage");
@@ -343,13 +351,14 @@ export function App() {
           os: osInfo.os,
           os_version: osInfo.os_version,
           arch: osInfo.arch,
+          language,
         });
       } catch (error) {
         launcherStartTracked = false;
         console.error("[App] launcher_started tracking failed:", error);
       }
     })();
-  }, [analyticsConsent.decision]);
+  }, [analyticsConsent.decision, language]);
 
   // Fetch notifications when user is logged in
   useEffect(() => {
@@ -359,6 +368,27 @@ export function App() {
       });
     }
   }, [activeAccount, fetchNotifications]);
+
+  useEffect(() => {
+    if (!activeAccount) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await refreshPermissions();
+        if (cancelled) return;
+        const allowed = await hasPermission("norisk.tester");
+        if (cancelled || !allowed) return;
+        const { count } = await fetchTesterQueueCount();
+        if (cancelled || count <= 0) return;
+        await openTesterWindow();
+      } catch (err) {
+        console.warn("[App.tsx] tester queue check skipped:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAccount]);
 
   // Icons beim App-Start vorladen
   useEffect(() => {
@@ -563,13 +593,7 @@ export function App() {
   useGlobalDragAndDrop();
 
   return (
-    <FlagsmithProvider
-      options={{
-        environmentID: FLAGSMITH_ENVIRONMENT_ID,
-        api: "https://flagsmith-staging.norisk.gg/api/v1/",
-      }}
-      flagsmith={flagsmith}
-    >
+    <FlagsmithProvider flagsmith={flagsmith}>
       <div className="flex flex-col h-screen w-screen overflow-hidden">
         <ThemeInitializer />
         <ScrollbarProvider />

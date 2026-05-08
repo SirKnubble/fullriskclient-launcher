@@ -80,10 +80,10 @@ impl ModloaderFactory {
             }
         }
 
-        // 2. Check for Norisk pack policy
-        if let Some(selected_pack_id) = &profile.selected_norisk_pack_id {
+        // 2. Check for Norisk pack policy (honors rollout alias)
+        if let Some(selected_pack_id) = profile.effective_norisk_pack_id().await {
             if let Some(config) = norisk_pack_config {
-                if let Ok(resolved_pack) = config.get_resolved_pack_definition(selected_pack_id) {
+                if let Ok(resolved_pack) = config.get_resolved_pack_definition(&selected_pack_id) {
                     if let Some(policy) = &resolved_pack.loader_policy {
                         let loader_key = profile.loader.as_str();
                         let mut resolved_version: Option<String> = None;

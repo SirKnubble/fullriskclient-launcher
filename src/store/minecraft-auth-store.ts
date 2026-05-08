@@ -4,27 +4,31 @@ import type { MinecraftAccount } from "../types/minecraft";
 import flagsmith from 'flagsmith';
 import { toast } from "react-hot-toast";
 import { getLauncherConfig } from "../services/launcher-config-service";
+import { refreshPermissions } from "../services/permission-service";
 import i18n from '../i18n/i18n';
 
-// Helper function to identify the user with Flagsmith
-const identifyWithFlagsmith = (account: MinecraftAccount | null) => {
-  if (account && account.id) {
-    flagsmith.identify(account.id)
-      .then(() => {
-        console.log(`[AuthStore] Flagsmith user identified: ${account.id}`);
-      })
-      .catch((error) => {
-        console.error(`[AuthStore] Error identifying Flagsmith user ${account.id}:`, error);
-      });
-  } else {
-    flagsmith.logout()
-      .then(() => {
-        console.log("[AuthStore] Flagsmith user logged out (no active account).");
-      })
-      .catch((error) => {
-        console.error("[AuthStore] Error logging out Flagsmith user:", error);
-      });
-  }
+const setMojangTraits = (account: MinecraftAccount | null) => {
+  const uuid = account?.id ?? null;
+  const username = account?.username ?? null;
+  Promise.all([
+    flagsmith.setTrait('mojang_uuid', uuid),
+    flagsmith.setTrait('mojang_username', username),
+  ])
+    .then(() => {
+      if (uuid) {
+        console.log(`[AuthStore] Flagsmith mojang traits set for ${uuid}`);
+      } else {
+        console.log("[AuthStore] Flagsmith mojang traits cleared (no active account).");
+      }
+    })
+    .catch((error) => {
+      console.error("[AuthStore] Error updating Flagsmith mojang traits:", error);
+    });
+
+  // Re-fetch permissions whenever the active account changes (token & uuid differ).
+  refreshPermissions().catch((error) => {
+    console.error("[AuthStore] Error refreshing permissions:", error);
+  });
 };
 
 interface MinecraftAuthState {
@@ -63,14 +67,14 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
         activeAccount,
         isLoading: false,
       });
-      identifyWithFlagsmith(activeAccount);
+      setMojangTraits(activeAccount);
     } catch (error) {
       console.error("Failed to initialize accounts:", error);
       set({
         error: i18n.t('auth.errors.load_accounts', { error: error instanceof Error ? error.message : String(error.message) }),
         isLoading: false,
       });
-      identifyWithFlagsmith(null);
+      setMojangTraits(null);
     }
   },
 
@@ -96,7 +100,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
       const accounts = await MinecraftAuthService.getAccounts();
       const activeAccount = await MinecraftAuthService.getActiveAccount();
 
-      identifyWithFlagsmith(activeAccount);
+      setMojangTraits(activeAccount);
 
       // Return a payload with all data needed for the success toast and the final state update
       return { newAccount, accounts, activeAccount };
@@ -193,7 +197,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
         isLoading: false,
       });
       if (wasActive) {
-        identifyWithFlagsmith(activeAccount);
+        setMojangTraits(activeAccount);
       }
     } catch (error) {
       console.error("Failed to remove account:", error);
@@ -224,7 +228,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
         activeAccount,
         isLoading: false,
       });
-      identifyWithFlagsmith(activeAccount);
+      setMojangTraits(activeAccount);
     } catch (error) {
       console.error("Failed to set active account:", error);
       const errorMsg = error instanceof Error ? error.message : String((error as any).message ?? error);
@@ -245,7 +249,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
             isLoading: false,
             error: null,
           });
-          identifyWithFlagsmith(activeAccount);
+          setMojangTraits(activeAccount);
         } catch (removeErr) {
           console.error("Failed to remove expired account:", removeErr);
           set({ accounts: previousAccounts, activeAccount: previousAccount, isLoading: false });

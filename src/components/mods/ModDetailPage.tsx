@@ -214,6 +214,7 @@ interface ModDetailPageProps {
    * host chrome.
    */
   hideBackButton?: boolean;
+  targetProfile?: import("../../types/profile").Profile;
 }
 
 export function ModDetailPage({
@@ -221,6 +222,7 @@ export function ModDetailPage({
   projectIdOverride,
   onBack,
   hideBackButton,
+  targetProfile,
 }: ModDetailPageProps = {}) {
   const { t } = useTranslation();
   const params = useParams<{ source: string; projectId: string }>();
@@ -517,12 +519,13 @@ export function ModDetailPage({
           accentColor={accentColor}
           showVersions={showVersions}
           onToggleVersions={() => setShowVersions(!showVersions)}
+          targetProfile={targetProfile}
         />
 
         {showVersions ? (
           /* Versions View */
           <div className="mt-6">
-            <ModDetailVersions project={project} />
+            <ModDetailVersions project={project} targetProfile={targetProfile} />
           </div>
         ) : (
           /* Default View: Gallery + Description + Sidebar */

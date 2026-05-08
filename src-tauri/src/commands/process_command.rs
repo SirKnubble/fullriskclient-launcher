@@ -124,6 +124,7 @@ pub async fn open_minecraft_log_window<R: tauri::Runtime>(
     .inner_size(1200.0, 800.0)
     .decorations(false)
     .center()
+    .visible(false)
     .build()
     .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
 
@@ -184,6 +185,7 @@ pub async fn open_single_log_window<R: tauri::Runtime>(
     .inner_size(900.0, 600.0)
     .decorations(false)
     .center()
+    .visible(false)
     .build()
     .map_err(|e| CommandError::from(crate::error::AppError::Other(e.to_string())))?;
 

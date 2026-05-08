@@ -12,8 +12,17 @@ import {
   uploadLogToMclogs,
   type FileInfo,
 } from "../../services/log-service";
+import {
+  getCachedPermissions,
+  refreshPermissions,
+  type PermissionCacheState,
+} from "../../services/permission-service";
+import {
+  fetchTesterQueueCount,
+  openTesterWindow,
+} from "../../services/tester-service";
 
-type DebugTab = "launcher" | "minecraft" | "crashes";
+type DebugTab = "launcher" | "minecraft" | "crashes" | "permissions";
 
 export function DebugSection() {
   const { t } = useTranslation();
@@ -21,10 +30,16 @@ export function DebugSection() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<PermissionCacheState | null>(null);
+  const [refreshingPerms, setRefreshingPerms] = useState(false);
 
   // Load files when tab changes
   useEffect(() => {
-    loadFiles();
+    if (activeTab === "permissions") {
+      getCachedPermissions().then(setPermissions).catch(() => setPermissions(null));
+    } else {
+      loadFiles();
+    }
   }, [activeTab]);
 
   async function loadFiles() {
@@ -45,6 +60,20 @@ export function DebugSection() {
       setFiles([]);
     }
     setLoading(false);
+  }
+
+  async function handleRefreshPermissions() {
+    setRefreshingPerms(true);
+    try {
+      await refreshPermissions();
+      const cached = await getCachedPermissions();
+      setPermissions(cached);
+      toast.success(t('debug.permissions.refreshed'));
+    } catch (e) {
+      console.error("Failed to refresh permissions:", e);
+      toast.error(t('debug.permissions.refresh_failed', { error: getErrorMessage(e) }));
+    }
+    setRefreshingPerms(false);
   }
 
   // Helper to extract error message from Tauri CommandError or any error
@@ -84,6 +113,7 @@ export function DebugSection() {
     { id: "launcher", name: "Launcher Logs", count: 0 },
     { id: "minecraft", name: "MC Logs", count: 0 },
     { id: "crashes", name: "Crash Reports", count: 0 },
+    { id: "permissions", name: t('debug.permissions.tab'), count: permissions?.nodes.length ?? 0 },
   ];
 
   const formatSize = (bytes: number) => {
@@ -107,7 +137,14 @@ export function DebugSection() {
         showAddButton={false}
       />
 
-      {/* File List */}
+      {activeTab === "permissions" ? (
+        <PermissionsList
+          permissions={permissions}
+          refreshing={refreshingPerms}
+          onRefresh={handleRefreshPermissions}
+        />
+      ) : (
+      /* File List */
       <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-white/50">
@@ -172,6 +209,125 @@ export function DebugSection() {
                     )}
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
+    </div>
+  );
+}
+
+interface PermissionsListProps {
+  permissions: PermissionCacheState | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}
+
+function PermissionsList({ permissions, refreshing, onRefresh }: PermissionsListProps) {
+  const { t } = useTranslation();
+  const nodes = permissions?.nodes ?? [];
+  const lastFetched = permissions?.last_fetched
+    ? new Date(permissions.last_fetched).toLocaleString()
+    : null;
+
+  const canTest = nodes.includes("norisk.tester");
+  const [queueCount, setQueueCount] = useState<number | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  useEffect(() => {
+    if (!canTest) {
+      setQueueCount(null);
+      return;
+    }
+    fetchTesterQueueCount()
+      .then(({ count }) => setQueueCount(count))
+      .catch(() => setQueueCount(null));
+  }, [canTest, permissions]);
+
+  const handleOpenTester = async () => {
+    setOpening(true);
+    try {
+      await openTesterWindow();
+    } catch (e) {
+      console.error("Failed to open tester window:", e);
+      toast.error(`Failed to open tester window: ${String(e)}`);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
+        <Icon icon="solar:shield-keyhole-bold" className="w-5 h-5 text-white/60 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-white font-minecraft-ten">
+            {t('debug.permissions.count', { n: nodes.length })}
+          </div>
+          {lastFetched && (
+            <div className="text-xs text-white/40 font-sans truncate">
+              {t('debug.permissions.last_refreshed', { time: lastFetched })}
+            </div>
+          )}
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-50"
+          title={t('debug.permissions.refresh')}
+        >
+          <Icon
+            icon="solar:refresh-bold"
+            className={`w-4 h-4 text-white/70 ${refreshing ? "animate-spin" : ""}`}
+          />
+        </button>
+      </div>
+
+      {canTest && (
+        <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
+          <Icon icon="solar:test-tube-bold" className="w-5 h-5 text-amber-300 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-minecraft-ten">Tester Queue</div>
+            <div className="text-xs text-white/40 font-sans truncate">
+              {queueCount === null
+                ? "Click to open the tester window"
+                : queueCount === 0
+                  ? "All caught up — open anyway"
+                  : `${queueCount} issue${queueCount === 1 ? "" : "s"} waiting on you`}
+            </div>
+          </div>
+          <button
+            onClick={handleOpenTester}
+            disabled={opening}
+            className="px-3 py-2 rounded-md bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-minecraft-ten text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+            title="Open tester window"
+          >
+            {opening ? (
+              <Icon icon="solar:refresh-bold" className="w-4 h-4 animate-spin" />
+            ) : (
+              <Icon icon="solar:test-tube-bold" className="w-4 h-4" />
+            )}
+            Open
+          </button>
+        </div>
+      )}
+
+      <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
+        {nodes.length === 0 ? (
+          <div className="p-8 text-center text-white/50 font-minecraft-ten">
+            {t('debug.permissions.empty')}
+          </div>
+        ) : (
+          <div className="divide-y divide-white/10">
+            {nodes.map((node) => (
+              <div
+                key={node}
+                className="p-3 hover:bg-white/5 flex items-center gap-3"
+              >
+                <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-emerald-400/70 shrink-0" />
+                <div className="text-white/80 font-mono text-sm truncate">{node}</div>
               </div>
             ))}
           </div>

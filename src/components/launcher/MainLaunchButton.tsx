@@ -8,6 +8,10 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "../../lib/utils";
 import { LaunchState } from "../../store/launch-state-store";
+import { Button } from "../ui/buttons/Button";
+import { IconButton } from "../ui/buttons/IconButton";
+import { RolloutIndicator } from "./RolloutIndicator";
+
 import { useThemeStore } from "../../store/useThemeStore";
 import { useVersionSelectionStore } from "../../store/version-selection-store";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch";
@@ -15,8 +19,6 @@ import { useProfileStore } from "../../store/profile-store";
 import { ProfileSelectionModal } from "./ProfileSelectionModal";
 import { resolveImagePath } from "../../services/profile-service";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Button } from "../ui/buttons/Button";
-import { IconButton } from "../ui/buttons/IconButton";
 
 interface Version {
   id: string;
@@ -50,7 +52,9 @@ export function MainLaunchButton({
   const { t } = useTranslation();
   const [transientSuccessActive, setTransientSuccessActive] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [profileBackdropUrl, setProfileBackdropUrl] = useState<string | null>(null);
+  const [profileBackdropUrl, setProfileBackdropUrl] = useState<string | null>(
+    null,
+  );
   const [profileIconUrl, setProfileIconUrl] = useState<string | null>(null);
   const accentColor = useThemeStore((state) => state.accentColor);
   const uiStylePreset = useThemeStore((state) => state.uiStylePreset);
@@ -59,7 +63,12 @@ export function MainLaunchButton({
   const { selectedVersion, setSelectedVersion } = useVersionSelectionStore();
   const { profiles } = useProfileStore();
 
-  const { handleLaunch: hookHandleLaunch, isLaunching, statusMessage, launchState } = useProfileLaunch({
+  const {
+    handleLaunch: hookHandleLaunch,
+    isLaunching,
+    statusMessage,
+    launchState,
+  } = useProfileLaunch({
     profileId: selectedVersion,
     onLaunchSuccess: () => {
       setTransientSuccessActive(true);
@@ -78,7 +87,7 @@ export function MainLaunchButton({
   useEffect(() => {
     const currentStoreVersion = selectedVersion;
     const storeVersionIsValidInProps = versions?.some(
-      (v) => v.id === currentStoreVersion
+      (v) => v.id === currentStoreVersion,
     );
 
     if (defaultVersion) {
@@ -87,7 +96,7 @@ export function MainLaunchButton({
         currentStoreVersion !== defaultVersion
       ) {
         const defaultVersionPropIsValidInProps = versions?.some(
-          (v) => v.id === defaultVersion
+          (v) => v.id === defaultVersion,
         );
         if (defaultVersionPropIsValidInProps) {
           setSelectedVersion(defaultVersion);
@@ -186,10 +195,9 @@ export function MainLaunchButton({
       statusColorClass = "text-green-400";
     } else if (isButtonLaunching) {
       statusSubText = buttonStatusMessage || "Launching...";
-      statusColorClass =
-        buttonStatusMessage
-          ? "opacity-90 text-white"
-          : "opacity-75";
+      statusColorClass = buttonStatusMessage
+        ? "opacity-90 text-white"
+        : "opacity-75";
     } else if (buttonStatusMessage && launchState === LaunchState.ERROR) {
       statusSubText = buttonStatusMessage;
       statusColorClass = "text-red-400";
@@ -200,8 +208,22 @@ export function MainLaunchButton({
 
     const displaySubText = statusSubText || selectedVersionLabel;
     return (
-      <div className={isFullRiskStyle ? "w-full flex flex-col items-center justify-center leading-none -mt-3" : "w-full flex flex-col items-center justify-center leading-none -mt-4"}>
-        <span className={isFullRiskStyle ? "text-[52px] text-center lowercase text-shadow" : "text-5xl text-center lowercase"}>{actionText}</span>
+      <div
+        className={
+          isFullRiskStyle
+            ? "w-full flex flex-col items-center justify-center leading-none -mt-3"
+            : "w-full flex flex-col items-center justify-center leading-none -mt-4"
+        }
+      >
+        <span
+          className={
+            isFullRiskStyle
+              ? "text-[52px] text-center lowercase text-shadow"
+              : "text-5xl text-center lowercase"
+          }
+        >
+          {actionText}
+        </span>
         {displaySubText && (
           <span
             className={cn(
@@ -209,7 +231,7 @@ export function MainLaunchButton({
                 ? "text-[10px] font-minecraft-ten tracking-[0.2em] mt-1 text-center uppercase whitespace-nowrap overflow-hidden text-ellipsis"
                 : "text-xs font-minecraft-ten tracking-normal -mt-1 text-center normal-case whitespace-nowrap overflow-hidden text-ellipsis",
               isButtonLaunching ? "max-w-64" : "",
-              statusColorClass
+              statusColorClass,
             )}
             style={isButtonLaunching ? { maxWidth: "16rem" } : undefined}
             title={
@@ -248,7 +270,9 @@ export function MainLaunchButton({
               </Button>
               <IconButton
                 onClick={handleOpenModal}
-                disabled={isButtonLaunching || !versions || versions.length === 0}
+                disabled={
+                  isButtonLaunching || !versions || versions.length === 0
+                }
                 icon={<Icon icon="solar:alt-arrow-down-bold" />}
                 variant={isButtonLaunching ? "destructive" : "3d"}
                 size="xl"
@@ -258,82 +282,84 @@ export function MainLaunchButton({
             </div>
           </div>
         ) : (
-        <div
-          className={cn(
-            "relative overflow-hidden rounded-[20px] border",
-            isFullRiskStyle ? "min-w-[320px]" : "min-w-[280px]",
-            mainButtonWidth,
-            mainButtonHeight,
-          )}
-          style={{
-            borderColor: isButtonLaunching
-              ? "rgba(239,68,68,0.72)"
-              : isFullRiskStyle
-                ? `${accentColor.value}d9`
-                : "rgba(255,255,255,0.12)",
-            backgroundColor: isButtonLaunching
-              ? "rgba(85, 18, 18, 0.9)"
-              : isFullRiskStyle
-                ? accentColor.value
-                : "rgba(10, 18, 28, 0.88)",
-            boxShadow: isButtonLaunching
-              ? "0 18px 36px rgba(127,29,29,0.42), inset 0 1px 0 rgba(255,255,255,0.08)"
-              : isFullRiskStyle
-                ? `0 8px 0 rgba(0,0,0,0.32), 0 16px 34px ${accentColor.shadowValue}, inset 0 1px 0 rgba(255,255,255,0.1)`
-                : "0 18px 40px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)",
-          }}
-        >
-          {profileBackdropUrl ? (
-            <div
-              className="absolute inset-0 bg-cover bg-center opacity-60"
-              style={{ backgroundImage: `url(${profileBackdropUrl})` }}
-            />
-          ) : null}
           <div
-            className="absolute inset-0"
+            className={cn(
+              "relative overflow-hidden rounded-[20px] border",
+              isFullRiskStyle ? "min-w-[320px]" : "min-w-[280px]",
+              mainButtonWidth,
+              mainButtonHeight,
+            )}
             style={{
-              background: isButtonLaunching
-                ? "linear-gradient(90deg, rgba(71,14,14,0.96) 0%, rgba(95,22,22,0.88) 56%, rgba(95,22,22,0.42) 100%)"
+              borderColor: isButtonLaunching
+                ? "rgba(239,68,68,0.72)"
                 : isFullRiskStyle
-                  ? `linear-gradient(90deg, ${accentColor.value}f5 0%, ${accentColor.hoverValue}eb 58%, ${accentColor.hoverValue}57 100%)`
-                  : "linear-gradient(90deg, rgba(9,17,28,0.98) 0%, rgba(9,31,53,0.9) 56%, rgba(9,31,53,0.22) 100%)",
+                  ? `${accentColor.value}d9`
+                  : "rgba(255,255,255,0.12)",
+              backgroundColor: isButtonLaunching
+                ? "rgba(85, 18, 18, 0.9)"
+                : isFullRiskStyle
+                  ? accentColor.value
+                  : "rgba(10, 18, 28, 0.88)",
+              boxShadow: isButtonLaunching
+                ? "0 18px 36px rgba(127,29,29,0.42), inset 0 1px 0 rgba(255,255,255,0.08)"
+                : isFullRiskStyle
+                  ? `0 8px 0 rgba(0,0,0,0.32), 0 16px 34px ${accentColor.shadowValue}, inset 0 1px 0 rgba(255,255,255,0.1)`
+                  : "0 18px 40px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)",
             }}
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_48%)]" />
+          >
+            {profileBackdropUrl ? (
+              <div
+                className="absolute inset-0 bg-cover bg-center opacity-60"
+                style={{ backgroundImage: `url(${profileBackdropUrl})` }}
+              />
+            ) : null}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: isButtonLaunching
+                  ? "linear-gradient(90deg, rgba(71,14,14,0.96) 0%, rgba(95,22,22,0.88) 56%, rgba(95,22,22,0.42) 100%)"
+                  : isFullRiskStyle
+                    ? `linear-gradient(90deg, ${accentColor.value}f5 0%, ${accentColor.hoverValue}eb 58%, ${accentColor.hoverValue}57 100%)`
+                    : "linear-gradient(90deg, rgba(9,17,28,0.98) 0%, rgba(9,31,53,0.9) 56%, rgba(9,31,53,0.22) 100%)",
+              }}
+            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_48%)]" />
 
-          <div className="relative z-10 flex h-full">
-            <button
-              type="button"
-              onClick={handleLaunch}
-              disabled={
-                !selectedVersion ||
-                (versions && versions.length === 0 && !selectedVersion)
-              }
-              className="flex flex-1 items-center justify-center gap-4 px-6 text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {profileIconUrl ? (
-                <span className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-md border-2 border-white/35 bg-black/20 flex-shrink-0">
-                  <img
-                    src={profileIconUrl}
-                    alt="Profile Icon"
-                    className="h-full w-full object-cover image-pixelated"
-                  />
-                </span>
-              ) : null}
-              {renderLaunchButtonContent()}
-            </button>
+            <div className="relative z-10 flex h-full">
+              <button
+                type="button"
+                onClick={handleLaunch}
+                disabled={
+                  !selectedVersion ||
+                  (versions && versions.length === 0 && !selectedVersion)
+                }
+                className="flex flex-1 items-center justify-center gap-4 px-6 text-white transition-all duration-200 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {profileIconUrl ? (
+                  <span className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-md border-2 border-white/35 bg-black/20 flex-shrink-0">
+                    <img
+                      src={profileIconUrl}
+                      alt="Profile Icon"
+                      className="h-full w-full object-cover image-pixelated"
+                    />
+                  </span>
+                ) : null}
+                {renderLaunchButtonContent()}
+              </button>
 
-            <button
-              type="button"
-              onClick={handleOpenModal}
-              disabled={isButtonLaunching || !versions || versions.length === 0}
-              className="flex w-[84px] items-center justify-center border-l border-white/12 text-white/90 transition-all duration-200 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label={t("launcher.select_version")}
-            >
-              <Icon icon="solar:alt-arrow-down-bold" width="28" height="28" />
-            </button>
+              <button
+                type="button"
+                onClick={handleOpenModal}
+                disabled={
+                  isButtonLaunching || !versions || versions.length === 0
+                }
+                className="flex w-[84px] items-center justify-center border-l border-white/12 text-white/90 transition-all duration-200 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label={t("launcher.select_version")}
+              >
+                <Icon icon="solar:alt-arrow-down-bold" width="28" height="28" />
+              </button>
+            </div>
           </div>
-        </div>
         )}
       </div>
       <ProfileSelectionModal

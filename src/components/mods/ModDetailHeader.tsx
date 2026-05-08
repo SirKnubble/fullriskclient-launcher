@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ import { ActionButton } from "../ui/ActionButton";
 import { ProgressToast } from "../ui/ProgressToast";
 import { openExternalUrl } from "../../services/tauri-service";
 import { useProfileStore } from "../../store/profile-store";
-import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { useGlobalModalStore } from "../../hooks/useGlobalModal";
 import { ModrinthQuickInstallProfilesModal } from "../modrinth/v2/ModrinthQuickInstallProfilesModal";
 import UnifiedService from "../../services/unified-service";
 import { ModrinthService } from "../../services/modrinth-service";
@@ -29,6 +29,7 @@ interface ModDetailHeaderProps {
   accentColor: AccentColor;
   showVersions: boolean;
   onToggleVersions: () => void;
+  targetProfile?: Profile;
 }
 
 function formatNumber(num: number): string {
@@ -95,14 +96,16 @@ function findBestVersionForProfile(profile: Profile, versions: UnifiedVersion[])
   return versions[0];
 }
 
-export function ModDetailHeader({ project, accentColor, showVersions, onToggleVersions }: ModDetailHeaderProps) {
+export function ModDetailHeader({ project, accentColor, showVersions, onToggleVersions, targetProfile }: ModDetailHeaderProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profiles, fetchProfiles } = useProfileStore();
-  const { showModal, hideModal } = useGlobalModal();
+  const showModal = useGlobalModalStore(state => state.openModal);
+  const hideModal = useGlobalModalStore(state => state.closeModal);
   const [isInstalling, setIsInstalling] = useState(false);
   const [installingProfiles, setInstallingProfiles] = useState<Record<string, boolean>>({});
   const [installStatus, setInstallStatus] = useState<Record<string, boolean>>({});
+  const [installModalVersions, setInstallModalVersions] = useState<UnifiedVersion[] | null>(null);
 
   // Check if this is a modpack
   const isModpack = project.project_type.toLowerCase() === 'modpack';
@@ -252,98 +255,78 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
     }
   };
 
-  // Handle regular content installation (opens profile selection modal)
+  const installVersionToProfile = async (profile: Profile, bestVersion: UnifiedVersion) => {
+    setInstallingProfiles(prev => ({ ...prev, [profile.id]: true }));
+    try {
+      const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
+      if (!primaryFile) {
+        toast.error(t('mod_detail.no_download_file'));
+        return;
+      }
+
+      const contentType = mapProjectTypeToContentType(project.project_type);
+      if (!contentType) {
+        toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
+        return;
+      }
+
+      const payload: InstallContentPayload = {
+        profile_id: profile.id,
+        project_id: project.id,
+        version_id: bestVersion.id,
+        file_name: primaryFile.filename,
+        download_url: primaryFile.url,
+        file_hash_sha1: primaryFile.hashes?.sha1,
+        file_fingerprint: primaryFile.fingerprint,
+        content_name: project.title,
+        version_number: bestVersion.version_number,
+        content_type: contentType,
+        loaders: bestVersion.loaders,
+        game_versions: bestVersion.game_versions,
+        source: project.source,
+      };
+
+      await installContentToProfile(payload);
+      toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: bestVersion.version_number, profile: profile.name }));
+      setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
+    } catch (error) {
+      console.error("Installation failed:", error);
+      toast.error(t('mod_detail.install_failed', { error }));
+    } finally {
+      setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
+    }
+  };
+
   const handleInstallClick = async () => {
-    // For modpacks, use separate handler
     if (isModpack) {
       handleModpackInstall();
       return;
     }
 
-    const modalId = `install-${project.id}`;
     setIsInstalling(true);
 
     try {
-      // Fetch versions for this project using unified service
       const response = await UnifiedService.getModVersions({
         source: project.source,
         project_id: project.id,
       });
-      const versions = response.versions;
 
-      if (versions.length === 0) {
+      if (response.versions.length === 0) {
         toast.error(t('mod_detail.no_versions_available'));
-        setIsInstalling(false);
         return;
       }
 
-      // Handler for profile selection
-      const handleProfileSelect = async (proj: any, profile: Profile) => {
-        const bestVersion = findBestVersionForProfile(profile, versions);
+      if (targetProfile) {
+        const bestVersion = findBestVersionForProfile(targetProfile, response.versions);
         if (!bestVersion) {
-          toast.error(t('mod_detail.no_compatible_version', { profile: profile.name }));
+          toast.error(t('mod_detail.no_compatible_version', { profile: targetProfile.name }));
           return;
         }
+        await installVersionToProfile(targetProfile, bestVersion);
+        return;
+      }
 
-        setInstallingProfiles(prev => ({ ...prev, [profile.id]: true }));
-
-        try {
-          const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
-          if (!primaryFile) {
-            toast.error(t('mod_detail.no_download_file'));
-            return;
-          }
-
-          const contentType = mapProjectTypeToContentType(project.project_type);
-          if (!contentType) {
-            toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
-            return;
-          }
-
-          const payload: InstallContentPayload = {
-            profile_id: profile.id,
-            project_id: project.id,
-            version_id: bestVersion.id,
-            file_name: primaryFile.filename,
-            download_url: primaryFile.url,
-            file_hash_sha1: primaryFile.hashes?.sha1,
-            file_fingerprint: primaryFile.fingerprint,
-            content_name: project.title,
-            version_number: bestVersion.version_number,
-            content_type: contentType,
-            loaders: bestVersion.loaders,
-            game_versions: bestVersion.game_versions,
-            source: project.source,
-          };
-
-          await installContentToProfile(payload);
-          toast.success(t('mod_detail.installed_to_profile', { title: project.title, profile: profile.name }));
-          setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
-        } catch (error) {
-          console.error("Installation failed:", error);
-          toast.error(t('mod_detail.install_failed', { error }));
-        } finally {
-          setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
-        }
-      };
-
-      showModal(
-        modalId,
-        <ModrinthQuickInstallProfilesModal
-          project={projectAsSearchResult as any}
-          profiles={profiles}
-          onProfileSelect={handleProfileSelect}
-          onClose={() => {
-            hideModal(modalId);
-            setIsInstalling(false);
-            setInstallingProfiles({});
-            setInstallStatus({});
-          }}
-          installingProfiles={installingProfiles}
-          installStatus={installStatus}
-        />,
-        1200
-      );
+      setInstallModalVersions(response.versions);
     } catch (error) {
       console.error("Failed to fetch versions:", error);
       toast.error(t('mod_detail.load_versions_failed'));
@@ -351,6 +334,82 @@ export function ModDetailHeader({ project, accentColor, showVersions, onToggleVe
       setIsInstalling(false);
     }
   };
+
+  useEffect(() => {
+    if (!installModalVersions) return;
+
+    const versions = installModalVersions;
+    const modalId = `install-${project.id}`;
+
+    const handleProfileSelect = async (_: any, profile: Profile) => {
+      const bestVersion = findBestVersionForProfile(profile, versions);
+      if (!bestVersion) {
+        toast.error(t('mod_detail.no_compatible_version', { profile: profile.name }));
+        return;
+      }
+
+      setInstallingProfiles(prev => ({ ...prev, [profile.id]: true }));
+
+      try {
+        const primaryFile = bestVersion.files.find(f => f.primary) || bestVersion.files[0];
+        if (!primaryFile) {
+          toast.error(t('mod_detail.no_download_file'));
+          return;
+        }
+
+        const contentType = mapProjectTypeToContentType(project.project_type);
+        if (!contentType) {
+          toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
+          return;
+        }
+
+        const payload: InstallContentPayload = {
+          profile_id: profile.id,
+          project_id: project.id,
+          version_id: bestVersion.id,
+          file_name: primaryFile.filename,
+          download_url: primaryFile.url,
+          file_hash_sha1: primaryFile.hashes?.sha1,
+          file_fingerprint: primaryFile.fingerprint,
+          content_name: project.title,
+          version_number: bestVersion.version_number,
+          content_type: contentType,
+          loaders: bestVersion.loaders,
+          game_versions: bestVersion.game_versions,
+          source: project.source,
+        };
+
+        await installContentToProfile(payload);
+        toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: bestVersion.version_number, profile: profile.name }));
+        setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
+      } catch (error) {
+        console.error("Installation failed:", error);
+        toast.error(t('mod_detail.install_failed', { error }));
+      } finally {
+        setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
+      }
+    };
+
+    showModal(
+      modalId,
+      <ModrinthQuickInstallProfilesModal
+        project={projectAsSearchResult as any}
+        profiles={profiles}
+        onProfileSelect={handleProfileSelect}
+        onClose={() => {
+          hideModal(modalId);
+          setInstallModalVersions(null);
+          setIsInstalling(false);
+          setInstallingProfiles({});
+          setInstallStatus({});
+        }}
+        installingProfiles={installingProfiles}
+        installStatus={installStatus}
+      />,
+      1200
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installModalVersions, installingProfiles, installStatus, profiles, project.id]);
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 bg-black/20 rounded-lg p-4 border border-white/10">
