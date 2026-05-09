@@ -6,7 +6,7 @@
 This Repository includes all bugfixes and suggested features of NoRiskClient/issues by @SirKnubble, aswell as the custom servers feature & FullRisk Theme in Launcher Settings, which is based on an overhaul of the original NoRiskClient look by @TimLohrer.
 
 ⚠️ I´m aware of most appearing issues (like artifacts by newssection & background), as they will be fixed in the future.
-I´m using this version of the original client myself, so hopefully there won´t be any data loss while using. 🙏
+I´m using this version myself rather than the original, so hopefully there won´t be any data loss while using. 🙏
 
 <3
 
