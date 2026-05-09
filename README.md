@@ -2,16 +2,15 @@
 
 [![Latest Release Build](https://img.shields.io/github/actions/workflow/status/SirKnubble/fullriskclient-launcher/build.yml?event=push&label=latest%20release%20build)](https://github.com/SirKnubble/fullriskclient-launcher/actions/workflows/build.yml)
 [![Latest Release](https://img.shields.io/github/v/release/SirKnubble/fullriskclient-launcher?label=latest%20release)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest)
-[![License](https://img.shields.io/github/license/SirKnubble/fullriskclient-launcher)](LICENSE)
 
-This Repository includes all bugfixes and suggested features of NoRiskClient/issues by @SirKnubble, aswell as custom servers & the FullRisk Theme in Launcher Settings, which is based on an overhaul of the original NoRiskClient look by @TimLohrer.
+This Repository includes all bugfixes and suggested features of NoRiskClient/issues by @SirKnubble, aswell as the custom servers feature & FullRisk Theme in Launcher Settings, which is based on an overhaul of the original NoRiskClient look by @TimLohrer.
 
 ⚠️ I´m aware of most appearing issues (like artifacts by newssection & background), as they will be fixed in the future.
-This is only meant to be a pre-release version. I do not take responsibility for any data loss. Using it myself, wouldn´t be nice. (shouldn´t appear if you install without uninstalling)
+I´m using this version of the original client myself, so hopefully there won´t be any data loss while using. 🙏
 
 <3
 
-<img width="1600" height="1000" alt="FullRiskClient Launcher screenshot" src="https://github.com/user-attachments/assets/7c187c19-8bb0-4ece-ac74-cfd327f9e09c" />
+<img width="1600" height="1000" alt="image" src="https://github.com/user-attachments/assets/f6a10260-fe81-4b13-9880-f9a6aa8bebbd" />
 
 ## Downloads
 
