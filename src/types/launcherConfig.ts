@@ -44,6 +44,7 @@ export interface LauncherConfig {
   cache_natives_extraction: boolean;
   referral_state: ReferralState | null; // Referral tracking state
   last_played_profile: string | null; // Option<Uuid>
+  pack_rollout_override: "auto" | "off" | "on";
 }
 
 export interface ReferralInfo {

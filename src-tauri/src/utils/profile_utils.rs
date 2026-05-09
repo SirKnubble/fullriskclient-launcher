@@ -332,13 +332,13 @@ pub async fn check_content_installed(params: CheckContentParams) -> Result<Conte
     );
 
     // --- Norisk Pack Check (if applicable) ---
-    if let Some(pack_id) = &profile.selected_norisk_pack_id {
+    if let Some(pack_id) = profile.effective_norisk_pack_id().await {
         debug!(
             "Profile {} has selected Norisk Pack: {}. Checking pack definition...",
             params.profile_id, pack_id
         );
         let config = state.norisk_pack_manager.get_config().await;
-        match config.get_resolved_pack_definition(pack_id) {
+        match config.get_resolved_pack_definition(&pack_id) {
             Ok(resolved_pack) => {
                 for norisk_mod in &resolved_pack.mods {
                     let mut is_potential_project_match = false;
@@ -1732,11 +1732,11 @@ async fn process_mod_requests(
         };
 
         // Check if included in NoRisk Pack
-        if let Some(pack_id) = &profile.selected_norisk_pack_id {
+        if let Some(pack_id) = profile.effective_norisk_pack_id().await {
             let state = State::get().await?;
             let config = state.norisk_pack_manager.get_config().await;
 
-            if let Ok(resolved_pack) = config.get_resolved_pack_definition(pack_id) {
+            if let Ok(resolved_pack) = config.get_resolved_pack_definition(&pack_id) {
                 for norisk_mod in &resolved_pack.mods {
                     let mut is_potential_project_match = false;
                     if let (
@@ -2289,13 +2289,13 @@ impl LocalContentLoader {
 
         if params.content_type == ContentType::NoRiskMod {
             // Special handling for NoRisk mods - fetch them from the NoRisk pack system
-            if let Some(pack_id) = &profile.selected_norisk_pack_id {
+            if let Some(pack_id) = profile.effective_norisk_pack_id().await {
                 // Get the NoRisk pack manager from the state
                 let state = State::get().await?;
                 let config = state.norisk_pack_manager.get_config().await;
 
                 // Get the resolved pack definition
-                match config.get_resolved_pack_definition(pack_id) {
+                match config.get_resolved_pack_definition(&pack_id) {
                     Ok(pack_def) => {
                         for norisk_mod in &pack_def.mods {
                             // Extract fallback version from compatibility target at the beginning

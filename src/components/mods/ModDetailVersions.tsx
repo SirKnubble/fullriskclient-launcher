@@ -13,7 +13,7 @@ import UnifiedService from "../../services/unified-service";
 import { ModrinthService } from "../../services/modrinth-service";
 import { CurseForgeService } from "../../services/curseforge-service";
 import { useProfileStore } from "../../store/profile-store";
-import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { useGlobalModalStore } from "../../hooks/useGlobalModal";
 import { useThemeStore } from "../../store/useThemeStore";
 import { ModrinthQuickInstallProfilesModal } from "../modrinth/v2/ModrinthQuickInstallProfilesModal";
 import { ModrinthVersionItemV2 } from "../modrinth/v2/ModrinthVersionItemV2";
@@ -27,6 +27,7 @@ import { Select, type SelectOption } from "../ui/Select";
 
 interface ModDetailVersionsProps {
   project: UnifiedProjectDetails;
+  targetProfile?: Profile;
 }
 
 // Helper to convert UnifiedProjectDetails to ModrinthSearchHit format
@@ -69,11 +70,12 @@ function mapProjectTypeToContentType(projectType: string): ContentType | null {
   }
 }
 
-export function ModDetailVersions({ project }: ModDetailVersionsProps) {
+export function ModDetailVersions({ project, targetProfile }: ModDetailVersionsProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { profiles, fetchProfiles } = useProfileStore();
-  const { showModal, hideModal } = useGlobalModal();
+  const showModal = useGlobalModalStore(state => state.openModal);
+  const hideModal = useGlobalModalStore(state => state.closeModal);
   const { accentColor } = useThemeStore();
 
   const [versions, setVersions] = useState<UnifiedVersion[]>([]);
@@ -83,6 +85,8 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
   const [installingModpackVersions, setInstallingModpackVersions] = useState<Record<string, boolean>>({});
   const [installingProfiles, setInstallingProfiles] = useState<Record<string, boolean>>({});
   const [installStatus, setInstallStatus] = useState<Record<string, boolean>>({});
+  const [installModalSearchHit, setInstallModalSearchHit] = useState<ModrinthSearchHit | null>(null);
+  const [installModalVersion, setInstallModalVersion] = useState<UnifiedVersion | null>(null);
   const [displayedCount, setDisplayedCount] = useState(10);
   const [hoveredVersionId, setHoveredVersionId] = useState<string | null>(null);
 
@@ -258,8 +262,65 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
     }
   };
 
-  // Handle mod/content version install (opens profile selection modal)
-  const handleContentInstall = async (searchHit: ModrinthSearchHit, version: UnifiedVersion) => {
+  const installVersionToProfile = async (profile: Profile, version: UnifiedVersion) => {
+    if (!version.files?.length) {
+      toast.error(t('mod_detail.no_files_available'));
+      return;
+    }
+
+    setInstallingProfiles(prev => ({ ...prev, [profile.id]: true }));
+
+    try {
+      const primaryFile = version.files.find(f => f.primary) || version.files[0];
+      const contentType = mapProjectTypeToContentType(project.project_type);
+
+      if (!contentType) {
+        toast.error(t('mod_detail.cannot_install_type', { type: project.project_type }));
+        return;
+      }
+
+      const payload: InstallContentPayload = {
+        profile_id: profile.id,
+        project_id: project.id,
+        version_id: version.id,
+        file_name: primaryFile.filename,
+        download_url: primaryFile.url,
+        file_hash_sha1: primaryFile.hashes?.sha1,
+        file_fingerprint: primaryFile.fingerprint,
+        content_name: project.title,
+        version_number: version.version_number,
+        content_type: contentType,
+        loaders: version.loaders,
+        game_versions: version.game_versions,
+        source: project.source,
+      };
+
+      await installContentToProfile(payload);
+      const versionNumber = version.version_number ?? '';
+      toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: versionNumber, profile: profile.name }));
+      setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
+    } catch (error) {
+      console.error("Installation failed:", error);
+      toast.error(t('mod_detail.install_failed', { error }));
+    } finally {
+      setInstallingProfiles(prev => ({ ...prev, [profile.id]: false }));
+    }
+  };
+
+  const handleContentInstall = (searchHit: ModrinthSearchHit, version: UnifiedVersion) => {
+    if (targetProfile) {
+      void installVersionToProfile(targetProfile, version);
+      return;
+    }
+    setInstallModalSearchHit(searchHit);
+    setInstallModalVersion(version);
+  };
+
+  useEffect(() => {
+    if (!installModalSearchHit || !installModalVersion) return;
+
+    const searchHit = installModalSearchHit;
+    const version = installModalVersion;
     const modalId = `install-version-${version.id}`;
 
     const handleProfileSelect = async (_: any, profile: Profile) => {
@@ -296,7 +357,7 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
         };
 
         await installContentToProfile(payload);
-        toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: version.version_number, profile: profile.name }));
+        toast.success(t('mod_detail.installed_to_profile', { title: project.title, version: version.version_number ?? '', profile: profile.name }));
         setInstallStatus(prev => ({ ...prev, [profile.id]: true }));
       } catch (error) {
         console.error("Installation failed:", error);
@@ -314,6 +375,8 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
         onProfileSelect={handleProfileSelect}
         onClose={() => {
           hideModal(modalId);
+          setInstallModalSearchHit(null);
+          setInstallModalVersion(null);
           setInstallingProfiles({});
           setInstallStatus({});
         }}
@@ -322,7 +385,8 @@ export function ModDetailVersions({ project }: ModDetailVersionsProps) {
       />,
       1200
     );
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installModalSearchHit, installModalVersion, installingProfiles, installStatus, profiles, project.id]);
 
   // Loading state
   if (isLoading) {

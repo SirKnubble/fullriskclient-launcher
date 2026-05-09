@@ -170,6 +170,15 @@ pub struct Profile {
     pub playtime_seconds: u64,
 }
 
+impl Profile {
+    pub async fn effective_norisk_pack_id(&self) -> Option<String> {
+        let original = self.selected_norisk_pack_id.as_deref()?;
+        Some(
+            crate::commands::pack_rollout_commands::resolve_effective_pack_id(original).await,
+        )
+    }
+}
+
 fn default_true() -> bool {
     true
 }
@@ -1121,52 +1130,57 @@ impl ProfileManager {
             },
         };
 
-        let mut profiles = self.profiles.write().await;
+        let mut needs_save = false;
+        {
+            let mut profiles = self.profiles.write().await;
+            if let Some(profile) = profiles.get_mut(&payload.profile_id) {
+                if !profile.mods.iter().any(|m| m.source == source) {
+                    info!(
+                        "Adding mod {} to profile {}",
+                        display_name_log, payload.profile_id
+                    );
 
-        if let Some(profile) = profiles.get_mut(&payload.profile_id) {
-            if !profile.mods.iter().any(|m| m.source == source) {
-                info!(
-                    "Adding mod {} to profile {}",
-                    display_name_log, payload.profile_id
-                );
+                    let force_include_versions = match &payload.game_versions {
+                        Some(list) if !list.contains(&profile.game_version) => {
+                            vec![profile.game_version.clone()]
+                        }
+                        _ => Vec::new(),
+                    };
 
-                let force_include_versions = match &payload.game_versions {
-                    Some(list) if !list.contains(&profile.game_version) => {
-                        vec![profile.game_version.clone()]
-                    }
-                    _ => Vec::new(),
-                };
-
-                let new_mod = Mod {
-                    id: Uuid::new_v4(),
-                    source: source.clone(),
-                    enabled: true,
-                    display_name: payload.content_name.clone(),
-                    version: payload.version_number.clone(),
-                    game_versions: payload.game_versions.clone(),
-                    file_name_override: None,
-                    associated_loader: payload.loaders
-                        .clone()
-                        .and_then(|l| l.first().and_then(|s| ModLoader::from_str(s).ok())),
-                    modpack_origin: None, // Manually added mod
-                    updates_enabled: true, // Updates enabled by default
-                    force_include_versions,
-                };
-                profile.mods.push(new_mod);
-                drop(profiles);
-                self.save_profiles().await?;
-                info!(
-                    "Successfully added {} mod {} to profile {}",
-                    platform_name, display_name_log, payload.profile_id
-                );
+                    let new_mod = Mod {
+                        id: Uuid::new_v4(),
+                        source: source.clone(),
+                        enabled: true,
+                        display_name: payload.content_name.clone(),
+                        version: payload.version_number.clone(),
+                        game_versions: payload.game_versions.clone(),
+                        file_name_override: None,
+                        associated_loader: payload.loaders
+                            .clone()
+                            .and_then(|l| l.first().and_then(|s| ModLoader::from_str(s).ok())),
+                        modpack_origin: None, // Manually added mod
+                        updates_enabled: true, // Updates enabled by default
+                        force_include_versions,
+                    };
+                    profile.mods.push(new_mod);
+                    needs_save = true;
+                } else {
+                    info!(
+                        "{} mod {} already exists in profile {}. Skipping addition.",
+                        platform_name, display_name_log, payload.profile_id
+                    );
+                }
             } else {
-                info!(
-                    "{} mod {} already exists in profile {}. Skipping addition.",
-                    platform_name, display_name_log, payload.profile_id
-                );
+                return Err(AppError::ProfileNotFound(payload.profile_id));
             }
-        } else {
-            return Err(AppError::ProfileNotFound(payload.profile_id));
+        }
+
+        if needs_save {
+            self.save_profiles().await?;
+            info!(
+                "Successfully added {} mod {} to profile {}",
+                platform_name, display_name_log, payload.profile_id
+            );
         }
 
         // Install dependencies if requested

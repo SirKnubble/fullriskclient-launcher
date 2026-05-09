@@ -1,5 +1,5 @@
 use crate::error::{AppError, CommandError};
-use crate::minecraft::api::norisk_api::{AdventCalendarDay, CrashlogDto, NoRiskApi, ReferralInfo, Reward, UserNotification};
+use crate::minecraft::api::norisk_api::{AdventCalendarDay, CrashlogDto, NoRiskApi, ReferralInfo, Reward, UniquePlayersResponse, UserNotification};
 use crate::minecraft::api::wordpress_api::{BlogPost, WordPressApi};
 use crate::minecraft::auth::minecraft_auth::Credentials;
 use crate::state::state_manager::State;
@@ -632,4 +632,12 @@ pub async fn mark_notification_read(notification_id: String) -> Result<(), Comma
 
     NoRiskApi::mark_notification_read(&token, &notification_id, &account_id_str, is_experimental).await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_unique_players_24h_command() -> Result<UniquePlayersResponse, CommandError> {
+    debug!("Executing get_unique_players_24h_command");
+    let state = State::get().await?;
+    let is_experimental = state.config_manager.is_experimental_mode().await;
+    Ok(NoRiskApi::get_unique_players_24h(is_experimental).await?)
 }

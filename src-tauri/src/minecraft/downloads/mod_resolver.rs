@@ -184,7 +184,8 @@ pub async fn resolve_target_mods(
     }
 
     // 1. Process Pack Mods (Only Modrinth)
-    if let (Some(ref pack_id), Some(config)) = (&profile.selected_norisk_pack_id, norisk_config) {
+    let effective_pack_id = profile.effective_norisk_pack_id().await;
+    if let (Some(pack_id), Some(config)) = (effective_pack_id.as_ref(), norisk_config) {
         info!("Resolving mods from selected Norisk Pack: '{}'", pack_id);
         match config.get_resolved_pack_definition(pack_id) {
             Ok(pack_definition) => {

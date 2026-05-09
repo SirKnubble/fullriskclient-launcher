@@ -33,7 +33,8 @@ import EffectPreviewCard from ".././EffectPreviewCard";
 import { RangeSlider } from ".././ui/RangeSlider";
 import { openExternalUrl } from "../../services/tauri-service";
 import { openLauncherDirectory } from "../../services/tauri-service";
-import { useFlags } from "flagsmith/react";
+import { usePermission } from "../../hooks/usePermission";
+import { PERMISSION } from "../../constants/permissions";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ColorPickerModal } from "../modals/ColorPickerModal";
@@ -113,10 +114,9 @@ export function SettingsTab() {
   const { showModal, hideModal } = useGlobalModal();
   const { isThemeActive } = useLauncherTheme();
 
-  const EXPERIMENTAL_FEATURE_FLAG_NAME = "show_experimental_mode";
-  const experimentalFlags = useFlags([EXPERIMENTAL_FEATURE_FLAG_NAME]);
+  const hasExperimentalPermission = usePermission(PERMISSION.EXPERIMENTAL_MODE);
   const canShowExperimental =
-    experimentalFlags[EXPERIMENTAL_FEATURE_FLAG_NAME]?.enabled === true ||
+    hasExperimentalPermission ||
     !!tempConfig?.is_experimental ||
     !!config?.is_experimental;
 

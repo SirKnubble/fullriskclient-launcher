@@ -361,6 +361,9 @@ impl MinecraftLauncher {
         // Add profile name for ingame display
         if let Some(p) = &profile {
             command.arg(format!("-Dnorisk.profile.name={}", p.name));
+            if let Some(pack_id) = p.selected_norisk_pack_id.as_ref() {
+                command.arg(format!("-Dnorisk.pack={}", pack_id));
+            }
         }
 
         // Pass meta dir to game client for shared Discord state file
@@ -520,6 +523,10 @@ impl MinecraftLauncher {
         };
 
         // Extract optional profile information for process metadata
+        let effective_pack = match &profile {
+            Some(p) => p.effective_norisk_pack_id().await,
+            None => None,
+        };
         let (profile_loader, profile_loader_version, profile_norisk_pack, profile_name, profile_image_url) =
             match profile {
                 Some(p) => {
@@ -532,7 +539,7 @@ impl MinecraftLauncher {
                     (
                         Some(p.loader.as_str().to_string()),
                         p.loader_version,
-                        p.selected_norisk_pack_id,
+                        effective_pack,
                         Some(p.name),
                         image_url,
                     )

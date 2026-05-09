@@ -163,6 +163,7 @@
   "header.update.failed": "Update failed: {{error}}",
   "header.update.tooltip_updating": "Downloading update...",
   "header.update.tooltip_available": "Click to update: {{version}}",
+  "header.stats.players_24h_tooltip": "Unique players who were online in the last 24 hours.",
 
   "window.minimize": "Minimize",
   "window.maximize": "Maximize",
@@ -1448,6 +1449,13 @@
   "debug.copy_failed": "Failed to copy: {{error}}",
   "debug.copy_content": "Copy content",
   "debug.upload_mclogs": "Upload to mclo.gs",
+  "debug.permissions.tab": "Permissions",
+  "debug.permissions.count": "{{n}} permission node(s) cached",
+  "debug.permissions.last_refreshed": "Last refreshed: {{time}}",
+  "debug.permissions.refresh": "Refresh permissions",
+  "debug.permissions.refreshed": "Permissions refreshed",
+  "debug.permissions.refresh_failed": "Failed to refresh: {{error}}",
+  "debug.permissions.empty": "No permissions cached. Click refresh to fetch.",
 
   "logs.no_logs_to_upload": "No logs to upload",
   "logs.uploaded_url_copied": "Uploaded! URL copied to clipboard",
@@ -1573,6 +1581,18 @@
   "placeholders.group_name": "e.g. modpacks, vanilla+",
 
   "referral.loading": "Loading referral...",
+
+  "rollout.popover.title": "You're testing the new NRC version",
+  "rollout.popover.title_opted_out": "Testing disabled",
+  "rollout.popover.body_intro_before": "You're one of the",
+  "rollout.popover.body_intro_after": "testing the new NRC version.",
+  "rollout.popover.body_bug": "Found a bug or have feedback? Please report it on Discord.",
+  "rollout.popover.body_opted_out": "You'll keep playing the stable version until the update reaches everyone.",
+  "rollout.popover.report_on_discord": "Report on Discord",
+  "rollout.popover.opt_out": "Disable testing",
+  "rollout.popover.opt_back_in": "Enable testing",
+  "rollout.popover.click_to_opt_out": "Click the icon to disable",
+  "rollout.popover.click_to_opt_in": "Click the icon to enable",
 
   "modrinth.project_types.mods": "Mods",
   "modrinth.project_types.modpacks": "Modpacks",
