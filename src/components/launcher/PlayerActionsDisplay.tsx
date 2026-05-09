@@ -20,15 +20,12 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 const DEFAULT_FALLBACK_SKIN_URL = "/skins/default_steve_full.png"; // Defined constant for fallback URL
 const STARLIGHT_RENDER_TYPES = [
   "default",
-  "walking",
   "crouching",
   "criss_cross",
-  "crossed",
   "ultimate",
   "relaxing",
   "pointing",
   "sleeping",
-  "kicking",
   "mojavatar",
   "reading",
 ] as const;
