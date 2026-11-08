@@ -3,6 +3,8 @@
 import React from "react";
 import { Icon } from "@iconify/react";
 
+import { Tooltip } from "./Tooltip";
+
 export interface ActionButton {
   /** Unique identifier for the button */
   id: string;
@@ -36,7 +38,7 @@ export function ActionButtons({
     <div className={`flex items-center gap-3 ${className}`}>
       {actions.map((action) => {
         const isIconOnly = !action.label || action.label.trim() === "";
-        return (
+        const button = (
           <button
             key={action.id}
             ref={buttonRefs?.[action.id]}
@@ -52,6 +54,14 @@ export function ActionButtons({
               <span style={{ transform: 'translateY(-0.075em)' }}>{action.label}</span>
             )}
           </button>
+        );
+
+        if (!action.tooltip) return button;
+
+        return (
+          <Tooltip key={action.id} content={action.tooltip}>
+            {button}
+          </Tooltip>
         );
       })}
     </div>

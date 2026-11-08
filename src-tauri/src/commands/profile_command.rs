@@ -13,15 +13,13 @@ use crate::state::profile_state::{
     default_profile_path, CustomModInfo, ModLoader, Profile, ProfileBackupInfo, ProfileSettings,
     ProfileState,
 };
-use crate::state::profile_state::ProfileManager;
 use crate::state::state_manager::State;
 use crate::commands::analytics_command::track_event as track_analytics;
 use crate::utils::datapack_utils::DataPackInfo;
 use crate::utils::mc_utils::{self, WorldInfo};
 use crate::utils::path_utils::{find_unique_profile_segment, copy_dir_recursively, count_files_recursively};
 use crate::utils::profile_utils::{
-    check_for_group_migration, CheckContentParams, ContentInstallStatus, ContentType as ProfileUtilContentType,
-    GenericModrinthInfo, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
+    CheckContentParams, ContentInstallStatus, LoadItemsParams as ProfileUtilLoadItemsParams, LocalContentItem,
     LocalContentLoader as ProfileUtilLocalContentLoader, MigrationInfo, ScreenshotInfo,
 };
 use crate::utils::resourcepack_utils::ResourcePackInfo;
@@ -32,7 +30,7 @@ use crate::utils::{
     shaderpack_utils,
 };
 use chrono::Utc;
-use log::{error, info, trace, warn};
+use log::{error, info, warn};
 use sanitize_filename::sanitize;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -107,7 +105,6 @@ impl ExportFormat {
 #[derive(Deserialize)]
 pub struct ExportProfileParams {
     profile_id: Uuid,
-    output_path: Option<String>, // This will be ignored but kept for backward compatibility
     file_name: String,           // Base name without extension
     include_files: Option<Vec<PathBuf>>,
     open_folder: bool, // Whether to open the exports folder after export
@@ -305,6 +302,8 @@ pub async fn create_profile(params: CreateProfileParams) -> Result<Uuid, Command
         modpack_info: None,
         preferred_account_id: None,
         playtime_seconds: 0,
+        sync_pack_ids: Vec::new(),
+        extra: Default::default(),
     };
 
     let id = state.profile_manager.create_profile(profile.clone()).await?;
@@ -476,6 +475,7 @@ pub async fn launch_profile(
             quick_play_sp_clone,
             quick_play_mp_clone,
             migration_info_clone,
+            Vec::new(),
             Vec::new(),
             false,
         )
@@ -990,7 +990,7 @@ pub async fn resolve_loader_version(
     profile_id: Uuid,
     minecraft_version: String,
 ) -> Result<ResolvedLoaderVersion, CommandError> {
-    info!(
+    log::trace!(
         "Executing resolve_loader_version command for profile {} with MC version {}",
         profile_id, minecraft_version
     );
@@ -1073,6 +1073,19 @@ pub async fn restore_profile_backup(backup_path: String) -> Result<(), CommandEr
         .restore_profile_backup(backup_path.into())
         .await?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_profile_store_status(
+) -> Result<crate::state::profile_state::ProfileStoreStatus, CommandError> {
+    let state = State::get().await?;
+    Ok(state.profile_manager.store_status().await?)
+}
+
+#[tauri::command]
+pub async fn reimport_profiles_from_legacy_json() -> Result<usize, CommandError> {
+    let state = State::get().await?;
+    Ok(state.profile_manager.reimport_from_legacy_json().await?)
 }
 
 /// Loads and returns the list of standard profiles from the local configuration file.
@@ -1810,6 +1823,8 @@ pub async fn copy_profile(params: CopyProfileParams) -> Result<Uuid, CommandErro
         modpack_info: source_profile.modpack_info.clone(),
         preferred_account_id: source_profile.preferred_account_id,
         playtime_seconds: 0,
+        sync_pack_ids: source_profile.sync_pack_ids.clone(),
+        extra: Default::default(),
     };
 
     // 6. Erstelle das neue Profilverzeichnis
@@ -2449,9 +2464,25 @@ pub async fn list_profile_screenshots(
 }
 
 // --- New DTO and Command for All Profiles and Last Played ---
+// List entry with `mods` stripped: the mods arrays make up ~95% of the serialized
+// profile list and blocked the WebView main thread on JSON.parse. The frontend
+// only needs the count here; full mods come from get_profile / get_local_content.
+#[derive(Serialize, Debug, Clone)]
+pub struct ProfileListEntry {
+    #[serde(flatten)]
+    profile: Profile,
+    mod_count: usize,
+}
+
+impl From<(Profile, usize)> for ProfileListEntry {
+    fn from((profile, mod_count): (Profile, usize)) -> Self {
+        Self { profile, mod_count }
+    }
+}
+
 #[derive(Serialize, Debug, Clone)]
 pub struct AllProfilesAndLastPlayed {
-    all_profiles: Vec<Profile>,
+    all_profiles: Vec<ProfileListEntry>,
     last_played_profile_id: Option<Uuid>,
 }
 
@@ -2461,7 +2492,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     let state = State::get().await?;
 
     // Fetch User Profiles (includes editable copies of standard profiles)
-    let user_profiles = state.profile_manager.list_profiles().await?;
+    let user_profiles = state.profile_manager.list_profiles_without_mods().await?;
 
     // Handle `last_played_profile_id`
     let mut launcher_config = state.config_manager.get_config().await;
@@ -2470,7 +2501,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
 
     // Validate existing last_played_profile_id
     if let Some(id_to_check) = effective_last_played_id {
-        let exists = user_profiles.iter().any(|p| p.id == id_to_check);
+        let exists = user_profiles.iter().any(|(p, _)| p.id == id_to_check);
         if !exists {
             info!(
                 "Last played profile ID {} no longer exists. Marking for reset.",
@@ -2504,7 +2535,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
         } else {
             // No standard profiles available, use first user profile
             info!("No standard profiles available. Using first user profile as default.");
-            user_profiles.first().map(|p| p.id)
+            user_profiles.first().map(|(p, _)| p.id)
         };
 
         // Check if the determined new_default_id is different from what's in the original config.
@@ -2532,7 +2563,7 @@ pub async fn get_all_profiles_and_last_played() -> Result<AllProfilesAndLastPlay
     }
 
     Ok(AllProfilesAndLastPlayed {
-        all_profiles: user_profiles,
+        all_profiles: user_profiles.into_iter().map(ProfileListEntry::from).collect(),
         last_played_profile_id: effective_last_played_id,
     })
 }
@@ -2566,15 +2597,7 @@ pub async fn get_local_content(
 
     match ProfileUtilLocalContentLoader::load_items(params.clone()).await {
         // .clone() if params is used later, or pass directly
-        Ok(items) => {
-            info!(
-                "Successfully loaded {} items of type '{:?}' for profile {}",
-                items.len(),
-                params.content_type, // Log the enum directly
-                params.profile_id
-            );
-            Ok(items)
-        }
+        Ok(items) => Ok(items),
         Err(e) => {
             error!(
                 "Failed to load content type '{:?}' for profile {}: {}",
@@ -2863,9 +2886,11 @@ pub async fn launch_profile_with_overrides(
     quick_play_multiplayer: Option<String>,
     local_mods: Vec<String>,
     account: Option<String>,
+    jvm_args: Option<Vec<String>>,
 ) -> Result<(), CommandError> {
     let state = State::get().await?;
     let mut profile = resolve_profile_ref(&state, &profile_ref).await?;
+    let jvm_args = jvm_args.unwrap_or_default();
     apply_overrides(&mut profile, overrides)?;
 
     // Quick-play: explicit CLI value wins; otherwise fall back to the profile's
@@ -2882,7 +2907,7 @@ pub async fn launch_profile_with_overrides(
     };
 
     log::info!(
-        "[CLI launch] profile='{}' id={} mc={} loader={} loader_version={:?} pack={:?} quick_play_sp={:?} quick_play_mp={:?}",
+        "[CLI launch] profile='{}' id={} mc={} loader={} loader_version={:?} pack={:?} quick_play_sp={:?} quick_play_mp={:?} jvm_args={:?}",
         profile.name,
         profile.id,
         profile.game_version,
@@ -2891,6 +2916,7 @@ pub async fn launch_profile_with_overrides(
         profile.selected_norisk_pack_id,
         qp_sp,
         qp_mp,
+        jvm_args,
     );
 
     let is_experimental = state.config_manager.is_experimental_mode().await;
@@ -2920,6 +2946,7 @@ pub async fn launch_profile_with_overrides(
             qp_mp,
             None,
             local_mod_paths,
+            jvm_args,
             true,
         )
         .await;
@@ -3141,6 +3168,8 @@ pub struct TempLaunchArgs {
     pub local_mods: Vec<String>,
     /// CLI `--account`: launch with this account (username or UUID).
     pub account: Option<String>,
+    #[serde(default)]
+    pub jvm_args: Vec<String>,
 }
 
 /// Spin up a throwaway MC instance with the given overrides. Builds an
@@ -3190,6 +3219,8 @@ pub async fn launch_temp_profile(args: TempLaunchArgs) -> Result<(), CommandErro
         modpack_info: None,
         preferred_account_id: None,
         playtime_seconds: 0,
+        sync_pack_ids: Vec::new(),
+        extra: Default::default(),
     };
 
     let game_dir = state
@@ -3197,7 +3228,7 @@ pub async fn launch_temp_profile(args: TempLaunchArgs) -> Result<(), CommandErro
         .calculate_instance_path_for_profile(&profile)?;
 
     log::info!(
-        "[CLI temp] launch id={} name='{}' dir={:?} mc={} loader={} loader_version={:?} pack={:?} quick_play_sp={:?} quick_play_mp={:?}",
+        "[CLI temp] launch id={} name='{}' dir={:?} mc={} loader={} loader_version={:?} pack={:?} quick_play_sp={:?} quick_play_mp={:?} jvm_args={:?}",
         profile.id,
         display_name,
         game_dir,
@@ -3207,6 +3238,7 @@ pub async fn launch_temp_profile(args: TempLaunchArgs) -> Result<(), CommandErro
         profile.selected_norisk_pack_id,
         args.quick_play_singleplayer,
         args.quick_play_multiplayer,
+        args.jvm_args,
     );
 
     let is_experimental = state.config_manager.is_experimental_mode().await;
@@ -3231,6 +3263,7 @@ pub async fn launch_temp_profile(args: TempLaunchArgs) -> Result<(), CommandErro
     let profile_clone = profile.clone();
     let qp_sp = args.quick_play_singleplayer.clone();
     let qp_mp = args.quick_play_multiplayer.clone();
+    let jvm_args = args.jvm_args.clone();
 
     tokio::spawn(async move {
         match installer::install_minecraft_version(
@@ -3242,6 +3275,7 @@ pub async fn launch_temp_profile(args: TempLaunchArgs) -> Result<(), CommandErro
             qp_mp,
             None,
             local_mod_paths,
+            jvm_args,
             false,
         )
         .await

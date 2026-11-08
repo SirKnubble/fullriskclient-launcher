@@ -235,6 +235,8 @@ function parseLogEntriesForProcess(
   return { entries, parserState: nextParserState };
 }
 
+export const NO_LOGS: LogEntry[] = [];
+
 export const useProcessStore = create<ProcessStore>((set, get) => ({
   // Initial state
   processes: [],
@@ -448,14 +450,6 @@ export const useProcessStore = create<ProcessStore>((set, get) => ({
       if (state.cursors.get(processId) === cursor) {
         return {};
       }
-      const newCursors = new Map(state.cursors);
-      newCursors.set(processId, cursor);
-      return { cursors: newCursors };
-    });
-  },
-
-  setCursor: (processId, cursor) => {
-    set((state) => {
       const newCursors = new Map(state.cursors);
       newCursors.set(processId, cursor);
       return { cursors: newCursors };

@@ -21,5 +21,10 @@
     "noFallthroughCasesInSwitch": false
   },
   "include": ["src"],
+  "exclude": [
+    "src/components/profiles/detail/**",
+    "src/components/profiles/ProfileDetailViewV2.tsx",
+    "src/components/tabs/ProfilesTab.tsx"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

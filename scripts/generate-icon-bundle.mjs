@@ -1,4 +1,4 @@
-﻿import { createRequire } from "node:module";
+import { createRequire } from "node:module";
 import { readdirSync, readFileSync, writeFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,7 @@ const COLLECTIONS = [
 const NOT_ICONS = new Set([
   "hover", "group-hover", "focus", "active", "data", "0",
   "visibility", "overflow", "md",
+  "permissions", "react-resizable-panels",
 ]);
 
 const ICON_RE = /["'`]([a-z][a-z0-9-]*):([a-z0-9][a-z0-9-]*)["'`]/g;

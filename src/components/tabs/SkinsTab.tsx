@@ -12,6 +12,7 @@ import { Button } from "../ui/buttons/Button";
 import { IconButton } from "../ui/buttons/IconButton";
 import { Icon } from "@iconify/react";
 import { StatusMessage } from "../ui/StatusMessage";
+import { SignedOutState } from "../account/SignedOutState";
 import { SkinViewer } from "../launcher/SkinViewer";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -409,23 +410,19 @@ export function SkinsTab() {
     }
   }, [selectedSkinId]);
 
+  // No account bootstrap here on purpose. This used to call initializeAccounts()
+  // whenever there was no active account, with accountLoading in the dependency
+  // list — so with nobody signed in it looped forever: fetch, flip loading,
+  // re-run, fetch again. The tab sat on "Loading account..." and hammered the
+  // backend. The account list is loaded once at startup (App and the header
+  // bar), which is all this tab needs.
   useEffect(() => {
     if (activeAccount) {
       loadSkinData();
     }
 
     loadLocalSkins();
-
-    if (!activeAccount && !accountLoading) {
-      initializeAccounts();
-    }
-  }, [
-    activeAccount,
-    loadSkinData,
-    loadLocalSkins,
-    initializeAccounts,
-    accountLoading,
-  ]);
+  }, [activeAccount, loadSkinData, loadLocalSkins]);
 
   const startEditSkin = (
     skin: MinecraftSkin | null,
@@ -601,81 +598,102 @@ export function SkinsTab() {
   return (
     <div className="h-full flex flex-col overflow-hidden p-4 relative">
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {/* Search & Filters */}
-        <div className="mb-6 pb-4 border-b border-white/10">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <SearchWithFilters
-                placeholder={t("skins.searchPlaceholder")}
-                searchValue={search}
-                onSearchChange={setSearch}
-                onSearchEnter={() => {}} // Optional: implement instant search
-              />
-            </div>
+        {/* Search & Filters. Hidden while signed out: with no skins to search
+            and the add button already gated, the bar is a row of dead controls
+            above an empty page. */}
+        {activeAccount && (
+          <div className="mb-6 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <SearchWithFilters
+                  placeholder={t('skins.searchPlaceholder')}
+                  searchValue={search}
+                  onSearchChange={setSearch}
+                  onSearchEnter={() => {}} // Optional: implement instant search
+                />
+              </div>
 
-            {/* Action Button */}
-            <div className="flex items-center gap-3">
-              {activeAccount && addSkinButton}
+              {/* Action Button */}
+              <div className="flex items-center gap-3">
+                {addSkinButton}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Content */}
-        <div className="space-y-8">
-          {accountLoading ? (
-            <p className="text-white/70 font-smallcaps text-sm text-center py-4">
-              {t("skins.loadingAccount")}
-            </p>
-          ) : accountError ? (
-            <StatusMessage
-              type="error"
-              className="font-smallcaps text-xs"
-              message={t("skins.accountError", { error: accountError })}
-            />
-          ) : !activeAccount ? (
-            <p className="text-white/70 italic font-smallcaps text-sm text-center py-10">
-              {t("skins.pleaseLogIn")}
-            </p>
-          ) : (
-            <>
-              <div className="space-y-5 text-center">
-                {localSkinsLoading ? (
-                  <p className="text-white/70 font-smallcaps text-sm text-center py-4">
-                    {t("skins.loadingSkins")}
-                  </p>
-                ) : localSkinsError ? (
-                  <StatusMessage
-                    type="error"
-                    className="font-smallcaps text-xs"
-                    message={localSkinsError}
+        <div className={activeAccount ? "space-y-8" : "h-full"}>
+        {accountLoading ? (
+          <p className="text-white/70 font-smallcaps text-sm text-center py-4">
+            {t('skins.loadingAccount')}
+          </p>
+        ) : !activeAccount ? (
+          // Signed out wins over the error banner, and any error rides along
+          // above it. The other way round the tab was a dead end: the banner
+          // hid the sign-in button, so a failed attempt left no way to try
+          // again without restarting the launcher.
+          <div className="h-full flex flex-col">
+            {accountError && (
+              <StatusMessage
+                type="error"
+                className="font-smallcaps text-xs"
+                message={t('skins.accountError', { error: accountError })}
+              />
+            )}
+            <div className="flex-1">
+              <SignedOutState
+                icon="solar:emoji-funny-circle-bold"
+                title={t('skins.signedOut.title')}
+                description={t('skins.signedOut.description')}
+              />
+            </div>
+          </div>
+        ) : accountError ? (
+          <StatusMessage
+            type="error"
+            className="font-smallcaps text-xs"
+            message={t('skins.accountError', { error: accountError })}
+          />
+        ) : (
+          <>
+            <div className="space-y-5 text-center">
+              {localSkinsLoading ? (
+                <p className="text-white/70 font-smallcaps text-sm text-center py-4">
+                  {t('skins.loadingSkins')}
+                </p>
+              ) : localSkinsError ? (
+                <StatusMessage
+                  type="error"
+                  className="font-smallcaps text-xs"
+                  message={localSkinsError}
+                />
+              ) : !localSkinsLoading &&
+                localSkins.length > 0 &&
+                filteredSkins.length === 0 &&
+                !localSkinsError ? (
+                <p className="text-white/70 italic font-smallcaps text-xs">
+                  {t('skins.noSkinsMatchSearch')}
+                </p>
+              ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+                  <AddSkinCard
+                    index={0}
+                    onClick={() => startEditSkin(null, undefined)}
                   />
-                ) : !localSkinsLoading &&
-                  localSkins.length > 0 &&
-                  filteredSkins.length === 0 &&
-                  !localSkinsError ? (
-                  <p className="text-white/70 italic font-smallcaps text-xs">
-                    {t("skins.noSkinsMatchSearch")}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-                    <AddSkinCard
-                      index={0}
-                      onClick={() => startEditSkin(null, undefined)}
+                  {filteredSkins.map((skin, index) => (
+                    <SkinPreview
+                      key={skin.id}
+                      skin={skin}
+                      index={index + 1}
+                      loading={loading}
+                      localSkinsLoading={localSkinsLoading}
+                      selectedLocalSkin={selectedLocalSkin}
+                      isApplied={isSkinApplied(skin)}
+                      onClick={(target) => startEditSkin(target)}
+                      onEditSkin={startEditSkin}
+                      onDeleteSkin={handleDeleteSkin}
                     />
-                    {filteredSkins.map((skin, index) => (
-                      <SkinPreview
-                        key={skin.id}
-                        skin={skin}
-                        index={index + 1}
-                        loading={loading}
-                        localSkinsLoading={localSkinsLoading}
-                        selectedLocalSkin={selectedLocalSkin}
-                        isApplied={isSkinApplied(skin)}
-                        onClick={(target) => startEditSkin(target)}
-                        onEditSkin={startEditSkin}
-                        onDeleteSkin={handleDeleteSkin}
-                      />
-                    ))}
+                  ))}
                   </div>
                 )}
               </div>

@@ -8,15 +8,13 @@ import { Button } from "../../ui/buttons/Button";
 import { StatusMessage } from "../../ui/StatusMessage";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { SearchStyleInput } from "../../ui/Input";
-import { RangeSlider } from "../../ui/RangeSlider";
 import { Select } from "../../ui/Select";
+import { RangeSlider } from "../../ui/RangeSlider";
 import { Card } from "../../ui/Card";
 import { Checkbox } from "../../ui/Checkbox";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import {
-  NoriskModEntryDefinition,
-  NoriskModpacksConfig,
-} from "../../../types/noriskPacks";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import type { NoriskModEntryDefinition } from "../../../types/noriskPacks";
+import { loadPacks, usePacks } from "../../../hooks/usePacks";
 import { useTranslation } from "react-i18next";
 import { useGlobalModal } from "../../../hooks/useGlobalModal";
 import { IconPicker, handleIconImgLoad, type ChosenIcon } from "../IconPicker";
@@ -30,12 +28,6 @@ import { parseErrorMessage } from "../../../utils/error-utils";
 
 const forbiddenChars = /[<>:"/\\|?*]/g;
 const forbiddenTrailing = /[ .]$/;
-
-interface NoriskPack {
-  displayName: string;
-  description: string;
-  isExperimental?: boolean;
-}
 
 interface ProfileWizardV2Step3Props {
   onClose: () => void;
@@ -80,10 +72,7 @@ export function ProfileWizardV2Step3({
   const [selectedNoriskPackId, setSelectedNoriskPackId] = useState<
     string | null
   >(null);
-  const [noriskPacks, setNoriskPacks] = useState<Record<string, NoriskPack>>(
-    {},
-  );
-  const [loadingPacks, setLoadingPacks] = useState(false);
+  const { packs: noriskPacks, loading: loadingPacks } = usePacks();
   const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<
     string | null
   >(null);
@@ -138,32 +127,13 @@ export function ProfileWizardV2Step3({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load NoRisk packs on component mount
   useEffect(() => {
-    const loadNoriskPacks = async () => {
-      try {
-        setLoadingPacks(true);
-        const packsData = await invoke<{ packs: Record<string, NoriskPack> }>(
-          "get_norisk_packs_resolved",
-        ).catch(() => ({
-          packs: {},
-        }));
-        console.log("PACKS", packsData);
-        setNoriskPacks(packsData.packs);
-
-        // Auto-select "norisk-prod" if available
-        if (packsData.packs["norisk-prod"]) {
-          setSelectedNoriskPackId("norisk-prod");
-        }
-      } catch (err) {
-        console.error("Failed to load NoRisk packs:", err);
-      } finally {
-        setLoadingPacks(false);
-      }
-    };
-
-    loadNoriskPacks();
-  }, []);
+    if (selectedNoriskPackId !== null || Object.keys(noriskPacks).length === 0)
+      return;
+    setSelectedNoriskPackId(
+      noriskPacks["norisk-prod"] ? "norisk-prod" : Object.keys(noriskPacks)[0],
+    );
+  }, [noriskPacks, selectedNoriskPackId]);
 
   const getLoaderDisplayName = (loader: ModLoader) => {
     const names = {
@@ -210,12 +180,9 @@ export function ProfileWizardV2Step3({
 
       try {
         // Get resolved packs with all mods
-        const resolvedPacks = await invoke<NoriskModpacksConfig>(
-          "get_norisk_packs_resolved",
-        );
-
         // Check if the selected pack has NoRisk Client mods for this version/loader
-        const selectedPack = resolvedPacks.packs[selectedNoriskPackId];
+        const resolvedPacks = await loadPacks();
+        const selectedPack = resolvedPacks[selectedNoriskPackId];
 
         if (!selectedPack) {
           setShowYellowWarning(true);

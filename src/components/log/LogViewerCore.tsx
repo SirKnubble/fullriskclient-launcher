@@ -91,10 +91,7 @@ function formatLogLineForCopy(
 
 function getLogIndexFromNode(node: Node | null): number | null {
   if (!node) return null;
-  const element =
-    node.nodeType === Node.ELEMENT_NODE
-      ? (node as Element)
-      : node.parentElement;
+  const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
   const row = element?.closest("[data-log-index]");
   if (!row) return null;
   const index = Number.parseInt(row.getAttribute("data-log-index") ?? "", 10);
@@ -143,7 +140,8 @@ export function LogViewerCore({
 }: LogViewerCoreProps) {
   const { t } = useTranslation();
   const accentColor = useThemeStore((state) => state.accentColor);
-  const { showThreadPrefix, toggleShowThreadPrefix } = useLogSettingsStore();
+  const showThreadPrefix = useLogSettingsStore((state) => state.showThreadPrefix);
+  const toggleShowThreadPrefix = useLogSettingsStore((state) => state.toggleShowThreadPrefix);
   const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [levelFilters, setLevelFilters] = useState<Record<LogLevel, boolean>>({
@@ -559,9 +557,7 @@ export function LogViewerCore({
 
   const renderLogLine = (index: number, log: DisplayLogLine) => {
     const isSelected =
-      selectionRange !== null &&
-      index >= selectionRange.start &&
-      index <= selectionRange.end;
+      selectionRange !== null && index >= selectionRange.start && index <= selectionRange.end;
     const isLast = index === filteredLogs.length - 1;
 
     return (
@@ -572,15 +568,11 @@ export function LogViewerCore({
         className={`flex flex-nowrap items-start py-0.5 px-2 -mx-2 rounded ${isLast ? "pb-2" : ""} ${
           isSelected ? "" : "hover:bg-white/5"
         }`}
-        style={
-          isSelected ? { backgroundColor: `${accentColor.value}33` } : undefined
-        }
+        style={isSelected ? { backgroundColor: `${accentColor.value}33` } : undefined}
       >
         {log.timestamp ? (
           <>
-            <span
-              className={`pr-2 select-none ${getLevelColorClass(log.level)}`}
-            >
+            <span className={`pr-2 select-none ${getLevelColorClass(log.level)}`}>
               <span className="opacity-80">[{log.timestamp}]</span>
               {showThreadPrefix && (
                 <span className="opacity-80 ml-1">
@@ -733,6 +725,7 @@ export function LogViewerCore({
         }
         onWheel={markUserScroll}
         onTouchMove={markUserScroll}
+        onPointerDown={markUserScroll}
         className="flex-1 min-h-0 flex flex-col p-4 font-mono text-sm rounded-lg bg-black/60 backdrop-blur-sm outline-none focus-visible:ring-1 focus-visible:ring-white/20"
         style={{ boxShadow: `0 4px 20px ${accentColor.value}15` }}
       >
@@ -756,9 +749,7 @@ export function LogViewerCore({
             computeItemKey={(_index, log) => log.id}
             increaseViewportBy={{ top: 400, bottom: 400 }}
             atBottomStateChange={handleAtBottomChange}
-            initialTopMostItemIndex={
-              filteredLogs.length > 0 ? filteredLogs.length - 1 : 0
-            }
+            initialTopMostItemIndex={filteredLogs.length > 0 ? filteredLogs.length - 1 : 0}
             itemContent={(index, log) => renderLogLine(index, log)}
           />
         )}

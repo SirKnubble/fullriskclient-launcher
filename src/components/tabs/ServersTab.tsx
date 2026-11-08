@@ -1562,7 +1562,7 @@ function CustomServerCard({
         </button>
       </div>
       <SettingsContextMenu
-        profile={server as unknown as Profile}
+        target={server as unknown as Profile}
         isOpen={menuOpen}
         position={menuPosition}
         items={contextMenuItems}

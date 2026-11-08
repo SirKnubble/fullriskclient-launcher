@@ -92,10 +92,7 @@ export function SearchWithFilters({
         }`}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <StableIcon
-            icon={searchIcon}
-            className="w-4 h-4 text-white/50 shrink-0"
-          />
+          <StableIcon icon={searchIcon} className="w-4 h-4 text-white/50 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -116,7 +113,7 @@ export function SearchWithFilters({
             </button>
           )}
         </div>
-
+        
         {/* Sort Filter */}
         {showSortSection && (
           <>

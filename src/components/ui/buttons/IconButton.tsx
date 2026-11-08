@@ -143,18 +143,12 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
     });
     const getIconButtonSizeClasses = () => {
       switch (size) {
-        case "xs":
-          return "h-[36px] w-[36px] p-2 text-xs";
-        case "sm":
-          return "h-[42px] w-[42px] p-2.5 text-xs";
-        case "md":
-          return "h-[50px] w-[50px] p-3 text-sm";
-        case "lg":
-          return "h-[58px] w-[58px] p-3.5 text-base";
-        case "xl":
-          return "h-[66px] w-[66px] p-4 text-base";
-        default:
-          return "h-[50px] w-[50px] p-3 text-sm";
+        case "xs": return "h-[36px] w-[36px] p-2 text-xs";
+        case "sm": return "h-[42px] w-[42px] p-2.5 text-xs";
+        case "md": return "h-[50px] w-[50px] p-3 text-sm";
+        case "lg": return "h-[58px] w-[58px] p-3.5 text-base";
+        case "xl": return "h-[66px] w-[66px] p-4 text-base";
+        default: return "h-[50px] w-[50px] p-3 text-sm";
       }
     };
 

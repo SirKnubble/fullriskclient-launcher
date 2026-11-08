@@ -429,7 +429,7 @@ export function FullRiskProfileCard({
       </div>
 
       <SettingsContextMenu
-        profile={profile}
+        target={profile}
         isOpen={isContextMenuOpen}
         position={contextMenuPosition}
         items={contextMenuItems.filter(

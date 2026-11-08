@@ -22,12 +22,14 @@ import {
 import { GlobalCrashReportModal } from "./components/modals/GlobalCrashReportModal";
 import { ImportPackConfirmModal } from "./components/modals/ImportPackConfirmModal";
 import { DragDropOverlay } from "./components/ui/DragDropOverlay";
-import {
-  TermsOfServiceModal,
-  AnalyticsConsentBanner,
-} from "./components/modals/TermsOfServiceModal";
+import { AnalyticsConsentBanner } from "./components/modals/AnalyticsConsentBanner";
+import { LegalAcceptanceModal } from "./components/modals/LegalAcceptanceModal";
+import { LegalUpdateBanner } from "./components/modals/LegalUpdateBanner";
+import { legalLocale } from "./config/legal";
+import { MacCapturePermissionMonitor } from "./components/clips/MacCapturePermissionMonitor";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import { useCrashModalStore } from "./store/crash-modal-store";
+import { useLegalStore } from "./store/legal-store";
 import { useThemeStore } from "./store/useThemeStore";
 import { useLaunchStateStore } from "./store/launch-state-store";
 import { useGlobalModal } from "./hooks/useGlobalModal";
@@ -40,13 +42,14 @@ import {
 import * as ConfigService from "./services/launcher-config-service";
 import { useGlobalDragAndDrop } from "./hooks/useGlobalDragAndDrop";
 import { loadIcons } from "@iconify/react";
-import { trackEvent } from "./services/analytics-service";
+import { setScreenTimeTab, trackEvent } from "./services/analytics-service";
 
 let launcherStartTracked = false;
 
 import flagsmith from "flagsmith";
 import { FlagsmithProvider } from "flagsmith/react";
 import { Button } from "./components/ui/buttons/Button";
+import { GuardedButton } from "./components/ui/buttons/GuardedButton";
 import { openExternalUrl } from "./services/tauri-service";
 import { ExternalLink } from "lucide-react";
 import { MinecraftAuthService } from "./services/minecraft-auth-service";
@@ -55,12 +58,17 @@ import ChildProtectionModal from "./components/modals/ChildProtectionModal";
 import { NotificationModal } from "./components/modals/NotificationModal";
 import { useNotificationStore } from "./store/notification-store";
 import { useMinecraftAuthStore } from "./store/minecraft-auth-store";
+import { useWelcomeStore } from "./store/welcome-store";
+import { useTwitchDeepLinkRequests } from "./components/account/TwitchLinkCard";
+import { useDeepLinkHandler } from "./hooks/useDeepLinkHandler";
+import { drainPendingDeepLinks } from "./services/deep-link-service";
+import { DEEP_LINK_SUPPORT_REQUEST_EVENT } from "./services/support-request-service";
+import { openSupportRequestDialog } from "./components/support/SupportRequestDialog";
+import { WelcomeScreen } from "./components/welcome/WelcomeScreen";
 import { useSettingsModalStore } from "./store/settings-modal-store";
 import { useSkinStore } from "./store/useSkinStore";
-import {
-  hasPermission,
-  refreshPermissions,
-} from "./services/permission-service";
+import { invalidatePlayerAppearance } from "./services/cosmetic-cache";
+import { hasPermission, refreshPermissions } from "./services/permission-service";
 import {
   fetchTesterQueueCount,
   openTesterWindow,
@@ -78,7 +86,6 @@ export function App() {
   const navigate = useNavigate();
   const { openCrashModal } = useCrashModalStore();
   const {
-    hasAcceptedTermsOfService,
     analyticsConsent,
     language,
     setAnalyticsConsent,
@@ -89,7 +96,31 @@ export function App() {
   const { activeAccount } = useMinecraftAuthStore();
   const { fetchNotifications } = useNotificationStore();
 
+  const initializeAccounts = useMinecraftAuthStore((s) => s.initializeAccounts);
+  const accountsLoaded = useMinecraftAuthStore((s) => s.accountsLoaded);
+  useEffect(() => {
+    initializeAccounts();
+  }, [initializeAccounts]);
+
+  const welcomeSkipped = useWelcomeStore((s) => s.skipped);
+  const acceptedLegacyTerms = useThemeStore((s) => s.hasAcceptedTermsOfService);
+  const loadLegalStatus = useLegalStore((s) => s.load);
+  const legalChecked = useLegalStore((s) => s.checked);
+  const legalNotice = useLegalStore((s) => s.notice);
+  useEffect(() => {
+    loadLegalStatus(legalLocale(language), acceptedLegacyTerms);
+  }, [loadLegalStatus, language, acceptedLegacyTerms]);
+
+  const ready = accountsLoaded && legalChecked;
+  const showWelcome = ready && !activeAccount && !welcomeSkipped;
+
   const activeTab = location.pathname.substring(1) || "play";
+
+  const settingsOpen = useSettingsModalStore((s) => s.isOpen);
+  const screenTimeTab = settingsOpen ? "settings" : activeTab.split("/")[0];
+  useEffect(() => {
+    setScreenTimeTab(screenTimeTab);
+  }, [screenTimeTab]);
 
   const [currentGroupingCriterion, setCurrentGroupingCriterion] =
     useState<string>("none");
@@ -159,18 +190,18 @@ export function App() {
     const unlisten = listen<FrontendEventPayload>(
       "state_event",
       (event: TauriEvent<FrontendEventPayload>) => {
-        if (
-          event.payload.event_type === FrontendEventType.MinecraftSkinChanged
-        ) {
+        if (event.payload.event_type === FrontendEventType.MinecraftSkinChanged) {
           console.log("[App.tsx] Global MinecraftSkinChanged event");
+          invalidatePlayerAppearance();
           useSkinStore.getState().bumpSkinRevision();
           return;
         }
+
         if (event.payload.event_type === FrontendEventType.OfflineMode) {
           console.log("[App.tsx] Global OfflineMode event");
           const anyLaunching = Object.values(
             useLaunchStateStore.getState().profiles,
-          ).some((p) => p.isButtonLaunching);
+          ).some((profile) => profile.isButtonLaunching);
           if (anyLaunching) {
             toast(t("app.offline_mode"), {
               id: "offline-mode",
@@ -180,9 +211,8 @@ export function App() {
           }
           return;
         }
-        if (
-          event.payload.event_type === FrontendEventType.MinecraftProcessExited
-        ) {
+
+        if (event.payload.event_type === FrontendEventType.MinecraftProcessExited) {
           try {
             const exitPayload: MinecraftProcessExitedPayload = JSON.parse(
               event.payload.message,
@@ -196,10 +226,10 @@ export function App() {
               toast.error(crashMsg, { duration: 10000 });
               openCrashModal(exitPayload);
             }
-          } catch (e) {
+          } catch (error) {
             console.error(
               "[App.tsx] Failed to parse MinecraftProcessExitedPayload:",
-              e,
+              error,
             );
             toast.error(t("app.errors.process_status"));
           }
@@ -208,10 +238,9 @@ export function App() {
     );
 
     return () => {
-      unlisten.then((f) => f());
+      unlisten.then((unlistenEvent) => unlistenEvent());
     };
-  }, [openCrashModal]);
-
+  }, [openCrashModal, t]);
   // Listen for navigation events from other windows (e.g., log window)
   useEffect(() => {
     const unlisten = listen<{ profileId: string }>(
@@ -229,87 +258,86 @@ export function App() {
   }, [navigate]);
 
   // Listen for deep link auth bridge requests
-  useEffect(() => {
-    const unlisten = listen<{ session_id: string; username: string }>(
-      "deep-link-auth-request",
-      (event) => {
-        const { session_id, username } = event.payload;
-        console.log("[App.tsx] Deep link auth request for:", username);
+  useDeepLinkHandler<{ session_id: string; username: string }>(
+    "deep-link-auth-request",
+    ({ session_id, username }) => {
+      console.log("[App.tsx] Deep link auth request for:", username);
 
-        showModal(
-          "deep-link-auth",
-          <Modal
-            title={t("deep_link.auth.title")}
-            onClose={() => hideModal("deep-link-auth")}
-            width="sm"
-            footer={
-              <div className="flex justify-end gap-3">
-                <Button
-                  variant="ghost"
-                  onClick={() => hideModal("deep-link-auth")}
-                >
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={async () => {
-                    hideModal("deep-link-auth");
-                    try {
-                      const result = await invoke<{
-                        success: boolean;
-                        message: string;
-                      }>("confirm_auth_bridge", {
-                        sessionId: session_id,
-                      });
-                      if (result.success) {
-                        toast.success(t("deep_link.auth.success"));
-                      } else {
-                        console.error(
-                          "[App.tsx] Auth bridge confirm failed:",
-                          result.message,
-                        );
-                        toast.error(t("deep_link.auth.error"));
-                      }
-                    } catch (e) {
-                      console.error("[App.tsx] Auth bridge confirm failed:", e);
+      showModal(
+        "deep-link-auth",
+        <Modal
+          title={t("deep_link.auth.title")}
+          onClose={() => hideModal("deep-link-auth")}
+          width="sm"
+          footer={
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => hideModal("deep-link-auth")}
+              >
+                {t("common.cancel")}
+              </Button>
+              <GuardedButton
+                variant="default"
+                onClick={async () => {
+                  hideModal("deep-link-auth");
+                  try {
+                    const result = await invoke<{
+                      success: boolean;
+                      message: string;
+                    }>("confirm_auth_bridge", {
+                      sessionId: session_id,
+                    });
+                    if (result.success) {
+                      toast.success(t("deep_link.auth.success"));
+                    } else {
+                      console.error("[App.tsx] Auth bridge confirm failed:", result.message);
                       toast.error(t("deep_link.auth.error"));
                     }
-                  }}
-                >
-                  {t("deep_link.auth.confirm")}
-                </Button>
-              </div>
-            }
-          >
-            <div className="p-6 text-white/80 font-minecraft">
-              <p>{t("deep_link.auth.description", { username })}</p>
+                  } catch (e) {
+                    console.error("[App.tsx] Auth bridge confirm failed:", e);
+                    toast.error(t("deep_link.auth.error"));
+                  }
+                }}
+              >
+                {t("deep_link.auth.confirm")}
+              </GuardedButton>
             </div>
-          </Modal>,
-        );
-      },
-    );
-
-    // Also listen for auth results when no confirmation is needed (e.g., errors)
-    const unlistenResult = listen<{ success: boolean; message: string }>(
-      "deep-link-auth-result",
-      (event) => {
-        const { success, message } = event.payload;
-        if (!success) {
-          if (message === "not_logged_in") {
-            toast.error(t("deep_link.auth.not_logged_in"));
-          } else {
-            console.error("[App.tsx] Auth bridge confirm failed:", message);
-            toast.error(t("deep_link.auth.error"));
           }
-        }
-      },
-    );
+        >
+          <div className="p-6 text-white/80 font-minecraft">
+            <p>{t("deep_link.auth.description", { username })}</p>
+          </div>
+        </Modal>,
+      );
+    },
+  );
 
-    return () => {
-      unlisten.then((f) => f());
-      unlistenResult.then((f) => f());
-    };
-  }, [showModal, hideModal, t]);
+  // Also listen for auth results when no confirmation is needed (e.g., errors)
+  useDeepLinkHandler<{ success: boolean; message: string }>(
+    "deep-link-auth-result",
+    ({ success, message }) => {
+      if (!success) {
+        if (message === "not_logged_in") {
+          toast.error(t("deep_link.auth.not_logged_in"));
+        } else {
+          console.error("[App.tsx] Auth bridge confirm failed:", message);
+          toast.error(t("deep_link.auth.error"));
+        }
+      }
+    },
+  );
+
+  useDeepLinkHandler<{ code?: string } | null>(
+    DEEP_LINK_SUPPORT_REQUEST_EVENT,
+    (payload) => openSupportRequestDialog(payload?.code),
+  );
+
+  useTwitchDeepLinkRequests();
+
+  useEffect(() => {
+    drainPendingDeepLinks();
+  }, []);
 
   useEffect(() => {
     refreshNrcDataOnMount();
@@ -639,14 +667,19 @@ export function App() {
         <GlobalCrashReportModal />
         <ImportPackConfirmModal />
         <DragDropOverlay />
-        <TermsOfServiceModal isOpen={!hasAcceptedTermsOfService} />
+        <LegalAcceptanceModal />
+        {showWelcome && <WelcomeScreen />}
         <GlobalModalPortal />
+        <MacCapturePermissionMonitor />
         <ChildProtectionModal />
         <NotificationModal />
-        <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
-          <Outlet context={profilesTabContext} />
-        </AppLayout>
-        {shouldShowAnalyticsBanner() && (
+        {ready && (
+          <AppLayout activeTab={activeTab} onNavChange={handleNavChange}>
+            <Outlet context={profilesTabContext} />
+          </AppLayout>
+        )}
+        <LegalUpdateBanner />
+        {!legalNotice && shouldShowAnalyticsBanner() && (
           <AnalyticsConsentBanner
             onAccept={handleAnalyticsAccept}
             onDecline={handleAnalyticsDecline}

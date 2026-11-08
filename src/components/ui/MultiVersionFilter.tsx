@@ -90,9 +90,7 @@ export function MultiVersionFilter({
       {isOpen && (
         <div className="absolute top-full left-0 mt-2 w-56 bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg shadow-xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-            <span className="text-white/60 font-minecraft text-xs lowercase">
-              {t("profiles.filter.versions")}
-            </span>
+            <span className="text-white/60 font-minecraft text-xs lowercase">{t("profiles.filter.versions")}</span>
             {isActive && (
               <button
                 onClick={onClear}
@@ -104,9 +102,7 @@ export function MultiVersionFilter({
           </div>
           <div className="py-1 max-h-72 overflow-y-auto no-scrollbar">
             {options.length === 0 && (
-              <div className="px-3 py-2 text-white/40 font-minecraft text-xs">
-                {t("profiles.filter.noVersions")}
-              </div>
+              <div className="px-3 py-2 text-white/40 font-minecraft text-xs">{t("profiles.filter.noVersions")}</div>
             )}
             {options.map((option) => {
               const checked = selected.includes(option.value);

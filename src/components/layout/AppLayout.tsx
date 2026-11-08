@@ -35,6 +35,8 @@ import { FullRiskTopNavbar } from "../navigation/FullRiskTopNavbar";
 // TODO: Re-enable when WebSocket is stable
 // import { useFriendsWebSocket } from "../../hooks/useFriendsWebSocket";
 import { useFriendsStore } from "../../store/friends-store";
+import { useClipsStore } from "../../store/clips-store";
+import { closeClipEditorThen } from "../../services/clip-service";
 import { useChatStore } from "../../store/chat-store";
 import {
   checkUpdateAvailable,
@@ -89,6 +91,12 @@ export function AppLayout({
     Boolean(customMediaUrl) && (!customMediaOnlyOnPlay || activeTab === "play");
   const shouldShowEffects = !(isCustomMediaVisible && customMediaHideEffects);
 
+  const clipsEnabled = useClipsStore((state) => state.enabled);
+  const refreshClips = useClipsStore((state) => state.refresh);
+
+  useEffect(() => {
+    void refreshClips();
+  }, [refreshClips]);
   const { qualityLevel } = useQualitySettingsStore();
   const {
     isBackgroundAnimationEnabled,
@@ -108,6 +116,15 @@ export function AppLayout({
           label: t("nav.skins"),
         },
         { id: "capes", icon: "solar:shop-bold", label: "cape" },
+        ...(clipsEnabled
+          ? [
+              {
+                id: "clips",
+                icon: "solar:videocamera-record-bold",
+                label: t("nav.clips"),
+              },
+            ]
+          : []),
         { id: "servers", icon: "solar:server-bold", label: "servers" },
         { id: "play", icon: "solar:play-bold", label: t("nav.play") },
         {
@@ -120,6 +137,7 @@ export function AppLayout({
           id: "settings",
           icon: "solar:settings-bold",
           label: t("nav.settings"),
+          isAction: true,
         },
       ]
     : [
@@ -131,6 +149,15 @@ export function AppLayout({
           label: t("nav.skins"),
         },
         { id: "capes", icon: "solar:shop-bold", label: t("nav.capes") },
+        ...(clipsEnabled
+          ? [
+              {
+                id: "clips",
+                icon: "solar:videocamera-record-bold",
+                label: t("nav.clips"),
+              },
+            ]
+          : []),
         {
           id: "profiles",
           icon: "solar:user-id-bold",
@@ -141,6 +168,7 @@ export function AppLayout({
           id: "settings",
           icon: "solar:settings-bold",
           label: t("nav.settings"),
+          isAction: true,
         },
       ];
   const { isEnabled: isSnowEnabled } = useSnowEffectStore();
@@ -253,7 +281,9 @@ export function AppLayout({
           }
 
           if (closeRef.current) {
-            closeRef.current.addEventListener("click", () => exit(0));
+            closeRef.current.addEventListener("click", () =>
+              closeClipEditorThen(() => exit(0)).catch(() => exit(0)),
+            );
           }
         } else {
           console.log(
@@ -421,6 +451,7 @@ export function AppLayout({
         border: isFullRiskStyle
           ? `0 solid ${themeAccentColor.value}00`
           : undefined,
+        borderColor: `${themeAccentColor.value}30`,
         boxShadow: isFullRiskStyle
           ? "none"
           : `0 0 15px ${themeAccentColor.value}30, inset 0 0 10px ${themeAccentColor.value}20`,
@@ -908,13 +939,13 @@ function HeaderBar({ minimizeRef, maximizeRef, closeRef }: HeaderBarProps) {
                       })
                 }
               >
-                <div
-                  className={
-                    isUpdating
-                      ? "cursor-not-allowed opacity-50"
-                      : "cursor-pointer"
-                  }
-                  onClick={handleUpdateClick}
+              <div
+                className={
+                  isUpdating
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer"
+                }
+                onClick={handleUpdateClick}
                 >
                   <Icon
                     icon="solar:download-minimalistic-bold"

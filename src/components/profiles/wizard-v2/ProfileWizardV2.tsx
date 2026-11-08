@@ -30,6 +30,18 @@ import {
 import { useTranslation } from "react-i18next";
 import * as ProfileService from "../../../services/profile-service";
 import { parseErrorMessage } from "../../../utils/error-utils";
+import { loadPacks } from "../../../hooks/usePacks";
+import { logError } from "../../../utils/logging-utils";
+import { ProfileSourceChooser, type ProfileSource } from "../ProfileSourceChooser";
+import { ProfileWizardV2LauncherStep } from "./ProfileWizardV2LauncherStep";
+import { ProfileWizardV2ReviewStep } from "./ProfileWizardV2ReviewStep";
+import {
+  runLauncherImportQueue,
+  runLauncherInstanceImport,
+  type LauncherImportOverrides,
+} from "../../../utils/launcher-instance-import";
+import { DEFAULT_IMPORT_SELECTION, type ExternalInstanceRef } from "../../../types/launcherImport";
+import { useNavigate } from "react-router-dom";
 
 function NrcCompatibleTooltipContent() {
   const { t } = useTranslation();
@@ -51,20 +63,31 @@ function NrcCompatibleTooltipContent() {
   );
 }
 
+type WizardStep = 0 | 1 | 2 | 3 | "launcher" | "launcher-review";
+
 interface ProfileWizardV2Props {
   onClose: () => void;
   onSave: (profile: any) => void;
+  onSource?: (source: Exclude<ProfileSource, "blank" | "launcher">) => void;
+  onImported?: (profileIds: string[]) => void;
+  startAtSource?: boolean;
   defaultGroup?: string | null;
 }
 
 export function ProfileWizardV2({
   onClose,
   onSave,
+  onSource,
+  onImported,
+  startAtSource = false,
   defaultGroup,
 }: ProfileWizardV2Props) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const accentColor = useThemeStore((state) => state.accentColor);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<WizardStep>(startAtSource && onSource ? 0 : 1);
+  const [launcherTarget, setLauncherTarget] = useState<ExternalInstanceRef | null>(null);
+  const [importing, setImporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,12 +162,10 @@ export function ProfileWizardV2({
   useEffect(() => {
     const loadNrcCompatibility = async () => {
       try {
-        const packsConfig = await invoke<NoriskModpacksConfig>(
-          "get_norisk_packs_resolved",
-        );
+        const packsConfig: NoriskModpacksConfig = { packs: await loadPacks(), repositories: {} };
         setNrcCompatibility(extractNrcCompatibility(packsConfig));
       } catch (err) {
-        console.error("Failed to load NRC compatibility:", err);
+        logError(`Failed to load NRC compatibility: ${err}`);
       }
     };
     loadNrcCompatibility();
@@ -236,9 +257,7 @@ export function ProfileWizardV2({
         console.warn("Failed to apply profile icon:", iconErr);
       }
 
-      const createdProfile = await useProfileStore
-        .getState()
-        .getProfile(profileId);
+      const createdProfile = await useProfileStore.getState().getProfile(profileId);
       onSave(createdProfile);
       return createdProfile;
     };
@@ -386,7 +405,17 @@ export function ProfileWizardV2({
   };
 
   const renderFooter = () => (
-    <div className="flex justify-end items-center">
+    <div className={`flex items-center ${startAtSource && onSource ? "justify-between" : "justify-end"}`}>
+      {startAtSource && onSource && (
+        <Button
+          variant="ghost"
+          onClick={() => setCurrentStep(0)}
+          size="md"
+          icon={<Icon icon="solar:arrow-left-bold" className="w-5 h-5" />}
+        >
+          {t('profiles.wizard.back')}
+        </Button>
+      )}
       <Button
         variant="default"
         onClick={handleStep1Next}
@@ -400,6 +429,76 @@ export function ProfileWizardV2({
       </Button>
     </div>
   );
+
+  const finishLauncherImport = (profileIds: string[]) => {
+    setImporting(false);
+    if (profileIds.length > 0) onImported?.(profileIds);
+  };
+
+  const importInstances = async (instances: ExternalInstanceRef[]) => {
+    if (instances.length === 1) {
+      setLauncherTarget(instances[0]);
+      setCurrentStep("launcher-review");
+      return;
+    }
+
+    setImporting(true);
+    const outcome = await runLauncherImportQueue(
+      instances.map((target) => ({
+        target,
+        overrides: { selection: DEFAULT_IMPORT_SELECTION },
+      })),
+    );
+    finishLauncherImport(outcome.imported);
+  };
+
+  const importReviewed = async (overrides: LauncherImportOverrides) => {
+    if (!launcherTarget) return;
+    setImporting(true);
+    const profileId = await runLauncherInstanceImport(launcherTarget, overrides);
+    finishLauncherImport(profileId ? [profileId] : []);
+  };
+
+  if (currentStep === 0 && onSource) {
+    return (
+      <Modal title={t('profiles.wizard.sourceTitle')} onClose={onClose} width="md">
+        <ProfileSourceChooser
+          onChoose={(source) => {
+            if (source === "blank") setCurrentStep(1);
+            else if (source === "launcher") setCurrentStep("launcher");
+            else onSource(source);
+          }}
+        />
+      </Modal>
+    );
+  }
+
+  if (currentStep === "launcher") {
+    return (
+      <ProfileWizardV2LauncherStep
+        onClose={onClose}
+        onBack={() => setCurrentStep(0)}
+        onImport={(instances) => void importInstances(instances)}
+        onOpenProfile={(profileId) => {
+          onClose();
+          navigate(`/profilesv2/${profileId}`);
+        }}
+        busy={importing}
+      />
+    );
+  }
+
+  if (currentStep === "launcher-review" && launcherTarget) {
+    return (
+      <ProfileWizardV2ReviewStep
+        target={launcherTarget}
+        onClose={onClose}
+        onBack={() => setCurrentStep("launcher")}
+        onImport={(overrides) => void importReviewed(overrides)}
+        busy={importing}
+      />
+    );
+  }
 
   // Show Step 2 if we're on step 2
   if (currentStep === 2) {

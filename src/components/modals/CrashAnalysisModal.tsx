@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { toast } from "react-hot-toast";
 import { openExternalUrl } from "../../services/tauri-service";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useProfileLaunch } from "../../hooks/useProfileLaunch";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
@@ -153,13 +154,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
   return (
     <Modal
       title={t("crash_analysis.title")}
-      titleIcon={
-        <Icon
-          icon="solar:shield-check-bold"
-          className="w-7 h-7"
-          style={{ color: l.color }}
-        />
-      }
+      titleIcon={<Icon icon="solar:shield-check-bold" className="w-7 h-7" style={{ color: l.color }} />}
       onClose={onClose}
       width="md"
       footer={footer}
@@ -169,16 +164,9 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
           className="flex items-start gap-3 rounded-lg p-4 border-l-[3px]"
           style={{ backgroundColor: `${l.color}14`, borderColor: l.color }}
         >
-          <Icon
-            icon={l.icon}
-            className="w-8 h-8 shrink-0 mt-0.5"
-            style={{ color: l.color }}
-          />
+          <Icon icon={l.icon} className="w-8 h-8 shrink-0 mt-0.5" style={{ color: l.color }} />
           <div className="min-w-0">
-            <p
-              className="text-base font-smallcaps leading-tight"
-              style={{ color: l.color }}
-            >
+            <p className="text-base font-smallcaps leading-tight" style={{ color: l.color }}>
               {t(l.headlineKey)}
             </p>
             {summary && (
@@ -188,11 +176,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
             )}
             {result.module && (
               <span className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/10 px-2 py-1 text-sm font-minecraft text-white/80">
-                <Icon
-                  icon="solar:widget-2-bold"
-                  className="w-4 h-4"
-                  style={{ color: l.color }}
-                />
+                <Icon icon="solar:widget-2-bold" className="w-4 h-4" style={{ color: l.color }} />
                 {t("crash_analysis.affected_feature")}: {result.module}
               </span>
             )}
@@ -218,9 +202,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
         {/* fixes checklist (same render for 1 or many) */}
         {hasActions && (
           <div>
-            <p className="px-1 pb-1.5 text-sm font-minecraft text-white/40">
-              {t("crash_analysis.fixes_heading")}
-            </p>
+            <p className="px-1 pb-1.5 text-sm font-minecraft text-white/40">{t("crash_analysis.fixes_heading")}</p>
             <div className="rounded-lg border border-white/10 bg-black/20 divide-y divide-white/5 overflow-hidden">
               {result.actions.map((a, i) => {
                 const isApplied = applied.has(i);
@@ -259,16 +241,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
                           variant="success"
                           size="xs"
                           disabled={isBusy}
-                          icon={
-                            <Icon
-                              icon={
-                                isBusy
-                                  ? "svg-spinners:ring-resize"
-                                  : "solar:arrow-up-bold"
-                              }
-                              className="w-4 h-4"
-                            />
-                          }
+                          icon={<Icon icon={isBusy ? "svg-spinners:ring-resize" : "solar:arrow-up-bold"} className="w-4 h-4" />}
                           onClick={() => onAction(a, i, "upgrade")}
                         >
                           {t("crash_analysis.upgrade")}
@@ -277,12 +250,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
                           variant="info"
                           size="xs"
                           disabled={isBusy}
-                          icon={
-                            <Icon
-                              icon="solar:arrow-down-bold"
-                              className="w-4 h-4"
-                            />
-                          }
+                          icon={<Icon icon="solar:arrow-down-bold" className="w-4 h-4" />}
                           onClick={() => onAction(a, i, "downgrade")}
                         >
                           {t("crash_analysis.downgrade")}
@@ -296,33 +264,21 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
                         disabled={isBusy}
                         icon={
                           <Icon
-                            icon={
-                              isBusy
-                                ? "svg-spinners:ring-resize"
-                                : isApplied
-                                  ? "solar:check-circle-bold"
-                                  : "solar:arrow-right-bold"
-                            }
+                            icon={isBusy ? "svg-spinners:ring-resize" : isApplied ? "solar:check-circle-bold" : "solar:arrow-right-bold"}
                             className="w-4 h-4"
                           />
                         }
                         onClick={() => onAction(a, i)}
-                        title={
-                          isApplied ? t("crash_analysis.undo_hint") : undefined
-                        }
+                        title={isApplied ? t("crash_analysis.undo_hint") : undefined}
                       >
-                        {isApplied
-                          ? t("crash_analysis.applied")
-                          : t("crash_analysis.apply")}
+                        {isApplied ? t("crash_analysis.applied") : t("crash_analysis.apply")}
                       </Button>
                     )}
                   </div>
                 );
               })}
             </div>
-            <p className="px-1 pt-1.5 text-xs text-white/40 font-sans">
-              {t("crash_analysis.applies_note")}
-            </p>
+            <p className="px-1 pt-1.5 text-xs text-white/40 font-sans">{t("crash_analysis.applies_note")}</p>
           </div>
         )}
 
@@ -333,17 +289,12 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
               <>
                 {statusMsg ? " " : null}
                 <button
-                  onClick={() =>
-                    openExternalUrl(result.issueUrl!).catch(() => {})
-                  }
+                  onClick={() => openExternalUrl(result.issueUrl!).catch(() => {})}
                   className="inline font-minecraft hover:underline underline-offset-2 whitespace-nowrap"
                   style={{ color: l.color }}
                 >
                   {t("crash_analysis.view_issue")}
-                  <Icon
-                    icon="solar:arrow-right-up-linear"
-                    className="inline-block w-3.5 h-3.5 ml-0.5 align-[-0.15em]"
-                  />
+                  <Icon icon="solar:arrow-right-up-linear" className="inline-block w-3.5 h-3.5 ml-0.5 align-[-0.15em]" />
                 </button>
               </>
             )}
@@ -351,13 +302,9 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
         )}
 
         {!hasActions && (
-          <LinkRow
-            icon="solar:document-text-linear"
-            text={t("crash_analysis.open_crash_log")}
-            onClick={() =>
-              openExternalUrl(`https://mclo.gs/${result.logId}`).catch(() => {})
-            }
-          />
+          <div className="flex flex-wrap gap-3">
+            <LogLinks logId={result.logId} openTextKey="crash_analysis.open_crash_log" />
+          </div>
         )}
 
         {/* technical details — collapsed by default, normal font */}
@@ -366,14 +313,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
             onClick={() => setShowDetails((s) => !s)}
             className="flex items-center gap-1.5 text-white/40 hover:text-white/70 font-minecraft text-sm transition-colors"
           >
-            <Icon
-              icon={
-                showDetails
-                  ? "solar:alt-arrow-up-linear"
-                  : "solar:alt-arrow-down-linear"
-              }
-              className="w-4 h-4"
-            />
+            <Icon icon={showDetails ? "solar:alt-arrow-up-linear" : "solar:alt-arrow-down-linear"} className="w-4 h-4" />
             {t("crash_analysis.technical_details")}
           </button>
 
@@ -400,15 +340,7 @@ export function CrashAnalysisModal({ result, profileId, onClose }: Props) {
                 value={result.classification}
               />
               <div className="flex flex-wrap gap-2 p-3">
-                <LinkRow
-                  icon="solar:document-text-linear"
-                  text={t("crash_analysis.open_log")}
-                  onClick={() =>
-                    openExternalUrl(`https://mclo.gs/${result.logId}`).catch(
-                      () => {},
-                    )
-                  }
-                />
+                <LogLinks logId={result.logId} openTextKey="crash_analysis.open_log" />
                 {result.wikiUrl && (
                   <LinkRow
                     icon="solar:book-2-linear"
@@ -431,11 +363,24 @@ function Fact({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
     <div className="flex gap-3 px-3 py-2">
-      <span className="shrink-0 w-16 text-xs uppercase tracking-wide text-white/40 font-sans pt-1">
-        {label}
-      </span>
+      <span className="shrink-0 w-16 text-xs uppercase tracking-wide text-white/40 font-sans pt-1">{label}</span>
       <span className="text-sm text-white/85 break-all font-sans">{value}</span>
     </div>
+  );
+}
+
+function LogLinks({ logId, openTextKey }: { logId: string; openTextKey: string }) {
+  const { t } = useTranslation();
+  const url = `https://mclo.gs/${logId}`;
+  const copy = () =>
+    writeText(url)
+      .then(() => toast.success(t("crash_analysis.toast.link_copied")))
+      .catch(() => toast.error(t("crash_analysis.toast.copy_failed")));
+  return (
+    <>
+      <LinkRow icon="solar:document-text-linear" text={t(openTextKey)} onClick={() => openExternalUrl(url).catch(() => {})} />
+      <LinkRow icon="solar:copy-linear" text={t("crash_analysis.copy_log_link")} onClick={copy} />
+    </>
   );
 }
 

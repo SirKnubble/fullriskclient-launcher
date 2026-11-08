@@ -52,19 +52,20 @@ export function look(r: CrashCheckResult): Look {
 // apply CTA is always green — signals "this fixes it"
 export const actionVariant = (_a: CrashAction): "success" => "success";
 
-export const actionIcon = (a: CrashAction): string =>
-  a.type === "resolve_conflict"
-    ? "solar:link-broken-minimalistic-bold"
-    : a.type === "enable_norisk_mod" || a.type === "enable_mod"
-      ? "solar:bolt-circle-bold"
-      : a.type === "disable_mod" || a.type === "disable_norisk_mod"
-        ? "solar:power-bold"
-        : a.type === "install_mod"
-          ? "solar:download-minimalistic-bold"
-          : "solar:refresh-bold";
+const ACTION_ICONS: Record<string, string> = {
+  resolve_conflict: "solar:link-broken-minimalistic-bold",
+  enable_norisk_mod: "solar:bolt-circle-bold",
+  enable_mod: "solar:bolt-circle-bold",
+  disable_mod: "solar:power-bold",
+  disable_norisk_mod: "solar:power-bold",
+  install_mod: "solar:download-minimalistic-bold",
+  switch_pack: "solar:box-bold",
+  repair_profile: "solar:sledgehammer-bold",
+};
 
-const conflictMods = (a: CrashAction): string =>
-  (a.targets?.length ? a.targets : [a.target]).join(" + ");
+export const actionIcon = (a: CrashAction): string => ACTION_ICONS[a.type] ?? "solar:refresh-bold";
+
+const conflictMods = (a: CrashAction): string => (a.targets?.length ? a.targets : [a.target]).join(" + ");
 
 // removal is destructive -> red; everything else carries the status accent
 export const actionColor = (a: CrashAction, accent: string): string =>
@@ -72,6 +73,7 @@ export const actionColor = (a: CrashAction, accent: string): string =>
 
 // backend ships facts; the launcher composes the localized button label
 export function actionLabel(a: CrashAction, t: TFunction): string {
+  if (a.source === "wiki" && a.label) return a.label;
   if (a.type === "resolve_conflict")
     return t("crash_analysis.action.resolve_conflict", {
       mods: conflictMods(a),
@@ -89,6 +91,8 @@ export function actionLabel(a: CrashAction, t: TFunction): string {
     return t("crash_analysis.action.install_mod", { mod: a.target, version });
   if (a.type === "disable_mod")
     return t("crash_analysis.action.disable_mod", { mod: a.target });
+  if (a.type === "switch_pack") return t("crash_analysis.action.switch_pack", { pack: a.target });
+  if (a.type === "repair_profile") return t("crash_analysis.action.repair_profile");
   return a.label ?? a.type;
 }
 
@@ -98,6 +102,7 @@ export function statusMessageText(
   t: TFunction,
 ): string | null {
   if (r.actions.length > 0) return null;
+  if (r.customMessage) return r.customMessage;
   if (r.status === "investigating")
     return t("crash_analysis.status.investigating");
   if (r.classification === "nrc-own" && !r.known)
@@ -144,5 +149,8 @@ export function summaryText(r: CrashCheckResult, t: TFunction): string | null {
     });
   if (primary?.type === "enable_mod")
     return t("crash_analysis.summary.enable_mod", { mod: primary.target });
+  if (primary?.type === "switch_pack") return t("crash_analysis.summary.switch_pack", { pack: primary.target });
+  if (primary?.type === "repair_profile")
+    return t("crash_analysis.summary.repair_profile", { mods: (primary.targets ?? [primary.target]).join(", ") });
   return r.summary;
 }

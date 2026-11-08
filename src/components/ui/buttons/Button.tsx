@@ -153,18 +153,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const getButtonSizeClasses = () => {
       switch (size) {
-        case "xs":
-          return "h-[36px] px-5 py-2 text-xs";
-        case "sm":
-          return "h-[42px] px-6 py-2 text-sm";
-        case "md":
-          return "h-[50px] px-8 py-2.5 text-sm";
-        case "lg":
-          return "h-[58px] px-10 py-3 text-base";
-        case "xl":
-          return "h-[66px] px-12 py-4 text-lg";
-        default:
-          return "h-[50px] px-8 py-2.5 text-sm";
+        case "xs": return "h-[36px] px-5 py-2 text-xs";
+        case "sm": return "h-[42px] px-6 py-2 text-sm";
+        case "md": return "h-[50px] px-8 py-2.5 text-sm";
+        case "lg": return "h-[58px] px-10 py-3 text-base";
+        case "xl": return "h-[66px] px-12 py-4 text-lg";
+        default: return "h-[50px] px-8 py-2.5 text-sm";
       }
     };
 
@@ -273,9 +267,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type="button"
         disabled={disabled}
         className={cn(
-          "relative overflow-hidden lowercase font-smallcaps transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
+          "relative overflow-hidden font-smallcaps transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2",
           isFullRiskStyle
-            ? "flex items-center justify-center gap-2 whitespace-nowrap"
+            ? "flex items-center justify-center gap-2 whitespace-nowrap lowercase"
             : "flex items-center justify-center gap-2 backdrop-blur-md whitespace-nowrap",
           radiusClass,
           sizeClasses,

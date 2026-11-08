@@ -35,6 +35,7 @@ const setMojangTraits = (account: MinecraftAccount | null) => {
 interface MinecraftAuthState {
   accounts: MinecraftAccount[];
   activeAccount: MinecraftAccount | null;
+  accountsLoaded: boolean;
   isLoading: boolean;
   error: string | null;
 
@@ -47,6 +48,7 @@ interface MinecraftAuthState {
 export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
   accounts: [],
   activeAccount: null,
+  accountsLoaded: false,
   isLoading: false,
   error: null,
 
@@ -63,6 +65,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
       set({
         accounts,
         activeAccount: fallbackActive,
+        accountsLoaded: true,
       });
 
       let activeAccount = fallbackActive;
@@ -91,6 +94,7 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
       set({
         error: i18n.t('auth.errors.load_accounts', { error: parseErrorMessage(error) }),
         isLoading: false,
+        accountsLoaded: true,
       });
       setMojangTraits(null);
     }
@@ -187,9 +191,12 @@ export const useMinecraftAuthStore = create<MinecraftAuthState>((set, get) => ({
         console.error("Failed to add account:", error);
         set({ error: i18n.t('auth.errors.add_account', { error: errorMessage }), isLoading: false });
       } else {
-        // Already handled by cancel button - ensure loading state is reset
+        // Closing the login window is a decision, not a fault. Storing it as an
+        // error left it sitting in state forever, and surfaces that render
+        // `error` before they check for "no account" (the Skins tab) got stuck
+        // showing "Account error" instead of the sign-in prompt.
         console.log("Account add cancelled by user.");
-        set({ isLoading: false, error: i18n.t('auth.errors.login_cancelled') });
+        set({ isLoading: false, error: null });
       }
     }
   },

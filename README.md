@@ -3,6 +3,7 @@
 [![Latest Build](https://img.shields.io/github/actions/workflow/status/SirKnubble/fullriskclient-launcher/build.yml?event=push&label=latest%20release%20build)](https://github.com/SirKnubble/fullriskclient-launcher/actions/workflows/build.yml)
 [![Latest Release](https://img.shields.io/github/v/release/SirKnubble/fullriskclient-launcher?label=latest%20release)](https://github.com/SirKnubble/fullriskclient-launcher/releases/latest)
 [![Total Downloads](https://img.shields.io/github/downloads/sirknubble/fullriskclient-launcher/total)](https://img.shields.io/github/downloads/sirknubble/fullriskclient-launcher/total)
+If you notice any bugs or missing features, you can let us know by opening an issue [here](https://norisk.gg/issues).
 
 This Repository includes all bugfixes and suggested features of NoRiskClient/issues by @SirKnubble, aswell as the custom servers feature & FullRisk Theme in Launcher Settings, which is based on an overhaul of the original NoRiskClient look by @TimLohrer.
 

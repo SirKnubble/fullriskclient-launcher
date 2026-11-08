@@ -27,6 +27,11 @@ import type {
   CrashReportContentAvailablePayload,
 } from "../../types/events";
 import { EventType } from "../../types/events";
+import i18n from '../../i18n/i18n';
+import { Checkbox } from "../ui/Checkbox";
+import type { ProcessMetadata } from "../../types/processState";
+import type { CrashCheckResult } from "../../types/crash-analysis";
+import { logWarn } from "../../utils/logging-utils";
 
 export function GlobalCrashReportModal() {
   const { t } = useTranslation();
@@ -40,6 +45,7 @@ export function GlobalCrashReportModal() {
     useState<string | undefined>(undefined);
   const [isListeningForCrashContent, setIsListeningForCrashContent] =
     useState(false);
+  const [analyzeWithNoRisk, setAnalyzeWithNoRisk] = useState(true);
   const hasFetchedCrashReportRef = React.useRef(false);
 
   useEffect(() => {
@@ -54,15 +60,13 @@ export function GlobalCrashReportModal() {
               setProfileName(details.name);
             }
           })
-          .catch((err) => {
-            console.error(
-              `Failed to fetch profile details for ${crashData.profile_id}:`,
-              err,
-            );
+          .catch(err => {
+            logError(`Failed to fetch profile details for ${crashData.profile_id}: ${err}`);
           });
       }
       setMclogsUrl(null);
       setIsProcessing(false);
+      setAnalyzeWithNoRisk(true);
       setDisplayedCrashReportContent(crashData.crash_report_content);
       setIsListeningForCrashContent(false);
       hasFetchedCrashReportRef.current = false; // Reset fetch flag for new crash
@@ -106,7 +110,6 @@ export function GlobalCrashReportModal() {
         if (!foundLogWindow) {
           // Open main log window with crashed process info
           try {
-            console.log("Opening minecraft log window for crashed process");
             const processMetadata = crashData.process_metadata;
             if (processMetadata) {
               // Pass crashed process as JSON so log window can show it
@@ -123,7 +126,7 @@ export function GlobalCrashReportModal() {
               });
             }
           } catch (e) {
-            console.error("Failed to open log window for crash:", e);
+            logError(`Failed to open log window for crash: ${e}`);
           }
         }
 
@@ -131,13 +134,12 @@ export function GlobalCrashReportModal() {
         try {
           const mainWindowInstance = await Window.getByLabel("main");
           if (mainWindowInstance) {
-            console.log("Focusing main application window.");
             await mainWindowInstance.show();
             await mainWindowInstance.unminimize();
             await mainWindowInstance.setFocus();
           }
         } catch (e) {
-          console.error("Error getting or focusing main window:", e);
+          logError(`Error getting or focusing main window: ${e}`);
         }
       }
     };
@@ -163,7 +165,6 @@ export function GlobalCrashReportModal() {
       // Mark as fetched to prevent re-runs
       hasFetchedCrashReportRef.current = true;
       setIsListeningForCrashContent(true);
-
       console.log(
         `Setting up crash report handling for profile ${crashData.profile_id}, process ${crashData.process_id}`,
       );
@@ -204,10 +205,7 @@ export function GlobalCrashReportModal() {
           `Event listener registered for process ${crashData.process_id}`,
         );
       } catch (error) {
-        console.error(
-          "Failed to set up listener for CrashReportContentAvailable:",
-          error,
-        );
+        logError(`Failed to set up listener for CrashReportContentAvailable: ${error}`);
       }
 
       // SCHRITT 2: Warte 1 Sekunde (gibt der Datei Zeit sich zu erstellen)
@@ -225,16 +223,13 @@ export function GlobalCrashReportModal() {
             crashData.process_metadata?.start_time,
           );
           if (fetchedContent && !contentReceived) {
-            console.log(`Successfully fetched crash report via fallback`);
             contentReceived = true;
             setDisplayedCrashReportContent(fetchedContent);
             toast.success(t("crash_modal.toast.report_loaded"));
             setIsListeningForCrashContent(false);
-          } else if (!fetchedContent) {
-            console.log(`No crash report found yet, listener remains active`);
           }
         } catch (e) {
-          console.error("Failed to fetch crash report as fallback:", e);
+          logError(`Failed to fetch crash report as fallback: ${e}`);
         }
       }
     };
@@ -243,7 +238,6 @@ export function GlobalCrashReportModal() {
 
     return () => {
       if (unlistenFn) {
-        console.log("Cleaning up CrashReportContentAvailable listener.");
         unlistenFn();
       }
     };
@@ -253,103 +247,97 @@ export function GlobalCrashReportModal() {
     return null;
   }
 
+  const shareLogLink = async (url: string) => {
+    try { await writeText(url); } catch {}
+    try { await openExternalUrl(url); } catch {}
+  };
+
+  const buildLogContent = async (profileId: string, metadata: ProcessMetadata): Promise<string> => {
+    let crashReport = displayedCrashReportContent;
+    if (crashData?.process_id && !crashReport) {
+      setStatusText(t('crash_modal.toast.fetching_before_upload'));
+      try {
+        crashReport = (await fetchCrashReport(profileId, crashData.process_id, metadata.start_time)) ?? undefined;
+        if (crashReport) setDisplayedCrashReportContent(crashReport);
+      } catch (e) {
+        logWarn(`Failed to fetch crash report before upload, continuing with existing data: ${e}`);
+      }
+    }
+
+    setStatusText(t('crash_modal.toast.fetching_log'));
+    const gameLog = metadata.log_session_id
+      ? (await getProcessLogCursor(metadata.log_session_id, 0)).output
+      : "";
+
+    const content = crashReport?.trim()
+      ? `--- CRASH REPORT ---
+${crashReport}
+
+--- GAME LOG ---
+${gameLog}`
+      : gameLog;
+
+    if (!content.trim()) {
+      throw new Error(t('crash_modal.error.no_log_content'));
+    }
+    return content;
+  };
+
+  const ensureUploaded = async (profileId: string, metadata: ProcessMetadata): Promise<string> => {
+    if (mclogsUrl) return mclogsUrl;
+    const content = await buildLogContent(profileId, metadata);
+    setStatusText(t('crash_modal.toast.uploading_mclogs'));
+    const url = await uploadLogToMclogs(content);
+    setMclogsUrl(url);
+    return url;
+  };
+
+  const analyze = async (url: string, profileId: string, metadata: ProcessMetadata) => {
+    setStatusText(t('crash_modal.toast.analyzing'));
+    const payload: CrashlogDto = { mcLogsUrl: url, metadata, locale: i18n.language };
+    let result: CrashCheckResult;
+    try {
+      result = await checkCrashLog(payload);
+    } catch (e) {
+      logError(`Crash analysis failed, falling back to log link: ${e}`);
+      toast.error(t('crash_modal.toast.analyze_failed'));
+      await shareLogLink(url);
+      return;
+    }
+    closeCrashModal();
+    showModal(
+      'crash-analysis',
+      <CrashAnalysisModal
+        result={result}
+        profileId={profileId}
+        onClose={() => hideModal('crash-analysis')}
+      />,
+    );
+  };
+
   const handlePrimaryAction = async () => {
-    if (!crashData?.profile_id || !crashData?.process_metadata) {
-      toast.error(t("crash_modal.toast.missing_data"));
-      console.error(
-        "Action error: Missing profile_id or process_metadata",
-        crashData,
-      );
+    const profileId = crashData?.profile_id;
+    const metadata = crashData?.process_metadata;
+    if (!profileId || !metadata) {
+      toast.error(t('crash_modal.toast.missing_data'));
+      logError(`Action error: Missing profile_id or process_metadata for process ${crashData?.process_id}`);
       return;
     }
 
     setIsProcessing(true);
-    setStatusText(t("crash_modal.toast.processing"));
-    let currentMclogsUrl = mclogsUrl;
-
+    setStatusText(t('crash_modal.toast.processing'));
     try {
-      // NEUE LOGIK: Vor dem Upload nochmal den neuesten Crash-Report holen
-      if (crashData.process_id && !displayedCrashReportContent) {
-        setStatusText(t("crash_modal.toast.fetching_before_upload"));
-        try {
-          const fetchedContent = await fetchCrashReport(
-            crashData.profile_id,
-            crashData.process_id,
-            crashData.process_metadata?.start_time,
-          );
-          if (fetchedContent) {
-            console.log("Fetched fresh crash report before upload");
-            setDisplayedCrashReportContent(fetchedContent);
-          }
-        } catch (e) {
-          console.warn(
-            "Failed to fetch crash report before upload, continuing with existing data:",
-            e,
-          );
-        }
-      }
-
-      if (!currentMclogsUrl) {
-        setStatusText(t("crash_modal.toast.fetching_log"));
-        const sessionId = crashData.process_metadata?.log_session_id;
-        const logContent = sessionId
-          ? (await getProcessLogCursor(sessionId, 0)).output
-          : "";
-
-        let combinedLogContent = logContent;
-        if (
-          displayedCrashReportContent &&
-          displayedCrashReportContent.trim() !== ""
-        ) {
-          combinedLogContent = `--- CRASH REPORT ---\n${displayedCrashReportContent}\n\n--- GAME LOG ---\n${logContent}`;
-          setStatusText(t("crash_modal.toast.preparing_combined"));
-        }
-
-        if (!combinedLogContent || combinedLogContent.trim() === "") {
-          throw new Error(t("crash_modal.error.no_log_content"));
-        }
-
-        setStatusText(t("crash_modal.toast.uploading_mclogs"));
-        currentMclogsUrl = await uploadLogToMclogs(combinedLogContent);
-        setMclogsUrl(currentMclogsUrl);
-      }
-
-      if (currentMclogsUrl) {
-        const crashReportPayload: CrashlogDto = {
-          mcLogsUrl: currentMclogsUrl,
-          metadata: crashData.process_metadata!,
-        };
-
-        // single call: the discord-bot reports the crash to staff AND returns the verdict
-        setStatusText(t("crash_modal.toast.analyzing"));
-        try {
-          const result = await checkCrashLog(crashReportPayload);
-          closeCrashModal();
-          showModal(
-            "crash-analysis",
-            <CrashAnalysisModal
-              result={result}
-              profileId={crashData?.profile_id}
-              onClose={() => hideModal("crash-analysis")}
-            />,
-          );
-        } catch (analyzeError) {
-          // backend offline / analysis failed → graceful fallback: copy + open the raw log
-          logError(
-            `Crash analysis failed, falling back to log link: ${analyzeError}`,
-          );
-          try {
-            await writeText(currentMclogsUrl);
-          } catch {}
-          toast.error(t("crash_modal.toast.analyze_failed"));
-          try {
-            await openExternalUrl(currentMclogsUrl);
-          } catch {}
-        }
+      const url = await ensureUploaded(profileId, metadata);
+      if (analyzeWithNoRisk) {
+        await analyze(url, profileId, metadata);
+      } else {
+        toast.success(t('crash_modal.toast.url_copied'));
+        await shareLogLink(url);
+        closeCrashModal();
       }
     } catch (error: any) {
-      toast.error(error.message || t("crash_modal.toast.unexpected_error"));
-      console.error("Crash report processing error:", error);
+      toast.error(error.message || t('crash_modal.toast.unexpected_error'));
+      logError(`Crash report processing error: ${error}`);
     } finally {
       setIsProcessing(false);
       setStatusText(null);
@@ -358,15 +346,14 @@ export function GlobalCrashReportModal() {
 
   const handleContactSupport = async () => {
     try {
-      await openExternalUrl("https://discord.norisk.gg");
-      toast.success(t("crash_modal.toast.discord_opened"));
+      await openExternalUrl('https://discord.norisk.gg');
+      toast.success(t('crash_modal.toast.discord_opened'));
     } catch (error) {
-      console.error("Failed to open Discord URL:", error);
-      toast.error(t("crash_modal.toast.discord_failed"));
+      logError(`Failed to open Discord URL: ${error}`);
+      toast.error(t('crash_modal.toast.discord_failed'));
     }
   };
-
-  const primaryButtonText = t("crash_modal.button.analyze");
+  const primaryButtonText = analyzeWithNoRisk ? t('crash_modal.button.analyze') : t('crash_modal.button.upload_only');
 
   const modalFooter = (
     <div className="flex gap-3 w-full">
@@ -374,20 +361,22 @@ export function GlobalCrashReportModal() {
         <Button
           onClick={handlePrimaryAction}
           variant="secondary"
-          icon={<Icon icon="solar:shield-check-bold" className="w-5 h-5" />}
+          icon={<Icon icon={analyzeWithNoRisk ? "solar:shield-check-bold" : "solar:cloud-upload-bold"} className="w-5 h-5" />}
           disabled={isProcessing || !crashData?.process_metadata}
           className="w-full justify-center whitespace-nowrap"
         >
           {primaryButtonText}
         </Button>
         {/* BETA badge — corner overlay like the rollout blitz in MainLaunchButton; tooltip on hover */}
-        <div className="absolute -top-2 -left-2 z-10 pointer-events-auto">
-          <StaticTooltip content={t("crash_modal.tooltip.beta")} delay={0}>
+        {analyzeWithNoRisk && (
+          <div className="absolute -top-2 -left-2 z-10 pointer-events-auto">
+            <StaticTooltip content={t("crash_modal.tooltip.beta")} delay={0}>
             <span className="rounded border border-amber-400/50 bg-amber-400/30 px-1.5 py-0.5 text-[10px] font-minecraft uppercase leading-none text-amber-200 cursor-help shadow-md">
               beta
             </span>
           </StaticTooltip>
         </div>
+        )}
       </div>
       <Button
         onClick={handleContactSupport}
@@ -441,6 +430,17 @@ export function GlobalCrashReportModal() {
             <p className="pt-4 text-base font-smallcaps text-red-400">
               {t("crash_modal.exit_code")}: {crashData.exit_code ?? "N/A"}
             </p>
+            <div className="pt-4 space-y-3 text-left">
+              <p className="text-sm font-minecraft text-gray-400">
+                {t("crash_modal.upload_notice")}
+              </p>
+              <Checkbox
+                checked={analyzeWithNoRisk}
+                onChange={(e) => setAnalyzeWithNoRisk(e.target.checked)}
+                label={t("crash_modal.report_checkbox")}
+                size="sm"
+              />
+            </div>
           </>
         )}
       </div>

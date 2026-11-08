@@ -36,6 +36,7 @@ preloadIcons([
   "solar:copy-linear",
   "solar:upload-linear",
   "solar:menu-dots-bold",
+  "solar:refresh-circle-bold",
   "solar:clock-circle-bold",
   "solar:hourglass-bold",
   "solar:ssd-round-bold",
@@ -127,15 +128,8 @@ const Stat: React.FC<{
       className={`w-5 h-5 flex-shrink-0 ${muted ? "text-white/25" : "text-white/60"}`}
     />
     <div className="flex flex-col leading-tight min-w-0">
-      <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft">
-        {label}
-      </span>
-      <span
-        className={`text-sm font-minecraft truncate ${muted ? "text-white/40" : "text-white/95"}`}
-        title={value}
-      >
-        {value}
-      </span>
+      <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft">{label}</span>
+      <span className={`text-sm font-minecraft truncate ${muted ? "text-white/40" : "text-white/95"}`} title={value}>{value}</span>
     </div>
   </div>
 );
@@ -210,7 +204,7 @@ export function ProfileDetailViewV3({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const getGenericDisplayFileName = useCallback(
-    (item: LocalContentItem) => item.filename,
+    (item: LocalContentItem) => item.modrinth_info?.name || item.curseforge_info?.name || item.filename,
     [],
   );
 
@@ -437,10 +431,7 @@ export function ProfileDetailViewV3({
     (async () => {
       try {
         const versions = await UnifiedService.getModpackVersions(modpackSource);
-        if (modpackSourceKey)
-          useContentCacheStore
-            .getState()
-            .setModpackVersions(modpackSourceKey, versions);
+        if (modpackSourceKey) useContentCacheStore.getState().setModpackVersions(modpackSourceKey, versions);
         if (!cancelled) setModpackVersions(versions);
       } catch (err) {
         console.error("[V3] Failed to refresh modpack versions:", err);
@@ -518,6 +509,13 @@ export function ProfileDetailViewV3({
         </button>
 
         <div className="flex items-center gap-1 relative">
+          <button
+            onClick={() => navigate("/sync-packs", { state: { fromProfileId: currentProfile.id } })}
+            className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 text-white/50 hover:text-white transition-colors"
+          >
+            <span className="text-xs font-minecraft uppercase tracking-wider">{t('syncPacks.title')}</span>
+          </button>
+          <div className="w-px h-5 bg-white/10 mx-1" />
           <Tooltip content={t("profiles.openFolder")} position="top" delay={0}>
             <button
               onClick={handleOpenFolder}
@@ -554,7 +552,7 @@ export function ProfileDetailViewV3({
           </Tooltip>
 
           <SettingsContextMenu
-            profile={currentProfile}
+            target={currentProfile}
             isOpen={isContextMenuOpen}
             position={contextMenuPosition}
             items={contextMenuItems}
@@ -821,18 +819,12 @@ export function ProfileDetailViewV3({
         <div className="flex items-center gap-2 flex-wrap mt-5">
           {isLaunching && statusMessage ? (
             <div className="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 min-w-[160px] animate-in fade-in duration-200">
-              <Icon
-                icon="svg-spinners:ring-resize"
-                className="w-5 h-5 text-emerald-300 flex-shrink-0"
-              />
+              <Icon icon="svg-spinners:ring-resize" className="w-5 h-5 text-emerald-300 flex-shrink-0" />
               <div className="flex flex-col leading-tight min-w-0">
                 <span className="text-xs uppercase tracking-wider text-emerald-300/70 font-minecraft">
                   {t("profiles.card.starting")}
                 </span>
-                <span
-                  className="text-sm text-emerald-100/95 font-minecraft truncate"
-                  title={statusMessage}
-                >
+                <span className="text-sm text-emerald-100/95 font-minecraft truncate" title={statusMessage}>
                   {statusMessage}
                 </span>
               </div>

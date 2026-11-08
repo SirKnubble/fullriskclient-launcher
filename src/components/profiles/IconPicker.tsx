@@ -40,8 +40,7 @@ export function handleIconImgLoad(e: React.SyntheticEvent<HTMLImageElement>) {
   // Assigned definitively (with defaults) so a reused <img> element resets
   // correctly when its src changes from e.g. a block texture to a photo.
   img.style.imageRendering = img.naturalWidth <= 64 ? "pixelated" : "auto";
-  img.style.objectPosition =
-    img.naturalHeight > img.naturalWidth ? "top" : "center";
+  img.style.objectPosition = img.naturalHeight > img.naturalWidth ? "top" : "center";
 }
 
 export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
@@ -60,8 +59,7 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
   const isSelected = (icon: ChosenIcon): boolean => {
     if (!selected) return false;
     if ("url" in icon && "url" in selected) return icon.url === selected.url;
-    if ("path" in icon && "path" in selected)
-      return icon.path === selected.path;
+    if ("path" in icon && "path" in selected) return icon.path === selected.path;
     return false;
   };
 
@@ -79,8 +77,7 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
         addCustomFile(selectedPath);
       }
     } catch (err) {
-      if (err instanceof Error && err.message.includes("Dialog cancelled"))
-        return;
+      if (err instanceof Error && err.message.includes("Dialog cancelled")) return;
       console.error("Failed to select custom icon file:", err);
       toast.error(t("profiles.errors.image_dialog_failed"));
     }
@@ -191,10 +188,7 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
               onClick={handleUpload}
               className="relative aspect-square rounded-lg border-2 border-dashed border-white/15 hover:border-white/35 bg-black/20 flex flex-col items-center justify-center gap-1 transition-colors"
             >
-              <Icon
-                icon="solar:upload-bold"
-                className="w-6 h-6 text-white/60"
-              />
+              <Icon icon="solar:upload-bold" className="w-6 h-6 text-white/60" />
               <span className="font-minecraft text-[10px] text-white/50 lowercase">
                 {t("profiles.iconPicker.uploadFile")}
               </span>
@@ -217,8 +211,7 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
             {customIcons.map((ci) => {
               const chosen: ChosenIcon =
                 ci.kind === "file" ? { path: ci.value } : { url: ci.value };
-              const src =
-                ci.kind === "file" ? convertFileSrc(ci.value) : ci.value;
+              const src = ci.kind === "file" ? convertFileSrc(ci.value) : ci.value;
               const active = isSelected(chosen);
               return (
                 <div
@@ -245,10 +238,7 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
                     onClick={() => removeCustomIcon(ci.id)}
                     className="absolute top-0.5 right-0.5 w-5 h-5 flex items-center justify-center rounded bg-black/70 text-white/80 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    <Icon
-                      icon="solar:trash-bin-trash-bold"
-                      className="w-3.5 h-3.5"
-                    />
+                    <Icon icon="solar:trash-bin-trash-bold" className="w-3.5 h-3.5" />
                   </button>
                 </div>
               );

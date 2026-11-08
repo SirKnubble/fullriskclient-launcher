@@ -437,7 +437,7 @@ export function NewsSection({ className }: NewsSectionProps) {
                     rgba(21, 21, 27, ${fadeStrength * 0.0065}) 26%,
                     rgba(18, 18, 24, ${fadeStrength * 0.0045}) 52%,
                     rgba(15, 15, 20, ${fadeStrength * 0.0025}) 76%,
-                    rgba(15, 15, 20, 0) 100%)`,
+                    rgba(15, 15, 20, 0) 100%                    )`,
               }}
             />
           </div>

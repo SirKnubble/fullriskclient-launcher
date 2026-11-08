@@ -21,18 +21,13 @@ export function usePlayerAvatar({
   size = 64,
   overlay = true,
 }: UsePlayerAvatarOptions): string | null {
-  const activeAccountId = useMinecraftAuthStore(
-    (state) => state.activeAccount?.id,
-  );
+  const activeAccountId = useMinecraftAuthStore((state) => state.activeAccount?.id);
   const skinRevision = useSkinStore((state) => state.skinRevision);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
-    uuid ? (avatarUrlCache.get(cacheKey(uuid, size, overlay)) ?? null) : null,
+    uuid ? avatarUrlCache.get(cacheKey(uuid, size, overlay)) ?? null : null,
   );
 
-  const isSelf =
-    !!uuid &&
-    !!activeAccountId &&
-    normalize(uuid) === normalize(activeAccountId);
+  const isSelf = !!uuid && !!activeAccountId && normalize(uuid) === normalize(activeAccountId);
 
   useEffect(() => {
     if (!uuid) {
@@ -47,11 +42,7 @@ export function usePlayerAvatar({
     let cancelled = false;
     const load = async () => {
       try {
-        const localPath = await MinecraftSkinService.getFaceAvatar(
-          uuid,
-          size,
-          overlay,
-        );
+        const localPath = await MinecraftSkinService.getFaceAvatar(uuid, size, overlay);
         const url = convertFileSrc(localPath);
         avatarUrlCache.set(key, url);
         if (!cancelled) setAvatarUrl(url);

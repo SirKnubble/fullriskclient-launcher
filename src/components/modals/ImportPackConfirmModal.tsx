@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -9,34 +9,27 @@ import { Modal } from "../ui/Modal";
 import { Button } from "../ui/buttons/Button";
 import { SearchStyleInput } from "../ui/Input";
 import { Checkbox } from "../ui/Checkbox";
+import { GroupPicker } from "../ui/GroupPicker";
+import { ImportPreviewChips } from "../profiles/import/ImportPreviewChips";
+import {
+  ImportSecurityPanel,
+  ImportTrustWarning,
+} from "../profiles/import/ImportSecurityPanel";
+import { ImportRemovedList } from "../profiles/import/ImportRemovedList";
 import { useImportConfirmStore } from "../../store/import-confirm-store";
-import { useProfileStore } from "../../store/profile-store";
-import { useThemeStore } from "../../store/useThemeStore";
+import { useKnownProfileGroups } from "../../hooks/useKnownProfileGroups";
 import { runPackImport } from "../../utils/pack-import";
 import type { ImportPackPreview } from "../../types/importPreview";
+import { formatBytes } from "../../utils/format-relative-time";
+import { truncateEntry } from "../profiles/import/ImportSecurityPanel";
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
-function truncate(value: string, max = 90): string {
-  return value.length > max ? `${value.slice(0, max)}…` : value;
-}
+const truncate = (value: string, maxLength: number): string =>
+  value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
 
 export function ImportPackConfirmModal() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const accentColor = useThemeStore((state) => state.accentColor);
   const { isOpen, isLoading, preview, filePath, close } = useImportConfirmStore();
-  const profiles = useProfileStore((state) => state.profiles);
   const [isImporting, setIsImporting] = useState(false);
   const [name, setName] = useState("");
   const [group, setGroup] = useState("");
@@ -55,19 +48,7 @@ export function ImportPackConfirmModal() {
     }
   }, [isOpen, preview]);
 
-  const removed = useMemo(
-    () => (preview ? buildRemovedList(preview, t) : []),
-    [preview, t],
-  );
-
-  const knownGroups = useMemo(() => {
-    const groups = new Set<string>();
-    for (const profile of profiles) {
-      if (profile.group) groups.add(profile.group);
-    }
-    if (preview?.group) groups.add(preview.group);
-    return [...groups].sort((a, b) => a.localeCompare(b));
-  }, [profiles, preview?.group]);
+  const knownGroups = useKnownProfileGroups([preview?.group]);
 
   if (!isOpen) return null;
 
@@ -92,7 +73,7 @@ export function ImportPackConfirmModal() {
   };
 
   const renderFooter = () => (
-    <div className="flex justify-end gap-3">
+    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
       <Button variant="secondary" onClick={close} size="md" disabled={isImporting}>
         {t("common.cancel")}
       </Button>
@@ -113,9 +94,13 @@ export function ImportPackConfirmModal() {
       title={t("profiles.import.review_title")}
       titleSubtitle={
         preview ? (
-          <span className="text-sm text-white/45 font-minecraft tracking-wide">
-            {packSubtitle(preview, t)}
-          </span>
+          <ImportPreviewChips
+            leadLabel={preview.fileName}
+            gameVersion={preview.gameVersion}
+            loader={preview.loader}
+            modCount={preview.modCount}
+            sizeBytes={preview.fileSize}
+          />
         ) : undefined
       }
       onClose={close}
@@ -147,13 +132,7 @@ export function ImportPackConfirmModal() {
                 <label className="block text-lg font-smallcaps text-white mb-2">
                   {t("profiles.import.field_group")}
                 </label>
-                <GroupPicker
-                  value={group}
-                  onChange={setGroup}
-                  options={knownGroups}
-                  accentColor={accentColor.value}
-                  t={t}
-                />
+                <GroupPicker value={group} onChange={setGroup} options={knownGroups} />
               </div>
             </div>
 
@@ -164,41 +143,15 @@ export function ImportPackConfirmModal() {
               size="lg"
             />
 
-            <div className="flex items-start gap-3 rounded-md border-2 border-yellow-500/40 bg-yellow-500/10 p-3">
-              <Icon
-                icon="solar:shield-warning-bold"
-                className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5"
-              />
-              <p className="text-base text-white/85 font-minecraft tracking-wide">
-                {t("profiles.import.trust_warning")}
-              </p>
-            </div>
+            <ImportTrustWarning />
 
-            {hasProvenanceFindings(preview) && (
-              <UnknownContentNotice preview={preview} t={t} />
-            )}
+            <ImportSecurityPanel
+              security={preview.security}
+              provenance={preview.provenance}
+              executableContent={preview.executableContent}
+            />
 
-            {removed.length > 0 && (
-              <div>
-                <h3 className="text-base text-white font-smallcaps mb-2 select-none">
-                  {t("profiles.import.removed_heading")}
-                </h3>
-                <ul className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
-                  {removed.map((entry, index) => (
-                    <li
-                      key={`${entry}-${index}`}
-                      className="flex items-start gap-2 text-base text-white/70 font-minecraft tracking-wide"
-                    >
-                      <Icon
-                        icon="solar:close-circle-bold"
-                        className="w-4 h-4 text-red-400 shrink-0 mt-1"
-                      />
-                      <span>{entry}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <ImportRemovedList security={preview.security} />
           </>
         )}
       </div>
@@ -206,7 +159,7 @@ export function ImportPackConfirmModal() {
   );
 }
 
-function GroupPicker({
+function LegacyGroupPicker({
   value,
   onChange,
   options,
@@ -315,7 +268,7 @@ function FileList({ paths }: { paths: string[] }) {
           key={`${path}-${index}`}
           className="text-sm text-white/70 font-minecraft tracking-wide break-all"
         >
-          {truncate(path, 120)}
+          {truncateEntry(path, 120)}
         </li>
       ))}
     </ul>
@@ -410,7 +363,7 @@ function UnknownContentNotice({
                   key={`${entry.name}-${index}`}
                   className="text-sm text-white/70 font-minecraft tracking-wide break-all"
                 >
-                  {truncate(entry.name, 120)}
+                  {truncateEntry(entry.name, 120)}
                   <span className="text-white/35">
                     {" - "}
                     {t(`profiles.import.unknown_reason_${entry.reason}`)}
@@ -454,7 +407,7 @@ function buildRemovedList(
   }
   for (const mod of report.rejectedMods) {
     removed.push(
-      t("profiles.import.removed_mod", { name: truncate(mod.displayName, 120) }),
+      t("profiles.import.removed_mod", { name: truncateEntry(mod.displayName, 120) }),
     );
   }
   for (const flag of report.strippedProfileFlags) {

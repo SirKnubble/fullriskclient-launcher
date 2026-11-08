@@ -1,5 +1,6 @@
-use super::*;
-use log::Level;
+use super::{RedactingEncoder, LOG_PATTERN};
+use log::{Level, Record};
+use log4rs::encode::writer::simple::SimpleWriter;
 
 #[test]
 fn encoder_masks_the_rendered_line() {

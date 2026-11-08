@@ -4,27 +4,14 @@
     windows_subsystem = "windows"
 )]
 
-#[macro_use]
-mod utils;
-mod cli;
-mod commands;
-mod config;
-mod error;
-mod friends;
-pub mod integrations;
-mod logging;
-mod minecraft;
-mod state;
+use noriskclient_launcher_v3_lib::*;
+use noriskclient_launcher_v3_lib::{cli, commands, logging, state, utils};
 
-use crate::integrations::norisk_packs;
-use crate::integrations::norisk_versions;
-use log::{debug, error, info};
-use std::path::PathBuf;
+use log::{error, info, trace};
 use std::sync::Arc;
 use tauri::Listener;
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
-use utils::debug_utils;
 use utils::updater_utils;
 
 use crate::commands::analytics_command::track_analytics_event;
@@ -37,9 +24,12 @@ use crate::commands::process_command::{
 use commands::minecraft_auth_command::{
     begin_login, cancel_login, get_accounts, get_active_account, is_flatpak, remove_account, set_active_account
 };
+use commands::twitch_command::{
+    twitch_available_scopes, twitch_begin_device_login, twitch_cancel_login, twitch_is_linked,
+    twitch_unlink,
+};
 use commands::minecraft_command::{
     add_skin,
-    add_skin_locally,
     apply_skin_from_base64,
     get_active_skin,
     // Local skin database commands
@@ -74,7 +64,9 @@ use commands::profile_command::{
     launch_profile, list_profile_backups, list_profile_screenshots, list_profiles, open_profile_folder,
     open_profile_latest_log, preview_import_pack, refresh_norisk_packs, refresh_standard_versions,
     repair_profile,
-    resolve_loader_version, restore_default_profiles, restore_profile_backup, search_profiles, set_custom_mod_enabled, set_norisk_mod_status,
+    get_profile_store_status, reimport_profiles_from_legacy_json,
+    resolve_loader_version, restore_default_profiles, restore_profile_backup, search_profiles,
+    set_custom_mod_enabled, set_norisk_mod_status,
     set_profile_mod_enabled, update_datapack_from_modrinth, update_modrinth_mod_version,
     update_profile, update_resourcepack_from_modrinth, update_shaderpack_from_modrinth,
 };
@@ -116,6 +108,7 @@ use commands::file_command::{
 
 // Import config commands
 use commands::config_commands::{get_app_version, get_launcher_config, set_launcher_config};
+use commands::legal_commands::{acknowledge_legal_documents, acknowledge_legal_notice, get_legal_status};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -131,8 +124,12 @@ use commands::cape_command::{
     get_capes_by_hashes, get_owned_capes_list,
 };
 
-use commands::cosmetic_command::{get_equipped_cosmetics, get_random_local_emote};
-use commands::icon_command::{get_active_creator_code, get_selected_player_icon};
+use commands::cosmetic_command::{
+    get_equipped_cosmetics, get_equipped_cosmetics_cached, get_random_local_emote,
+};
+use commands::icon_command::{
+    get_active_creator_code, get_selected_player_icon, get_selected_player_icon_cached,
+};
 
 // Import vanilla cape commands
 use commands::vanilla_cape_command::{
@@ -149,7 +146,10 @@ use commands::nrc_commands::{check_update_available_command, download_and_instal
 // Import Content commands
 use commands::content_command::{
     bulk_toggle_mod_updates, install_content_to_profile, install_local_content_to_profile,
-    switch_content_version, toggle_content_from_profile, toggle_mod_updates,
+    switch_content_version, toggle_content_from_profile, toggle_contents_from_profile,
+    update_contents_from_profile,
+    uninstall_contents_from_profile,
+    toggle_mod_updates,
     uninstall_content_from_profile,
 };
 
@@ -171,6 +171,9 @@ use commands::friends_command::{
 
 #[tokio::main]
 async fn main() {
+    #[cfg(target_os = "linux")]
+    std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
+
     if let Err(e) = logging::setup_logging().await {
         eprintln!("FEHLER: Logging konnte nicht initialisiert werden: {}", e);
     }
@@ -191,7 +194,22 @@ let default_panic_hook = std::panic::take_hook();
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            info!("SingleInstance plugin: Second instance triggered with args: {:?}", argv);
+            let logged_args: Vec<String> = argv
+                .iter()
+                .map(|a| match url::Url::parse(a) {
+                    Ok(u) if u.scheme() == "norisk" => {
+                        format!("norisk://{}{} (query hidden)", u.host_str().unwrap_or_default(), u.path())
+                    }
+                    _ => a.clone(),
+                })
+                .collect();
+            info!("SingleInstance plugin: Second instance triggered with args: {:?}", logged_args);
+
+            // If the second invocation carried a CLI subcommand we recognize,
+            // service it instead of bringing the window to the front.
+            if cli::dispatch_hot_start(app, argv.clone()) {
+                return;
+            }
 
             // If the second invocation carried a CLI subcommand we recognize,
             // service it instead of bringing the window to the front.
@@ -331,24 +349,22 @@ let default_panic_hook = std::panic::take_hook();
                 info!("Deep link schemes registered successfully.");
             }
 
-            // Handle deep links received while app is running
+            app.manage(utils::deep_link_utils::PendingDeepLinks::default());
+
             let deep_link_app_handle = app_handle.clone();
             app.deep_link().on_open_url(move |event| {
                 let handle = deep_link_app_handle.clone();
                 let urls = event.urls();
-                info!("Deep link received: {:?}", urls);
+                info!("Deep link received ({} URL(s))", urls.len());
                 tauri::async_runtime::spawn(async move {
                     utils::deep_link_utils::handle_deep_link(&handle, urls).await;
                 });
             });
 
-            // Handle cold-start deep links (app was launched via deep link)
             if let Ok(Some(urls)) = app.deep_link().get_current() {
-                info!("Cold-start deep link detected: {:?}", urls);
+                info!("Cold-start deep link detected ({} URL(s))", urls.len());
                 let cold_start_handle = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
-                    // Small delay to ensure state initialization has started
-                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
                     utils::deep_link_utils::handle_deep_link(&cold_start_handle, urls).await;
                 });
             }
@@ -374,7 +390,7 @@ let default_panic_hook = std::panic::take_hook();
                 // --- Create Updater Window (but keep hidden initially) ---
                 let updater_window = match updater_utils::create_updater_window(&state_init_app_handle).await {
                     Ok(win) => {
-                        info!("Updater window created successfully (initially hidden).");
+                        trace!("Updater window created successfully (initially hidden).");
                         Some(win)
                     }
                     Err(e) => {
@@ -386,7 +402,7 @@ let default_panic_hook = std::panic::take_hook();
                 // --- State Initialization ---
                 info!("Initiating state initialization...");
                 if let Err(e) = state::state_manager::State::init(Arc::new(state_init_app_handle.clone())).await {
-                    error!("CRITICAL: Failed to initialize state: {}. Update check and main window might not proceed correctly.", e);
+                    error!("CRITICAL: Failed to initialize state: {}", e);
                     if let Some(win) = updater_window {
                         updater_utils::emit_status(&state_init_app_handle, "close", "Closing due to state init error.".to_string(), None);
                         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
@@ -394,7 +410,58 @@ let default_panic_hook = std::panic::take_hook();
                             error!("Failed to close updater window after state init error: {}", close_err);
                         }
                     }
-                    return;
+                    {
+                        use tauri_plugin_dialog::{
+                            DialogExt, MessageDialogButtons, MessageDialogKind,
+                        };
+
+                        let reset = state_init_app_handle
+                            .dialog()
+                            .message(
+                                [
+                                    "The NoRisk Launcher could not start.".to_string(),
+                                    String::new(),
+                                    e.to_string(),
+                                    String::new(),
+                                    "If that does not help:".to_string(),
+                                    concat!(
+                                        "\"Reset database and restart\" keeps the old ",
+                                        "database as app.db.broken.<time> and restores ",
+                                        "your profiles from profiles.json.migrated."
+                                    )
+                                    .to_string(),
+                                    String::new(),
+                                    "Support: https://discord.norisk.gg".to_string(),
+                                ]
+                                .join("\n"),
+                            )
+                            .kind(MessageDialogKind::Error)
+                            .title("NoRisk Launcher - Startup Failed")
+                            .buttons(MessageDialogButtons::OkCancelCustom(
+                                "Reset database and restart".to_string(),
+                                "Quit".to_string(),
+                            ))
+                            .blocking_show();
+
+                        if reset {
+                            match state::db::quarantine_database().await {
+                                Ok(moved) => {
+                                    info!("Database moved aside to {:?}, restarting", moved);
+                                    state_init_app_handle.restart();
+                                }
+                                Err(err) => {
+                                    error!("Could not move the database aside: {}", err);
+                                    let _ = state_init_app_handle
+                                        .dialog()
+                                        .message(format!("{}", err))
+                                        .kind(MessageDialogKind::Error)
+                                        .title("NoRisk Launcher - Reset Failed")
+                                        .blocking_show();
+                                }
+                            }
+                        }
+                    }
+                    std::process::exit(1);
                 }
                 info!("State initialization finished successfully.");
 
@@ -423,7 +490,11 @@ let default_panic_hook = std::panic::take_hook();
                     utils::mod_cache_cleanup::run_startup_cleanup().await;
                 });
 
+                #[cfg(windows)]
+                commands::clip_commands::start_on_launch(state_init_app_handle.clone());
+
                 info!("Attempting to retrieve launcher configuration for update check...");
+                trace!("Attempting to retrieve launcher configuration for update check...");
                 match state::state_manager::State::get().await {
                     Ok(state_manager_instance) => {
                         let config = state_manager_instance.config_manager.get_config().await;
@@ -437,9 +508,9 @@ let default_panic_hook = std::panic::take_hook();
                         }
 
                         if auto_check_updates_enabled {
-                            info!("Initiating application update check (Channel determined by config: Beta={})...", check_beta_channel);
+                            trace!("Initiating application update check (Channel determined by config: Beta={})...", check_beta_channel);
                             updater_utils::check_for_updates(state_init_app_handle.clone(), check_beta_channel, updater_window.clone()).await;
-                            info!("Update check process has finished.");
+                            trace!("Update check process has finished.");
                         } else {
                             info!("Auto-check for updates is disabled in settings. Skipping update check.");
                             // Ensure the updater window (if created) is closed if we skip the check.
@@ -518,13 +589,15 @@ let default_panic_hook = std::panic::take_hook();
                 //debug_utils::debug_unified_mod_versions().await;
             });
 
+            utils::screen_time::spawn(app_handle.clone());
+
             // --- Register Focus Event Listener for Discord RPC ---
             if let Some(main_window) = app.get_webview_window("main") {
                 let focus_app_handle = app_handle.clone();
                 main_window.listen("tauri://focus", move |_event| {
-                    let listener_app_handle = focus_app_handle.clone();
+                    let _listener_app_handle = focus_app_handle.clone();
                     tokio::spawn(async move {
-                        debug!("Main window focus event received. Triggering DiscordManager handler.");
+                        trace!("Main window focus event received. Triggering DiscordManager handler.");
                         match state::state_manager::State::get().await {
                             Ok(state_manager_instance) => {
                                 if let Err(e) = state_manager_instance.discord_manager.handle_focus_event().await {
@@ -541,12 +614,12 @@ let default_panic_hook = std::panic::take_hook();
                 // --- Handle window close request (from taskbar, etc.) ---
                 main_window.listen("tauri://close-requested", move |_event| {
                     info!("Window close requested via system (taskbar, etc.). Exiting application.");
+                    utils::screen_time::report_before_exit();
                     std::process::exit(0);
                 });
             } else {
                 error!("Could not get main window handle to attach focus listener!");
             }
-
 
             Ok(())
         })
@@ -566,6 +639,8 @@ let default_panic_hook = std::panic::take_hook();
             list_profiles,
             list_profile_backups,
             restore_profile_backup,
+            get_profile_store_status,
+            reimport_profiles_from_legacy_json,
             search_profiles,
             get_minecraft_versions,
             launch_profile,
@@ -585,6 +660,11 @@ let default_panic_hook = std::panic::take_hook();
             get_active_account,
             set_active_account,
             get_accounts,
+            twitch_available_scopes,
+            twitch_begin_device_login,
+            twitch_cancel_login,
+            twitch_unlink,
+            twitch_is_linked,
             search_modrinth_mods,
             search_modrinth_projects,
             search_mods_unified_command,
@@ -669,6 +749,9 @@ let default_panic_hook = std::panic::take_hook();
             copy_profile,
             export_profile,
             get_launcher_config,
+            get_legal_status,
+            acknowledge_legal_documents,
+            acknowledge_legal_notice,
             set_launcher_config,
             get_launcher_directory,
             resolve_image_path,
@@ -691,7 +774,9 @@ let default_panic_hook = std::panic::take_hook();
             get_player_capes,
             get_active_creator_code,
             get_selected_player_icon,
+            get_selected_player_icon_cached,
             get_equipped_cosmetics,
+            get_equipped_cosmetics_cached,
             get_random_local_emote,
             get_owned_capes_list,
             equip_cape,
@@ -743,6 +828,9 @@ let default_panic_hook = std::panic::take_hook();
             switch_modpack_version_command,
             uninstall_content_from_profile,
             toggle_content_from_profile,
+            toggle_contents_from_profile,
+            update_contents_from_profile,
+            uninstall_contents_from_profile,
             toggle_mod_updates,
             bulk_toggle_mod_updates,
             install_content_to_profile,
@@ -793,6 +881,7 @@ let default_panic_hook = std::panic::take_hook();
             commands::permission_commands::refresh_permissions,
             commands::permission_commands::get_cached_permissions,
             commands::permission_commands::has_permission,
+            commands::permission_commands::get_granted_permissions,
             commands::tester_command::fetch_tester_queue_count,
             commands::tester_command::fetch_tester_queue,
             commands::tester_command::submit_tester_vote,
@@ -814,11 +903,49 @@ let default_panic_hook = std::panic::take_hook();
             refresh_vanilla_cape_data,
             track_analytics_event,
             commands::analytics_command::get_system_os_info,
+            commands::analytics_command::set_screen_time_tab,
             commands::profile_command::launch_profile_with_overrides,
             commands::profile_command::launch_temp_profile,
             commands::profile_command::add_profile_symlink,
             commands::profile_command::remove_profile_symlink,
             commands::profile_command::get_profile_symlinks,
+            commands::sync_pack_command::get_or_create_default_sync_pack,
+            commands::sync_pack_command::add_dropped_sync_target,
+            commands::sync_pack_command::list_sync_seed_candidates,
+            commands::sync_pack_command::preview_profile_sync,
+            commands::sync_pack_command::get_sync_packs,
+            commands::sync_pack_command::get_sync_pack,
+            commands::sync_pack_command::create_sync_pack,
+            commands::sync_pack_command::update_sync_pack,
+            commands::sync_pack_command::import_sync_pack_icon,
+            commands::sync_pack_command::add_sync_pack_target,
+            commands::sync_pack_command::count_sync_pack_target_users,
+            commands::sync_pack_command::remove_sync_pack_target,
+            commands::sync_pack_command::add_content_to_sync_pack,
+            commands::sync_pack_command::remove_content_from_sync_pack,
+            commands::sync_pack_command::remove_mod_from_sync_pack,
+            commands::sync_pack_command::get_sync_pack_local_jars,
+            commands::sync_pack_command::remove_sync_pack_local_jar,
+            commands::sync_pack_command::get_sync_pack_subscribers,
+            commands::sync_pack_command::open_sync_pack_folder,
+            commands::sync_pack_command::delete_sync_pack,
+            commands::sync_pack_command::set_profile_sync_packs,
+            commands::sync_pack_command::get_profile_sync_conflicts,
+            commands::sync_pack_command::get_profile_sync_pack_mods,
+            commands::sync_pack_command::set_profile_sync_mods_excluded,
+            commands::sync_pack_command::sync_profile_now,
+            commands::sync_pack_command::set_sync_pack_mod_enabled,
+            commands::sync_pack_command::remove_sync_pack_entries,
+            commands::sync_pack_command::set_sync_pack_mods_enabled,
+            commands::sync_pack_command::set_sync_pack_mod_version_override,
+            commands::sync_pack_command::get_sync_pack_mod_matrix,
+            commands::sync_pack_command::resolve_sync_pack_mod,
+            commands::launcher_import_command::scan_external_launchers,
+            commands::launcher_import_command::add_external_launcher_root,
+            commands::launcher_import_command::list_external_instances,
+            commands::launcher_import_command::preview_external_instance,
+            commands::launcher_import_command::import_external_instance,
+            commands::launcher_import_command::cancel_external_import,
             commands::profile_command::get_profile_instance_path,
             commands::profile_command::get_default_profile_path,
             commands::profile_command::get_profile_disk_size,
@@ -846,17 +973,68 @@ let default_panic_hook = std::panic::take_hook();
             add_message_reaction,
             remove_message_reaction,
             commands::deep_link_handler::confirm_auth_bridge,
+            commands::deep_link_handler::take_pending_deep_links,
+            commands::support_command::support_request_fetch,
+            commands::support_command::support_request_prepare,
+            commands::support_command::support_request_execute_action,
+            commands::support_command::support_request_submit,
+            commands::support_command::support_request_decline,
+            commands::support_command::support_request_close,
+            commands::clip_commands::capture_apply_settings,
+            commands::clip_commands::capture_release_hotkeys,
+            commands::clip_commands::capture_status,
+            commands::clip_commands::capture_supported,
+            commands::capture_permissions::capture_permissions,
+            commands::capture_permissions::capture_open_permission_settings,
+            commands::clip_commands::capture_encoder_capabilities,
+            commands::clip_commands::capture_show_overlay,
+            commands::clip_commands::capture_hide_overlay,
+            commands::clip_commands::clip_list,
+            commands::clip_commands::clip_storage_usage,
+            commands::clip_commands::clip_delete,
+            commands::clip_commands::clip_reveal,
+            commands::clip_commands::clip_trim,
+            commands::clip_commands::clip_details,
+            commands::clip_commands::clip_set_favourite,
+            commands::clip_commands::clip_open_apps,
+            commands::clip_commands::clip_list_screens,
+            commands::clip_commands::clip_save_thumbnail,
+            commands::clip_commands::clip_export_vertical,
+            commands::clip_commands::clip_export_gif,
+            commands::clip_commands::clip_prepare_preview,
+            commands::clip_commands::clip_rename,
+            commands::clip_commands::clip_open_folder,
+            commands::clip_commands::clip_open_editor,
+            commands::clip_commands::clip_editor_current,
+            commands::clip_commands::clip_editor_close,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(
             #[allow(unused_variables)]
             |app_handle, event| {
-                // Removed macOS/iOS specific Opened event handling as single-instance handles args now
-                // Keep other run event handling if needed, e.g., for window events, exit requested, etc.
-                if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                    info!("Exit requested, preventing default to allow async tasks to finish if any.");
-                    // api.prevent_exit(); // Example: if you need to do cleanup before exit
+                if matches!(event, tauri::RunEvent::Exit) {
+                    utils::screen_time::report_before_exit();
+                }
+
+                #[cfg(target_os = "macos")]
+                if let tauri::RunEvent::ExitRequested { api, code, .. } = event {
+                    use std::sync::atomic::{AtomicBool, Ordering};
+                    static EXIT_READY: AtomicBool = AtomicBool::new(false);
+                    static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+                    if !EXIT_READY.load(Ordering::SeqCst) {
+                        api.prevent_exit();
+                        if !SHUTTING_DOWN.swap(true, Ordering::SeqCst) {
+                            let app = app_handle.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Ok(state) = state::State::get().await {
+                                    state.capture_supervisor.finish_shutdown().await;
+                                }
+                                EXIT_READY.store(true, Ordering::SeqCst);
+                                app.exit(code.unwrap_or(0));
+                            });
+                        }
+                    }
                 }
             },
         );

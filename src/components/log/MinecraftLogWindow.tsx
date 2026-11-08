@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useFontStore } from "../../store/font-store";
+import { useMinecraftAuthStore } from "../../store/minecraft-auth-store";
 import { LogWindowTitlebar } from "./LogWindowTitlebar";
 import { InstanceSidebar } from "./InstanceSidebar";
 import { LogViewerCore } from "./LogViewerCore";
@@ -27,15 +28,13 @@ export function MinecraftLogWindow({
   const { processes } = useProcessEvents({ autoFetch: true });
   const { logs: rawLogs } = useProcessLogs(selectedInstanceId);
 
-  const {
-    stoppedProcesses,
-    launcherLogs: launcherLogsMap,
-    selectedProcessId,
-    selectProcess,
-    clearLogs,
-    clearLauncherLogs,
-    markProcessStopped,
-  } = useProcessStore();
+  const stoppedProcesses = useProcessStore((state) => state.stoppedProcesses);
+  const launcherLogsMap = useProcessStore((state) => state.launcherLogs);
+  const selectedProcessId = useProcessStore((state) => state.selectedProcessId);
+  const selectProcess = useProcessStore((state) => state.selectProcess);
+  const clearLogs = useProcessStore((state) => state.clearLogs);
+  const clearLauncherLogs = useProcessStore((state) => state.clearLauncherLogs);
+  const markProcessStopped = useProcessStore((state) => state.markProcessStopped);
 
   const crashedProcessHandledRef = useRef(false);
   useEffect(() => {
@@ -51,6 +50,7 @@ export function MinecraftLogWindow({
     themeStore.applyAccentColorToDOM();
     themeStore.applyBorderRadiusToDOM();
     useFontStore.getState().applyFontToDOM();
+    useMinecraftAuthStore.getState().initializeAccounts();
   }, []);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { Profile, ResolvedLoaderVersion } from "../../types/profile";
+import type { Profile } from "../../types/profile";
 import { ProfileIconV2 } from "./ProfileIconV2";
 import { toast } from "react-hot-toast";
 import {
@@ -35,6 +35,8 @@ import {
 } from "../../services/profile-service";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { shareProfile } from "../../services/profile-share-service";
+import { useResolvedLoaderVersion } from "../../hooks/useResolvedLoaderVersion";
+import { loaderIconSrc } from "../../lib/loader-icons";
 
 // Custom JSX component for tooltip content
 function StandardVersionTooltipContent() {
@@ -112,8 +114,7 @@ export function ProfileCardV2({
   const { showModal, hideModal } = useGlobalModal();
 
   // Resolved loader version state
-  const [resolvedLoaderVersion, setResolvedLoaderVersion] =
-    useState<ResolvedLoaderVersion | null>(null);
+  const resolvedLoaderVersion = useResolvedLoaderVersion(profile);
   const [profileBackdropUrl, setProfileBackdropUrl] = useState<string | null>(
     null,
   );
@@ -283,7 +284,6 @@ export function ProfileCardV2({
         }
       },
     },
-    // Show modpack versions only if modpack info exists and versions are loaded
     ...(profile.modpack_info?.source
       ? [
           {
@@ -342,9 +342,7 @@ export function ProfileCardV2({
           success: (share) => `Share code: ${share.code}`,
           error: (err) => (err instanceof Error ? err.message : String(err)),
         });
-        await navigator.clipboard
-          ?.writeText(result.code)
-          .catch(() => undefined);
+        await navigator.clipboard?.writeText(result.code).catch(() => undefined);
       },
     },
     {
@@ -401,46 +399,8 @@ export function ProfileCardV2({
     }
   }, [openContextMenuId, contextMenuId, isContextMenuOpen]);
 
-  // Fetch resolved loader version
-  useEffect(() => {
-    async function fetchResolvedLoaderVersion() {
-      if (!profile.game_version || profile.loader === "vanilla") {
-        setResolvedLoaderVersion(null);
-        return;
-      }
-
-      try {
-        // TODO: Implement loader version resolution
-        setResolvedLoaderVersion(null);
-      } catch (err) {
-        console.error("Failed to resolve loader version:", err);
-        setResolvedLoaderVersion(null);
-      }
-    }
-
-    fetchResolvedLoaderVersion();
-  }, [
-    profile.id,
-    profile.game_version,
-    profile.loader,
-    profile.loader_version,
-  ]);
-
   // Get mod loader icon - reused from ProfileCard.tsx
-  const getModLoaderIcon = () => {
-    switch (profile.loader) {
-      case "fabric":
-        return "/icons/fabric.png";
-      case "forge":
-        return "/icons/forge.png";
-      case "quilt":
-        return "/icons/quilt.png";
-      case "neoforge":
-        return "/icons/neoforge.png";
-      default:
-        return "/icons/minecraft.png";
-    }
-  };
+  const getModLoaderIcon = () => loaderIconSrc(profile.loader);
 
   // Get 3D styling for variant (matching Button.tsx exactly)
   const get3DStyling = () => {
@@ -867,12 +827,10 @@ export function ProfileCardV2({
                 {statusMessage || t("profiles.card.starting")}
               </div>
             ) : isCompact ? (
-              // Compact mode: Only MC version + last played
               <div
                 className="flex items-center gap-1.5 text-xs font-minecraft"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
               >
-                {/* Minecraft Version */}
                 <div className="text-white/70 flex items-center gap-0.5">
                   <img
                     src="/icons/minecraft.png"
@@ -881,21 +839,16 @@ export function ProfileCardV2({
                   />
                   <span>{profile.game_version}</span>
                 </div>
-
                 <div className="w-px h-2.5 bg-white/30"></div>
-
-                {/* Last Played */}
                 <div className="text-white/50">
                   {formatLastPlayed(profile.last_played)}
                 </div>
               </div>
             ) : (
-              // Grid mode: Full info display
               <div
                 className="flex items-center gap-2 text-xs font-minecraft"
                 style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}
               >
-                {/* Minecraft Version */}
                 <div className="text-white/70 flex items-center gap-1">
                   <img
                     src="/icons/minecraft.png"
@@ -904,10 +857,7 @@ export function ProfileCardV2({
                   />
                   <span>{profile.game_version}</span>
                 </div>
-
                 <div className="w-px h-3 bg-white/30"></div>
-
-                {/* Loader Version */}
                 <div className="text-white/60 flex items-center gap-1">
                   <img
                     src={getModLoaderIcon()}
@@ -916,14 +866,11 @@ export function ProfileCardV2({
                   />
                   <span>
                     {profile.loader === "vanilla"
-                      ? "Vanilla"
-                      : `${resolvedLoaderVersion?.version || profile.loader_version || "Unknown"}`}
+                      ? t("common.vanilla")
+                      : `${resolvedLoaderVersion?.version || profile.loader_version || t("common.unknown")}`}
                   </span>
                 </div>
-
                 <div className="w-px h-3 bg-white/30"></div>
-
-                {/* Last Played */}
                 <div className="text-white/50">
                   {formatLastPlayed(profile.last_played)}
                 </div>
@@ -934,12 +881,13 @@ export function ProfileCardV2({
 
         {/* Settings Context Menu */}
         <SettingsContextMenu
-          profile={profile}
+          target={profile}
           isOpen={isContextMenuOpen}
           position={contextMenuPosition}
           items={contextMenuItems}
           positionMode="fixed"
           closeOnScroll={true}
+          compact={isCompact}
           onClose={() => {
             setIsContextMenuOpen(false);
             setOpenContextMenuId(null);
@@ -1131,12 +1079,13 @@ export function ProfileCardV2({
 
       {/* Settings Context Menu */}
       <SettingsContextMenu
-        profile={profile}
+        target={profile}
         isOpen={isContextMenuOpen}
         position={contextMenuPosition}
         items={contextMenuItems}
         positionMode="fixed"
         closeOnScroll={true}
+        compact={false}
         onClose={() => {
           setIsContextMenuOpen(false);
           setOpenContextMenuId(null);

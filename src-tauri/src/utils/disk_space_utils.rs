@@ -238,7 +238,7 @@ impl DiskSpaceUtils {
 }
 
 /// Format bytes in human readable format
-fn format_bytes(bytes: u64) -> String {
+pub fn format_bytes(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     
     if bytes == 0 {

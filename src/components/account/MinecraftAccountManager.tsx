@@ -10,16 +10,13 @@ import { DropdownHeader } from "../ui/dropdown/DropdownHeader";
 import { DropdownFooter } from "../ui/dropdown/DropdownFooter";
 import { DropdownDivider } from "../ui/dropdown/DropdownDivider";
 import { StatusMessage } from "../ui/StatusMessage";
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { gsap } from "gsap";
 import { PlayerHead } from "../common/PlayerHead";
-import { useGlobalModal } from "../../hooks/useGlobalModal";
-import { getLauncherConfig } from "../../services/launcher-config-service";
-import { MinecraftAuthService } from "../../services/minecraft-auth-service";
-import { toast } from "react-hot-toast";
 import { listen, type Event as TauriEvent } from "@tauri-apps/api/event";
 import { EventType, type EventPayload } from "../../types/events";
+import { useAddMinecraftAccount } from "../../hooks/useAddMinecraftAccount";
 
 interface MinecraftAccountManagerProps {
   onClose: () => void;
@@ -34,65 +31,11 @@ export function MinecraftAccountManager({
     accounts,
     isLoading,
     error,
-    addAccount,
     removeAccount,
     setActiveAccount,
   } = useMinecraftAuthStore();
-  const { showModal, hideModal } = useGlobalModal();
   const { t } = useTranslation();
-  const [useBrowserLogin, setUseBrowserLogin] = useState(false);
-
-  useEffect(() => {
-    const checkBrowserLogin = async () => {
-      try {
-        const [config, isFlatpakEnv] = await Promise.all([
-          getLauncherConfig(),
-          MinecraftAuthService.isFlatpak(),
-        ]);
-        // Use browser login if Flatpak is detected OR if the setting is enabled
-        setUseBrowserLogin(isFlatpakEnv || config.use_browser_based_login);
-      } catch (err) {
-        console.error("Failed to load config or check Flatpak:", err);
-      }
-    };
-    checkBrowserLogin();
-  }, []);
-
-  const handleAddAccount = async () => {
-    try {
-      // Show login modal if browser-based login is enabled (Flatpak or setting)
-      if (useBrowserLogin) {
-        showModal(
-          "browser-login-modal",
-          <BrowserLoginModal
-            onCancel={async () => {
-              try {
-                await MinecraftAuthService.cancelLogin();
-                hideModal("browser-login-modal");
-                toast.error(t('auth.loginCancelled'));
-                // Reset loading state in store
-                useMinecraftAuthStore.setState({ isLoading: false, error: t('auth.loginCancelledByUser') });
-              } catch (err) {
-                console.error("Failed to cancel login:", err);
-                toast.error(t('auth.failedToCancelLogin'));
-                // Reset loading state even on error
-                useMinecraftAuthStore.setState({ isLoading: false });
-              }
-            }}
-          />
-        );
-      }
-      await addAccount();
-      if (useBrowserLogin) {
-        hideModal("browser-login-modal");
-      }
-    } catch (err) {
-      console.error("Error adding account:", err);
-      if (useBrowserLogin) {
-        hideModal("browser-login-modal");
-      }
-    }
-  };
+  const { startLogin: handleAddAccount } = useAddMinecraftAccount();
 
   const handleSetActive = async (accountId: string) => {
     try {

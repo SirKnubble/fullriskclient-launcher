@@ -10,9 +10,9 @@ import type {
   ModrinthSearchHit,
   ModrinthSearchResponse,
   ModrinthSortType,
+  ModrinthVersion,
   ModrinthTags,
   ModrinthTeamMember,
-  ModrinthVersion,
 } from "../types/modrinth";
 import type {
   UnifiedModVersionsParams,

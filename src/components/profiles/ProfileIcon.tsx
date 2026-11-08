@@ -181,9 +181,7 @@ export function ProfileIcon({
         await ProfileService.uploadProfileImages({
           profileId: profileId,
           imageType: "icon",
-          ...("url" in chosen
-            ? { iconUrl: chosen.url }
-            : { path: chosen.path }),
+          ...("url" in chosen ? { iconUrl: chosen.url } : { path: chosen.path }),
         });
         // Invalidate cache for this profile so the new image gets loaded
         const cacheKey = getCacheKey(profileId, banner);

@@ -188,7 +188,7 @@ export function VerticalNavbar({
             {items.filter((item) => item.isAction).map(renderItem)}
           </div>
         )}
-      </div>{" "}
+      </div>
       {isMounted &&
         showTooltip &&
         document.body &&

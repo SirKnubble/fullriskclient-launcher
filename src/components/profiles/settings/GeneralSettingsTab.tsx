@@ -294,6 +294,7 @@ export function GeneralSettingsTab({
             </span>
           </button>
         </div>
+
       </div>
     </div>
   );

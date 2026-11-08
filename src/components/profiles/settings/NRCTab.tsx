@@ -3,22 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Profile } from "../../../types/profile";
-import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../../store/useThemeStore";
-import { CustomDropdown } from "../../ui/CustomDropdown";
-import { Checkbox } from "../../ui/Checkbox";
 import { Button } from "../../ui/buttons/Button";
 import { gsap } from "gsap";
 import { toast } from "react-hot-toast";
 import * as ProfileService from "../../../services/profile-service";
 import { parseErrorMessage } from "../../../utils/error-utils";
-
-interface NoriskPack {
-  displayName: string;
-  description: string;
-  isExperimental?: boolean;
-}
+import { PackPicker } from "../PackPicker";
+import { loadPacks, usePacks } from "../../../hooks/usePacks";
 
 interface NRCTabProps {
   profile: Profile;
@@ -34,14 +27,11 @@ export function NRCTab({
   onRefresh,
 }: NRCTabProps) {
   const { t } = useTranslation();
-  const [noriskPacks, setNoriskPacks] = useState<Record<string, NoriskPack>>({});
-  const [loading, setLoading] = useState(false);
+  const { packs: noriskPacks, loading } = usePacks();
   const [packCompatibilityWarning, setPackCompatibilityWarning] = useState<string | null>(null);
   const [showYellowWarning, setShowYellowWarning] = useState(false);
   const [checkingCompatibility, setCheckingCompatibility] = useState(false);
-  const [showAllVersions, setShowAllVersions] = useState(false); // Default to false to show only curated versions
   const [isRepairing, setIsRepairing] = useState(false);
-  const accentColor = useThemeStore((state) => state.accentColor);
   const isBackgroundAnimationEnabled = useThemeStore(
     (state) => state.isBackgroundAnimationEnabled,
   );
@@ -56,45 +46,6 @@ export function NRCTab({
       );
     }
   }, [isBackgroundAnimationEnabled]);
-
-  // Load NoRisk packs on component mount
-  useEffect(() => {
-    const loadNoriskPacks = async () => {
-      try {
-        setLoading(true);
-        const packsData = await invoke<{ packs: Record<string, NoriskPack> }>(
-          "get_norisk_packs_resolved",
-        ).catch(() => ({
-          packs: {},
-        }));
-        console.log("PACKS", packsData);
-        setNoriskPacks(packsData.packs);
-      } catch (err) {
-        console.error("Failed to load NoRisk packs:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadNoriskPacks();
-  }, []);
-
-  const selectedPackId = editedProfile.selected_norisk_pack_id || "";
-  const noriskPackOptions = Object.entries(noriskPacks)
-    .filter(([packId]) => {
-      if (showAllVersions) return true; // Show all versions when checkbox is checked
-      // Show only curated versions when checkbox is unchecked, plus keep the currently selected pack visible
-      return (
-        packId === "norisk-prod" ||
-        packId === "norisk-bughunter" ||
-        packId === "" ||
-        packId === selectedPackId
-      );
-    })
-    .map(([packId, packDef]) => ({
-      value: packId,
-      label: `${packDef.displayName} ${packDef.isExperimental ? "(experimental)" : ""}`,
-    }));
 
   // Check pack compatibility when selection changes
   useEffect(() => {
@@ -111,12 +62,10 @@ export function NRCTab({
 
       try {
         // Get resolved packs with all mods
-        const resolvedPacks = await invoke<{ packs: Record<string, NoriskPack> }>(
-          "get_norisk_packs_resolved"
-        );
+        const resolvedPacks = await loadPacks();
 
         // Check if the selected pack has NoRisk Client mods
-        if (!resolvedPacks.packs[editedProfile.selected_norisk_pack_id]) {
+        if (!resolvedPacks[editedProfile.selected_norisk_pack_id]) {
           setShowYellowWarning(true);
           return;
         }
@@ -160,95 +109,63 @@ export function NRCTab({
               {t('nrc.info_description')}
             </p>
           </div>
-          {loading ? (
+          <PackPicker
+            label={t('nrc.pack_label')}
+            packs={noriskPacks}
+            value={editedProfile.selected_norisk_pack_id || null}
+            onChange={(packId) => updateProfile({ selected_norisk_pack_id: packId })}
+            loading={loading}
+          />
+
+          {/* Show warning or description */}
+          {showYellowWarning ? (
+            <div className="text-center">
+              <p className="text-base text-yellow-400 font-minecraft">
+                {t('nrc.incompatible_warning')}
+              </p>
+            </div>
+          ) : editedProfile.selected_norisk_pack_id === null || editedProfile.selected_norisk_pack_id === "" ? (
+            <div className="text-center">
+              <p className="text-sm text-amber-400 font-minecraft">
+                {t('nrc.no_features_warning')}
+              </p>
+            </div>
+          ) : (
+            editedProfile.selected_norisk_pack_id && noriskPacks[editedProfile.selected_norisk_pack_id] && (
+              <div className="text-center">
+                <p className="text-sm text-white/70 font-minecraft">
+                  {noriskPacks[editedProfile.selected_norisk_pack_id].description}
+                </p>
+              </div>
+            )
+          )}
+
+          {/* Compatibility Checking */}
+          {checkingCompatibility && (
             <div className="flex items-center gap-2 text-white/70">
               <Icon
                 icon="svg-spinners:ring-resize"
                 className="w-4 h-4"
               />
               <span className="text-sm font-minecraft">
-                {t('nrc.loading_packs')}
+                {t('nrc.checking_compatibility')}
               </span>
             </div>
-          ) : (
-            <>
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <CustomDropdown
-                    label={t('nrc.pack_label')}
-                    value={editedProfile.selected_norisk_pack_id || ""}
-                    onChange={(value) =>
-                      updateProfile({
-                        selected_norisk_pack_id: value === "" ? null : value,
-                      })
-                    }
-                    options={[{ value: "", label: t('nrc.none_optional') }, ...noriskPackOptions]}
-                    variant="search"
-                    className=""
-                  />
-                </div>
-                <div className="pb-3">
-                  <Checkbox
-                    checked={showAllVersions}
-                    onChange={(event) => setShowAllVersions(event.target.checked)}
-                    label={t('modrinth.show_all_versions')}
-                    size="sm"
-                    className="text-white/70"
-                  />
-                </div>
+          )}
+
+          {/* Compatibility Warning */}
+          {packCompatibilityWarning && (
+            <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Icon
+                  icon="solar:danger-triangle-bold"
+                  className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"
+                />
+                <p className="text-xs text-red-300 font-minecraft">
+                  {packCompatibilityWarning}
+                </p>
               </div>
-
-              {/* Show warning or description */}
-              {showYellowWarning ? (
-                <div className="text-center">
-                  <p className="text-base text-yellow-400 font-minecraft">
-                    {t('nrc.incompatible_warning')}
-                  </p>
-                </div>
-              ) : editedProfile.selected_norisk_pack_id === null || editedProfile.selected_norisk_pack_id === "" ? (
-                <div className="text-center">
-                  <p className="text-sm text-amber-400 font-minecraft">
-                    {t('nrc.no_features_warning')}
-                  </p>
-                </div>
-              ) : (
-                editedProfile.selected_norisk_pack_id && noriskPacks[editedProfile.selected_norisk_pack_id] && (
-                  <div className="text-center">
-                    <p className="text-sm text-white/70 font-minecraft">
-                      {noriskPacks[editedProfile.selected_norisk_pack_id].description}
-                    </p>
-                  </div>
-                )
-              )}
-
-              {/* Compatibility Checking */}
-              {checkingCompatibility && (
-                <div className="flex items-center gap-2 text-white/70">
-                  <Icon
-                    icon="svg-spinners:ring-resize"
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm font-minecraft">
-                    {t('nrc.checking_compatibility')}
-                  </span>
-                </div>
-              )}
-
-              {/* Compatibility Warning */}
-              {packCompatibilityWarning && (
-                <div className="p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <Icon
-                      icon="solar:danger-triangle-bold"
-                      className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"
-                    />
-                    <p className="text-xs text-red-300 font-minecraft">
-                      {packCompatibilityWarning}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
 

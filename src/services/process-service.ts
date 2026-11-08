@@ -167,15 +167,34 @@ export interface ProcessLogCursor {
   new_file: boolean;
 }
 
-export async function getProcessLogCursor(
+export function getProcessLogCursor(
+  sessionId: string,
+  cursor: number,
+  follow?: boolean,
+): Promise<ProcessLogCursor>;
+export function getProcessLogCursor(
   sessionId: string,
   cursor: number,
   maxBytes?: number,
+  follow?: boolean,
+): Promise<ProcessLogCursor>;
+export async function getProcessLogCursor(
+  sessionId: string,
+  cursor: number,
+  maxBytesOrFollow?: number | boolean,
+  followArgument?: boolean,
 ): Promise<ProcessLogCursor> {
+  const maxBytes =
+    typeof maxBytesOrFollow === "number" ? maxBytesOrFollow : undefined;
+  const follow =
+    typeof maxBytesOrFollow === "boolean"
+      ? maxBytesOrFollow
+      : followArgument;
   return invoke<ProcessLogCursor>("get_process_log_cursor", {
     sessionId,
     cursor,
     maxBytes,
+    follow,
   });
 }
 

@@ -212,13 +212,19 @@ export function MainLaunchButton({
     const displaySubText = statusSubText || selectedVersionLabel;
     return (
       <div
-        className={
-          isFullRiskStyle
-            ? "w-full flex flex-col items-center justify-center leading-none"
-            : "w-full flex flex-col items-center justify-center leading-none -mt-4"
-        }
+        className={cn(
+          "w-full flex flex-col items-center justify-center leading-none",
+          isFullRiskStyle ? "" : "-translate-y-[5px]",
+        )}
       >
-        <span className="text-4xl text-center lowercase">{actionText}</span>
+        <span
+          className={cn(
+            "text-center",
+            isFullRiskStyle ? "text-4xl lowercase" : "text-3xl",
+          )}
+        >
+          {actionText}
+        </span>
         {displaySubText && (
           <span
             className={cn(

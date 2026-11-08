@@ -667,7 +667,7 @@ export function ProfileDetailViewV2({
 
               {/* Settings Context Menu - Inside the header section */}
               <SettingsContextMenu
-                profile={currentProfile}
+                target={currentProfile}
                 isOpen={isContextMenuOpen}
                 position={contextMenuPosition}
                 items={contextMenuItems}

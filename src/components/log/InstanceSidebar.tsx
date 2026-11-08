@@ -10,6 +10,8 @@ import { ProcessMetadata, ProcessState } from "../../types/processState";
 import { EventType } from "../../types/events";
 import * as ProcessService from "../../services/process-service";
 import { usePlayerAvatar } from "../../hooks/usePlayerAvatar";
+import { requireMinecraftAccount } from "../../lib/require-account";
+import { handleIconImgLoad } from "../profiles/IconPicker";
 
 type InstanceStatus = "running" | "idle" | "crashed" | "starting" | "stopping";
 
@@ -94,15 +96,8 @@ function processToInstance(process: ProcessMetadata, metrics?: ProcessMetrics, e
   };
 }
 
-// Get loader icon path
-const getLoaderIcon = (loader: string): string => {
-  const loaderLower = loader.toLowerCase();
-  if (loaderLower === "fabric") return "/icons/fabric.png";
-  if (loaderLower === "forge") return "/icons/forge.png";
-  if (loaderLower === "neoforge") return "/icons/neoforge.png";
-  if (loaderLower === "quilt") return "/icons/quilt.png";
-  return "/icons/minecraft.png";
-};
+import { loaderIconSrc } from "../../lib/loader-icons";
+const getLoaderIcon = loaderIconSrc;
 
 // Get status color
 const getStatusColor = (status: InstanceStatus): string => {
@@ -185,6 +180,7 @@ function InstanceItem({
               src={toAssetUrl(instance.profileImageUrl)}
               alt={instance.name}
               className="w-full h-full object-cover"
+              onLoad={handleIconImgLoad}
             />
           ) : (
             <Icon
@@ -268,14 +264,23 @@ export function InstanceSidebar({
   // Track processes user has requested to stop - show START immediately
   const [stoppingProcessIds, setStoppingProcessIds] = useState<Set<string>>(new Set());
 
-  // Get processes from store
-  const { processes, stoppedProcesses, processEndTimes, metrics, fetchProcesses, stopProcess, isLoading } = useProcessStore();
+  const processes = useProcessStore((state) => state.processes);
+  const stoppedProcesses = useProcessStore((state) => state.stoppedProcesses);
+  const processEndTimes = useProcessStore((state) => state.processEndTimes);
+  const metrics = useProcessStore((state) => state.metrics);
+  const fetchProcesses = useProcessStore((state) => state.fetchProcesses);
+  const stopProcess = useProcessStore((state) => state.stopProcess);
+  const isLoading = useProcessStore((state) => state.isLoading);
 
-  // Get launch state store for launch feedback
-  const { getProfileState, initiateButtonLaunch, finalizeButtonLaunch } = useLaunchStateStore();
+  const launchStates = useLaunchStateStore((s) => s.profiles);
+  const getProfileState = useLaunchStateStore((s) => s.getProfileState);
+  const initiateButtonLaunch = useLaunchStateStore((s) => s.initiateButtonLaunch);
+  const finalizeButtonLaunch = useLaunchStateStore((s) => s.finalizeButtonLaunch);
 
   // Get launcher log functions
-  const { addLauncherLog, clearLauncherLogs, clearLogs } = useProcessStore();
+  const addLauncherLog = useProcessStore((state) => state.addLauncherLog);
+  const clearLauncherLogs = useProcessStore((state) => state.clearLauncherLogs);
+  const clearLogs = useProcessStore((state) => state.clearLogs);
 
   // Fetch processes on mount
   useEffect(() => {
@@ -403,6 +408,14 @@ export function InstanceSidebar({
       return;
     }
 
+    // No account means the backend would reject this with NoCredentialsError —
+    // prompt for sign-in instead and resume once it is done.
+    const signedIn = requireMinecraftAccount({
+      profileName: instances.find((i) => i.profileId === profileId)?.name,
+      onAuthenticated: () => handleLaunchProfile(profileId),
+    });
+    if (!signedIn) return;
+
     // Note: We allow multiple instances of the same profile to run simultaneously
     // Each will have its own process ID and can be stopped independently
 
@@ -511,9 +524,11 @@ export function InstanceSidebar({
                     className="h-full rounded-full transition-all duration-300"
                     style={{
                       width: `${Math.min((selectedInstance.memoryUsage / selectedInstance.memoryMax) * 100, 100)}%`,
-                      backgroundColor: selectedInstance.memoryUsage / selectedInstance.memoryMax > 0.8
-                        ? "rgba(248, 113, 113, 0.7)"
-                        : `${accentColor.value}90`,
+                      backgroundColor: selectedInstance.memoryUsage > selectedInstance.memoryMax
+                        ? "rgba(251, 191, 36, 0.7)"
+                        : selectedInstance.memoryUsage / selectedInstance.memoryMax > 0.8
+                          ? "rgba(248, 113, 113, 0.7)"
+                          : `${accentColor.value}90`,
                     }}
                   />
                 </div>
@@ -555,8 +570,7 @@ export function InstanceSidebar({
                 {t('instances.stop')}
               </button>
             ) : (selectedInstance.status === "crashed" || selectedInstance.status === "idle" || stoppingProcessIds.has(selectedInstance.id)) && (() => {
-              const launchState = getProfileState(selectedInstance.profileId);
-              const isLaunching = launchState.isButtonLaunching;
+              const isLaunching = launchStates[selectedInstance.profileId]?.isButtonLaunching ?? false;
 
               return isLaunching ? (
                 <button

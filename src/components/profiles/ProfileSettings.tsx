@@ -487,7 +487,10 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
       className="!max-w-6xl h-[85vh] min-h-[600px] flex flex-col"
     >
       <div className="flex h-full p-4 gap-2">
-        <div ref={sidebarRef} className="w-64 flex flex-col flex-shrink-0">
+        <div
+          ref={sidebarRef}
+          className="w-64 flex flex-col flex-shrink-0"
+        >
           <div className="space-y-0.5 flex-1 overflow-y-auto scrollbar-hover">
             {tabConfig.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -501,11 +504,7 @@ export function ProfileSettings({ profile, onClose }: ProfileSettingsProps) {
                       ? "text-white"
                       : "bg-transparent text-white/60 hover:bg-white/5 hover:text-white/90",
                   )}
-                  style={
-                    isActive
-                      ? { backgroundColor: `${accentColor.value}26` }
-                      : undefined
-                  }
+                  style={isActive ? { backgroundColor: `${accentColor.value}26` } : undefined}
                   onClick={() => handleTabClick(tab.id)}
                 >
                   <Icon

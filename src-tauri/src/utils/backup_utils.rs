@@ -5,8 +5,8 @@ use log::{debug, error, info, warn};
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 /// Generational (Grandfather-Father-Son) retention. Independent day/week/month
@@ -89,7 +89,6 @@ async fn create_backup_inner(
             source_path.display()
         )));
     }
-
     let backup_base = ensure_backup_dir(category).await?;
 
     // Generate backup filename with Unix timestamp and UUID
@@ -112,8 +111,21 @@ async fn create_backup_inner(
 
     let backup_path = backup_base.join(backup_filename);
 
-    // Skip if identical to most recent backup (dedup by content, not by time).
-    if let Some(latest) = latest_backup_path(&backup_base, original_name).await {
+    // Skip if the latest backup is too recent or identical to the current content.
+    if let Some((latest, modified)) = latest_backup_path(&backup_base, original_name).await {
+        let age = SystemTime::now()
+            .duration_since(modified)
+            .unwrap_or_default()
+            .as_secs();
+        if age < config.min_backup_interval_seconds {
+            debug!(
+                "Skipping backup for {} - last backup is {}s old",
+                source_path.display(),
+                age
+            );
+            return Ok(latest);
+        }
+
         if files_equal(source_path, &latest).await {
             debug!(
                 "Skipping backup for {} - content identical to latest backup",
@@ -152,7 +164,10 @@ async fn create_backup_inner(
     Ok(backup_path)
 }
 
-async fn latest_backup_path(backup_base: &Path, original_name: &str) -> Option<PathBuf> {
+async fn latest_backup_path(
+    backup_base: &Path,
+    original_name: &str,
+) -> Option<(PathBuf, SystemTime)> {
     let mut latest: Option<(PathBuf, std::time::SystemTime)> = None;
     if let Ok(mut entries) = fs::read_dir(backup_base).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
@@ -171,10 +186,16 @@ async fn latest_backup_path(backup_base: &Path, original_name: &str) -> Option<P
             }
         }
     }
-    latest.map(|(p, _)| p)
+    latest
 }
 
 async fn files_equal(a: &Path, b: &Path) -> bool {
+    match (fs::metadata(a).await, fs::metadata(b).await) {
+        (Ok(ma), Ok(mb)) if ma.len() != mb.len() => return false,
+        (Ok(_), Ok(_)) => {}
+        _ => return false,
+    }
+
     match (fs::read(a).await, fs::read(b).await) {
         (Ok(da), Ok(db)) => da == db,
         _ => false,
@@ -554,4 +575,3 @@ pub async fn validate_backup(backup_path: &Path) -> Result<bool> {
         }
     }
 }
-

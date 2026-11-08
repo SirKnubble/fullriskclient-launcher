@@ -453,9 +453,7 @@ export function ExportSettingsTab({
           <div className="mt-4 space-y-2">
             <div className="flex justify-between items-center text-sm font-minecraft">
               <span className="text-white/70">{exportMessage}</span>
-              <span className="text-white font-smallcaps">
-                {exportProgress}%
-              </span>
+              <span className="text-white font-smallcaps">{exportProgress}%</span>
             </div>
             <div className="w-full h-2 bg-black/30 border border-white/10 overflow-hidden">
               <div
@@ -489,9 +487,7 @@ export function ExportSettingsTab({
               <div className="mt-4 space-y-2">
                 <div className="flex justify-between items-center text-sm font-minecraft">
                   <span className="text-white/70">{exportMessage}</span>
-                  <span className="text-white font-smallcaps">
-                    {exportProgress}%
-                  </span>
+                  <span className="text-white font-smallcaps">{exportProgress}%</span>
                 </div>
                 <div className="w-full h-2 bg-black/30 border border-white/10 overflow-hidden">
                   <div

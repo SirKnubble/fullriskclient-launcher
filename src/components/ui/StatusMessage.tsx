@@ -74,11 +74,7 @@ export function StatusMessage({
       role="alert"
       aria-live="polite"
     >
-      <Icon
-        icon={styles.icon}
-        className="w-6 h-6 mr-3 flex-shrink-0 mt-1"
-        aria-hidden="true"
-      />
+      <Icon icon={styles.icon} className="w-6 h-6 mr-3 flex-shrink-0 mt-1" aria-hidden="true" />
       <div className="text-base font-minecraft">{message}</div>
     </div>
   );

@@ -18,6 +18,7 @@ import { ReferralBanner } from "../ui/ReferralBanner";
 import { ApplixirAdButton } from "../ui/ApplixirAdButton";
 import { ToggleSwitch } from "../ui/ToggleSwitch";
 import { useQualitySettingsStore } from "../../store/quality-settings-store";
+import { isWebGLAvailable } from "@noriskclient/nrc-skin-renderer";
 import { useLauncherTheme } from "../../hooks/useLauncherTheme";
 import { setDiscordState } from "../../utils/discordRpc";
 import { useTranslation } from "react-i18next";
@@ -41,6 +42,7 @@ export function PlayTab() {
   const { isThemeActive, selectedTheme } = useLauncherTheme();
   const { cosmeticRenderer3d, setCosmeticRenderer3d } =
     useQualitySettingsStore();
+  const webglOk = isWebGLAvailable();
 
   useEffect(() => {
     setDiscordState("Idling");
@@ -116,8 +118,9 @@ export function PlayTab() {
               {t("settings.background.skin_animation")}
             </span>
             <ToggleSwitch
-              checked={cosmeticRenderer3d}
+              checked={cosmeticRenderer3d && webglOk}
               onChange={() => setCosmeticRenderer3d(!cosmeticRenderer3d)}
+              disabled={!webglOk}
               size="sm"
             />
           </div>

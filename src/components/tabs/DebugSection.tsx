@@ -143,38 +143,22 @@ function LogFileSection({
         <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-white/50">
-              <Icon
-                icon="svg-spinners:ring-resize"
-                className="w-6 h-6 mx-auto mb-2"
-              />
+              <Icon icon="svg-spinners:ring-resize" className="w-6 h-6 mx-auto mb-2" />
               {t("common.loading")}
             </div>
           ) : files.length === 0 ? (
-            <div className="p-8 text-center text-white/50 font-minecraft">
-              {t("debug.no_files")}
-            </div>
+            <div className="p-8 text-center text-white/50 font-minecraft">{t("debug.no_files")}</div>
           ) : (
             <div className="divide-y divide-white/10">
               {files.map((file, i) => (
-                <div
-                  key={i}
-                  className="p-3 hover:bg-white/5 flex items-center gap-4"
-                >
+                <div key={i} className="p-3 hover:bg-white/5 flex items-center gap-4">
                   <Icon
-                    icon={
-                      crash
-                        ? "solar:danger-triangle-bold"
-                        : "solar:document-text-bold"
-                    }
+                    icon={crash ? "solar:danger-triangle-bold" : "solar:document-text-bold"}
                     className={`w-5 h-5 flex-shrink-0 ${crash ? "text-red-400" : "text-white/60"}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-white font-minecraft truncate">
-                      {file.name}
-                    </div>
-                    <div className="text-xs text-white/40 font-sans truncate">
-                      {file.path}
-                    </div>
+                    <div className="text-white font-minecraft truncate">{file.name}</div>
+                    <div className="text-xs text-white/40 font-sans truncate">{file.path}</div>
                   </div>
                   <div className="text-sm text-white/50 font-sans whitespace-nowrap">
                     {formatSize(file.size)}
@@ -188,10 +172,7 @@ function LogFileSection({
                       className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
                       title={t("debug.copy_content")}
                     >
-                      <Icon
-                        icon="solar:copy-bold"
-                        className="w-4 h-4 text-white/70"
-                      />
+                      <Icon icon="solar:copy-bold" className="w-4 h-4 text-white/70" />
                     </button>
                     <button
                       onClick={() => handleUpload(file)}
@@ -200,15 +181,9 @@ function LogFileSection({
                       title={t("debug.upload_mclogs")}
                     >
                       {uploadingFile === file.path ? (
-                        <Icon
-                          icon="svg-spinners:ring-resize"
-                          className="w-4 h-4 text-white/70"
-                        />
+                        <Icon icon="svg-spinners:ring-resize" className="w-4 h-4 text-white/70" />
                       ) : (
-                        <Icon
-                          icon="solar:upload-bold"
-                          className="w-4 h-4 text-white/70"
-                        />
+                        <Icon icon="solar:upload-bold" className="w-4 h-4 text-white/70" />
                       )}
                     </button>
                   </div>
@@ -492,16 +467,11 @@ function TestingPanel() {
             {t("debug.testing.filenames_count", { count: filenames.length })}
           </div>
           {filenames.length === 0 ? (
-            <div className="p-8 text-center text-white/50 font-minecraft">
-              {t("debug.testing.empty")}
-            </div>
+            <div className="p-8 text-center text-white/50 font-minecraft">{t("debug.testing.empty")}</div>
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {filenames.map((name) => (
-                <div
-                  key={name}
-                  className="p-2 px-4 hover:bg-white/5 text-white/80 font-mono text-xs truncate"
-                >
+                <div key={name} className="p-2 px-4 hover:bg-white/5 text-white/80 font-mono text-xs truncate">
                   {name}
                 </div>
               ))}
@@ -511,14 +481,9 @@ function TestingPanel() {
       )}
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon
-          icon="solar:trash-bin-trash-bold"
-          className="w-5 h-5 text-red-300 shrink-0"
-        />
+        <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5 text-red-300 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">
-            {t("debug.testing.clean_title")}
-          </div>
+          <div className="text-white font-minecraft">{t("debug.testing.clean_title")}</div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("debug.testing.clean_desc")}
           </div>
@@ -539,14 +504,9 @@ function TestingPanel() {
       </div>
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon
-          icon="solar:database-bold"
-          className="w-5 h-5 text-red-300 shrink-0"
-        />
+        <Icon icon="solar:database-bold" className="w-5 h-5 text-red-300 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">
-            {t("debug.testing.clear_cache_title")}
-          </div>
+          <div className="text-white font-minecraft">{t("debug.testing.clear_cache_title")}</div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("debug.testing.clear_cache_desc")}
           </div>
@@ -575,20 +535,14 @@ function TestingPanel() {
               failed: cleanStats.failed.length,
               mb: (cleanStats.freed_bytes / (1024 * 1024)).toFixed(1),
             })}
-            {cleanStats.skipped_empty_keepset &&
-              t("debug.testing.stats_skipped")}
+            {cleanStats.skipped_empty_keepset && t("debug.testing.stats_skipped")}
           </div>
           {cleanStats.deleted.length === 0 ? (
-            <div className="p-6 text-center text-white/50 font-minecraft">
-              {t("debug.testing.no_orphans")}
-            </div>
+            <div className="p-6 text-center text-white/50 font-minecraft">{t("debug.testing.no_orphans")}</div>
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {cleanStats.deleted.map((name) => (
-                <div
-                  key={name}
-                  className="p-2 px-4 hover:bg-white/5 text-red-200/80 font-mono text-xs truncate"
-                >
+                <div key={name} className="p-2 px-4 hover:bg-white/5 text-red-200/80 font-mono text-xs truncate">
                   {name}
                 </div>
               ))}
@@ -598,14 +552,9 @@ function TestingPanel() {
       )}
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon
-          icon="solar:history-bold"
-          className="w-5 h-5 text-emerald-300 shrink-0"
-        />
+        <Icon icon="solar:history-bold" className="w-5 h-5 text-emerald-300 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">
-            {t("settings.backups.title")}
-          </div>
+          <div className="text-white font-minecraft">{t("settings.backups.title")}</div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("settings.backups.description")}
           </div>
@@ -637,14 +586,8 @@ function TestingPanel() {
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {backups.map((b) => (
-                <div
-                  key={b.path}
-                  className="p-3 px-4 hover:bg-white/5 flex items-center gap-4"
-                >
-                  <Icon
-                    icon="solar:archive-bold"
-                    className="w-5 h-5 text-white/50 shrink-0"
-                  />
+                <div key={b.path} className="p-3 px-4 hover:bg-white/5 flex items-center gap-4">
+                  <Icon icon="solar:archive-bold" className="w-5 h-5 text-white/50 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-minecraft truncate">
                       {new Date(b.backup_time * 1000).toLocaleString()}
@@ -662,10 +605,7 @@ function TestingPanel() {
                     className="px-3 py-2 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-minecraft text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     {restoringPath === b.path ? (
-                      <Icon
-                        icon="svg-spinners:ring-resize"
-                        className="w-4 h-4"
-                      />
+                      <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
                     ) : (
                       <Icon icon="solar:restart-bold" className="w-4 h-4" />
                     )}
@@ -763,9 +703,7 @@ function PermissionsList({
             className="w-5 h-5 text-amber-300 shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <div className="text-white font-minecraft">
-              {t("debug.testing.tester_queue")}
-            </div>
+            <div className="text-white font-minecraft">{t("debug.testing.tester_queue")}</div>
             <div className="text-xs text-white/40 font-sans truncate">
               {queueCount === null
                 ? t("debug.testing.tester_open_hint")

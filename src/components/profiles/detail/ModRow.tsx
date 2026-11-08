@@ -21,6 +21,7 @@ export function ModRow({
   onSelect,
   onToggle,
   onDelete,
+  onUpdate,
   updateVersion,
   modrinthIconUrl,
 }: ModRowProps) {

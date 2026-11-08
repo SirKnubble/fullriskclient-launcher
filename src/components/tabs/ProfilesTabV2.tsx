@@ -6,6 +6,7 @@ import type { Profile } from "../../types/profile";
 import { useProfileStore } from "../../store/profile-store";
 import { LoadingState } from "../ui/LoadingState";
 import { EmptyState } from "../ui/EmptyState";
+import { Button } from "../ui/buttons/Button";
 
 import { ProfileCardV2 } from "../profiles/ProfileCardV2";
 import { toast } from "react-hot-toast";
@@ -14,12 +15,10 @@ import { MultiVersionFilter } from "../ui/MultiVersionFilter";
 import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { useNavigate } from "react-router-dom";
-import { ProfileImport } from "../profiles/ProfileImport";
 import * as ProfileService from "../../services/profile-service";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { useThemeStore } from "../../store/useThemeStore";
-import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ExportProfileModal } from "../profiles/ExportProfileModal";
 import { Icon } from "@iconify/react";
 import { useTranslation } from "react-i18next";
@@ -27,6 +26,8 @@ import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
 import { setDiscordState } from "../../utils/discordRpc";
 import { FullRiskProfileCard } from "../profiles/FullRiskProfileCard";
 import { parseErrorMessage } from "../../utils/error-utils";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { ProfileImport } from "../profiles/ProfileImport";
 
 // A vertical virtualizer row: a version-section divider header, or a row of up to N cards.
 type VirtualRow =
@@ -63,6 +64,9 @@ export function ProfilesTabV2() {
 
   // Local non-persistent state
   const [searchQuery, setSearchQuery] = useState("");
+  const handleImportComplete = () => {
+    void fetchProfiles();
+  };
 
   // Use persistent values instead of local state
   const activeGroup = profilesTabActiveGroup;
@@ -219,13 +223,6 @@ export function ProfilesTabV2() {
   const handleCreateProfile = () => {
     console.log("[ProfilesTabV2] handleCreateProfile called.");
     fetchProfiles();
-    navigate("/profiles");
-  };
-
-  const handleImportComplete = () => {
-    console.log("[ProfilesTabV2] handleImportComplete called.");
-    fetchProfiles();
-    hideModal("profile-import");
     navigate("/profiles");
   };
 
@@ -424,7 +421,17 @@ export function ProfilesTabV2() {
     return (
       <EmptyState
         icon="solar:widget-bold"
-        message={t("profiles.noProfilesFound")}
+        message={t('profiles.noProfilesFound')}
+        action={
+          <Button
+            variant="default"
+            size="md"
+            onClick={() => openWizard(null)}
+            icon={<Icon icon="solar:widget-add-bold" className="w-5 h-5" />}
+          >
+            {t('profiles.createNewProfile')}
+          </Button>
+        }
       />
     );
   }
