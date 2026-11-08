@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 
 import { Modal } from "../ui/Modal";
@@ -12,6 +13,7 @@ import { useImportConfirmStore } from "../../store/import-confirm-store";
 import { logInfo, logWarn } from "../../utils/logging-utils";
 import { useTranslation } from "react-i18next";
 import { importSharedProfile } from "../../services/profile-share-service";
+import { useProfileStore } from "../../store/profile-store";
 
 interface ProfileImportProps {
   onClose: () => void;
@@ -23,6 +25,7 @@ export function ProfileImport({
   onImportComplete,
 }: ProfileImportProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [isImporting, setIsImporting] = useState(false);
   const [isCodeImporting, setIsCodeImporting] = useState(false);
   const [shareCode, setShareCode] = useState("");

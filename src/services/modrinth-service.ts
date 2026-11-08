@@ -1,15 +1,18 @@
 import type {
   ModrinthAllVersionsResult,
   ModrinthBulkUpdateRequestBody,
+  ModrinthCategory,
+  ModrinthGameVersion,
+  ModrinthLoader,
   ModrinthProject,
   ModrinthProjectContext,
   ModrinthProjectType,
   ModrinthSearchHit,
   ModrinthSearchResponse,
   ModrinthSortType,
-  ModrinthVersion,
   ModrinthTags,
   ModrinthTeamMember,
+  ModrinthVersion,
 } from "../types/modrinth";
 import type {
   UnifiedModVersionsParams,
@@ -138,17 +141,41 @@ export class ModrinthService {
     cacheBehaviour?: CacheBehaviour,
   ): Promise<ModrinthTags> {
     if (cacheBehaviour) {
-      return invoke<ModrinthTags>("get_modrinth_tags_command", { cacheBehaviour });
+      return invoke<ModrinthTags>("get_modrinth_tags_command", {
+        cacheBehaviour,
+      });
     }
 
     if (!inFlightTags) {
-      inFlightTags = invoke<ModrinthTags>("get_modrinth_tags_command", {}).finally(
-        () => {
-          inFlightTags = null;
-        },
-      );
+      inFlightTags = invoke<ModrinthTags>(
+        "get_modrinth_tags_command",
+        {},
+      ).finally(() => {
+        inFlightTags = null;
+      });
     }
     return inFlightTags;
+  }
+
+  static async getModrinthCategories(
+    cacheBehaviour?: CacheBehaviour,
+  ): Promise<ModrinthCategory[]> {
+    const tags = await this.getModrinthTags(cacheBehaviour);
+    return tags.categories;
+  }
+
+  static async getModrinthLoaders(
+    cacheBehaviour?: CacheBehaviour,
+  ): Promise<ModrinthLoader[]> {
+    const tags = await this.getModrinthTags(cacheBehaviour);
+    return tags.loaders;
+  }
+
+  static async getModrinthGameVersions(
+    cacheBehaviour?: CacheBehaviour,
+  ): Promise<ModrinthGameVersion[]> {
+    const tags = await this.getModrinthTags(cacheBehaviour);
+    return tags.game_versions;
   }
 
   static async getVersionsByHashes(
