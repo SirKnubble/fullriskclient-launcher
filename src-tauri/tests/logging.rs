@@ -1,7 +1,7 @@
 use log::{Level, Record};
 use log4rs::encode::writer::simple::SimpleWriter;
 use log4rs::encode::Encode;
-use noriskclient_launcher_v3_lib::logging::*;
+use norisk_logging::{RedactingEncoder, FILE_PATTERN as LOG_PATTERN};
 
 #[test]
 fn encoder_masks_the_rendered_line() {
