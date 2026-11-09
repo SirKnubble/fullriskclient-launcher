@@ -133,18 +133,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     runs-on: ${{ matrix.platform }}
-    # The environment exists to give the GitHub OIDC token a stable subject
-    # (repo:NoRiskClient@76866278/noriskclient-launcher@683336999:environment:signing)
-    # so one Azure federated credential covers every branch and tag.
-    # Leave it without deployment-branch restrictions: this job also runs on plain
-    # branch pushes, and a restricted environment would fail those outright.
-    environment: signing
     permissions:
       contents: read
-      id-token: write # Azure OIDC login for Artifact Signing
     env:
       WINDOWS_LAUNCHER_EXE: ${{ github.workspace }}\src-tauri\target\release\noriskclient-launcher-v3.exe
-      WINDOWS_CAPTURE_EXE: ${{ github.workspace }}\src-tauri\binaries\norisk-capture-x86_64-pc-windows-msvc.exe
       CAPTURE_RUNTIME_ASSET: NoRiskClient-Windows-capture-runtime.zip
     steps:
       - name: Checkout repository
@@ -222,35 +214,10 @@ jobs:
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         run: yarn native-deps && yarn stage-native
 
-      - name: Azure login (OIDC federated credential)
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign norisk-capture.exe with Azure Artifact Signing
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.AZURE_CERT_PROFILE }}
-          files: ${{ env.WINDOWS_CAPTURE_EXE }}
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      - name: Azure logout and pack the capture runtime
+      - name: Pack the capture runtime
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
-          az logout
-          az account clear
-          $signature = Get-AuthenticodeSignature -FilePath $env:WINDOWS_CAPTURE_EXE
-          if ($signature.Status -ne 'Valid') { throw "norisk-capture.exe is in state $($signature.Status) after signing" }
-
           $outDir = Join-Path $env:RUNNER_TEMP "capture-runtime"
           yarn pack-capture-runtime --out $outDir
           if ($LASTEXITCODE -ne 0) { throw "packing the capture runtime failed" }
@@ -279,38 +246,9 @@ jobs:
           if (-not $text.Contains($env:NRC_CAPTURE_RUNTIME_SHA256)) {
             throw "the launcher was built without the current capture runtime hash; a cached build must have been reused"
           }
+          $hash = (Get-FileHash -Algorithm SHA256 $env:WINDOWS_LAUNCHER_EXE).Hash
+          echo "WINDOWS_LAUNCHER_SHA256=$hash" >> $env:GITHUB_ENV
           Write-Host "launcher carries capture runtime $env:NRC_CAPTURE_RUNTIME_SHA256"
-
-      - name: Azure login (OIDC federated credential)
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign the launcher with Azure Artifact Signing
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.AZURE_CERT_PROFILE }}
-          files: ${{ env.WINDOWS_LAUNCHER_EXE }}
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      - name: Azure logout and record the signed launcher
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          az logout
-          az account clear
-          $signature = Get-AuthenticodeSignature -FilePath $env:WINDOWS_LAUNCHER_EXE
-          if ($signature.Status -ne 'Valid') { throw "the launcher is in state $($signature.Status) after signing" }
-          echo "SIGNED_LAUNCHER_SHA256=$((Get-FileHash -Algorithm SHA256 $env:WINDOWS_LAUNCHER_EXE).Hash)" >> $env:GITHUB_ENV
-          echo "SIGNED_LAUNCHER_THUMBPRINT=$($signature.SignerCertificate.Thumbprint)" >> $env:GITHUB_ENV
 
       - name: Bundle the Windows app
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
@@ -362,14 +300,10 @@ jobs:
         shell: pwsh
         run: |
           $hash = (Get-FileHash -Algorithm SHA256 $env:WINDOWS_LAUNCHER_EXE).Hash
-          $signature = Get-AuthenticodeSignature -FilePath $env:WINDOWS_LAUNCHER_EXE
-          if ($hash -ne $env:SIGNED_LAUNCHER_SHA256) {
-            throw "the launcher does not match the signed file (expected $env:SIGNED_LAUNCHER_SHA256, got $hash)"
+          if ($hash -ne $env:WINDOWS_LAUNCHER_SHA256) {
+            throw "the launcher changed after build (expected $env:WINDOWS_LAUNCHER_SHA256, got $hash)"
           }
-          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Thumbprint -ne $env:SIGNED_LAUNCHER_THUMBPRINT) {
-            throw "the launcher signature check failed ($($signature.Status))"
-          }
-          Write-Host "launcher verified, signed by $($signature.SignerCertificate.Subject)"
+          Write-Host "launcher unchanged after build"
 
           $zipHash = (Get-FileHash -Algorithm SHA256 $env:CAPTURE_RUNTIME_ZIP).Hash.ToLower()
           if ($zipHash -ne $env:NRC_CAPTURE_RUNTIME_SHA256) {
@@ -377,60 +311,6 @@ jobs:
           }
           Copy-Item $env:CAPTURE_RUNTIME_ZIP "${{ matrix.output_path }}\nsis\"
           Write-Host "capture runtime $env:CAPTURE_RUNTIME_ASSET ($zipHash) staged for upload"
-
-      # --- Code Signing (Windows) via Azure Artifact Signing ---
-      - name: Find Windows EXE for Signing
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        id: find_exe
-        run: |
-          $NsisDir = "${{ github.workspace }}\src-tauri\target\release\bundle\nsis"
-          $ExeFile = Get-ChildItem -Path $NsisDir -Filter "*.exe" | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
-          echo "EXE_PATH=$($ExeFile.FullName)" >> $env:GITHUB_OUTPUT
-          echo "NSIS_DIR=$NsisDir" >> $env:GITHUB_OUTPUT
-          echo "Found EXE: $($ExeFile.FullName)"
-        shell: pwsh
-
-      - name: Azure login (OIDC federated credential)
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Sign Windows EXE with Azure Artifact Signing
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: azure/artifact-signing-action@v2
-        with:
-          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
-          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
-          certificate-profile-name: ${{ vars.AZURE_CERT_PROFILE }}
-          files: ${{ steps.find_exe.outputs.EXE_PATH }}
-          file-digest: SHA256
-          timestamp-rfc3161: http://timestamp.acs.microsoft.com
-          timestamp-digest: SHA256
-
-      # tauri-action generated the .exe.sig before code signing changed the binary,
-      # so the updater signature no longer matches and has to be regenerated.
-      - name: Re-sign Windows EXE for Tauri Updater
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: |
-          echo "Re-signing EXE for Tauri updater after code signing..."
-          yarn tauri signer sign "${{ steps.find_exe.outputs.EXE_PATH }}"
-          echo "Re-signing complete."
-        shell: bash
-
-      - name: Verify the Windows signature
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          $sig = Get-AuthenticodeSignature "${{ steps.find_exe.outputs.EXE_PATH }}"
-          $sig | Format-List Status, StatusMessage
-          $sig.SignerCertificate | Format-List Subject, Issuer, NotAfter
-          if ($sig.Status -ne 'Valid') { throw "Signature status is $($sig.Status)" }
 
       - name: Detect AppImage (Linux only)
         continue-on-error: true
