@@ -14,23 +14,19 @@ import { useTranslation } from "react-i18next";
 import { StaticTooltip } from "../ui/Tooltip";
 import { toast } from "sonner";
 import { isWorldCupEventActive } from "../../data/worldcup-event";
-import type { LaunchOverrides } from "../../services/process-service";
 
 // Featured server configuration
 // Option A: profileId = null → uses currently selected profile from MainLaunchButton
 // Option B: profileId = "uuid" → uses dedicated profile for this server
 const FEATURED_SERVER = {
-  address: "hugosmp.net",
-  name: "HugoSMP.net",
+  address: "froglight.net",
+  name: "Froglight",
   profileId: null as string | null,
 };
 
 const WM_PUBLIC_VIEWING = {
-  address: FEATURED_SERVER.address,
   iconSrc: "/worldcup/football.png",
   gameVersion: "1.21.11",
-  pack: "norisk-prod",
-  loader: "fabric",
 };
 
 interface PlayerActionsDisplayProps {
@@ -136,14 +132,6 @@ export function PlayerActionsDisplay({
   )?.label;
 
   const worldCupActive = isWorldCupEventActive();
-  const featuredLaunchOverrides: LaunchOverrides | undefined = worldCupActive
-    ? {
-        game_version: WM_PUBLIC_VIEWING.gameVersion,
-        loader: WM_PUBLIC_VIEWING.loader,
-        pack: WM_PUBLIC_VIEWING.pack,
-      }
-    : undefined;
-
   return (
     <div
       className={cn(
@@ -181,7 +169,16 @@ export function PlayerActionsDisplay({
           <>
             {/* Featured Server Toggle - above the launch button */}
             <div
-              className={`absolute left-0 right-0 flex justify-center px-4 z-30 transition-all duration-300 ${featureMode ? "bottom-32" : "bottom-24"}`}
+              className={`absolute left-0 right-0 flex justify-center px-4 z-30 transition-all duration-300 ${
+                isFullRiskStyle
+                  ? featureMode
+                    ? "bottom-28"
+                    : "bottom-20"
+                  : featureMode
+                    ? "bottom-32"
+                    : "bottom-24"
+              }`}
+              style={isFullRiskStyle ? { transform: "translateY(64px)" } : undefined}
             >
               {!featureMode && worldCupActive ? (
                 <StaticTooltip
@@ -220,7 +217,10 @@ export function PlayerActionsDisplay({
               )}
             </div>
             <div
-              className={`absolute left-0 right-0 flex justify-center px-4 ${isFullRiskStyle ? "bottom-4" : "bottom-2"}`}
+              className={`absolute left-0 right-0 flex justify-center px-4 ${
+                isFullRiskStyle ? "-bottom-2" : "bottom-2"
+              }`}
+              style={isFullRiskStyle ? { transform: "translateY(64px)" } : undefined}
             >
               {featureMode ? (
                 <ServerLaunchCard
@@ -228,7 +228,6 @@ export function PlayerActionsDisplay({
                   serverName={FEATURED_SERVER.name}
                   profileId={featuredServerProfileId}
                   onMods={handleFeaturedServerMods}
-                  launchOverrides={featuredLaunchOverrides}
                 />
               ) : (
                 <div className="max-w-xs sm:max-w-sm">

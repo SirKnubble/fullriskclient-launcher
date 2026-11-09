@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@iconify/react";
 import { useThemeStore } from "../../store/useThemeStore";
 import { MENU_PANEL_CLASSES, menuItemClasses, menuSeparatorClasses } from "./design-system";
@@ -126,7 +127,7 @@ export function SettingsContextMenu<T = Profile>({
 
   if (!isOpen) return null;
 
-  return (
+  const menu = (
     <div
       ref={menuRef}
       className={`absolute ${MENU_PANEL_CLASSES}`}
@@ -190,4 +191,10 @@ export function SettingsContextMenu<T = Profile>({
       </div>
     </div>
   );
+
+  if (positionMode === "fixed" && typeof document !== "undefined") {
+    return createPortal(menu, document.body);
+  }
+
+  return menu;
 }

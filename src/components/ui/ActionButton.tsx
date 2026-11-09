@@ -186,6 +186,7 @@ export function ActionButton({
   return (
     <button
       id={id}
+      data-action={id}
       onClick={handleClick}
       className={`${buttonStyles.className} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
       style={!isDisabled ? buttonStyles.style : { ...buttonStyles.style, opacity: 0.5 }}

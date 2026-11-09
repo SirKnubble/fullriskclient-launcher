@@ -215,6 +215,9 @@ export function ProfileCardV2({
       setOpenContextMenuId(newState ? contextMenuId : null);
 
       if (newState) {
+        if (e.currentTarget instanceof HTMLButtonElement) {
+          settingsButtonRef.current = e.currentTarget;
+        }
         const buttonRect = e.currentTarget.getBoundingClientRect();
         setContextMenuPosition(
           calculateContextMenuPosition(
@@ -430,7 +433,6 @@ export function ProfileCardV2({
       borderColor,
       borderBottomColor,
       boxShadow,
-      transform: isHovered ? "scale(1.02)" : "scale(1)",
       filter: isHovered ? "brightness(1.1)" : "brightness(1)",
       transition: "all 0.2s ease",
     };
@@ -1073,8 +1075,7 @@ export function ProfileCardV2({
       <ProfileActionButtons
         profile={profile}
         actions={actionButtons}
-        useFlexSpacer={true}
-        flexSpacerAfterIndex={1}
+        className="relative z-30 shrink-0"
       />
 
       {/* Settings Context Menu */}
@@ -1090,7 +1091,7 @@ export function ProfileCardV2({
           setIsContextMenuOpen(false);
           setOpenContextMenuId(null);
         }}
-        triggerButtonRef={undefined} // List layout doesn't have direct button ref
+        triggerButtonRef={settingsButtonRef}
       />
     </div>
   );

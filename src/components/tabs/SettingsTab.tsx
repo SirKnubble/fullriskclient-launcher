@@ -81,6 +81,7 @@ export function SettingsTab({ onClose }: SettingsTabProps) {
   const sectionDefs: Record<SettingsTabId, { id: string; label: string }[]> = {
     general: [
       { id: "language", label: t("settings.language") },
+      { id: "launcher-style", label: "Launcher Style" },
       { id: "accent", label: t("settings.accent_color.title") },
       { id: "behaviour", label: t("settings.sections.behaviour") },
       { id: "interface", label: t("settings.sections.interface") },
