@@ -155,7 +155,6 @@ pub async fn get_process_log_cursor(
     };
     let output =
         crate::utils::security_utils::mask_sensitive_data(&String::from_utf8_lossy(&buf[lines]));
-        crate::utils::security_utils::mask_sensitive_data(&String::from_utf8_lossy(&buf[lines]));
 
     Ok(ProcessLogCursor {
         cursor: next_cursor,

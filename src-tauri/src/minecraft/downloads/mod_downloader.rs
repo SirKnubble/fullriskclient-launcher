@@ -181,8 +181,8 @@ impl ModDownloadService {
 
         if errors.is_empty() {
             info!(
-                "Mod cache ready for profile '{}': {} mods",
-                profile.name, task_count
+                "Mod cache ready: {} mods",
+                task_count
             );
             Ok(())
         } else {
