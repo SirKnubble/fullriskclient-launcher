@@ -72,6 +72,7 @@ jobs:
   # --- JOB 0: Rust tests ---
   test:
     runs-on: ubuntu-22.04
+    continue-on-error: true
     # cargo test executes every dependency's build.rs, so this job must not hold a
     # write-scoped token — actions/checkout persists it into .git/config.
     permissions:

@@ -20,6 +20,7 @@ fn modrinth_mod(project_id: &str, version_id: &str, file_name: &str, enabled: bo
         modpack_origin: None,
         updates_enabled: true,
         force_include_versions: Vec::new(),
+        extra: Default::default(),
     }
 }
 
@@ -201,6 +202,7 @@ fn local_mods_never_match_a_platform_project() {
         modpack_origin: None,
         updates_enabled: true,
         force_include_versions: Vec::new(),
+        extra: Default::default(),
     }];
 
     assert!(find_mod_by_project_id(&mods, "7P86n6Vg").is_none());

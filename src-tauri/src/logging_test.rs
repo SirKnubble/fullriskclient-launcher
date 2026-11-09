@@ -1,5 +1,6 @@
 use super::{RedactingEncoder, LOG_PATTERN};
 use log::{Level, Record};
+use log4rs::encode::Encode;
 use log4rs::encode::writer::simple::SimpleWriter;
 
 #[test]
