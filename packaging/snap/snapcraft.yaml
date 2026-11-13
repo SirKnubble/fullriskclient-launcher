@@ -1,5 +1,5 @@
 name: fullrisk-launcher
-base: core22
+base: core24
 version: "0.6.29"
 summary: FullRiskClient Launcher
 description: |
@@ -10,16 +10,19 @@ confinement: strict
 apps:
   fullrisk-launcher:
     command: bin/fullrisk-launcher
-    plugs: [desktop, desktop-legacy, x11, wayland, network, network-bind, home]
+    plugs: [desktop, desktop-legacy, x11, wayland, network, network-bind, home, opengl, browser-support]
     desktop: gg.norisk.NoRiskClientLauncherV3.desktop
 
 parts:
   fullrisk-launcher:
     plugin: dump
-    source: .
-    organize:
-      NoRiskClient-Linux.AppImage: bin/fullrisk-launcher
-      gg.norisk.NoRiskClientLauncherV3.desktop: meta/gui/gg.norisk.NoRiskClientLauncherV3.desktop
+    source: appimage-root
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libayatana-appindicator3-1
+      - librsvg2-2
     override-build: |
-      snapcraftctl build
-      chmod +x "$SNAPCRAFT_PART_INSTALL/bin/fullrisk-launcher"
+      craftctl default
+      mkdir -p "$CRAFT_PART_INSTALL/bin"
+      printf '#!/bin/sh\nexec "$SNAP/AppRun" "$@"\n' > "$CRAFT_PART_INSTALL/bin/fullrisk-launcher"
+      chmod 755 "$CRAFT_PART_INSTALL/bin/fullrisk-launcher"

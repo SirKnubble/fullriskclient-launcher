@@ -1,8 +1,8 @@
 app-id: gg.norisk.NoRiskClientLauncherV3
 
-runtime: org.freedesktop.Platform
-runtime-version: "24.08"
-sdk: org.freedesktop.Sdk
+runtime: org.gnome.Platform
+runtime-version: "48"
+sdk: org.gnome.Sdk
 
 command: fullrisk-launcher
 
@@ -17,12 +17,14 @@ finish-args:
 modules:
   - name: fullrisk-launcher
     buildsystem: simple
-
     build-commands:
-      - install -D app.AppImage /app/bin/fullrisk-launcher
-      - chmod +x /app/bin/fullrisk-launcher
-
+      - cp -a appimage-root/. /app/
+      - install -D /app/usr/share/applications/gg.norisk.NoRiskClientLauncherV3.desktop /app/share/applications/gg.norisk.NoRiskClientLauncherV3.desktop
+      - cp -a /app/usr/share/icons/. /app/share/icons/
+      - |
+        mkdir -p /app/bin
+        printf '#!/bin/sh\nexec /app/AppRun "$@"\n' > /app/bin/fullrisk-launcher
+        chmod 755 /app/bin/fullrisk-launcher
     sources:
-      - type: file
-        path: sources/app.AppImage
-        dest-filename: app.AppImage
+      - type: dir
+        path: sources/appimage-root

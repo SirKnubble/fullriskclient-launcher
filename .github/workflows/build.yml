@@ -156,8 +156,7 @@ jobs:
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm flatpak flatpak-builder libfuse2
-          sudo apt-get install -y snapcraft
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf rpm flatpak flatpak-builder libfuse2 squashfs-tools
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -314,7 +313,6 @@ jobs:
           Write-Host "capture runtime $env:CAPTURE_RUNTIME_ASSET ($zipHash) staged for upload"
 
       - name: Detect AppImage (Linux only)
-        continue-on-error: true
         if: matrix.os == 'ubuntu-22.04'
         id: appimage
         shell: bash
@@ -329,122 +327,87 @@ jobs:
           fi
               
           echo "file=$FILE" >> $GITHUB_OUTPUT
-      - name: Setup Flatpak
-        continue-on-error: true
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-          flatpak --user install -y flathub \
-            org.freedesktop.Platform//24.08 \
-            org.freedesktop.Sdk//24.08
-
-      - name: Prepare Flatpak input
-        continue-on-error: true
+      - name: Prepare Flatpak and Snap inputs
         if: matrix.os == 'ubuntu-22.04'
         shell: bash
         run: |
-          set -e
-          mkdir -p packaging/flatpak/sources
-          APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -n 1)
-          echo "Detected:"
-          echo "$APPIMAGE"
-          cp "$APPIMAGE" packaging/flatpak/sources/app.AppImage
-          echo "Flatpak sources:"
-          ls -lah packaging/flatpak/sources
+          set -euo pipefail
+          appimage="${{ steps.appimage.outputs.file }}"
+          appimage_dir="$(dirname "$appimage")"
+          appimage_name="$(basename "$appimage")"
+          chmod +x "$appimage"
+          (
+            cd "$appimage_dir"
+            "./$appimage_name" --appimage-extract >/dev/null
+          )
+
+          appdir="$appimage_dir/squashfs-root"
+          test -x "$appdir/AppRun"
+          mkdir -p "$appdir/usr/share/applications" "$appdir/usr/share/icons/hicolor/128x128/apps" "$appdir/meta/gui"
+          install -m 644 packaging/gg.norisk.NoRiskClientLauncherV3.desktop \
+            "$appdir/usr/share/applications/gg.norisk.NoRiskClientLauncherV3.desktop"
+          sed -i 's/^Exec=.*/Exec=fullrisk-launcher/' \
+            "$appdir/usr/share/applications/gg.norisk.NoRiskClientLauncherV3.desktop"
+          install -m 644 src-tauri/icons/128x128.png \
+            "$appdir/usr/share/icons/hicolor/128x128/apps/gg.norisk.NoRiskClientLauncherV3.png"
+          install -m 644 "$appdir/usr/share/applications/gg.norisk.NoRiskClientLauncherV3.desktop" \
+            "$appdir/meta/gui/gg.norisk.NoRiskClientLauncherV3.desktop"
+          install -m 644 src-tauri/icons/128x128.png \
+            "$appdir/meta/gui/gg.norisk.NoRiskClientLauncherV3.png"
+
+          mkdir -p packaging/flatpak/sources packaging/snap
+          cp -a "$appdir" packaging/flatpak/sources/appimage-root
+          cp -a "$appdir" packaging/snap/appimage-root
+
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          sed -i "s/^version:.*/version: \"$version\"/" packaging/snap/snapcraft.yaml
+
+      - name: Setup Flatpak
+        if: matrix.os == 'ubuntu-22.04'
+        shell: bash
+        run: |
+          flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak --user install -y flathub \
+            org.gnome.Platform//48 \
+            org.gnome.Sdk//48
 
       - name: Build Flatpak
-        continue-on-error: true
         if: matrix.os == 'ubuntu-22.04'
+        shell: bash
         run: |
-          set -e
-              
+          set -euo pipefail
           flatpak-builder --user --force-clean \
             --repo=packaging/flatpak/repo \
+            --default-branch=stable \
             packaging/flatpak/build-dir \
             packaging/flatpak/fullrisk-launcher.yaml
-
-      - name: Prepare Snap
-        continue-on-error: true
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          set -e
-
-          mkdir -p packaging/snap
-
-          cp "${{ steps.appimage.outputs.file }}" packaging/snap/app.AppImage
-
-          sudo apt-get update
-          sudo apt-get install -y squashfs-tools
-
-          sudo systemctl restart snapd || true
+          mkdir -p src-tauri/target/release/bundle/flatpak
+          flatpak build-bundle --arch=x86_64 \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+            packaging/flatpak/repo \
+            src-tauri/target/release/bundle/flatpak/FullriskLauncher-Linux.flatpak \
+            gg.norisk.NoRiskClientLauncherV3 stable
 
       - name: Build Snap
         if: matrix.os == 'ubuntu-22.04'
-        continue-on-error: true
         run: |
-          docker run --rm \
+          set -euo pipefail
+          docker run --rm --privileged \
             -v "$PWD:/workspace" \
-            ubuntu:24.04 \
-            bash -c "
-              apt update
-              apt install -y snapcraft
-              cd /workspace/packaging/snap
-              snapcraft pack --destructive-mode
-            "
-
-      - name: Determine RPM version
-        id: rpm_version
-        if: matrix.os == 'ubuntu-22.04'
-        shell: bash
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-              
-          BASE="${VERSION%%-*}"
-              
-          RELEASE="1"
-              
-          if [[ "$VERSION" == *-* ]]; then
-            RELEASE="${GITHUB_RUN_NUMBER}"
-          fi
-              
-          echo "base=$BASE" >> $GITHUB_OUTPUT
-          echo "release=$RELEASE" >> $GITHUB_OUTPUT
-      - name: Build RPM package
-        if: matrix.os == 'ubuntu-22.04'
-        continue-on-error: true
-        run: |
-          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS,tmp}
-
-          VERSION="${{ steps.rpm_version.outputs.base }}"
-          RELEASE="${{ steps.rpm_version.outputs.release }}"
-
-          sed \
-            -e "s/@VERSION@/$VERSION/g" \
-            -e "s/@RELEASE@/$RELEASE/g" \
-            packaging/rpm/FullriskLauncher.spec.template \
-            > packaging/rpm/FullriskLauncher.spec
-
-          git archive \
-            --format=tar.gz \
-            --prefix=fullrisk-launcher-${VERSION}/ \
-            HEAD \
-            > rpmbuild/SOURCES/fullrisk-launcher-${VERSION}.tar.gz
-
-          rpmbuild \
-            --define "_topdir $(pwd)/rpmbuild" \
-            -ba packaging/rpm/FullriskLauncher.spec
-
-          mkdir -p src-tauri/target/release/bundle/rpm
-
-          cp rpmbuild/RPMS/*/*.rpm \
-             src-tauri/target/release/bundle/rpm/
+            -w /workspace/packaging/snap \
+            --entrypoint /bin/bash \
+            snapcore/snapcraft:8.x \
+            -lc "snapcraft pack --destructive-mode"
+          mkdir -p src-tauri/target/release/bundle/snap
+          snap_file="$(find packaging/snap -maxdepth 1 -name '*.snap' -print -quit)"
+          test -n "$snap_file"
+          cp "$snap_file" src-tauri/target/release/bundle/snap/
 
       - name: Build AUR package
-        continue-on-error: true
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''))
         run: |
-          VERSION="${{ github.ref_name }}"
+          VERSION="${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}"
           VERSION="${VERSION#v}"
           SAFE_VERSION="${VERSION//-/_}"
 
@@ -456,7 +419,7 @@ jobs:
             archlinux:latest \
             /bin/bash -lc "
 
-            pacman -Sy --noconfirm \
+            pacman -Syu --noconfirm --needed \
               archlinux-keyring \
               base-devel \
               git \
@@ -464,13 +427,11 @@ jobs:
               npm \
               yarn \
               rust \
-              cargo \
               webkit2gtk-4.1 \
               libayatana-appindicator \
               librsvg \
               patchelf \
-              fakeroot \
-              debugedit
+              dpkg
 
             useradd -m builder
 
@@ -481,7 +442,7 @@ jobs:
 
               sed -i \"s/pkgver=.*/pkgver=${SAFE_VERSION}/\" PKGBUILD
 
-              makepkg -s --noconfirm
+              makepkg --nodeps --noconfirm
 
               cp *.pkg.tar.* /work/src-tauri/target/release/bundle/aur/
             '
