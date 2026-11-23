@@ -10,8 +10,7 @@ import {
   type TrackCut,
   type TrackLevel,
 } from "../../services/clip-service";
-import { parseErrorMessage } from "../../utils/error-utils";
-import { useClipEngineEvents, writeFailed } from "./useClipEngineEvents";
+import { clipFailure, useClipEngineEvents, writeFailed } from "./useClipEngineEvents";
 import type { Translate } from "./editor/shared";
 
 interface RenderProgress {
@@ -92,7 +91,8 @@ export function useClipRender({ path, onDone, onTrim, t }: Options) {
         edit.shape === "original" &&
         edit.removed.length === 0 &&
         edit.blanked.length === 0 &&
-        edit.hushed.length === 0
+        edit.hushed.length === 0 &&
+        edit.videoStart === null
       ) {
         job.current = "trim";
         if (!(await onTrim(edit.start, edit.end, edit.levels, edit.videoStart, edit.videoEnd))) finish();
@@ -113,10 +113,10 @@ export function useClipRender({ path, onDone, onTrim, t }: Options) {
       } catch (e) {
         console.error("Could not render the clip", e);
         finish();
-        toast.error(parseErrorMessage(e));
+        toast.error(clipFailure(e, t));
       }
     },
-    [finish, onTrim, path],
+    [finish, onTrim, path, t],
   );
 
   const percent =

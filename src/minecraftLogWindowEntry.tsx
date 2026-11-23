@@ -2,11 +2,11 @@ import "./polyfills";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { MinecraftLogWindow } from "./components/log/MinecraftLogWindow";
 import { GlobalToaster } from "./components/ui/GlobalToaster";
 import { GlobalModalPortal } from "./components/ui/GlobalModalPortal";
 import i18n from "./i18n/i18n";
+import { revealAfterFirstPaint } from "./utils/reveal-window";
 import "./styles/globals.css";
 import type { ProcessMetadata } from "./types/processState";
 import { useThemeStore } from "./store/useThemeStore";
@@ -41,21 +41,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   </React.StrictMode>,
 );
 
-// Reveal the window only after the first paint to avoid the white flash.
-requestAnimationFrame(() => {
-  requestAnimationFrame(() => {
-    // Ensure theme CSS variables and border radius are applied before showing
-    try {
-      const themeStore = useThemeStore.getState();
-      themeStore.applyAccentColorToDOM();
-      themeStore.applyBorderRadiusToDOM();
-      themeStore.applyUIStylePresetToDOM?.();
-    } catch (e) {
-      // ignore
-    }
+// Apply the saved theme before revealing the window to avoid a flash of the default style.
+try {
+  const themeStore = useThemeStore.getState();
+  themeStore.applyAccentColorToDOM();
+  themeStore.applyBorderRadiusToDOM();
+  themeStore.applyUIStylePresetToDOM?.();
+} catch {
+  // The window can still be revealed if theme initialization fails.
+}
 
-    getCurrentWindow()
-      .show()
-      .catch(() => {});
-  });
-});
+revealAfterFirstPaint();

@@ -456,29 +456,29 @@
 
 /* Scrollbar hidden by default, revealed (accent-tinted) only while hovering the area */
 .scrollbar-hover {
-    scrollbar-width: none;
+  scrollbar-width: none;
 }
 .scrollbar-hover::-webkit-scrollbar {
-    width: 0;
-    height: 0;
+  width: 0;
+  height: 0;
 }
 .scrollbar-hover:hover {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(var(--accent-rgb, 79, 142, 255), 0.4) transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-rgb, 79, 142, 255), 0.4) transparent;
 }
 .scrollbar-hover:hover::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 .scrollbar-hover:hover::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 .scrollbar-hover:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(var(--accent-rgb, 79, 142, 255), 0.4);
-    border-radius: 3px;
+  background-color: rgba(var(--accent-rgb, 79, 142, 255), 0.4);
+  border-radius: 3px;
 }
 .scrollbar-hover:hover::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(var(--accent-rgb, 79, 142, 255), 0.6);
+  background-color: rgba(var(--accent-rgb, 79, 142, 255), 0.6);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -488,6 +488,10 @@
 .no-scrollbar {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
+}
+
+[data-scrolled="true"] .timeline-clip {
+  clip-path: inset(0 0 0 var(--timeline-scroll));
 }
 
 /*
@@ -799,9 +803,34 @@ nav button:not(.no-radius),
   border-radius: 0px !important;
 }
 
-/* Backdrop blur which also works on Linux */
-.backdrop-blur-md-anyos {
-  backdrop-filter: blur(12px);
+html.no-backdrop-blur *,
+html.no-backdrop-blur *::before,
+html.no-backdrop-blur *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html.no-backdrop-blur [class*="backdrop-blur"],
+html.no-backdrop-blur [style*="backdrop-filter"] {
+  isolation: isolate;
+}
+
+html.no-backdrop-blur .glass-panel {
+  background-color: #101014 !important;
+}
+
+@supports (background-color: color-mix(in srgb, red 14%, black)) {
+  html.no-backdrop-blur .glass-panel {
+    background-color: color-mix(
+      in srgb,
+      var(--glass-tint, rgb(var(--accent-rgb))) 14%,
+      #0c0c10
+    ) !important;
+  }
+}
+
+html.no-backdrop-blur .glass-scrim {
+  background-color: rgba(0, 0, 0, 0.85) !important;
 }
 
 @keyframes nrc-claim-glow {
@@ -821,17 +850,17 @@ nav button:not(.no-radius),
 }
 
 @keyframes nrc-claim-glow {
-    0%,
-    100% {
-        box-shadow: 0 0 0 0 rgba(var(--accent-rgb, 79, 142, 255), 0.55);
-        border-color: rgba(var(--accent-rgb, 79, 142, 255), 0.9);
-    }
-    50% {
-        box-shadow: 0 0 14px 3px rgba(var(--accent-rgb, 79, 142, 255), 0.45);
-        border-color: rgba(var(--accent-rgb, 79, 142, 255), 0.45);
-    }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--accent-rgb, 79, 142, 255), 0.55);
+    border-color: rgba(var(--accent-rgb, 79, 142, 255), 0.9);
+  }
+  50% {
+    box-shadow: 0 0 14px 3px rgba(var(--accent-rgb, 79, 142, 255), 0.45);
+    border-color: rgba(var(--accent-rgb, 79, 142, 255), 0.45);
+  }
 }
 
 .animate-claim-glow {
-    animation: nrc-claim-glow 1.6s ease-in-out infinite;
+  animation: nrc-claim-glow 1.6s ease-in-out infinite;
 }

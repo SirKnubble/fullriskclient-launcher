@@ -10,6 +10,7 @@ macro_rules! measure_time {
     }};
 }
 
+pub mod content_copy;
 pub mod datapack_utils; // DataPack-Utils für das Scannen und Verwalten von DataPacks
 pub mod debug_utils;
 pub mod disk_space_utils; // Disk space utility for checking available space before downloads
@@ -24,6 +25,7 @@ pub mod clip_overlay;
 #[cfg(windows)]
 pub mod hotkey_hook;
 pub mod window_finder;
+pub mod main_window;
 pub mod window_focus;
 pub mod screens;
 pub mod game_detect; // Recognises a game on screen so clips are not Minecraft-only

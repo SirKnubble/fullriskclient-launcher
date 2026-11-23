@@ -71,7 +71,7 @@ import { Button } from "../../ui/buttons/Button";
 import { ProfileIconV2 } from "../ProfileIconV2";
 import { ExportProfileModal } from "../ExportProfileModal";
 import { ModpackVersionsModal } from "../../modals/ModpackVersionsModal";
-import { ConfirmDeleteDialog } from "../../modals/ConfirmDeleteDialog";
+import { useDeleteProfile } from "../../../hooks/useDeleteProfile";
 import {
   SettingsContextMenu,
   type ContextMenuItem,
@@ -81,7 +81,7 @@ import { Tooltip } from "../../ui/Tooltip";
 import {
   ProfileLeftRailV3,
   type NavKey,
-  CONTENT_NAV_KEYS,
+  contentTabOf,
 } from "./ProfileLeftRailV3";
 import { EditableChipV3 } from "./chips/EditableChipV3";
 import { GameVersionPickerV3 } from "./chips/GameVersionPickerV3";
@@ -96,13 +96,13 @@ import type { LocalContentItem } from "../../../hooks/useLocalContentManager";
 import { parseErrorMessage } from "../../../utils/error-utils";
 import { useContentCacheStore } from "../../../store/content-cache-store";
 
-const mainTabFor = (k: NavKey): string =>
-  CONTENT_NAV_KEYS.includes(k) ? "content" : k;
+const mainTabFor = (k: NavKey): string => (contentTabOf(k) ? "content" : k);
 
 interface ProfileDetailViewV3Props {
   profile: Profile;
   onClose: () => void;
   onEdit: () => void;
+  initialNav?: NavKey;
 }
 
 // ─── Atoms ─────────────────────────────────────────────────────────────────
@@ -128,8 +128,15 @@ const Stat: React.FC<{
       className={`w-5 h-5 flex-shrink-0 ${muted ? "text-white/25" : "text-white/60"}`}
     />
     <div className="flex flex-col leading-tight min-w-0">
-      <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft">{label}</span>
-      <span className={`text-sm font-minecraft truncate ${muted ? "text-white/40" : "text-white/95"}`} title={value}>{value}</span>
+      <span className="text-xs uppercase tracking-wider text-white/50 font-minecraft">
+        {label}
+      </span>
+      <span
+        className={`text-sm font-minecraft truncate ${muted ? "text-white/40" : "text-white/95"}`}
+        title={value}
+      >
+        {value}
+      </span>
     </div>
   </div>
 );
@@ -139,11 +146,14 @@ export function ProfileDetailViewV3({
   profile,
   onClose,
   onEdit,
+  initialNav,
 }: ProfileDetailViewV3Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
-  const [activeNavItem, setActiveNavItem] = useState<NavKey>("mods");
+  const [activeNavItem, setActiveNavItem] = useState<NavKey>(
+    initialNav ?? "mods",
+  );
 
   // Inline-edit chip editors — owns fetchers + save + lock state
   const chipEditors = useHeroChipEditors(currentProfile, setCurrentProfile);
@@ -164,9 +174,7 @@ export function ProfileDetailViewV3({
   });
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Delete modal state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { requestDelete, deleteDialog } = useDeleteProfile();
 
   const [modpackVersions, setModpackVersions] =
     useState<UnifiedModpackVersionsResponse | null>(() => {
@@ -204,12 +212,24 @@ export function ProfileDetailViewV3({
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const getGenericDisplayFileName = useCallback(
-    (item: LocalContentItem) => item.modrinth_info?.name || item.curseforge_info?.name || item.filename,
+    (item: LocalContentItem) =>
+      item.modrinth_info?.name || item.curseforge_info?.name || item.filename,
     [],
   );
 
   // Stub — tabs handle their own refresh; mirrors V2's handleRefresh noop.
   const handleRefresh = useCallback(() => {}, []);
+
+  const refreshNoRiskMods = useCallback(async () => {
+    try {
+      await fetchProfiles();
+      setCurrentProfile((prev) => ({ ...prev }));
+    } catch (err) {
+      console.error("[V3] Failed to refresh profile data:", err);
+    }
+  }, [fetchProfiles]);
+
+  const contentTab = contentTabOf(activeNavItem);
 
   const handleLaunchRequest = useCallback(
     async (params: {
@@ -238,41 +258,11 @@ export function ProfileDetailViewV3({
     [handleQuickPlayLaunch, t],
   );
 
-  const handleDeleteProfile = useCallback(() => {
-    if (currentProfile.is_standard_version) {
-      toast.error(t("profiles.cannotDeleteStandard"));
-      return;
+  const handleDeleteProfile = useCallback(async () => {
+    if (await requestDelete(currentProfile)) {
+      navigate("/profiles");
     }
-    setIsDeleteModalOpen(true);
-  }, [currentProfile, t]);
-
-  const handleConfirmDelete = useCallback(async () => {
-    setIsDeleting(true);
-    try {
-      const deletePromise = useProfileStore
-        .getState()
-        .deleteProfile(currentProfile.id);
-      await toast.promise(deletePromise, {
-        loading: t("profiles.deletingProfile", { name: currentProfile.name }),
-        success: () => {
-          fetchProfiles();
-          navigate("/profiles");
-          setIsDeleteModalOpen(false);
-          return t("profiles.deleteSuccess", { name: currentProfile.name });
-        },
-        error: (err) =>
-          t("profiles.deleteError", { error: parseErrorMessage(err) }),
-      });
-    } catch (error) {
-      console.error("[V3] Delete failed:", error);
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [currentProfile, fetchProfiles, navigate, t]);
-
-  const handleCancelDelete = useCallback(() => {
-    setIsDeleteModalOpen(false);
-  }, []);
+  }, [currentProfile, navigate, requestDelete]);
 
   const handleOpenExportModal = useCallback(() => {
     showModal(
@@ -431,7 +421,10 @@ export function ProfileDetailViewV3({
     (async () => {
       try {
         const versions = await UnifiedService.getModpackVersions(modpackSource);
-        if (modpackSourceKey) useContentCacheStore.getState().setModpackVersions(modpackSourceKey, versions);
+        if (modpackSourceKey)
+          useContentCacheStore
+            .getState()
+            .setModpackVersions(modpackSourceKey, versions);
         if (!cancelled) setModpackVersions(versions);
       } catch (err) {
         console.error("[V3] Failed to refresh modpack versions:", err);
@@ -510,10 +503,16 @@ export function ProfileDetailViewV3({
 
         <div className="flex items-center gap-1 relative">
           <button
-            onClick={() => navigate("/sync-packs", { state: { fromProfileId: currentProfile.id } })}
+            onClick={() =>
+              navigate("/sync-packs", {
+                state: { fromProfileId: currentProfile.id },
+              })
+            }
             className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 text-white/50 hover:text-white transition-colors"
           >
-            <span className="text-xs font-minecraft uppercase tracking-wider">{t('syncPacks.title')}</span>
+            <span className="text-xs font-minecraft uppercase tracking-wider">
+              {t("syncPacks.title")}
+            </span>
           </button>
           <div className="w-px h-5 bg-white/10 mx-1" />
           <Tooltip content={t("profiles.openFolder")} position="top" delay={0}>
@@ -819,12 +818,18 @@ export function ProfileDetailViewV3({
         <div className="flex items-center gap-2 flex-wrap mt-5">
           {isLaunching && statusMessage ? (
             <div className="flex-1 flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 min-w-[160px] animate-in fade-in duration-200">
-              <Icon icon="svg-spinners:ring-resize" className="w-5 h-5 text-emerald-300 flex-shrink-0" />
+              <Icon
+                icon="svg-spinners:ring-resize"
+                className="w-5 h-5 text-emerald-300 flex-shrink-0"
+              />
               <div className="flex flex-col leading-tight min-w-0">
                 <span className="text-xs uppercase tracking-wider text-emerald-300/70 font-minecraft">
                   {t("profiles.card.starting")}
                 </span>
-                <span className="text-sm text-emerald-100/95 font-minecraft truncate" title={statusMessage}>
+                <span
+                  className="text-sm text-emerald-100/95 font-minecraft truncate"
+                  title={statusMessage}
+                >
                   {statusMessage}
                 </span>
               </div>
@@ -858,77 +863,21 @@ export function ProfileDetailViewV3({
         className={`flex-1 min-h-0 flex border-t border-white/5 ${activeNavItem === "logs" ? "" : "overflow-hidden"}`}
       >
         <main className="flex-1 min-w-0 flex flex-col min-h-0">
-          {activeNavItem === "mods" && (
+          {contentTab && (
             <LocalContentTabV3<LocalContentItem>
+              key={contentTab.key}
               profile={currentProfile}
-              contentType="Mod"
+              contentType={contentTab.contentType}
               getDisplayFileName={getGenericDisplayFileName}
-              itemTypeName={t("profiles.content.mod")}
-              itemTypeNamePlural={t("profiles.content.mods")}
-              addContentButtonText={t("profiles.content.addMods")}
-              emptyStateIconOverride="solar:bolt-bold-duotone"
-              onRefreshRequired={handleRefresh}
-            />
-          )}
-
-          {activeNavItem === "resourcepacks" && (
-            <LocalContentTabV3<LocalContentItem>
-              profile={currentProfile}
-              contentType="ResourcePack"
-              getDisplayFileName={getGenericDisplayFileName}
-              itemTypeName={t("profiles.content.resourcePack")}
-              itemTypeNamePlural={t("profiles.content.resourcePacks")}
-              addContentButtonText={t("profiles.content.addResourcePacks")}
-              emptyStateIconOverride="solar:gallery-bold-duotone"
-              onRefreshRequired={handleRefresh}
-            />
-          )}
-
-          {activeNavItem === "shaderpacks" && (
-            <LocalContentTabV3<LocalContentItem>
-              profile={currentProfile}
-              contentType="ShaderPack"
-              getDisplayFileName={getGenericDisplayFileName}
-              itemTypeName={t("profiles.content.shaderPack")}
-              itemTypeNamePlural={t("profiles.content.shaderPacks")}
-              addContentButtonText={t("profiles.content.addShaderPacks")}
-              emptyStateIconOverride="solar:sun-bold-duotone"
-              onRefreshRequired={handleRefresh}
-            />
-          )}
-
-          {activeNavItem === "datapacks" && (
-            <LocalContentTabV3<LocalContentItem>
-              profile={currentProfile}
-              contentType="DataPack"
-              getDisplayFileName={getGenericDisplayFileName}
-              itemTypeName={t("profiles.content.dataPack")}
-              itemTypeNamePlural={t("profiles.content.dataPacks")}
-              addContentButtonText={t("profiles.content.addDataPacks")}
-              emptyStateIconOverride="solar:database-bold-duotone"
-              onRefreshRequired={handleRefresh}
-            />
-          )}
-
-          {activeNavItem === "nrc" && (
-            <LocalContentTabV3<LocalContentItem>
-              profile={currentProfile}
-              contentType="NoRiskMod"
-              getDisplayFileName={getGenericDisplayFileName}
-              itemTypeName={t("profiles.content.noriskMod")}
-              itemTypeNamePlural={t("profiles.content.noriskMods")}
-              addContentButtonText={t("profiles.content.addNoriskMods")}
-              emptyStateIconOverride="solar:shield-check-bold-duotone"
-              onRefreshRequired={async () => {
-                try {
-                  await fetchProfiles();
-                  setCurrentProfile((prev) => ({ ...prev }));
-                } catch (err) {
-                  console.error("[V3] Failed to refresh profile data:", err);
-                }
-                handleRefresh();
-              }}
-              /* Kein Add-CTA: NoRisk-Mods kommen ueber den Pack-Selector, nicht via Browse. */
+              itemTypeName={t(contentTab.nameKey)}
+              itemTypeNamePlural={t(contentTab.pluralKey)}
+              addContentButtonText={t(contentTab.addKey)}
+              emptyStateIconOverride={contentTab.icon}
+              onRefreshRequired={
+                contentTab.contentType === "NoRiskMod"
+                  ? refreshNoRiskMods
+                  : handleRefresh
+              }
             />
           )}
 
@@ -962,19 +911,7 @@ export function ProfileDetailViewV3({
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────────────── */}
-      <ConfirmDeleteDialog
-        isOpen={isDeleteModalOpen}
-        itemName={currentProfile.name}
-        onClose={handleCancelDelete}
-        onConfirm={handleConfirmDelete}
-        isDeleting={isDeleting}
-        title={t("profiles.deleteProfileTitle")}
-        message={
-          <p className="text-white/80 font-minecraft">
-            {t("profiles.deleteConfirmMessage", { name: currentProfile.name })}
-          </p>
-        }
-      />
+      {deleteDialog}
     </div>
   );
 }

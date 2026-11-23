@@ -258,6 +258,8 @@ export function AppLayout({
       }
     });
 
+    let stopListeningForQuit: (() => void) | undefined;
+
     const setupWindowControls = async () => {
       try {
         const tauriModule = await import("@tauri-apps/api/window").catch(
@@ -280,10 +282,13 @@ export function AppLayout({
             );
           }
 
+          const { listen } = await import("@tauri-apps/api/event");
+          stopListeningForQuit = await listen("quit_requested", () => {
+            closeClipEditorThen(() => exit(0)).catch(() => exit(0));
+          });
+
           if (closeRef.current) {
-            closeRef.current.addEventListener("click", () =>
-              closeClipEditorThen(() => exit(0)).catch(() => exit(0)),
-            );
+            closeRef.current.addEventListener("click", () => currentWindow.close());
           }
         } else {
           console.log(
@@ -297,7 +302,10 @@ export function AppLayout({
 
     setupWindowControls();
 
-    return () => ctx.revert();
+    return () => {
+      stopListeningForQuit?.();
+      ctx.revert();
+    };
   }, []);
 
   const resolvedCustomBackground =

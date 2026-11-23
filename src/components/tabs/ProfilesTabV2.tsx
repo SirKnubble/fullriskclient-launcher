@@ -16,7 +16,7 @@ import { GroupTabs, type GroupTab } from "../ui/GroupTabs";
 import { ActionButtons, type ActionButton } from "../ui/ActionButtons";
 import { useNavigate } from "react-router-dom";
 import * as ProfileService from "../../services/profile-service";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { useDeleteProfile } from "../../hooks/useDeleteProfile";
 import { useProfileWizardStore } from "../../store/profile-wizard-store";
 import { useThemeStore } from "../../store/useThemeStore";
 import { ExportProfileModal } from "../profiles/ExportProfileModal";
@@ -26,6 +26,7 @@ import { usePinnedProfilesStore } from "../../store/usePinnedProfilesStore";
 import { setDiscordState } from "../../utils/discordRpc";
 import { FullRiskProfileCard } from "../profiles/FullRiskProfileCard";
 import { parseErrorMessage } from "../../utils/error-utils";
+import { compareByLastPlayed } from "../../utils/profile-sort";
 import { useGlobalModal } from "../../hooks/useGlobalModal";
 import { ProfileImport } from "../profiles/ProfileImport";
 
@@ -38,7 +39,7 @@ export function ProfilesTabV2() {
   const { t } = useTranslation();
   const { profiles, loading, error, fetchProfiles } = useProfileStore();
   const navigate = useNavigate();
-  const { confirm, confirmDialog } = useConfirmDialog();
+  const { requestDelete, deleteDialog } = useDeleteProfile();
   const { openModal: openWizard } = useProfileWizardStore();
   const { isPinned, pinnedProfileIds } = usePinnedProfilesStore();
   const { showModal, hideModal } = useGlobalModal();
@@ -226,40 +227,9 @@ export function ProfilesTabV2() {
     navigate("/profiles");
   };
 
-  const handleDeleteProfile = async (
-    profileId: string,
-    profileName: string,
-  ) => {
-    console.log(
-      "[ProfilesTabV2] handleDeleteProfile called for:",
-      profileId,
-      profileName,
-    );
-
-    // Find the profile to check if it's a standard version
+  const handleDeleteProfile = (profileId: string) => {
     const profile = profiles.find((p) => p.id === profileId);
-
-    const confirmed = await confirm({
-      title: t("profiles.deleteProfileTitle"),
-      message: `${t("profiles.deleteConfirmQuestion")}\n- ${profileName}\n\n${t("profiles.deleteConfirmCannotUndo")}`,
-      confirmText: t("profiles.deleteConfirm"),
-      cancelText: t("profiles.cancelAction"),
-      type: "danger",
-      fullscreen: true,
-    });
-
-    if (confirmed) {
-      const deletePromise = useProfileStore.getState().deleteProfile(profileId);
-      toast.promise(deletePromise, {
-        loading: t("profiles.deletingProfile", { name: profileName }),
-        success: () => {
-          fetchProfiles();
-          return t("profiles.deleteSuccess", { name: profileName });
-        },
-        error: (err) =>
-          t("profiles.deleteError", { error: parseErrorMessage(err) }),
-      });
-    }
+    if (profile) requestDelete(profile);
   };
 
   const handleOpenFolder = async (profile: Profile) => {
@@ -333,15 +303,8 @@ export function ProfilesTabV2() {
         switch (sortBy) {
           case "name":
             return a.name.localeCompare(b.name);
-          case "last_played": {
-            const at = a.last_played ? new Date(a.last_played).getTime() : 0;
-            const bt = b.last_played ? new Date(b.last_played).getTime() : 0;
-            if (bt !== at) return bt - at;
-            const ac = new Date(a.created).getTime();
-            const bc = new Date(b.created).getTime();
-            if (bc !== ac) return bc - ac;
-            return a.name.localeCompare(b.name);
-          }
+          case "last_played":
+            return compareByLastPlayed(a, b);
           case "date_created":
             return (
               new Date(b.created).getTime() - new Date(a.created).getTime()
@@ -421,7 +384,7 @@ export function ProfilesTabV2() {
     return (
       <EmptyState
         icon="solar:widget-bold"
-        message={t('profiles.noProfilesFound')}
+        message={t("profiles.noProfilesFound")}
         action={
           <Button
             variant="default"
@@ -429,7 +392,7 @@ export function ProfilesTabV2() {
             onClick={() => openWizard(null)}
             icon={<Icon icon="solar:widget-add-bold" className="w-5 h-5" />}
           >
-            {t('profiles.createNewProfile')}
+            {t("profiles.createNewProfile")}
           </Button>
         }
       />
@@ -607,7 +570,7 @@ export function ProfilesTabV2() {
       </div>
 
       {/* Modals from ProfilesTab.tsx */}
-      {confirmDialog}
+      {deleteDialog}
     </div>
   );
 }

@@ -269,7 +269,7 @@ export const Dropdown = forwardRef<HTMLDivElement, DropdownProps>(
         }}
         role={role}
         className={cn(
-          "fixed font-smallcaps backdrop-blur-md z-[1001] overflow-hidden",
+          "glass-panel fixed font-smallcaps backdrop-blur-md z-[1001] overflow-hidden",
           radiusClass,
           "text-white transition-all duration-200",
           "border shadow-[0_20px_45px_rgba(0,0,0,0.42)]",

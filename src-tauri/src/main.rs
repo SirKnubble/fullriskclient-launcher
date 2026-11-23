@@ -145,7 +145,7 @@ use commands::nrc_commands::{check_update_available_command, download_and_instal
 
 // Import Content commands
 use commands::content_command::{
-    bulk_toggle_mod_updates, install_content_to_profile, install_local_content_to_profile,
+    bulk_toggle_mod_updates, copy_contents_to_profile, install_content_to_profile, install_local_content_to_profile,
     switch_content_version, toggle_content_from_profile, toggle_contents_from_profile,
     update_contents_from_profile,
     uninstall_contents_from_profile,
@@ -189,10 +189,6 @@ let default_panic_hook = std::panic::take_hook();
     info!("Starting NoRiskClient Launcher...");
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let logged_args: Vec<String> = argv
                 .iter()
@@ -211,30 +207,17 @@ let default_panic_hook = std::panic::take_hook();
                 return;
             }
 
-            // If the second invocation carried a CLI subcommand we recognize,
-            // service it instead of bringing the window to the front.
-            if cli::dispatch_hot_start(app, argv.clone()) {
-                return;
-            }
-
-            match app.get_webview_window("main") {
-                Some(window) => {
-                    if let Err(e) = window.show() {
-                        error!("SingleInstance: Failed to show main window: {}", e);
-                    }
-                    if let Err(e) = window.unminimize() {
-                        error!("SingleInstance: Failed to unminimize main window: {}", e);
-                    }
-                    if let Err(e) = window.set_focus() {
-                        error!("SingleInstance: Failed to focus main window: {}", e);
-                    }
-                    info!("SingleInstance: Brought existing window to front.");
-                }
-                None => {
-                    info!("SingleInstance: Main window not yet available, still starting up. Ignoring.");
-                }
-            }
+            utils::main_window::show(app);
         }))
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_cli::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                utils::main_window::close_requested(window, api);
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
@@ -259,27 +242,8 @@ let default_panic_hook = std::panic::take_hook();
                 .tooltip("NoRisk Client Launcher")
                 .icon(app.default_window_icon().unwrap().clone())
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        match app.get_webview_window("main") {
-                            Some(window) => {
-                                if let Err(e) = window.show() {
-                                    error!("Tray menu: Failed to show window: {}", e);
-                                }
-                                if let Err(e) = window.unminimize() {
-                                    error!("Tray menu: Failed to unminimize window: {}", e);
-                                }
-                                if let Err(e) = window.set_focus() {
-                                    error!("Tray menu: Failed to focus window: {}", e);
-                                }
-                            }
-                            None => {
-                                error!("Tray menu: Main window not found - application in inconsistent state");
-                            }
-                        }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
+                    "show" => utils::main_window::show(app),
+                    "quit" => utils::main_window::quit(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| match event {
@@ -287,56 +251,11 @@ let default_panic_hook = std::panic::take_hook();
                         button: MouseButton::Left,
                         button_state: MouseButtonState::Up,
                         ..
-                    } => {
-                        let app = tray.app_handle();
-                        match app.get_webview_window("main") {
-                            Some(window) => {
-                                let is_visible = window.is_visible().unwrap_or(false);
-                                let is_minimized = window.is_minimized().unwrap_or(false);
-
-                                if is_visible && !is_minimized {
-                                    if let Err(e) = window.hide() {
-                                        error!("Tray click: Failed to hide window: {}", e);
-                                    }
-                                } else {
-                                    if let Err(e) = window.show() {
-                                        error!("Tray click: Failed to show window: {}", e);
-                                    }
-                                    if let Err(e) = window.unminimize() {
-                                        error!("Tray click: Failed to unminimize window: {}", e);
-                                    }
-                                    if let Err(e) = window.set_focus() {
-                                        error!("Tray click: Failed to focus window: {}", e);
-                                    }
-                                }
-                            }
-                            None => {
-                                error!("Tray click: Main window not found - application in inconsistent state");
-                            }
-                        }
-                    }
+                    } => utils::main_window::toggle(tray.app_handle()),
                     TrayIconEvent::DoubleClick {
                         button: MouseButton::Left,
                         ..
-                    } => {
-                        let app = tray.app_handle();
-                        match app.get_webview_window("main") {
-                            Some(window) => {
-                                if let Err(e) = window.show() {
-                                    error!("Tray double-click: Failed to show window: {}", e);
-                                }
-                                if let Err(e) = window.unminimize() {
-                                    error!("Tray double-click: Failed to unminimize window: {}", e);
-                                }
-                                if let Err(e) = window.set_focus() {
-                                    error!("Tray double-click: Failed to focus window: {}", e);
-                                }
-                            }
-                            None => {
-                                error!("Tray double-click: Main window not found - application in inconsistent state");
-                            }
-                        }
-                    }
+                    } => utils::main_window::show(tray.app_handle()),
                     _ => {}
                 })
                 .build(app)?;
@@ -490,7 +409,7 @@ let default_panic_hook = std::panic::take_hook();
                     utils::mod_cache_cleanup::run_startup_cleanup().await;
                 });
 
-                #[cfg(windows)]
+                #[cfg(any(windows, target_os = "macos"))]
                 commands::clip_commands::start_on_launch(state_init_app_handle.clone());
 
                 info!("Attempting to retrieve launcher configuration for update check...");
@@ -610,13 +529,6 @@ let default_panic_hook = std::panic::take_hook();
                         }
                     });
                 });
-
-                // --- Handle window close request (from taskbar, etc.) ---
-                main_window.listen("tauri://close-requested", move |_event| {
-                    info!("Window close requested via system (taskbar, etc.). Exiting application.");
-                    utils::screen_time::report_before_exit();
-                    std::process::exit(0);
-                });
             } else {
                 error!("Could not get main window handle to attach focus listener!");
             }
@@ -639,6 +551,8 @@ let default_panic_hook = std::panic::take_hook();
             list_profiles,
             list_profile_backups,
             restore_profile_backup,
+            commands::profile_command::list_removed_standard_profiles,
+            commands::profile_command::restore_standard_profile,
             get_profile_store_status,
             reimport_profiles_from_legacy_json,
             search_profiles,
@@ -842,6 +756,7 @@ let default_panic_hook = std::panic::take_hook();
             get_all_profiles_and_last_played,
             get_local_content,
             install_local_content_to_profile,
+            copy_contents_to_profile,
             switch_content_version,
             commands::minecraft_command::get_face_avatar,
             commands::skin_render_command::get_cached_skin_render,
@@ -882,10 +797,6 @@ let default_panic_hook = std::panic::take_hook();
             commands::permission_commands::get_cached_permissions,
             commands::permission_commands::has_permission,
             commands::permission_commands::get_granted_permissions,
-            commands::tester_command::fetch_tester_queue_count,
-            commands::tester_command::fetch_tester_queue,
-            commands::tester_command::submit_tester_vote,
-            commands::tester_command::open_tester_window,
             commands::nrc_commands::get_mobile_app_token,
             commands::nrc_commands::reset_mobile_app_token,
             commands::nrc_commands::get_advent_calendar_command,
@@ -986,6 +897,7 @@ let default_panic_hook = std::panic::take_hook();
             commands::clip_commands::capture_supported,
             commands::capture_permissions::capture_permissions,
             commands::capture_permissions::capture_open_permission_settings,
+            commands::capture_permissions::capture_reset_permissions,
             commands::clip_commands::capture_encoder_capabilities,
             commands::clip_commands::capture_show_overlay,
             commands::clip_commands::capture_hide_overlay,
@@ -1015,6 +927,11 @@ let default_panic_hook = std::panic::take_hook();
             |app_handle, event| {
                 if matches!(event, tauri::RunEvent::Exit) {
                     utils::screen_time::report_before_exit();
+                }
+
+                #[cfg(target_os = "macos")]
+                if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = event {
+                    utils::main_window::show(app_handle);
                 }
 
                 #[cfg(target_os = "macos")]

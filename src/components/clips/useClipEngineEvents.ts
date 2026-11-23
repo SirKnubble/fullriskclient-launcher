@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 
+import { parseErrorMessage } from "../../utils/error-utils";
+
 import {
   samePath,
+  type AudioPreview,
   type ExportProgress,
   type ExportedClip,
   type ExportedGif,
@@ -13,6 +16,11 @@ export interface CaptureError {
   message?: string;
   recoverable?: boolean;
   source?: string | null;
+}
+
+export function clipFailure(error: unknown, t: (key: string) => string, fallback?: string): string {
+  if ((error as { kind?: unknown } | null)?.kind === "ClipEngineOff") return t("clips.engine_off");
+  return fallback ?? parseErrorMessage(error);
 }
 
 export function writeFailed(error: CaptureError, path: string): boolean {
@@ -28,6 +36,7 @@ export interface ClipEngineHandlers {
   clip_gif_exported?: (gif: ExportedGif) => void;
   clip_error?: (error: CaptureError) => void;
   clip_engine_stopped?: () => void;
+  clip_audio_preview?: (preview: AudioPreview) => void;
 }
 
 const EVENTS: (keyof ClipEngineHandlers)[] = [
@@ -38,6 +47,7 @@ const EVENTS: (keyof ClipEngineHandlers)[] = [
   "clip_gif_exported",
   "clip_error",
   "clip_engine_stopped",
+  "clip_audio_preview",
 ];
 
 export function useClipEngineEvents(handlers: ClipEngineHandlers) {
