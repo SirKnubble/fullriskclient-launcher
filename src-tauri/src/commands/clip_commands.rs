@@ -275,7 +275,8 @@ pub async fn clip_storage_usage() -> Result<crate::utils::clip_library::StorageU
 }
 
 #[tauri::command]
-pub async fn clip_delete(path: std::path::PathBuf) -> Result<(), CommandError> {
+pub async fn clip_delete(app: tauri::AppHandle, path: std::path::PathBuf) -> Result<(), CommandError> {
+    refuse_while_editing(&app, &path)?;
     let dir = clip_dir().await?;
     crate::utils::clip_library::delete(&dir, &path)?;
     log::info!("Deleted clip {}", path.display());
@@ -308,15 +309,22 @@ pub async fn clip_reveal(app: tauri::AppHandle, path: std::path::PathBuf) -> Res
 }
 
 #[tauri::command]
-pub async fn clip_prepare_preview(path: std::path::PathBuf) -> Result<(), CommandError> {
+pub async fn clip_prepare_preview(
+    path: std::path::PathBuf,
+    waveform_only: Option<bool>,
+) -> Result<(), CommandError> {
     let dir = clip_dir().await?;
     let source = crate::utils::clip_library::resolve_clip(&dir, &path)?;
 
     let state = State::get().await?;
+    engine_running(&state).await?;
     state
         .capture_supervisor
         .send(LauncherToCapture::PrepareAudioPreview(
-            norisk_ipc::AudioPreviewRequest { source },
+            norisk_ipc::AudioPreviewRequest {
+                source,
+                waveform_only: waveform_only.unwrap_or(false),
+            },
         ))?;
     Ok(())
 }
@@ -362,19 +370,29 @@ pub async fn clip_export_vertical(
             blanked: blanked.unwrap_or_default(),
             muted: muted.unwrap_or_default(),
         },
-    ))?;
+    )).await?;
 
     Ok(destination)
 }
 
-fn dispatch(
+async fn engine_running(state: &State) -> crate::error::Result<()> {
+    if state.capture_supervisor.is_running().await {
+        return Ok(());
+    }
+    Err(crate::error::AppError::ClipEngineOff)
+}
+
+async fn dispatch(
     state: &State,
     destination: &std::path::Path,
     command: LauncherToCapture,
 ) -> crate::error::Result<()> {
-    state.capture_supervisor.send(command).inspect_err(|_| {
-        crate::utils::clip_library::release_destination(destination);
-    })
+    engine_running(state)
+        .await
+        .and_then(|()| state.capture_supervisor.send(command))
+        .inspect_err(|_| {
+            crate::utils::clip_library::release_destination(destination);
+        })
 }
 
 async fn clip_duration(source: &std::path::Path) -> Option<f64> {
@@ -461,7 +479,8 @@ pub async fn clip_export_gif(
             source,
             destination: destination.clone(),
         }),
-    )?;
+    )
+    .await?;
 
     Ok(destination)
 }
@@ -499,7 +518,8 @@ pub async fn clip_trim(
             video_end_seconds,
             levels: levels.unwrap_or_default(),
         }),
-    )?;
+    )
+    .await?;
 
     Ok(destination)
 }
@@ -564,9 +584,11 @@ pub async fn clip_set_favourite(
 
 #[tauri::command]
 pub async fn clip_rename(
+    app: tauri::AppHandle,
     path: std::path::PathBuf,
     name: String,
 ) -> Result<std::path::PathBuf, CommandError> {
+    refuse_while_editing(&app, &path)?;
     let dir = clip_dir().await?;
     let renamed = crate::utils::clip_library::rename(&dir, &path, &name)?;
     log::info!("Renamed {} to {}", path.display(), renamed.display());
@@ -594,7 +616,7 @@ pub async fn clip_open_folder(app: tauri::AppHandle) -> Result<(), CommandError>
     Ok(())
 }
 
-const EDITOR_LABEL: &str = "clip_editor";
+pub const EDITOR_LABEL: &str = "clip_editor";
 
 #[derive(Serialize, Clone)]
 pub struct EditorClip {
@@ -606,9 +628,34 @@ static EDITOR_CLIP: std::sync::Mutex<Option<EditorClip>> = std::sync::Mutex::new
 
 static EDITOR_OPENING: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-#[tauri::command]
-pub fn clip_editor_current() -> Option<EditorClip> {
+fn open_in_editor(app: &tauri::AppHandle) -> Option<EditorClip> {
+    use tauri::Manager;
+
+    app.get_webview_window(EDITOR_LABEL)?;
     EDITOR_CLIP.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+pub fn editing_clip(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    open_in_editor(app).map(|clip| std::path::PathBuf::from(clip.path))
+}
+
+fn refuse_while_editing(app: &tauri::AppHandle, path: &std::path::Path) -> Result<(), CommandError> {
+    let same = |a: &std::path::Path, b: &std::path::Path| match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    };
+    if editing_clip(app).is_some_and(|open| same(&open, path)) {
+        return Err(crate::error::AppError::Other(
+            "This clip is open in the editor. Close the editor first.".into(),
+        )
+        .into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn clip_editor_current(app: tauri::AppHandle) -> Option<EditorClip> {
+    open_in_editor(&app)
 }
 
 #[tauri::command]

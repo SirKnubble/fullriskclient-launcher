@@ -57,6 +57,7 @@ interface UseLocalContentManagerReturn<T extends LocalContentItem> {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   selectedItemIds: Set<string>;
+  setSelectedItemIds: (ids: Set<string>) => void;
   handleItemSelectionChange: (itemId: string, isSelected: boolean) => void;
   handleSelectAllToggle: (isChecked: boolean) => void;
   areAllFilteredSelected: boolean;
@@ -1857,6 +1858,7 @@ export function useLocalContentManager<T extends LocalContentItem>({
     searchQuery,
     setSearchQuery,
     selectedItemIds,
+    setSelectedItemIds,
     handleItemSelectionChange,
     handleSelectAllToggle,
     areAllFilteredSelected,

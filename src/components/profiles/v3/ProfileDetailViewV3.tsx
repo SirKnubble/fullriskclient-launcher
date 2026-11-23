@@ -71,6 +71,7 @@ import { Button } from "../../ui/buttons/Button";
 import { ProfileIconV2 } from "../ProfileIconV2";
 import { ExportProfileModal } from "../ExportProfileModal";
 import { ModpackVersionsModal } from "../../modals/ModpackVersionsModal";
+<<<<<<< HEAD
 import { ConfirmDeleteDialog } from "../../modals/ConfirmDeleteDialog";
 import {
   SettingsContextMenu,
@@ -83,6 +84,13 @@ import {
   type NavKey,
   CONTENT_NAV_KEYS,
 } from "./ProfileLeftRailV3";
+=======
+import { useDeleteProfile } from "../../../hooks/useDeleteProfile";
+import { SettingsContextMenu, type ContextMenuItem } from "../../ui/SettingsContextMenu";
+import { Tooltip } from "../../ui/Tooltip";
+
+import { ProfileLeftRailV3, type NavKey, contentTabOf } from "./ProfileLeftRailV3";
+>>>>>>> upstream/v3
 import { EditableChipV3 } from "./chips/EditableChipV3";
 import { GameVersionPickerV3 } from "./chips/GameVersionPickerV3";
 import { LoaderBadgeV3 } from "./chips/LoaderBadgeV3";
@@ -97,12 +105,13 @@ import { parseErrorMessage } from "../../../utils/error-utils";
 import { useContentCacheStore } from "../../../store/content-cache-store";
 
 const mainTabFor = (k: NavKey): string =>
-  CONTENT_NAV_KEYS.includes(k) ? "content" : k;
+  contentTabOf(k) ? "content" : k;
 
 interface ProfileDetailViewV3Props {
   profile: Profile;
   onClose: () => void;
   onEdit: () => void;
+  initialNav?: NavKey;
 }
 
 // ─── Atoms ─────────────────────────────────────────────────────────────────
@@ -139,11 +148,12 @@ export function ProfileDetailViewV3({
   profile,
   onClose,
   onEdit,
+  initialNav,
 }: ProfileDetailViewV3Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentProfile, setCurrentProfile] = useState<Profile>(profile);
-  const [activeNavItem, setActiveNavItem] = useState<NavKey>("mods");
+  const [activeNavItem, setActiveNavItem] = useState<NavKey>(initialNav ?? "mods");
 
   // Inline-edit chip editors — owns fetchers + save + lock state
   const chipEditors = useHeroChipEditors(currentProfile, setCurrentProfile);
@@ -164,9 +174,7 @@ export function ProfileDetailViewV3({
   });
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Delete modal state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { requestDelete, deleteDialog } = useDeleteProfile();
 
   const [modpackVersions, setModpackVersions] =
     useState<UnifiedModpackVersionsResponse | null>(() => {
@@ -211,6 +219,7 @@ export function ProfileDetailViewV3({
   // Stub — tabs handle their own refresh; mirrors V2's handleRefresh noop.
   const handleRefresh = useCallback(() => {}, []);
 
+<<<<<<< HEAD
   const handleLaunchRequest = useCallback(
     async (params: {
       profileId: string;
@@ -273,6 +282,40 @@ export function ProfileDetailViewV3({
   const handleCancelDelete = useCallback(() => {
     setIsDeleteModalOpen(false);
   }, []);
+=======
+  const refreshNoRiskMods = useCallback(async () => {
+    try {
+      await fetchProfiles();
+      setCurrentProfile((prev) => ({ ...prev }));
+    } catch (err) {
+      console.error("[V3] Failed to refresh profile data:", err);
+    }
+  }, [fetchProfiles]);
+
+  const contentTab = contentTabOf(activeNavItem);
+
+  const handleLaunchRequest = useCallback(async (params: {
+    profileId: string;
+    quickPlaySingleplayer?: string;
+    quickPlayMultiplayer?: string;
+  }) => {
+    if (params.quickPlaySingleplayer) {
+      toast.success(t('profiles.toast.launching_world', { name: params.quickPlaySingleplayer }));
+      handleQuickPlayLaunch(params.quickPlaySingleplayer, undefined);
+    } else if (params.quickPlayMultiplayer) {
+      toast.success(t('profiles.toast.joining_server', { name: params.quickPlayMultiplayer }));
+      handleQuickPlayLaunch(undefined, params.quickPlayMultiplayer);
+    } else {
+      handleQuickPlayLaunch(undefined, undefined);
+    }
+  }, [handleQuickPlayLaunch, t]);
+
+  const handleDeleteProfile = useCallback(async () => {
+    if (await requestDelete(currentProfile)) {
+      navigate("/profiles");
+    }
+  }, [currentProfile, navigate, requestDelete]);
+>>>>>>> upstream/v3
 
   const handleOpenExportModal = useCallback(() => {
     showModal(
@@ -858,11 +901,13 @@ export function ProfileDetailViewV3({
         className={`flex-1 min-h-0 flex border-t border-white/5 ${activeNavItem === "logs" ? "" : "overflow-hidden"}`}
       >
         <main className="flex-1 min-w-0 flex flex-col min-h-0">
-          {activeNavItem === "mods" && (
+          {contentTab && (
             <LocalContentTabV3<LocalContentItem>
+              key={contentTab.key}
               profile={currentProfile}
-              contentType="Mod"
+              contentType={contentTab.contentType}
               getDisplayFileName={getGenericDisplayFileName}
+<<<<<<< HEAD
               itemTypeName={t("profiles.content.mod")}
               itemTypeNamePlural={t("profiles.content.mods")}
               addContentButtonText={t("profiles.content.addMods")}
@@ -931,6 +976,16 @@ export function ProfileDetailViewV3({
               /* Kein Add-CTA: NoRisk-Mods kommen ueber den Pack-Selector, nicht via Browse. */
             />
           )}
+=======
+              itemTypeName={t(contentTab.nameKey)}
+              itemTypeNamePlural={t(contentTab.pluralKey)}
+              addContentButtonText={t(contentTab.addKey)}
+              emptyStateIconOverride={contentTab.icon}
+              onRefreshRequired={contentTab.contentType === "NoRiskMod" ? refreshNoRiskMods : handleRefresh}
+            />
+          )}
+
+>>>>>>> upstream/v3
 
           {activeNavItem === "worlds" && (
             <WorldsTabV3
@@ -962,6 +1017,7 @@ export function ProfileDetailViewV3({
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────────────── */}
+<<<<<<< HEAD
       <ConfirmDeleteDialog
         isOpen={isDeleteModalOpen}
         itemName={currentProfile.name}
@@ -975,6 +1031,10 @@ export function ProfileDetailViewV3({
           </p>
         }
       />
+=======
+      {deleteDialog}
+
+>>>>>>> upstream/v3
     </div>
   );
 }

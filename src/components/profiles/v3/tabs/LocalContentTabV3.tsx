@@ -28,7 +28,7 @@ import { BrowseContentSideSheetV3 } from "../BrowseContentSideSheetV3";
 import { preloadIcons } from "../../../../lib/icon-utils";
 import { useDelayedTrue } from "../../../../hooks/useDelayedTrue";
 import { EmptyStateV3 } from "../shared/EmptyStateV3";
-import { FloatingActionBar, type FABActionConfig } from "../shared/FloatingActionBar";
+import { FloatingActionBar, useSelectAllUndo, type FABActionConfig } from "../shared/FloatingActionBar";
 import { SearchWithFilters } from "../../../ui/SearchWithFilters";
 import { ContentActionButtons, type ContentActionButton } from "../../../ui/ContentActionButtons";
 import type { DropdownOption } from "../../../ui/CustomDropdown";
@@ -37,6 +37,7 @@ import { NoriskPackSelector } from "./local-content/NoriskPackSelector";
 import { SyncModTile } from "./local-content/SyncModTile";
 import { useProfileSyncMods } from "./local-content/useProfileSyncMods";
 import { ContentGroupDivider } from "./local-content/ContentGroupDivider";
+import { CopyContentDialog } from "./local-content/CopyContentDialog";
 import { syncModKey, syncModPlatform, type ProfileSyncPackMod } from "../../../../types/syncPacks";
 import {
   filterSyncMods,
@@ -58,7 +59,7 @@ preloadIcons([
   "solar:volume-cross-linear", "solar:volume-loud-linear", "solar:volume-loud-bold",
   "solar:box-bold", "solar:danger-triangle-bold", "solar:close-circle-bold",
   "solar:sort-from-top-to-bottom-bold", "solar:ruler-bold", "solar:list-bold",
-  "solar:hand-stars-bold", "solar:link-round-bold",
+  "solar:hand-stars-bold", "solar:link-round-bold", "solar:copy-bold", "solar:copy-bold-duotone",
 ]);
 
 type SortKey = "name" | "size" | "type" | "updates";
@@ -161,6 +162,7 @@ export function LocalContentTabV3<T extends LocalContentItem>({
   const versionOptions = useVersionOptions();
   const [switchingVersionFor, setSwitchingVersionFor] = useState<string | null>(null);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
 
   const getItemPlatformAndProjectId = useCallback((item: LocalContentItem): { platform: ModPlatform | null; projectId: string | null } => {
     const plat = item.platform;
@@ -237,6 +239,18 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     const shouldEnable = pausedCount >= activeCount;
     return { shouldEnable, count: selectedItems.length };
   }, [manager.selectedItemIds, manager.items]);
+
+  const copyEntries = isCopyDialogOpen
+    ? manager.items
+        .filter((item) => manager.selectedItemIds.has(item.filename))
+        .map((item) => ({
+          id: item.id ?? null,
+          path: item.path,
+          name: getDisplayFileName(item as T),
+          iconUrl: manager.getItemIcon(item),
+          disabled: item.is_disabled,
+        }))
+    : [];
 
   const handleBatchToggleUpdateChecks = useCallback(async () => {
     if (!batchUpdateChecksConfig) return;
@@ -399,6 +413,21 @@ export function LocalContentTabV3<T extends LocalContentItem>({
     return () => window.removeEventListener("keydown", onKey);
   }, [hasSelection]);
 
+  const allSelected =
+    manager.areAllFilteredSelected && visibleSyncMods.every((entry) => sync.selection.has(syncModKey(entry)));
+  const selectAllUndo = useSelectAllUndo(
+    allSelected,
+    () => ({ local: new Set(manager.selectedItemIds), synced: new Set(sync.selection) }),
+    (previous) => {
+      manager.setSelectedItemIds(previous.local);
+      sync.setSelection(previous.synced);
+    },
+    () => {
+      manager.handleSelectAllToggle(true);
+      sync.selectAll(visibleSyncMods);
+    },
+  );
+
   const batchBusy = manager.isBatchToggling || !!batchProgress;
   const fabActions: FABActionConfig[] = [
     { icon: "solar:play-bold",  label: t("profiles.v3.fab.enable"),  onClick: handleBatchEnable,  disabled: batchBusy },
@@ -407,6 +436,12 @@ export function LocalContentTabV3<T extends LocalContentItem>({
       icon: batchUpdateChecksConfig.shouldEnable ? "solar:volume-loud-bold" : "solar:volume-cross-bold",
       label: t(batchUpdateChecksConfig.shouldEnable ? "profiles.v3.fab.resumeChecks" : "profiles.v3.fab.muteChecks"),
       onClick: handleBatchToggleUpdateChecks,
+    } as FABActionConfig] : []),
+    ...(contentType !== "NoRiskMod" ? [{
+      icon: "solar:copy-bold",
+      label: t("profiles.v3.fab.copy"),
+      onClick: () => setIsCopyDialogOpen(true),
+      disabled: manager.selectedItemIds.size === 0 || sync.selection.size > 0,
     } as FABActionConfig] : []),
     {
       icon: "solar:trash-bin-trash-bold",
@@ -662,11 +697,9 @@ export function LocalContentTabV3<T extends LocalContentItem>({
         count={selectionCount}
         totalCount={visibleItems.length + visibleSyncMods.length}
         accent={accentColor.value}
-        allSelected={manager.areAllFilteredSelected && visibleSyncMods.every((entry) => sync.selection.has(syncModKey(entry)))}
-        onSelectAll={() => {
-          manager.handleSelectAllToggle(true);
-          sync.selectAll(visibleSyncMods);
-        }}
+        allSelected={allSelected}
+        onSelectAll={selectAllUndo.onSelectAll}
+        onRestore={selectAllUndo.onRestore}
         onClear={() => clearSelectionRef.current()}
         batchProgress={batchProgress}
         actions={fabActions}
@@ -681,6 +714,20 @@ export function LocalContentTabV3<T extends LocalContentItem>({
       />
 
       {sync.confirmDialog}
+
+      {isCopyDialogOpen && profile && (
+        <CopyContentDialog
+          sourceProfile={profile}
+          contentType={contentType}
+          typeNamePlural={itemTypeNamePlural}
+          items={copyEntries}
+          onClose={() => setIsCopyDialogOpen(false)}
+          onCopied={() => {
+            setIsCopyDialogOpen(false);
+            manager.handleSelectAllToggle(false);
+          }}
+        />
+      )}
 
       <ConfirmDeleteDialog
         isOpen={manager.isConfirmDeleteDialogOpen}

@@ -20,18 +20,22 @@ import {
   type PermissionCacheState,
 } from "../../services/permission-service";
 import {
-  fetchTesterQueueCount,
-  openTesterWindow,
-} from "../../services/tester-service";
-import {
   listProfileBackups,
+  listRemovedStandardProfiles,
   restoreProfileBackup,
+  restoreStandardProfile,
   type ProfileBackupInfo,
 } from "../../services/profile-service";
+import type { Profile } from "../../types/profile";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useProfileStore } from "../../store/profile-store";
 import { useContentCacheStore } from "../../store/content-cache-store";
 import { SettingsSection } from "../ui/settings/SettingsSection";
+import { SettingRow } from "../ui/settings/SettingRow";
+import { Select } from "../ui/Select";
+import { useSettingsConfig } from "./settings/settings-context";
+import { LOG_LEVELS, type LogLevel } from "../../types/launcherConfig";
+import { logError } from "../../utils/logging-utils";
 
 export type DebugTab =
   | "launcher"
@@ -39,6 +43,7 @@ export type DebugTab =
   | "process"
   | "crashes"
   | "permissions"
+  | "removed-profiles"
   | "testing";
 
 export function getDebugTabs(
@@ -50,6 +55,7 @@ export function getDebugTabs(
     { id: "process", label: t("debug.tabs.process") },
     { id: "crashes", label: t("debug.tabs.crashes") },
     { id: "permissions", label: t("debug.permissions.tab") },
+    { id: "removed-profiles", label: t("debug.removed_profiles.title") },
     { id: "testing", label: t("debug.tabs.testing") },
   ];
 }
@@ -143,22 +149,38 @@ function LogFileSection({
         <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-white/50">
-              <Icon icon="svg-spinners:ring-resize" className="w-6 h-6 mx-auto mb-2" />
+              <Icon
+                icon="svg-spinners:ring-resize"
+                className="w-6 h-6 mx-auto mb-2"
+              />
               {t("common.loading")}
             </div>
           ) : files.length === 0 ? (
-            <div className="p-8 text-center text-white/50 font-minecraft">{t("debug.no_files")}</div>
+            <div className="p-8 text-center text-white/50 font-minecraft">
+              {t("debug.no_files")}
+            </div>
           ) : (
             <div className="divide-y divide-white/10">
               {files.map((file, i) => (
-                <div key={i} className="p-3 hover:bg-white/5 flex items-center gap-4">
+                <div
+                  key={i}
+                  className="p-3 hover:bg-white/5 flex items-center gap-4"
+                >
                   <Icon
-                    icon={crash ? "solar:danger-triangle-bold" : "solar:document-text-bold"}
+                    icon={
+                      crash
+                        ? "solar:danger-triangle-bold"
+                        : "solar:document-text-bold"
+                    }
                     className={`w-5 h-5 flex-shrink-0 ${crash ? "text-red-400" : "text-white/60"}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-white font-minecraft truncate">{file.name}</div>
-                    <div className="text-xs text-white/40 font-sans truncate">{file.path}</div>
+                    <div className="text-white font-minecraft truncate">
+                      {file.name}
+                    </div>
+                    <div className="text-xs text-white/40 font-sans truncate">
+                      {file.path}
+                    </div>
                   </div>
                   <div className="text-sm text-white/50 font-sans whitespace-nowrap">
                     {formatSize(file.size)}
@@ -172,7 +194,10 @@ function LogFileSection({
                       className="p-2 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
                       title={t("debug.copy_content")}
                     >
-                      <Icon icon="solar:copy-bold" className="w-4 h-4 text-white/70" />
+                      <Icon
+                        icon="solar:copy-bold"
+                        className="w-4 h-4 text-white/70"
+                      />
                     </button>
                     <button
                       onClick={() => handleUpload(file)}
@@ -181,9 +206,15 @@ function LogFileSection({
                       title={t("debug.upload_mclogs")}
                     >
                       {uploadingFile === file.path ? (
-                        <Icon icon="svg-spinners:ring-resize" className="w-4 h-4 text-white/70" />
+                        <Icon
+                          icon="svg-spinners:ring-resize"
+                          className="w-4 h-4 text-white/70"
+                        />
                       ) : (
-                        <Icon icon="solar:upload-bold" className="w-4 h-4 text-white/70" />
+                        <Icon
+                          icon="solar:upload-bold"
+                          className="w-4 h-4 text-white/70"
+                        />
                       )}
                     </button>
                   </div>
@@ -269,6 +300,16 @@ export function DebugSection() {
       </SettingsSection>
 
       <SettingsSection
+        id="settings-section-removed-profiles"
+        title={t("debug.removed_profiles.title")}
+        icon="solar:restart-bold"
+      >
+        <div className="py-2">
+          <RemovedNoRiskProfiles />
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
         id="settings-section-testing"
         title={t("debug.tabs.testing")}
         icon="solar:test-tube-bold"
@@ -277,6 +318,107 @@ export function DebugSection() {
           <TestingPanel />
         </div>
       </SettingsSection>
+    </div>
+  );
+}
+
+function RemovedNoRiskProfiles() {
+  const { t } = useTranslation();
+  const [removed, setRemoved] = useState<Profile[] | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const fetchProfiles = useProfileStore((s) => s.fetchProfiles);
+
+  async function load() {
+    try {
+      setRemoved(await listRemovedStandardProfiles());
+    } catch (e) {
+      logError(`Failed to list removed NoRisk profiles: ${e}`);
+      toast.error(
+        t("debug.removed_profiles.load_failed", { error: getErrorMessage(e) }),
+      );
+      setRemoved([]);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function handleRestore(profile: Profile) {
+    setRestoringId(profile.id);
+    try {
+      await restoreStandardProfile(profile.id);
+      await fetchProfiles();
+      await load();
+      toast.success(
+        t("debug.removed_profiles.restored", { name: profile.name }),
+      );
+    } catch (e) {
+      logError(`Failed to restore NoRisk profile ${profile.id}: ${e}`);
+      toast.error(
+        t("debug.removed_profiles.restore_failed", {
+          error: getErrorMessage(e),
+        }),
+      );
+    }
+    setRestoringId(null);
+  }
+
+  if (removed === null) {
+    return (
+      <div className="p-8 flex justify-center">
+        <Icon
+          icon="svg-spinners:ring-resize"
+          className="w-5 h-5 text-white/50"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
+      <div className="px-4 py-2 text-xs text-white/50 font-sans border-b border-white/10">
+        {t("debug.removed_profiles.description")}
+      </div>
+      {removed.length === 0 ? (
+        <div className="p-8 text-center text-white/50 font-minecraft">
+          {t("debug.removed_profiles.empty")}
+        </div>
+      ) : (
+        <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
+          {removed.map((profile) => (
+            <div
+              key={profile.id}
+              className="p-3 px-4 hover:bg-white/5 flex items-center gap-4"
+            >
+              <Icon
+                icon="solar:gamepad-bold"
+                className="w-5 h-5 text-white/50 shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-minecraft truncate">
+                  {profile.name}
+                </div>
+                <div className="text-xs text-white/40 font-sans truncate">
+                  {profile.game_version} · {profile.loader}
+                </div>
+              </div>
+              <button
+                onClick={() => handleRestore(profile)}
+                disabled={restoringId !== null}
+                className="px-3 py-2 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-minecraft text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {restoringId === profile.id ? (
+                  <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
+                ) : (
+                  <Icon icon="solar:restart-bold" className="w-4 h-4" />
+                )}
+                {t("debug.removed_profiles.restore")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -467,11 +609,16 @@ function TestingPanel() {
             {t("debug.testing.filenames_count", { count: filenames.length })}
           </div>
           {filenames.length === 0 ? (
-            <div className="p-8 text-center text-white/50 font-minecraft">{t("debug.testing.empty")}</div>
+            <div className="p-8 text-center text-white/50 font-minecraft">
+              {t("debug.testing.empty")}
+            </div>
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {filenames.map((name) => (
-                <div key={name} className="p-2 px-4 hover:bg-white/5 text-white/80 font-mono text-xs truncate">
+                <div
+                  key={name}
+                  className="p-2 px-4 hover:bg-white/5 text-white/80 font-mono text-xs truncate"
+                >
                   {name}
                 </div>
               ))}
@@ -481,9 +628,14 @@ function TestingPanel() {
       )}
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon icon="solar:trash-bin-trash-bold" className="w-5 h-5 text-red-300 shrink-0" />
+        <Icon
+          icon="solar:trash-bin-trash-bold"
+          className="w-5 h-5 text-red-300 shrink-0"
+        />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">{t("debug.testing.clean_title")}</div>
+          <div className="text-white font-minecraft">
+            {t("debug.testing.clean_title")}
+          </div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("debug.testing.clean_desc")}
           </div>
@@ -504,9 +656,14 @@ function TestingPanel() {
       </div>
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon icon="solar:database-bold" className="w-5 h-5 text-red-300 shrink-0" />
+        <Icon
+          icon="solar:database-bold"
+          className="w-5 h-5 text-red-300 shrink-0"
+        />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">{t("debug.testing.clear_cache_title")}</div>
+          <div className="text-white font-minecraft">
+            {t("debug.testing.clear_cache_title")}
+          </div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("debug.testing.clear_cache_desc")}
           </div>
@@ -535,14 +692,20 @@ function TestingPanel() {
               failed: cleanStats.failed.length,
               mb: (cleanStats.freed_bytes / (1024 * 1024)).toFixed(1),
             })}
-            {cleanStats.skipped_empty_keepset && t("debug.testing.stats_skipped")}
+            {cleanStats.skipped_empty_keepset &&
+              t("debug.testing.stats_skipped")}
           </div>
           {cleanStats.deleted.length === 0 ? (
-            <div className="p-6 text-center text-white/50 font-minecraft">{t("debug.testing.no_orphans")}</div>
+            <div className="p-6 text-center text-white/50 font-minecraft">
+              {t("debug.testing.no_orphans")}
+            </div>
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {cleanStats.deleted.map((name) => (
-                <div key={name} className="p-2 px-4 hover:bg-white/5 text-red-200/80 font-mono text-xs truncate">
+                <div
+                  key={name}
+                  className="p-2 px-4 hover:bg-white/5 text-red-200/80 font-mono text-xs truncate"
+                >
                   {name}
                 </div>
               ))}
@@ -552,9 +715,14 @@ function TestingPanel() {
       )}
 
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-        <Icon icon="solar:history-bold" className="w-5 h-5 text-emerald-300 shrink-0" />
+        <Icon
+          icon="solar:history-bold"
+          className="w-5 h-5 text-emerald-300 shrink-0"
+        />
         <div className="flex-1 min-w-0">
-          <div className="text-white font-minecraft">{t("settings.backups.title")}</div>
+          <div className="text-white font-minecraft">
+            {t("settings.backups.title")}
+          </div>
           <div className="text-xs text-white/40 font-sans truncate">
             {t("settings.backups.description")}
           </div>
@@ -586,8 +754,14 @@ function TestingPanel() {
           ) : (
             <div className="divide-y divide-white/10 max-h-96 overflow-y-auto">
               {backups.map((b) => (
-                <div key={b.path} className="p-3 px-4 hover:bg-white/5 flex items-center gap-4">
-                  <Icon icon="solar:archive-bold" className="w-5 h-5 text-white/50 shrink-0" />
+                <div
+                  key={b.path}
+                  className="p-3 px-4 hover:bg-white/5 flex items-center gap-4"
+                >
+                  <Icon
+                    icon="solar:archive-bold"
+                    className="w-5 h-5 text-white/50 shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-minecraft truncate">
                       {new Date(b.backup_time * 1000).toLocaleString()}
@@ -605,7 +779,10 @@ function TestingPanel() {
                     className="px-3 py-2 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-minecraft text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     {restoringPath === b.path ? (
-                      <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
+                      <Icon
+                        icon="svg-spinners:ring-resize"
+                        className="w-4 h-4"
+                      />
                     ) : (
                       <Icon icon="solar:restart-bold" className="w-4 h-4" />
                     )}
@@ -640,32 +817,6 @@ function PermissionsList({
     ? new Date(permissions.last_fetched).toLocaleString()
     : null;
 
-  const canTest = nodes.includes("norisk.tester");
-  const [queueCount, setQueueCount] = useState<number | null>(null);
-  const [opening, setOpening] = useState(false);
-
-  useEffect(() => {
-    if (!canTest) {
-      setQueueCount(null);
-      return;
-    }
-    fetchTesterQueueCount()
-      .then(({ count }) => setQueueCount(count))
-      .catch(() => setQueueCount(null));
-  }, [canTest, permissions]);
-
-  const handleOpenTester = async () => {
-    setOpening(true);
-    try {
-      await openTesterWindow();
-    } catch (e) {
-      console.error("Failed to open tester window:", e);
-      toast.error(t("debug.testing.tester_open_failed", { error: String(e) }));
-    } finally {
-      setOpening(false);
-    }
-  };
-
   return (
     <div className="space-y-3">
       <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
@@ -695,38 +846,6 @@ function PermissionsList({
           />
         </button>
       </div>
-
-      {canTest && (
-        <div className="bg-black/20 rounded-lg border border-white/10 px-4 py-3 flex items-center gap-3">
-          <Icon
-            icon="solar:test-tube-bold"
-            className="w-5 h-5 text-amber-300 shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <div className="text-white font-minecraft">{t("debug.testing.tester_queue")}</div>
-            <div className="text-xs text-white/40 font-sans truncate">
-              {queueCount === null
-                ? t("debug.testing.tester_open_hint")
-                : queueCount === 0
-                  ? t("debug.testing.tester_caught_up")
-                  : t("debug.testing.tester_waiting", { count: queueCount })}
-            </div>
-          </div>
-          <button
-            onClick={handleOpenTester}
-            disabled={opening}
-            className="px-3 py-2 rounded-md bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-minecraft text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
-            title={t("debug.testing.tester_open_title")}
-          >
-            {opening ? (
-              <Icon icon="svg-spinners:ring-resize" className="w-4 h-4" />
-            ) : (
-              <Icon icon="solar:test-tube-bold" className="w-4 h-4" />
-            )}
-            {t("debug.testing.tester_open")}
-          </button>
-        </div>
-      )}
 
       <div className="bg-black/20 rounded-lg border border-white/10 overflow-hidden">
         {nodes.length === 0 ? (
