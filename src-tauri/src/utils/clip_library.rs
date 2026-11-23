@@ -461,15 +461,33 @@ fn sanitise_name(name: &str) -> Result<String> {
 
 pub fn rename(dir: &Path, path: &Path, name: &str) -> Result<PathBuf> {
     let source = guard_inside(dir, path)?;
+    let requested_dir = dir;
     let dir = dir
         .canonicalize()
         .map_err(|e| AppError::Other(format!("clip folder is unreadable: {e}")))?;
 
     let name = sanitise_name(name)?;
     let destination = dir.join(format!("{name}.mp4"));
+    let returned_destination = path
+        .parent()
+        .unwrap_or(requested_dir)
+        .join(format!("{name}.mp4"));
 
-    if destination == source {
-        return Ok(plain(source));
+    let same_stem = source
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .is_some_and(|stem| {
+            #[cfg(windows)]
+            {
+                stem.eq_ignore_ascii_case(&name)
+            }
+            #[cfg(not(windows))]
+            {
+                stem == name
+            }
+        });
+    if same_stem {
+        return Ok(plain(path.to_path_buf()));
     }
     if destination.exists() {
         return Err(AppError::Other(format!("a clip called {name} already exists")));
@@ -489,7 +507,7 @@ pub fn rename(dir: &Path, path: &Path, name: &str) -> Result<PathBuf> {
         }
     }
 
-    Ok(plain(destination))
+    Ok(plain(returned_destination))
 }
 
 fn gif_bytes(dir: &Path) -> u64 {
