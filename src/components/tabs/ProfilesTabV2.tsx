@@ -27,6 +27,8 @@ import { setDiscordState } from "../../utils/discordRpc";
 import { FullRiskProfileCard } from "../profiles/FullRiskProfileCard";
 import { parseErrorMessage } from "../../utils/error-utils";
 import { compareByLastPlayed } from "../../utils/profile-sort";
+import { useGlobalModal } from "../../hooks/useGlobalModal";
+import { ProfileImport } from "../profiles/ProfileImport";
 
 // A vertical virtualizer row: a version-section divider header, or a row of up to N cards.
 type VirtualRow =
