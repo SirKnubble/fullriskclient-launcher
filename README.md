@@ -12,7 +12,8 @@ IÂ´m using this version myself rather than the original, so hopefully there wonÂ
 
 <3
 
-<img width="1600" height="1000" alt="Launcher Preview (Fullrisk Theme)" src="https://github.com/user-attachments/assets/18465d54-1049-4d19-8cd5-c45f8a8fba0c" />
+<img width="1600" height="1000" alt="Launcher Preview (Fullrisk Theme)" src="https://github.com/user-attachments/assets/d79e05cd-0f7a-4a87-a652-21c5ba17abea" />
+
 
 
 ## Downloads
